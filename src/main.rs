@@ -27,7 +27,7 @@ impl TileBag {
     }
 
     fn draw_tile(&mut self) -> char {
-        if (self.bag.len() == 0) {
+        if self.bag.is_empty() {
             self.fill();
         }
         let index = self.rng.gen_range(0..self.bag.len());
@@ -40,12 +40,11 @@ impl TileBag {
     }
 
     fn fill(&mut self) {
-        self.bag.append(
+        self.bag.extend(
             self.letter_distribution
                 .iter()
                 .enumerate()
-                .flat_map(|(letter, count)| [((letter as u8) + 65) as char].repeat(*count))
-                .collect(),
+                .flat_map(|(letter, count)| [((letter as u8) + 65) as char].repeat(*count)),
         );
     }
 }
