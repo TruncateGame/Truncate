@@ -2,7 +2,7 @@ use rand::Rng;
 use std::fmt;
 
 fn main() {
-    let mut bag = TileBag::new_default();
+    let mut bag = TileBag::default();
     for i in 0..1000 {
         let tile = bag.draw_tile();
         println!("{}", tile)
@@ -12,41 +12,50 @@ fn main() {
 struct TileBag {
     bag: Vec<char>,
     rng: rand::rngs::ThreadRng,
+    letter_distribution: [usize; 26],
 }
 
 impl TileBag {
-    fn new(letter_distribution: [u8; 26]) -> Self {
-        let mut bag: Vec<char> = vec![];
-        let range: std::ops::Range<u8> = std::ops::Range { start: 0, end: 26 };
-        for letter in range {
-            for i in 0..letter_distribution[letter as usize] {
-                bag.push((letter + 65) as char);
-            }
-        }
-
-        TileBag {
-            bag: bag,
+    fn new(letter_distribution: [usize; 26]) -> Self {
+        let mut tile_bag = TileBag {
+            bag: Vec::new(),
             rng: rand::thread_rng(),
-        }
+            letter_distribution,
+        };
+        tile_bag.fill();
+        tile_bag
     }
 
-    fn new_default() -> Self {
-        Self::new([
-            // banagrams letter distribution
-            13, 3, 3, 6, 18, 3, 4, 3, 12, 2, 2, 5, 3, 8, 11, 3, 2, 9, 6, 9, 6, 3, 3, 2, 3, 2,
-        ])
-    }
-
-    // TODO: get O(1) performance on draw - maybe a hashmap?
-    // TODO: handle empty bag - maybe fill the bag again with the appropriate letter distribution?
     fn draw_tile(&mut self) -> char {
+        if (self.bag.len() == 0) {
+            self.fill();
+        }
         let index = self.rng.gen_range(0..self.bag.len());
-        self.bag.remove(index)
+        self.bag.swap_remove(index)
     }
 
     // TODO: this doesn't stop us from returning tiles that weren't originally in the bag
     fn return_tile(&mut self, c: char) {
         self.bag.push(c);
+    }
+
+    fn fill(&mut self) {
+        self.bag.append(
+            self.letter_distribution
+                .iter()
+                .enumerate()
+                .flat_map(|(letter, count)| [((letter as u8) + 65) as char].repeat(*count))
+                .collect(),
+        );
+    }
+}
+
+impl Default for TileBag {
+    fn default() -> Self {
+        Self::new([
+            // banagrams letter distribution
+            13, 3, 3, 6, 18, 3, 4, 3, 12, 2, 2, 5, 3, 8, 11, 3, 2, 9, 6, 9, 6, 3, 3, 2, 3, 2,
+        ])
     }
 }
 
