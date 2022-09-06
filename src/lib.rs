@@ -1,22 +1,14 @@
 use rand::Rng;
 use std::fmt;
 
-fn main() {
-    let mut bag = TileBag::default();
-    for i in 0..1000 {
-        let tile = bag.draw_tile();
-        println!("{}", tile)
-    }
-}
-
-struct TileBag {
+pub struct TileBag {
     bag: Vec<char>,
     rng: rand::rngs::ThreadRng,
     letter_distribution: [usize; 26],
 }
 
 impl TileBag {
-    fn new(letter_distribution: [usize; 26]) -> Self {
+    pub fn new(letter_distribution: [usize; 26]) -> Self {
         let mut tile_bag = TileBag {
             bag: Vec::new(),
             rng: rand::thread_rng(),
@@ -26,7 +18,7 @@ impl TileBag {
         tile_bag
     }
 
-    fn draw_tile(&mut self) -> char {
+    pub fn draw_tile(&mut self) -> char {
         if self.bag.is_empty() {
             self.fill();
         }
@@ -35,7 +27,7 @@ impl TileBag {
     }
 
     // TODO: this doesn't stop us from returning tiles that weren't originally in the bag
-    fn return_tile(&mut self, c: char) {
+    pub fn return_tile(&mut self, c: char) {
         self.bag.push(c);
     }
 
@@ -61,5 +53,20 @@ impl Default for TileBag {
 impl fmt::Display for TileBag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Letters in the bag:\n{:?}", self.bag)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn refills() {
+        let mut dist = [0; 26];
+        dist[0] = 1; // There is 1 A and
+        dist[1] = 1; // 1 B in the bag
+
+        let mut bag = super::TileBag::new(dist);
+        assert_eq!(bag.to_string(), "Letters in the bag:\n['A', 'B']");
+        let drawn = (0..10).map(|x| bag.draw_tile());
+        assert_eq!(drawn.filter(|&x| x == 'A').count(), 5);
     }
 }
