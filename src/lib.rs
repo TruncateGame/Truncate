@@ -66,7 +66,7 @@ mod tests {
 
         let mut bag = super::TileBag::new(dist);
         assert_eq!(bag.to_string(), "Letters in the bag:\n['A', 'B']");
-        let drawn = (0..10).map(|x| bag.draw_tile());
+        let drawn = (0..10).map(|_| bag.draw_tile());
         assert_eq!(drawn.filter(|&x| x == 'A').count(), 5);
     }
 }
