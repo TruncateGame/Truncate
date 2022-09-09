@@ -27,21 +27,36 @@ impl Board {
         Board { squares, roots }
     }
 
-    pub fn get(&self, x: usize, y: usize) -> Result<char, &str> {
+    pub fn get(&self, x: usize, y: usize) -> Result<Square, &str> {
         if y >= self.squares.len() {
             Err("y-coordinate is too large for board height") // TODO: specify the coordinate and height
         } else if x >= self.squares[0].len() {
             Err("x-coordinate is too large for board width") // TODO: specify the coordinate and width
         } else {
             match self.squares[y][x] {
-                Square::Empty => Ok('_'),
-                Square::Dead => Err("dead square not allowed"),
-                Square::Occupied(_player, value) => Ok(value),
+                Square::Empty | Square::Occupied(_, _) => Ok(self.squares[y][x]),
+                Square::Dead => Err("dead squares have no values"),
             }
         }
     }
 
-    // pub fn set(&self, x: usize)
+    pub fn set(&mut self, x: usize, y: usize, player: usize, value: char) -> Result<(), &str> {
+        if player >= self.roots.len() {
+            Err("player does not exist") // TODO: specify the number of players and which player this is
+        } else if y >= self.squares.len() {
+            Err("y-coordinate is too large for board height") // TODO: specify the coordinate and height
+        } else if x >= self.squares[0].len() {
+            Err("x-coordinate is too large for board width") // TODO: specify the coordinate and width
+        } else {
+            match self.squares[y][x] {
+                Square::Empty | Square::Occupied(_, _) => {
+                    self.squares[y][x] = Square::Occupied(player, value);
+                    Ok(())
+                }
+                Square::Dead => Err("don't try to set the value of a dead square"),
+            }
+        }
+    }
 }
 
 impl fmt::Display for Board {
@@ -72,7 +87,7 @@ impl fmt::Display for Coordinate {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Square {
     Dead,
     Empty,
@@ -132,11 +147,73 @@ _ _ _ _ _ _
         );
     }
 
-    fn get_errors_out_of_bounds() {}
-    fn get_errors_for_dead_squares() {}
-    fn get_returns_empty_squares() {}
+    #[test]
+    fn getset_errors_out_of_bounds() {
+        let mut b = Board::new(1, 1); // Note, height is 3 from home rows
+        assert_eq!(
+            b.get(1, 0),
+            Err("x-coordinate is too large for board width")
+        );
+        assert_eq!(
+            b.get(0, 3),
+            Err("y-coordinate is too large for board height")
+        );
 
-    fn set_errors_out_of_bounds() {}
-    fn set_errors_for_dead_squares() {}
-    fn set_changes_get() {}
+        assert_eq!(
+            b.set(1, 0, 0, 'a'),
+            Err("x-coordinate is too large for board width")
+        );
+        assert_eq!(
+            b.set(0, 3, 0, 'a'),
+            Err("y-coordinate is too large for board height")
+        );
+    }
+
+    #[test]
+    fn getset_errors_for_dead_squares() {
+        let mut b = Board::new(2, 1); // Note, height is 3 from home rows
+        assert_eq!(b.get(1, 0), Err("dead squares have no values"));
+        assert_eq!(b.get(0, 2), Err("dead squares have no values"));
+
+        assert_eq!(
+            b.set(1, 0, 0, 'a'),
+            Err("don't try to set the value of a dead square")
+        );
+        assert_eq!(
+            b.set(0, 2, 0, 'a'),
+            Err("don't try to set the value of a dead square")
+        );
+    }
+
+    #[test]
+    fn getset_handles_empty_squares() {
+        let mut b = Board::new(2, 1); // Note, height is 3 from home rows
+        assert_eq!(b.get(0, 0), Ok(Square::Empty));
+        assert_eq!(b.get(0, 1), Ok(Square::Empty));
+        assert_eq!(b.get(1, 1), Ok(Square::Empty));
+        assert_eq!(b.get(1, 2), Ok(Square::Empty));
+
+        assert_eq!(b.set(0, 0, 0, 'a'), Ok(()));
+        assert_eq!(b.set(0, 1, 0, 'a'), Ok(()));
+        assert_eq!(b.set(1, 1, 0, 'a'), Ok(()));
+        assert_eq!(b.set(1, 2, 0, 'a'), Ok(()));
+    }
+
+    #[test]
+    fn set_requires_valid_player() {
+        let mut b = Board::new(2, 1);
+        assert_eq!(b.set(1, 2, 0, 'a'), Ok(()));
+        assert_eq!(b.set(1, 2, 1, 'a'), Ok(()));
+        assert_eq!(b.set(1, 2, 2, 'a'), Err("player does not exist"));
+        assert_eq!(b.set(1, 2, 3, 'a'), Err("player does not exist"));
+        assert_eq!(b.set(1, 2, 100, 'a'), Err("player does not exist"));
+    }
+
+    #[test]
+    fn set_changes_get() {
+        let mut b = Board::new(1, 1); // Note, height is 3 from home rows
+        assert_eq!(b.get(0, 0), Ok(Square::Empty));
+        assert_eq!(b.set(0, 0, 0, 'a'), Ok(()));
+        assert_eq!(b.get(0, 0), Ok(Square::Occupied(0, 'a')));
+    }
 }
