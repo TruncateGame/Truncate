@@ -27,6 +27,11 @@ impl Board {
         Board { squares, roots }
     }
 
+    // TODO: generic board constructor that accepts a grid of squares with arbitrary values, as long as:
+    //  - the empty squares are fully connected
+    //  - there are at least 2 roots
+    //  - the roots are at empty squares
+
     pub fn get(&self, x: usize, y: usize) -> Result<Square, &str> {
         if y >= self.squares.len() {
             Err("y-coordinate is too large for board height") // TODO: specify the coordinate and height
