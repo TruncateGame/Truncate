@@ -1,6 +1,3 @@
-use std::collections::btree_map::OccupiedEntry;
-
-use super::bag::TileBag;
 use super::board::{Board, Coordinate, Square};
 use super::hand::Hands;
 
@@ -18,7 +15,7 @@ pub enum Move {
 
 // TODO: is it weird to implement this on Board here rather than on Move?
 impl Board {
-    fn make_move<'a>(&'a mut self, game_move: Move, hands: &'a mut Hands) -> Result<(), &str> {
+    pub fn make_move<'a>(&'a mut self, game_move: Move, hands: &'a mut Hands) -> Result<(), &str> {
         match game_move {
             Move::Place {
                 player,
@@ -65,12 +62,13 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
+    use super::super::bag::tests as TileUtils;
     use super::*;
 
     #[test]
     fn invalid_placement_locations() {
         let mut b = Board::new(3, 1);
-        let mut hands = Hands::new(2, 7, TileBag::trivial_bag());
+        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
 
         let out_of_bounds = Move::Place {
             player: 0,
@@ -105,7 +103,7 @@ mod tests {
     #[test]
     fn can_place_and_swap() {
         let mut b = Board::new(3, 1);
-        let mut hands = Hands::new(1, 7, TileBag::a_b_bag());
+        let mut hands = Hands::new(1, 7, TileUtils::a_b_bag());
 
         // Places on the root
         assert_eq!(

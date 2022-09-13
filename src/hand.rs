@@ -42,6 +42,7 @@ impl Default for Hands {
 
 #[cfg(test)]
 mod tests {
+    use super::super::bag::tests as TileUtils;
     use super::*;
 
     #[test]
@@ -61,16 +62,16 @@ mod tests {
 
     #[test]
     fn new() {
-        let h = Hands::new(2, 7, TileBag::trivial_bag());
+        let h = Hands::new(2, 7, TileUtils::trivial_bag());
         assert_eq!(h.hands, vec!(vec!('A'; 7); 2));
 
-        let h = Hands::new(10, 15, TileBag::trivial_bag());
+        let h = Hands::new(10, 15, TileUtils::trivial_bag());
         assert_eq!(h.hands, vec!(vec!('A'; 15); 10));
     }
 
     #[test]
     fn get_works() -> Result<(), String> {
-        let mut h = Hands::new(2, 12, TileBag::a_b_bag());
+        let mut h = Hands::new(2, 12, TileUtils::a_b_bag());
         // Make sure that we get an equal amount of As and Bs if we draw an even number
         let mut drawn_tiles: Vec<char> = Vec::new();
         for _ in 0..10 {
@@ -88,7 +89,7 @@ mod tests {
 
     #[test]
     fn get_errors() {
-        let mut h = Hands::new(2, 7, TileBag::trivial_bag());
+        let mut h = Hands::new(2, 7, TileUtils::trivial_bag());
         assert_eq!(h.use_tile(2, 'A'), Err("Invalid player"));
         assert_eq!(h.use_tile(0, 'B'), Err("Player doesn't have that tile"));
     }

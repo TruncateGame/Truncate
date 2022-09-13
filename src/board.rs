@@ -87,10 +87,10 @@ impl Board {
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> HashMap<Coordinate, Square> {
         // TODO: does this reinitialise every time even though it's a constant? Or is it compiled into the program?
-        const deltas: [(isize, isize); 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
+        const DELTAS: [(isize, isize); 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
 
         let mut neighbours = HashMap::new();
-        for delta in deltas {
+        for delta in DELTAS {
             let neighbour_coordinate = Coordinate {
                 x: position.x + delta.0,
                 y: position.y + delta.1,
@@ -139,6 +139,12 @@ impl Board {
     }
 }
 
+impl Default for Board {
+    fn default() -> Self {
+        Self::new(9, 9)
+    }
+}
+
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let str = self
@@ -181,7 +187,7 @@ impl fmt::Display for Square {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
             Square::Empty => write!(f, "_"),
-            Square::Occupied(player, tile) => write!(f, "{}", tile),
+            Square::Occupied(_, tile) => write!(f, "{}", tile),
         }
     }
 }
