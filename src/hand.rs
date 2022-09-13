@@ -1,5 +1,3 @@
-use std::ops::Index;
-
 use super::bag::TileBag;
 
 pub struct Hands {
@@ -61,33 +59,21 @@ mod tests {
         }
     }
 
-    // Makes trivial tile bag that always gives 'A'
-    fn trivial_bag() -> TileBag {
-        let mut dist = [0; 26];
-        dist[0] = 1;
-        TileBag::new(dist)
-    }
-
     #[test]
     fn new() {
-        let h = Hands::new(2, 7, trivial_bag());
+        let h = Hands::new(2, 7, TileBag::trivial_bag());
         assert_eq!(h.hands, vec!(vec!('A'; 7); 2));
 
-        let h = Hands::new(10, 15, trivial_bag());
+        let h = Hands::new(10, 15, TileBag::trivial_bag());
         assert_eq!(h.hands, vec!(vec!('A'; 15); 10));
     }
 
     #[test]
     fn get_works() -> Result<(), String> {
-        let mut dist = [0; 26];
-        dist[0] = 1;
-        dist[1] = 1;
-        let a_b_bag = TileBag::new(dist);
-
-        let mut h = Hands::new(2, 12, a_b_bag);
+        let mut h = Hands::new(2, 12, TileBag::a_b_bag());
         // Make sure that we get an equal amount of As and Bs if we draw an even number
         let mut drawn_tiles: Vec<char> = Vec::new();
-        for i in 0..10 {
+        for _ in 0..10 {
             h.use_tile(0, h.hands[0][0])?;
             drawn_tiles.push(h.hands[0][0]);
             h.use_tile(0, h.hands[0][0])?;
@@ -102,7 +88,7 @@ mod tests {
 
     #[test]
     fn get_errors() {
-        let mut h = Hands::new(2, 7, trivial_bag());
+        let mut h = Hands::new(2, 7, TileBag::trivial_bag());
         assert_eq!(h.use_tile(2, 'A'), Err("Invalid player"));
         assert_eq!(h.use_tile(0, 'B'), Err("Player doesn't have that tile"));
     }

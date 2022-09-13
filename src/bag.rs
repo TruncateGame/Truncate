@@ -39,6 +39,21 @@ impl TileBag {
                 .flat_map(|(letter, count)| [((letter as u8) + 65) as char].repeat(*count)),
         );
     }
+
+    // Testing functions
+    // TODO: implement somewhere distinct
+    pub fn a_b_bag() -> Self {
+        let mut dist = [0; 26];
+        dist[0] = 1; // There is 1 A and
+        dist[1] = 1; // 1 B in the bag
+        Self::new(dist)
+    }
+
+    pub fn trivial_bag() -> TileBag {
+        let mut dist = [0; 26];
+        dist[0] = 1;
+        TileBag::new(dist)
+    }
 }
 
 impl Default for TileBag {
@@ -58,13 +73,11 @@ impl fmt::Display for TileBag {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn refills() {
-        let mut dist = [0; 26];
-        dist[0] = 1; // There is 1 A and
-        dist[1] = 1; // 1 B in the bag
-
-        let mut bag = super::TileBag::new(dist);
+        let mut bag = TileBag::a_b_bag();
         assert_eq!(bag.to_string(), "Letters in the bag:\n['A', 'B']");
         let drawn = (0..10).map(|_| bag.draw_tile());
         assert_eq!(drawn.filter(|&x| x == 'A').count(), 5);
