@@ -22,7 +22,12 @@ impl Board {
                     },
                 };
 
-                if position != self.get_root(player)
+                let root = match self.get_root(player) {
+                    Err(_) => return Err("Invalid player"), // TODO: propogate using ? with Polonius https://github.com/rust-lang/rfcs/blob/master/text/2094-nll.md#problem-case-3-conditional-control-flow-across-functions
+                    Ok(coordinate) => coordinate,
+                };
+
+                if position != root
                     && self
                         .neighbouring_squares(position)
                         .iter()
@@ -77,12 +82,29 @@ mod tests {
         let mut b = Board::new(3, 1);
         let mut hands = Hands::new(2, 7, TileBag::trivial_bag());
 
+        // Places on the root
         assert_eq!(
             b.make_move(Move::Place(0, 'A', Coordinate { x: 1, y: 0 }), &mut hands),
             Ok(())
         );
+        // Can't place on the same place again
         assert_eq!(
             b.make_move(Move::Place(0, 'A', Coordinate { x: 1, y: 0 }), &mut hands),
+            Err("Cannot place a tile in an occupied square")
+        );
+        // Can't place at a diagonal
+        assert_eq!(
+            b.make_move(Move::Place(0, 'A', Coordinate { x: 0, y: 1 }), &mut hands),
+            Err("Must place tile on square that neighbours one of your already placed tiles, or on your root")
+        );
+        // Can place directly above
+        assert_eq!(
+            b.make_move(Move::Place(0, 'A', Coordinate { x: 1, y: 1 }), &mut hands),
+            Ok(())
+        );
+        // Can't place on the same place again
+        assert_eq!(
+            b.make_move(Move::Place(0, 'A', Coordinate { x: 1, y: 1 }), &mut hands),
             Err("Cannot place a tile in an occupied square")
         );
     }

@@ -77,22 +77,17 @@ impl Board {
         }
     }
 
-    pub fn get_root(&self, player: usize) -> Coordinate {
-        self.roots[player]
+    pub fn get_root(&self, player: usize) -> Result<Coordinate, &str> {
+        if player >= self.roots.len() {
+            Err("Invalid player")
+        } else {
+            Ok(self.roots[player])
+        }
     }
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> HashMap<Coordinate, Square> {
         // TODO: does this reinitialise every time even though it's a constant? Or is it compiled into the program?
-        const deltas: [(isize, isize); 8] = [
-            (0, 1),
-            (0, -1),
-            (1, 0),
-            (1, 1),
-            (1, -1),
-            (-1, 0),
-            (-1, 1),
-            (-1, -1),
-        ];
+        const deltas: [(isize, isize); 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
 
         let mut neighbours = HashMap::new();
         for delta in deltas {
@@ -295,44 +290,32 @@ _ _ _ _ _ _
         let mut b = Board::new(3, 3);
 
         assert_eq!(
+            // TODO: should we allow you to find neighbours of an invalid square?
             b.neighbouring_squares(Coordinate { x: 0, y: 0 }),
             HashMap::from([
                 (Coordinate { x: 0, y: 1 }, Square::Empty),
                 (Coordinate { x: 1, y: 0 }, Square::Empty),
-                (Coordinate { x: 1, y: 1 }, Square::Empty),
             ])
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 0 }),
-            HashMap::from([
-                (Coordinate { x: 0, y: 1 }, Square::Empty),
-                (Coordinate { x: 1, y: 1 }, Square::Empty),
-                (Coordinate { x: 2, y: 1 }, Square::Empty),
-            ])
+            HashMap::from([(Coordinate { x: 1, y: 1 }, Square::Empty),])
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 2 }),
             HashMap::from([
-                (Coordinate { x: 0, y: 1 }, Square::Empty),
                 (Coordinate { x: 1, y: 1 }, Square::Empty),
-                (Coordinate { x: 2, y: 1 }, Square::Empty),
                 (Coordinate { x: 0, y: 2 }, Square::Empty),
                 (Coordinate { x: 2, y: 2 }, Square::Empty),
-                (Coordinate { x: 0, y: 3 }, Square::Empty),
                 (Coordinate { x: 1, y: 3 }, Square::Empty),
-                (Coordinate { x: 2, y: 3 }, Square::Empty),
             ])
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 4 }),
-            HashMap::from([
-                (Coordinate { x: 0, y: 3 }, Square::Empty),
-                (Coordinate { x: 1, y: 3 }, Square::Empty),
-                (Coordinate { x: 2, y: 3 }, Square::Empty),
-            ])
+            HashMap::from([(Coordinate { x: 1, y: 3 }, Square::Empty),])
         );
     }
 }
