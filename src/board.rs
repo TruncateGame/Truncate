@@ -360,7 +360,11 @@ _ _ _ _ _ _
         assert_eq!(b.set(c1_1, 0, 'b'), Ok(()));
         assert_eq!(b.set(c2_1, 1, 'c'), Ok(()));
 
+        assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'a')));
+        assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(b.swap(0, [c0_1, c1_1]), Ok(()));
+        assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'b')));
+        assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'a')));
         assert_eq!(
             b.swap(0, [c0_1, c0_1]),
             Err("Can't swap a square with itself")

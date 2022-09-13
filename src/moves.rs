@@ -12,8 +12,7 @@ pub enum Move {
     },
     Swap {
         player: usize,
-        position_1: Coordinate,
-        position_2: Coordinate,
+        positions: [Coordinate; 2],
     },
 }
 
@@ -59,11 +58,7 @@ impl Board {
                 self.set(position, player, tile)?;
                 Ok(())
             }
-            Move::Swap {
-                player,
-                position_1,
-                position_2,
-            } => self.swap(player, [position_1, position_2]),
+            Move::Swap { player, positions } => self.swap(player, positions),
         }
     }
 }
@@ -108,9 +103,9 @@ mod tests {
     }
 
     #[test]
-    fn can_place() {
+    fn can_place_and_swap() {
         let mut b = Board::new(3, 1);
-        let mut hands = Hands::new(2, 7, TileBag::trivial_bag());
+        let mut hands = Hands::new(1, 7, TileBag::a_b_bag());
 
         // Places on the root
         assert_eq!(
@@ -164,6 +159,17 @@ mod tests {
                 &mut hands
             ),
             Err("Cannot place a tile in an occupied square")
+        );
+
+        assert_eq!(
+            b.make_move(
+                Move::Swap {
+                    player: 0,
+                    positions: [Coordinate { x: 1, y: 1 }, Coordinate { x: 1, y: 0 }]
+                },
+                &mut hands
+            ),
+            Ok(())
         );
     }
 
