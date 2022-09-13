@@ -1,3 +1,5 @@
+use std::collections::btree_map::OccupiedEntry;
+
 use super::bag::TileBag;
 use super::board::{Board, Coordinate, Square};
 use super::hand::Hands;
@@ -61,7 +63,7 @@ impl Board {
                 player,
                 position_1,
                 position_2,
-            } => Ok(()),
+            } => self.swap(player, [position_1, position_2]),
         }
     }
 }

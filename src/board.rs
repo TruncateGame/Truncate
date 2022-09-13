@@ -106,6 +106,37 @@ impl Board {
         }
         neighbours
     }
+
+    pub fn swap(&mut self, player: usize, positions: [Coordinate; 2]) -> Result<(), &str> {
+        if positions[0] == positions[1] {
+            return Err("Can't swap a square with itself");
+        }
+
+        let mut tiles = ['&'; 2];
+        for (i, pos) in positions.iter().enumerate() {
+            match self.get(*pos) {
+                // TODO: use ? and (possibly) combine function into single match post Polonius
+                Err(_) => return Err("Invalid swap position"),
+                Ok(square) => match square {
+                    Square::Empty => return Err("Must swap between occupied squares"),
+                    Square::Occupied(owner, tile) => {
+                        if owner != player {
+                            return Err("Player must own the squares they swap");
+                        }
+                        tiles[i] = tile;
+                    }
+                },
+            };
+        }
+
+        // TODO: use ? post Polonius
+        if self.set(positions[0], player, tiles[1]).is_err() {
+            return Err("Can't set");
+        }
+        self.set(positions[1], player, tiles[0])?;
+
+        Ok(())
+    }
 }
 
 impl fmt::Display for Board {
@@ -287,7 +318,7 @@ _ _ _ _ _ _
         // (0,2) (1,2) (2,2)
         // (0,3) (1,3) (2,3)
         // (0,4) (1,4) (2,4)
-        let mut b = Board::new(3, 3);
+        let b = Board::new(3, 3);
 
         assert_eq!(
             // TODO: should we allow you to find neighbours of an invalid square?
@@ -316,6 +347,31 @@ _ _ _ _ _ _
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 4 }),
             HashMap::from([(Coordinate { x: 1, y: 3 }, Square::Empty),])
+        );
+    }
+
+    #[test]
+    fn swap() {
+        let mut b = Board::new(3, 1);
+        let c0_1 = Coordinate { x: 0, y: 1 };
+        let c1_1 = Coordinate { x: 1, y: 1 };
+        let c2_1 = Coordinate { x: 2, y: 1 };
+        assert_eq!(b.set(c0_1, 0, 'a'), Ok(()));
+        assert_eq!(b.set(c1_1, 0, 'b'), Ok(()));
+        assert_eq!(b.set(c2_1, 1, 'c'), Ok(()));
+
+        assert_eq!(b.swap(0, [c0_1, c1_1]), Ok(()));
+        assert_eq!(
+            b.swap(0, [c0_1, c0_1]),
+            Err("Can't swap a square with itself")
+        );
+        assert_eq!(
+            b.swap(0, [c0_1, c2_1]),
+            Err("Player must own the squares they swap")
+        );
+        assert_eq!(
+            b.swap(1, [c0_1, c1_1]),
+            Err("Player must own the squares they swap")
         );
     }
 }
