@@ -77,6 +77,10 @@ impl Board {
         }
     }
 
+    pub fn get_root(&self, player: usize) -> Coordinate {
+        self.roots[player]
+    }
+
     pub fn neighbouring_squares(&self, position: Coordinate) -> HashMap<Coordinate, Square> {
         // TODO: does this reinitialise every time even though it's a constant? Or is it compiled into the program?
         const deltas: [(isize, isize); 8] = [

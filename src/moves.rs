@@ -22,14 +22,19 @@ impl Board {
                     },
                 };
 
-                // if position != board.root_of(player)
-                //     && board
-                //         .neighbouring_squares
-                //         .count(|square| square.player == player)
-                //         == 0
-                // {
-                //     return Err("Must place tile on square that neighbours one of your already placed tiles, or on your root");
-                // }
+                if position != self.get_root(player)
+                    && self
+                        .neighbouring_squares(position)
+                        .iter()
+                        .filter(|square| match (*square).1 {
+                            Square::Empty => false,
+                            Square::Occupied(p, _) => *p == player,
+                        })
+                        .count()
+                        == 0
+                {
+                    return Err("Must place tile on square that neighbours one of your already placed tiles, or on your root");
+                }
 
                 hands.use_tile(player, tile)?; // Use tile checks that the player is valid and has that letter
                 self.set(position, player, tile)?;
