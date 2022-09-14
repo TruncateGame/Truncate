@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 pub struct Board {
@@ -6,6 +6,7 @@ pub struct Board {
     roots: Vec<Coordinate>,
 }
 
+const DIRECTIONS: [(isize, isize); 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
 impl Board {
     pub fn new(width: usize, height: usize) -> Self {
         // TODO: is all this internal usize <-> isize conversion worth accepting isize as valid coordinates? Is that only used for simpler traversal algorithms?
@@ -87,10 +88,8 @@ impl Board {
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> HashMap<Coordinate, Square> {
         // TODO: does this reinitialise every time even though it's a constant? Or is it compiled into the program?
-        const DELTAS: [(isize, isize); 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
-
         let mut neighbours = HashMap::new();
-        for delta in DELTAS {
+        for delta in DIRECTIONS {
             let neighbour_coordinate = Coordinate {
                 x: position.x + delta.0,
                 y: position.y + delta.1,
@@ -105,6 +104,32 @@ impl Board {
             }
         }
         neighbours
+    }
+
+    // TODO: return iterator or rename since it doesn't matter that this is depth first when we return a HashSet
+    fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
+        let mut set = HashSet::new();
+
+        let player = if let Ok(Square::Occupied(player, _)) = self.get(position) {
+            player
+        } else {
+            return set;
+        };
+        let mut stack = vec![position]; // TODO: consider more efficient stack type
+
+        while let Some(current) = stack.pop() {
+            set.insert(current);
+            for neighbour in self.neighbouring_squares(current) {
+                // Put the neighbour in the set if it is occupied by the current player
+                if let Square::Occupied(neighbours_player, _) = neighbour.1 {
+                    if !set.contains(&neighbour.0) && player == neighbours_player {
+                        stack.push(neighbour.0);
+                    }
+                }
+            }
+        }
+
+        set
     }
 
     pub fn swap(&mut self, player: usize, positions: [Coordinate; 2]) -> Result<(), &str> {
@@ -136,6 +161,37 @@ impl Board {
         self.set(positions[1], player, tiles[0])?;
 
         Ok(())
+    }
+
+    pub fn get_words(&self, position: Coordinate) -> Vec<(String, Vec<Coordinate>)> {
+        let mut words = Vec::new();
+
+        for direction in DIRECTIONS {
+            let mut word = (String::new(), Vec::new());
+            let location = position;
+            'wordbuilder: loop {
+                let mut owner = None;
+                if let Ok(Square::Occupied(player, value)) = self.get(position) {
+                    if owner == None {
+                        owner = Some(player);
+                    }
+
+                    if owner != Some(player) {
+                        break 'wordbuilder; // Word ends at other players' letters
+                    }
+
+                    word.0.push(value);
+                    word.1.push(location);
+                } else {
+                    break 'wordbuilder; // Word ends at the edge of the board or empty squares
+                }
+            }
+            if word.0.len() >= 2 {
+                // 1 letter words don't count
+                words.push(word);
+            }
+        }
+        words
     }
 }
 
@@ -315,6 +371,42 @@ _ _ _ _ _ _
             b.get(Coordinate { x: 0, y: 0 }),
             Ok(Square::Occupied(0, 'a'))
         );
+    }
+
+    #[test]
+    fn depth_first_search() {
+        let mut b = Board::new(3, 1);
+
+        // Create a connected tree
+        let parts = [
+            Coordinate { x: 2, y: 1 },
+            Coordinate { x: 1, y: 1 },
+            Coordinate { x: 1, y: 0 },
+            Coordinate { x: 0, y: 1 },
+        ];
+        let partsSet = HashSet::from(parts);
+        for part in parts {
+            assert_eq!(b.set(part, 0, 'a'), Ok(()));
+        }
+
+        // The tree should be returned no matter where in the tree we start DFS from
+        for part in parts {
+            assert!(b.depth_first_search(part).is_subset(&partsSet));
+            assert!(b.depth_first_search(part).is_superset(&partsSet));
+        }
+
+        // Set the remaining unoccupied square on the board to be occupied by another player
+        let other = Coordinate { x: 1, y: 2 };
+        // WHen unoccupied it should give the empty set, when occupied, just itself
+        assert!(b.depth_first_search(other).iter().eq([].iter()));
+        assert_eq!(b.set(other, 1, 'a'), Ok(()));
+        assert!(b.depth_first_search(other).iter().eq([other].iter()));
+
+        // The result of DFS on the main tree should not have changed
+        for part in parts {
+            assert!(b.depth_first_search(part).is_subset(&partsSet));
+            assert!(b.depth_first_search(part).is_superset(&partsSet));
+        }
     }
 
     #[test]

@@ -2,6 +2,7 @@ use super::board::{Board, Coordinate, Square};
 use super::hand::Hands;
 
 pub enum Move {
+    // TODO: make Move a struct and make player a top level property of it
     Place {
         player: usize,
         tile: char,
@@ -53,10 +54,33 @@ impl Board {
 
                 hands.use_tile(player, tile)?; // Use tile checks that the player is valid and has that letter
                 self.set(position, player, tile)?;
+
                 Ok(())
             }
             Move::Swap { player, positions } => self.swap(player, positions),
         }
+    }
+
+    // If any attacking word is invalid, or all defending words are valid and stronger than the longest attacking words
+    //   - All attacking words die
+    //   - Attacking tiles are truncated
+    // Otherwise
+    //   - Weak and invalid defending words die
+    //   - Any remaining defending letters adjacent to the attacking tile die
+    //   - Defending tiles are truncated
+    fn resolve_attack(&self, player: usize, position: Coordinate) {
+        let attackers = self.get_words(position);
+        let defenders = self
+            .neighbouring_squares(position)
+            .iter()
+            .filter(|pos| {
+                if let Square::Occupied(adjacent_player, _) = pos.1 {
+                    player != *adjacent_player
+                } else {
+                    false
+                }
+            })
+            .map(|adjacent| self.get_words(*adjacent.0));
     }
 }
 
