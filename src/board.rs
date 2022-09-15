@@ -210,7 +210,7 @@ impl fmt::Display for Board {
                 row.iter()
                     .map(|opt| match opt {
                         Some(sq) => sq.to_string(),
-                        None => "*".to_string(),
+                        None => " ".to_string(),
                     })
                     .collect::<Vec<String>>()
                     .join(" ")
@@ -256,38 +256,38 @@ mod tests {
     fn makes_default_boards() {
         assert_eq!(
             Board::new(3, 1).to_string(),
-            "* _ *
+            "  _  
 _ _ _
-* _ *"
+  _  "
         );
 
         assert_eq!(
             Board::new(3, 2).to_string(),
-            "* _ *
+            "  _  
 _ _ _
 _ _ _
-* _ *"
+  _  "
         );
 
         assert_eq!(
             Board::new(2, 1).to_string(),
-            "_ *
+            "_  
 _ _
-* _"
+  _"
         );
 
         assert_eq!(
             Board::new(5, 1).to_string(),
-            "* * _ * *
+            "    _    
 _ _ _ _ _
-* * _ * *"
+    _    "
         );
 
         assert_eq!(
             Board::new(6, 1).to_string(),
-            "* * _ * * *
+            "    _      
 _ _ _ _ _ _
-* * * _ * *"
+      _    "
         );
     }
 
