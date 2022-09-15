@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
+#[derive(PartialEq, Debug)]
 pub struct Board {
     squares: Vec<Vec<Option<Square>>>,
     roots: Vec<Coordinate>,
@@ -28,6 +29,51 @@ impl Board {
         squares[roots[1].y as usize][roots[1].x as usize] = Some(Square::Empty);
 
         Board { squares, roots }
+    }
+
+    pub fn from_string<'a>(s: String, roots: Vec<Coordinate>) -> Result<Self, &'a str> {
+        // Transform string into a board
+        let mut squares = vec![];
+        for line in s.split('\n') {
+            let mut squares_in_line: Vec<Option<Square>> = vec![];
+            for (i, letter) in line.chars().enumerate() {
+                if i % 2 == 1 {
+                    if letter != ' ' {
+                        return Err("board strings should have spaces to separate each tile");
+                    }
+                } else if letter == ' ' {
+                    squares_in_line.push(None);
+                } else {
+                    squares_in_line.push(Some(Square::Occupied(0, letter)))
+                }
+            }
+            squares.push(squares_in_line);
+        }
+
+        // Make sure the board is an valid non-jagged grid
+        for line in squares.iter().skip(1) {
+            if line.len() != squares[0].len() {
+                return Err("Unequal line lengths");
+            }
+        }
+
+        // Make sure letters connected to players' roots are owned by the player
+        let r = roots.clone(); // TODO: remove hack
+        let mut board = Self { roots, squares };
+        for (player, root) in r.iter().enumerate() {
+            if player != 0 {
+                // All tiles are already owned by the first player by default
+                for square in board.depth_first_search(*root).iter() {
+                    if let Ok(Square::Occupied(_, value)) = board.get(*square) {
+                        board.set(*square, player, value).expect(
+                            "A coordinate returned from a DFS should always be valid and settable",
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(board)
     }
 
     // TODO: generic board constructor that accepts a grid of squares with arbitrary values, as long as:
@@ -256,39 +302,122 @@ mod tests {
     fn makes_default_boards() {
         assert_eq!(
             Board::new(3, 1).to_string(),
-            "  _  
-_ _ _
-  _  "
+            ["  _  ", "_ _ _", "  _  "].join("\n")
         );
 
         assert_eq!(
             Board::new(3, 2).to_string(),
-            "  _  
-_ _ _
-_ _ _
-  _  "
+            ["  _  ", "_ _ _", "_ _ _", "  _  "].join("\n")
         );
 
         assert_eq!(
             Board::new(2, 1).to_string(),
-            "_  
-_ _
-  _"
+            ["_  ", "_ _", "  _"].join("\n")
         );
 
         assert_eq!(
             Board::new(5, 1).to_string(),
-            "    _    
-_ _ _ _ _
-    _    "
+            ["    _    ", "_ _ _ _ _", "    _    "].join("\n")
         );
 
         assert_eq!(
             Board::new(6, 1).to_string(),
-            "    _      
-_ _ _ _ _ _
-      _    "
+            ["    _      ", "_ _ _ _ _ _", "      _    "].join("\n")
         );
+    }
+
+    #[test]
+    fn from_string() {
+        // Checks that our default boards come are the same after being stringified and parsed
+        let boards = [Board::default(), Board::new(34, 28)];
+        for b in boards {
+            println!("{:?}", Board::from_string(b.to_string(), b.roots.clone()));
+            println!("{:?}", b);
+            assert_eq!(Board::from_string(b.to_string(), b.roots.clone()), Ok(b));
+        }
+
+        // Checks that various strings are the same when parsed and stringified
+        let strings = [
+            ["_ _ _", "_   _", "_ _ _"].join("\n"),
+            ["_ X _", "_   A", "V _ _"].join("\n"),
+            ["_ X _ _", "_ B A _", "V _ _ _", "  _ J _"].join("\n"),
+        ];
+
+        // Checks that various complex boards have the correct players assigned to them
+        // Donut board
+        let top_left = Coordinate { x: 0, y: 0 };
+        let top_right = Coordinate { x: 4, y: 0 };
+        let bottom_left = Coordinate { x: 0, y: 4 };
+        let bottom_right = Coordinate { x: 4, y: 4 };
+        let dangling = Coordinate { x: 2, y: 3 };
+        let hole = Coordinate { x: 2, y: 2 };
+        let donut = if let Ok(t) = Board::from_string(
+            [
+                "A _ _ _ B",
+                "_ _ _ _ _",
+                "_ _   _ _",
+                "_ _ D _ _",
+                "C _ _ _ _",
+            ]
+            .join("\n"),
+            vec![top_left, top_right, bottom_left, bottom_right],
+        ) {
+            t
+        } else {
+            panic!("Should build");
+        };
+        assert_eq!(donut.get(top_left), Ok(Square::Occupied(0, 'A')));
+        assert_eq!(donut.get(top_right), Ok(Square::Occupied(1, 'B')));
+        assert_eq!(donut.get(bottom_left), Ok(Square::Occupied(2, 'C')));
+        assert_eq!(donut.get(hole), Err("Invalid position"));
+        assert_eq!(donut.get(dangling), Ok(Square::Occupied(0, 'D')));
+        assert_eq!(donut.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
+
+        // Complex trees
+        let player_1 = [
+            Coordinate { x: 2, y: 0 }, // First row
+            Coordinate { x: 0, y: 1 }, // Second row
+            Coordinate { x: 1, y: 1 },
+            Coordinate { x: 2, y: 1 },
+            Coordinate { x: 3, y: 1 },
+            Coordinate { x: 4, y: 1 },
+            Coordinate { x: 0, y: 2 }, // Third row
+            Coordinate { x: 0, y: 3 }, // Fourth row
+            Coordinate { x: 1, y: 3 },
+            Coordinate { x: 0, y: 4 }, // Fifth row
+        ];
+        let player_2 = [
+            Coordinate { x: 2, y: 6 }, // Seventh row
+            Coordinate { x: 2, y: 5 }, // Sixth row
+            Coordinate { x: 3, y: 5 },
+            Coordinate { x: 3, y: 4 }, // Fifth row
+            Coordinate { x: 2, y: 3 }, // Fourth row
+            Coordinate { x: 3, y: 3 },
+            Coordinate { x: 4, y: 3 },
+        ];
+        let complex_tree = if let Ok(t) = Board::from_string(
+            [
+                "    A    ",
+                "A A A A A",
+                "A _ _ _ _",
+                "A _ B B B",
+                "A A _ B _",
+                "A _ B B _",
+                "    B    ",
+            ]
+            .join("\n"),
+            vec![player_1[0], player_2[0]],
+        ) {
+            t
+        } else {
+            panic!("Should build");
+        };
+        for square in player_1 {
+            assert_eq!(complex_tree.get(square), Ok(Square::Occupied(0, 'A')));
+        }
+        for square in player_2 {
+            assert_eq!(complex_tree.get(square), Ok(Square::Occupied(1, 'B')));
+        }
     }
 
     #[test]
