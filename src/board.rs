@@ -43,8 +43,10 @@ impl Board {
                     }
                 } else if letter == ' ' {
                     squares_in_line.push(None);
+                } else if letter == '_' {
+                    squares_in_line.push(Some(Square::Empty));
                 } else {
-                    squares_in_line.push(Some(Square::Occupied(0, letter)))
+                    squares_in_line.push(Some(Square::Occupied(0, letter)));
                 }
             }
             squares.push(squares_in_line);
@@ -331,8 +333,6 @@ mod tests {
         // Checks that our default boards come are the same after being stringified and parsed
         let boards = [Board::default(), Board::new(34, 28)];
         for b in boards {
-            println!("{:?}", Board::from_string(b.to_string(), b.roots.clone()));
-            println!("{:?}", b);
             assert_eq!(Board::from_string(b.to_string(), b.roots.clone()), Ok(b));
         }
 
@@ -383,8 +383,9 @@ mod tests {
             Coordinate { x: 4, y: 1 },
             Coordinate { x: 0, y: 2 }, // Third row
             Coordinate { x: 0, y: 3 }, // Fourth row
-            Coordinate { x: 1, y: 3 },
             Coordinate { x: 0, y: 4 }, // Fifth row
+            Coordinate { x: 1, y: 4 },
+            Coordinate { x: 0, y: 5 }, // Sixth row
         ];
         let player_2 = [
             Coordinate { x: 2, y: 6 }, // Seventh row
@@ -412,6 +413,7 @@ mod tests {
         } else {
             panic!("Should build");
         };
+
         for square in player_1 {
             assert_eq!(complex_tree.get(square), Ok(Square::Occupied(0, 'A')));
         }
