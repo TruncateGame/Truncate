@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
-    AttackerWins,
-    DefenderWins,
+    AttackerWins(Vec<usize>), // A list of specific defenders who are defeated
+    DefenderWins,             // If the defender wins, all attackers lose
     NoBattle,
 }
 
@@ -56,17 +56,18 @@ impl Judge {
             })
             .expect("already checked length");
 
-        let defenders_strong = defenders
+        let weak_defenders: Vec<usize> = defenders // Indices of the weak defenders
             .iter()
-            .map(|word| self.valid(word) && word.len() + 1 >= longest_attacker.len())
-            .reduce(|prev, curr| prev && curr)
-            .expect("already checked length");
-        if defenders_strong {
+            .enumerate()
+            .filter(|(_, &word)| !self.valid(word) || word.len() + 1 < longest_attacker.len())
+            .map(|(index, _)| index)
+            .collect();
+        if weak_defenders.is_empty() {
             return Outcome::DefenderWins;
         }
 
         // Otherwise the attacker wins
-        Outcome::AttackerWins
+        Outcome::AttackerWins(weak_defenders)
     }
 
     fn valid(&self, word: &str) -> bool {
@@ -111,23 +112,26 @@ mod tests {
     #[test]
     fn defender_invalid() {
         let j = Judge::default();
-        assert_eq!(j.Battle(vec!["BIG"], vec!["XYZ"]), Outcome::AttackerWins);
+        assert_eq!(
+            j.Battle(vec!["BIG"], vec!["XYZ"]),
+            Outcome::AttackerWins(vec![0])
+        );
         assert_eq!(
             j.Battle(vec!["BIG"], vec!["XYZXYZXYZ"]),
-            Outcome::AttackerWins
+            Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
             j.Battle(vec!["BIG"], vec!["BIG", "XYZ"]),
-            Outcome::AttackerWins
+            Outcome::AttackerWins(vec![1])
         );
         assert_eq!(
             j.Battle(vec!["BIG"], vec!["XYZ", "BIG"]),
-            Outcome::AttackerWins
+            Outcome::AttackerWins(vec![0])
         );
     }
 
     #[test]
-    fn attacker__weaker() {
+    fn attacker_weaker() {
         let j = Judge::default();
         assert_eq!(j.Battle(vec!["JOLLY"], vec!["FOLK"]), Outcome::DefenderWins);
         assert_eq!(
@@ -137,12 +141,22 @@ mod tests {
     }
 
     #[test]
-    fn defender__weaker() {
+    fn defender_weaker() {
         let j = Judge::default();
-        assert_eq!(j.Battle(vec!["JOLLY"], vec!["FAT"]), Outcome::AttackerWins);
+        assert_eq!(
+            j.Battle(vec!["JOLLY"], vec!["FAT"]),
+            Outcome::AttackerWins(vec![0])
+        );
         assert_eq!(
             j.Battle(vec!["JOLLY", "BIG"], vec!["FAT"]),
-            Outcome::AttackerWins
+            Outcome::AttackerWins(vec![0])
+        );
+        assert_eq!(
+            j.Battle(
+                vec!["JOLLY"],
+                vec!["FAT", "BIG", "JOLLY", "FOLK", "XYZXYZXYZ"]
+            ),
+            Outcome::AttackerWins(vec![0, 1, 4])
         );
     }
 }
