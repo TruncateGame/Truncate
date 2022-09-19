@@ -268,8 +268,6 @@ impl Board {
                 words.push(word);
             } else {
                 // Combine NORTH/SOUTH and EAST/WEST words
-                println!("{:?}", word);
-                println!("{:?}", words[i - 2]);
                 word.reverse();
                 if word.len() > 0 {
                     if words[i - 2].len() > 0 {
@@ -279,8 +277,6 @@ impl Board {
                         words[i - 2] = word;
                     }
                 }
-                println!("{:?}", words[i - 2]);
-                println!();
             }
         }
 
@@ -724,5 +720,54 @@ mod tests {
         );
         assert_eq!(b.set(Coordinate { x: 3, y: 4 }, 1, 'O'), Ok(()));
         assert_eq!(b.get_words(Coordinate { x: 2, y: 4 }), vec![cross]); // TODO: check coordinates
+    }
+
+    #[test]
+    fn get_words_orientations() {
+        let corners = vec![
+            Coordinate { x: 0, y: 0 },
+            Coordinate { x: 0, y: 6 },
+            Coordinate { x: 6, y: 0 },
+            Coordinate { x: 6, y: 6 },
+        ];
+        let cc = corners.clone();
+
+        let b = if let Ok(board) = Board::from_string(
+            [
+                "T A B _ N E T",
+                "E _ _ _ _ _ A",
+                "N _ _ _ _ _ B",
+                "_ _ _ _ _ _ _",
+                "B _ _ _ _ _ N",
+                "A _ _ _ _ _ E",
+                "T E N _ B A T",
+            ]
+            .join("\n"),
+            corners,
+        ) {
+            board
+        } else {
+            panic!("should work")
+        };
+
+        for corner in cc {
+            let mut words = b
+                .get_words(corner)
+                .iter()
+                .map(|word| {
+                    word.iter()
+                        .map(|&square| match b.get(square) {
+                            Ok(sq) => match sq {
+                                Square::Empty => panic!("shouldn't be empty"),
+                                Square::Occupied(_, letter) => letter,
+                            },
+                            Err(e) => panic!("{}", e),
+                        })
+                        .collect::<String>()
+                })
+                .collect::<Vec<String>>();
+            words.sort();
+            assert_eq!(words, vec!["BAT", "TEN"]);
+        }
     }
 }
