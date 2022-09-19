@@ -247,11 +247,16 @@ mod tests {
         let middle_defender: Vec<Coordinate> = (3..=4).map(|y| Coordinate { x: 2, y }).collect();
         let middle_attacker: Vec<Coordinate> =
             (0..=2).rev().map(|y| Coordinate { x: 2, y }).collect();
+        let left_attacker: Vec<Coordinate> =
+            (0..=2).rev().map(|x| Coordinate { x, y: 2 }).collect();
+        let cross_defender: Vec<Coordinate> = (1..=3).map(|x| Coordinate { x, y: 3 }).collect();
+        let short_cross_defender: Vec<Coordinate> =
+            (2..=3).map(|x| Coordinate { x, y: 3 }).collect();
 
         // There are at most 4 squares contributing combatants.
         // Either 1 attacker with 1, 2, or 3 defenders
         // 2 attackers with 1 or 2 defenders
-        // 3 attackers with 1 defender
+        // Note, 3 attackers are impossible because the letter being placed will combine two of the words into one
 
         // 1v1
         let mut one_v_one = Board::from_string(
@@ -312,20 +317,42 @@ mod tests {
             vec![Direction::North, Direction::South],
         )
         .unwrap();
-        one_v_two.set(middle, 0, 'A').unwrap();
-        let cross_defender: Vec<Coordinate> = (1..=3).map(|x| Coordinate { x, y: 3 }).collect();
+        one_v_three.set(middle, 0, 'A').unwrap();
 
-        // assert_eq!(
-        //     one_v_two.collect_combanants(0, middle),
-        //     (
-        //         vec![middle_attacker],
-        //         vec![
-        //             left_defender,
-        //             middle_defender,
-        //             right_defender,
-        //             cross_defender
-        //         ]
-        //     )
-        // );
+        assert_eq!(
+            one_v_three.collect_combanants(0, middle),
+            (
+                vec![middle_attacker.clone()],
+                vec![
+                    middle_defender.clone(),
+                    cross_defender.clone(),
+                    right_defender.clone(),
+                    left_defender.clone(),
+                ]
+            )
+        );
+
+        // 2v2
+        let mut two_v_two = Board::from_string(
+            [
+                "X X M _ _",
+                "X _ D _ _",
+                "L F _ R _",
+                "_ _ M T _",
+                "_ _ D D _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
+            vec![Direction::North, Direction::South],
+        )
+        .unwrap();
+        two_v_two.set(middle, 0, 'A').unwrap();
+        assert_eq!(
+            two_v_two.collect_combanants(0, middle),
+            (
+                vec![middle_attacker, left_attacker],
+                vec![middle_defender, short_cross_defender, right_defender],
+            )
+        );
     }
 }
