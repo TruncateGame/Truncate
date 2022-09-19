@@ -32,6 +32,15 @@ impl Direction {
             },
         }
     }
+
+    // Returns whether vertical words should be read from top to bottom if played by a player on this side of the board
+    fn read_top_to_bottom(self) -> bool {
+        matches!(self, Direction::SOUTH) || matches!(self, Direction::WEST)
+    }
+
+    fn read_left_to_right(self) -> bool {
+        matches!(self, Direction::SOUTH) || matches!(self, Direction::EAST)
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -259,11 +268,11 @@ impl Board {
 
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
         let mut words = Vec::new();
+        let mut owner = None;
 
         for (i, direction) in Direction::iter().enumerate() {
             let mut word = Vec::new();
             let mut location = position;
-            let mut owner = None;
 
             'wordbuilder: loop {
                 if let Ok(Square::Occupied(player, value)) = self.get(location) {
@@ -294,6 +303,17 @@ impl Board {
                         words[i - 2] = word;
                     }
                 }
+            }
+        }
+
+        // Reverse words based on the player's orientation
+        if let Some(owner) = owner {
+            let orientation = self.orientations[owner];
+            if !orientation.read_top_to_bottom() {
+                words[0].reverse();
+            }
+            if !orientation.read_left_to_right() {
+                words[1].reverse();
             }
         }
 
