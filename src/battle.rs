@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::fs::File;
+use std::io::{self, prelude::*, BufReader};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
@@ -22,6 +24,17 @@ impl Judge {
 
     pub fn default() -> Self {
         Self::new(vec!["BIG", "FAT", "JOLLY", "AND", "SILLY", "FOLK"]) // TODO: Collins 2018 list
+    }
+
+    pub fn collins2018() -> Self {
+        let file = File::open("./dictionary.txt").expect("file missing");
+        let reader = BufReader::new(file);
+        let mut dictionary = HashSet::new();
+
+        for line in reader.lines() {
+            dictionary.insert(line.expect("bad encoding"));
+        }
+        Self { dictionary }
     }
 
     // If there are no attackers or no defenders there is no battle
@@ -158,5 +171,12 @@ mod tests {
             ),
             Outcome::AttackerWins(vec![0, 1, 4])
         );
+    }
+
+    #[test]
+    fn collins2018() {
+        let j = Judge::collins2018();
+        assert!(j.valid("zyzzyva"));
+        assert!(!j.valid("zyzzyvava"));
     }
 }
