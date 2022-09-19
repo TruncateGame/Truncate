@@ -44,7 +44,7 @@ impl Board {
                         .iter()
                         .filter(|square| match (*square).1 {
                             Square::Empty => false,
-                            Square::Occupied(p, _) => *p == player,
+                            Square::Occupied(p, _) => p == player,
                         })
                         .count()
                         == 0
@@ -69,23 +69,36 @@ impl Board {
     //   - Any remaining defending letters adjacent to the attacking tile die
     //   - Defending tiles are truncated
     fn resolve_attack(&self, player: usize, position: Coordinate) {
+        let (attackers, defenders) = self.collect_combanants(player, position);
+    }
+
+    fn collect_combanants(
+        &self,
+        player: usize,
+        position: Coordinate,
+    ) -> (Vec<Vec<Coordinate>>, Vec<Vec<Coordinate>>) {
         let attackers = self.get_words(position);
+        // Any neighbouring square belonging to another player is attacked. The words containing those squares are the defenders.
         let defenders = self
             .neighbouring_squares(position)
             .iter()
             .filter(|pos| {
                 if let Square::Occupied(adjacent_player, _) = pos.1 {
-                    player != *adjacent_player
+                    player != adjacent_player
                 } else {
                     false
                 }
             })
-            .map(|adjacent| self.get_words(*adjacent.0));
+            .flat_map(|(position, _)| self.get_words(*position))
+            .collect();
+        (attackers, defenders)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::board::Direction;
+
     use super::super::bag::tests as TileUtils;
     use super::*;
 
@@ -223,5 +236,96 @@ mod tests {
             ),
             Err("Player doesn't have that tile")
         );
+    }
+
+    #[test]
+    fn collect_combanants() {
+        let middle = Coordinate { x: 2, y: 2 };
+
+        let left_defender: Vec<Coordinate> = (2..=4).map(|y| Coordinate { x: 1, y }).collect();
+        let right_defender: Vec<Coordinate> = (2..=4).map(|y| Coordinate { x: 3, y }).collect();
+        let middle_defender: Vec<Coordinate> = (3..=4).map(|y| Coordinate { x: 2, y }).collect();
+        let middle_attacker: Vec<Coordinate> =
+            (0..=2).rev().map(|y| Coordinate { x: 2, y }).collect();
+
+        // There are at most 4 squares contributing combatants.
+        // Either 1 attacker with 1, 2, or 3 defenders
+        // 2 attackers with 1 or 2 defenders
+        // 3 attackers with 1 defender
+
+        // 1v1
+        let mut one_v_one = Board::from_string(
+            [
+                "_ _ M _ _",
+                "_ _ D _ _",
+                "_ _ _ _ _",
+                "_ _ M _ _",
+                "_ _ D _ _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
+            vec![Direction::North, Direction::South],
+        )
+        .unwrap();
+        one_v_one.set(middle, 0, 'A').unwrap();
+
+        assert_eq!(
+            one_v_one.collect_combanants(0, middle),
+            (vec![middle_attacker.clone()], vec![middle_defender.clone()])
+        );
+
+        // 1v2
+        let mut one_v_two = Board::from_string(
+            [
+                "_ _ M _ _",
+                "_ _ D _ _",
+                "_ L _ R _",
+                "_ F _ T _",
+                "_ D R D _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
+            vec![Direction::North, Direction::South],
+        )
+        .unwrap();
+        one_v_two.set(middle, 0, 'A').unwrap();
+
+        assert_eq!(
+            one_v_two.collect_combanants(0, middle),
+            (
+                vec![middle_attacker.clone()],
+                vec![right_defender.clone(), left_defender.clone()],
+            )
+        );
+
+        // 1v3
+        let mut one_v_three = Board::from_string(
+            [
+                "_ _ M _ _",
+                "_ _ D _ _",
+                "_ L _ R _",
+                "_ F M T _",
+                "_ D D D _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
+            vec![Direction::North, Direction::South],
+        )
+        .unwrap();
+        one_v_two.set(middle, 0, 'A').unwrap();
+        let cross_defender: Vec<Coordinate> = (1..=3).map(|x| Coordinate { x, y: 3 }).collect();
+
+        // assert_eq!(
+        //     one_v_two.collect_combanants(0, middle),
+        //     (
+        //         vec![middle_attacker],
+        //         vec![
+        //             left_defender,
+        //             middle_defender,
+        //             right_defender,
+        //             cross_defender
+        //         ]
+        //     )
+        // );
     }
 }

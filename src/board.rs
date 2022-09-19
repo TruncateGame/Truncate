@@ -3,43 +3,43 @@ use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(EnumIter, Clone, Copy, Debug, PartialEq)]
+#[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
-    SOUTH,
-    EAST,
-    NORTH,
-    WEST,
+    South,
+    East,
+    North,
+    West,
 }
 
 impl Direction {
     fn add(self, point: Coordinate) -> Coordinate {
         match self {
-            Direction::NORTH => Coordinate {
-                x: point.x + 0,
+            Direction::North => Coordinate {
+                x: point.x,
                 y: point.y + -1, // We use the computer graphics convention of (0,0) in the top left
             },
-            Direction::SOUTH => Coordinate {
-                x: point.x + 0,
+            Direction::South => Coordinate {
+                x: point.x,
                 y: point.y + 1,
             },
-            Direction::EAST => Coordinate {
+            Direction::East => Coordinate {
                 x: point.x + 1,
-                y: point.y + 0,
+                y: point.y,
             },
-            Direction::WEST => Coordinate {
+            Direction::West => Coordinate {
                 x: point.x + -1,
-                y: point.y + 0,
+                y: point.y,
             },
         }
     }
 
     // Returns whether vertical words should be read from top to bottom if played by a player on this side of the board
     fn read_top_to_bottom(self) -> bool {
-        matches!(self, Direction::SOUTH) || matches!(self, Direction::WEST)
+        matches!(self, Direction::South) || matches!(self, Direction::West)
     }
 
     fn read_left_to_right(self) -> bool {
-        matches!(self, Direction::SOUTH) || matches!(self, Direction::EAST)
+        matches!(self, Direction::South) || matches!(self, Direction::East)
     }
 }
 
@@ -73,7 +73,7 @@ impl Board {
         Board {
             squares,
             roots,
-            orientations: vec![Direction::NORTH, Direction::SOUTH],
+            orientations: vec![Direction::North, Direction::South],
         }
     }
 
@@ -192,9 +192,8 @@ impl Board {
         }
     }
 
-    pub fn neighbouring_squares(&self, position: Coordinate) -> HashMap<Coordinate, Square> {
-        // TODO: does this reinitialise every time even though it's a constant? Or is it compiled into the program?
-        let mut neighbours = HashMap::new();
+    pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
+        let mut neighbours = Vec::new();
         for delta in Direction::iter() {
             let neighbour_coordinate = delta.add(position);
             match self.get(neighbour_coordinate) {
@@ -202,7 +201,7 @@ impl Board {
                     continue; // Skips invalid squares
                 }
                 Ok(square) => {
-                    neighbours.insert(neighbour_coordinate, square);
+                    neighbours.push((neighbour_coordinate, square));
                 }
             }
         }
@@ -222,11 +221,11 @@ impl Board {
 
         while let Some(current) = stack.pop() {
             set.insert(current);
-            for neighbour in self.neighbouring_squares(current) {
+            for (position, square) in self.neighbouring_squares(current) {
                 // Put the neighbour in the set if it is occupied by the current player
-                if let Square::Occupied(neighbours_player, _) = neighbour.1 {
-                    if !set.contains(&neighbour.0) && player == neighbours_player {
-                        stack.push(neighbour.0);
+                if let Square::Occupied(neighbours_player, _) = square {
+                    if !set.contains(&position) && player == neighbours_player {
+                        stack.push(position);
                     }
                 }
             }
@@ -293,7 +292,7 @@ impl Board {
             if i < 2 {
                 words.push(word);
             } else {
-                // Combine NORTH/SOUTH and EAST/WEST words
+                // Combine North/South and East/West words
                 word.reverse();
                 if word.len() > 0 {
                     if words[i - 2].len() > 0 {
@@ -355,7 +354,7 @@ impl fmt::Display for Board {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct Coordinate {
     pub x: isize,
     pub y: isize,
@@ -450,7 +449,7 @@ mod tests {
             ]
             .join("\n"),
             vec![top_left, top_right, bottom_left, bottom_right],
-            vec![Direction::NORTH; 4],
+            vec![Direction::North; 4],
         ) {
             t
         } else {
@@ -498,7 +497,7 @@ mod tests {
             ]
             .join("\n"),
             vec![player_1[0], player_2[0]],
-            vec![Direction::NORTH; 2],
+            vec![Direction::North; 2],
         ) {
             t
         } else {
@@ -643,30 +642,30 @@ mod tests {
         assert_eq!(
             // TODO: should we allow you to find neighbours of an invalid square?
             b.neighbouring_squares(Coordinate { x: 0, y: 0 }),
-            HashMap::from([
+            [
                 (Coordinate { x: 0, y: 1 }, Square::Empty),
                 (Coordinate { x: 1, y: 0 }, Square::Empty),
-            ])
+            ]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 0 }),
-            HashMap::from([(Coordinate { x: 1, y: 1 }, Square::Empty),])
+            [(Coordinate { x: 1, y: 1 }, Square::Empty),]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 2 }),
-            HashMap::from([
+            [
+                (Coordinate { x: 1, y: 3 }, Square::Empty),
+                (Coordinate { x: 2, y: 2 }, Square::Empty),
                 (Coordinate { x: 1, y: 1 }, Square::Empty),
                 (Coordinate { x: 0, y: 2 }, Square::Empty),
-                (Coordinate { x: 2, y: 2 }, Square::Empty),
-                (Coordinate { x: 1, y: 3 }, Square::Empty),
-            ])
+            ]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 4 }),
-            HashMap::from([(Coordinate { x: 1, y: 3 }, Square::Empty),])
+            [(Coordinate { x: 1, y: 3 }, Square::Empty),]
         );
     }
 
@@ -721,7 +720,7 @@ mod tests {
             ]
             .join("\n"),
             vec![Coordinate { x: 0, y: 0 }],
-            vec![Direction::SOUTH],
+            vec![Direction::South],
         ) {
             board
         } else {
@@ -752,7 +751,7 @@ mod tests {
             ]
             .join("\n"),
             vec![Coordinate { x: 0, y: 0 }, Coordinate { x: 4, y: 4 }],
-            vec![Direction::SOUTH, Direction::NORTH],
+            vec![Direction::South, Direction::North],
         ) {
             board
         } else {
@@ -789,10 +788,10 @@ mod tests {
             .join("\n"),
             corners,
             vec![
-                Direction::WEST,
-                Direction::SOUTH,
-                Direction::EAST,
-                Direction::NORTH,
+                Direction::West,
+                Direction::South,
+                Direction::East,
+                Direction::North,
             ],
         ) {
             // ZEN NAG
