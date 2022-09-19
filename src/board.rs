@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 #[derive(PartialEq, Debug)]
 pub struct Board {
@@ -7,7 +9,37 @@ pub struct Board {
     roots: Vec<Coordinate>,
 }
 
-const DIRECTIONS: [(isize, isize); 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
+#[derive(EnumIter, Clone, Copy)]
+enum Direction {
+    SOUTH,
+    EAST,
+    NORTH,
+    WEST,
+}
+
+impl Direction {
+    fn add(self, point: Coordinate) -> Coordinate {
+        match self {
+            Direction::NORTH => Coordinate {
+                x: point.x + 0,
+                y: point.y + -1, // We use the computer graphics convention of (0,0) in the top left
+            },
+            Direction::SOUTH => Coordinate {
+                x: point.x + 0,
+                y: point.y + 1,
+            },
+            Direction::EAST => Coordinate {
+                x: point.x + 1,
+                y: point.y + 0,
+            },
+            Direction::WEST => Coordinate {
+                x: point.x + -1,
+                y: point.y + 0,
+            },
+        }
+    }
+}
+
 impl Board {
     pub fn new(width: usize, height: usize) -> Self {
         // TODO: is all this internal usize <-> isize conversion worth accepting isize as valid coordinates? Is that only used for simpler traversal algorithms?
@@ -137,11 +169,8 @@ impl Board {
     pub fn neighbouring_squares(&self, position: Coordinate) -> HashMap<Coordinate, Square> {
         // TODO: does this reinitialise every time even though it's a constant? Or is it compiled into the program?
         let mut neighbours = HashMap::new();
-        for delta in DIRECTIONS {
-            let neighbour_coordinate = Coordinate {
-                x: position.x + delta.0,
-                y: position.y + delta.1,
-            };
+        for delta in Direction::iter() {
+            let neighbour_coordinate = delta.add(position);
             match self.get(neighbour_coordinate) {
                 Err(_) => {
                     continue; // Skips invalid squares
@@ -211,15 +240,16 @@ impl Board {
         Ok(())
     }
 
-    pub fn get_words(&self, position: Coordinate) -> Vec<(String, Vec<Coordinate>)> {
+    pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
         let mut words = Vec::new();
 
-        for direction in DIRECTIONS {
-            let mut word = (String::new(), Vec::new());
-            let location = position;
+        for (i, direction) in Direction::iter().enumerate() {
+            let mut word = Vec::new();
+            let mut location = position;
+            let mut owner = None;
+
             'wordbuilder: loop {
-                let mut owner = None;
-                if let Ok(Square::Occupied(player, value)) = self.get(position) {
+                if let Ok(Square::Occupied(player, value)) = self.get(location) {
                     if owner == None {
                         owner = Some(player);
                     }
@@ -228,17 +258,40 @@ impl Board {
                         break 'wordbuilder; // Word ends at other players' letters
                     }
 
-                    word.0.push(value);
-                    word.1.push(location);
+                    word.push(location);
                 } else {
                     break 'wordbuilder; // Word ends at the edge of the board or empty squares
                 }
+                location = direction.add(location);
             }
-            if word.0.len() >= 2 {
-                // 1 letter words don't count
+            if i < 2 {
                 words.push(word);
+            } else {
+                // Combine NORTH/SOUTH and EAST/WEST words
+                println!("{:?}", word);
+                println!("{:?}", words[i - 2]);
+                word.reverse();
+                if word.len() > 0 {
+                    if words[i - 2].len() > 0 {
+                        words[i - 2].splice(0..1, word);
+                        // Prepend and remove repeated letter
+                    } else {
+                        words[i - 2] = word;
+                    }
+                }
+                println!("{:?}", words[i - 2]);
+                println!();
             }
         }
+
+        // 1 letter words don't count
+        for i in (0..=1).rev() {
+            // TODO: use filter
+            if words[i].len() <= 1 {
+                words.remove(i);
+            }
+        }
+
         words
     }
 }
@@ -606,5 +659,70 @@ mod tests {
             b.swap(1, [c0_1, c1_1]),
             Err("Player must own the squares they swap")
         );
+    }
+
+    #[test]
+    fn get_words() {
+        // Should return an empty list of words for all points on an empty board, and for positions off the board
+        let empty: Vec<Vec<Coordinate>> = vec![];
+        let b = Board::default();
+        for x in -2..10 {
+            for y in -2..10 {
+                assert_eq!(b.get_words(Coordinate { x, y }), empty);
+            }
+        }
+
+        // Gets two words in the middle of a cross
+        let b = if let Ok(board) = Board::from_string(
+            [
+                "_ _ C _ _",
+                "_ _ R _ _",
+                "S W O R D",
+                "_ _ S _ _",
+                "_ _ S _ _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 0, y: 0 }, Coordinate { x: 4, y: 4 }],
+        ) {
+            board
+        } else {
+            panic!("Should build")
+        };
+        let cross = ([0, 1, 2, 3, 4]).map(|y| Coordinate { x: 2, y }); // TODO: range
+        let sword = ([0, 1, 2, 3, 4]).map(|x| Coordinate { x, y: 2 }); // TODO: range
+        assert_eq!(b.get_words(Coordinate { x: 2, y: 2 }), vec![cross, sword]);
+
+        let just_cross = ([0, 1, 3, 4]).map(|y| Coordinate { x: 2, y });
+        for square in just_cross {
+            assert_eq!(b.get_words(square), vec![cross]);
+        }
+
+        let just_sword = ([0, 1, 3, 4]).map(|x| Coordinate { x, y: 2 });
+        for square in just_sword {
+            assert_eq!(b.get_words(square), vec![sword]);
+        }
+
+        // Doesn't cross other players
+        let mut b = if let Ok(board) = Board::from_string(
+            [
+                "_ _ C _ _",
+                "_ _ R _ _",
+                "_ _ O _ _",
+                "_ _ S _ _",
+                "_ _ S _ _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 0, y: 0 }, Coordinate { x: 4, y: 4 }],
+        ) {
+            board
+        } else {
+            panic!("Should build")
+        };
+        assert_eq!(
+            b.get(Coordinate { x: 2, y: 4 }),
+            Ok(Square::Occupied(0, 'S'))
+        );
+        assert_eq!(b.set(Coordinate { x: 3, y: 4 }, 1, 'O'), Ok(()));
+        assert_eq!(b.get_words(Coordinate { x: 2, y: 4 }), vec![cross]); // TODO: check coordinates
     }
 }
