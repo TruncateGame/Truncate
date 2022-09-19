@@ -1,4 +1,5 @@
 mod bag;
+mod battle;
 mod board;
 mod hand;
 mod moves;
