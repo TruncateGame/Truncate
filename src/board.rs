@@ -3,14 +3,8 @@ use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(PartialEq, Debug)]
-pub struct Board {
-    squares: Vec<Vec<Option<Square>>>,
-    roots: Vec<Coordinate>,
-}
-
-#[derive(EnumIter, Clone, Copy)]
-enum Direction {
+#[derive(EnumIter, Clone, Copy, Debug, PartialEq)]
+pub enum Direction {
     SOUTH,
     EAST,
     NORTH,
@@ -40,6 +34,13 @@ impl Direction {
     }
 }
 
+#[derive(PartialEq, Debug)]
+pub struct Board {
+    squares: Vec<Vec<Option<Square>>>,
+    roots: Vec<Coordinate>,
+    orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
+}
+
 impl Board {
     pub fn new(width: usize, height: usize) -> Self {
         // TODO: is all this internal usize <-> isize conversion worth accepting isize as valid coordinates? Is that only used for simpler traversal algorithms?
@@ -60,10 +61,22 @@ impl Board {
         squares[roots[0].y as usize][roots[0].x as usize] = Some(Square::Empty); // Create root square
         squares[roots[1].y as usize][roots[1].x as usize] = Some(Square::Empty);
 
-        Board { squares, roots }
+        Board {
+            squares,
+            roots,
+            orientations: vec![Direction::NORTH, Direction::SOUTH],
+        }
     }
 
-    pub fn from_string<'a>(s: String, roots: Vec<Coordinate>) -> Result<Self, &'a str> {
+    pub fn from_string<'a>(
+        s: String,
+        roots: Vec<Coordinate>,
+        orientations: Vec<Direction>,
+    ) -> Result<Self, &'a str> {
+        if roots.len() != orientations.len() {
+            return Err("Every player needs a root and orientation");
+        }
+
         // Transform string into a board
         let mut squares = vec![];
         for line in s.split('\n') {
@@ -93,7 +106,11 @@ impl Board {
 
         // Make sure letters connected to players' roots are owned by the player
         let r = roots.clone(); // TODO: remove hack
-        let mut board = Self { roots, squares };
+        let mut board = Self {
+            roots,
+            squares,
+            orientations,
+        };
         for (player, root) in r.iter().enumerate() {
             if player != 0 {
                 // All tiles are already owned by the first player by default
@@ -382,7 +399,10 @@ mod tests {
         // Checks that our default boards come are the same after being stringified and parsed
         let boards = [Board::default(), Board::new(34, 28)];
         for b in boards {
-            assert_eq!(Board::from_string(b.to_string(), b.roots.clone()), Ok(b));
+            assert_eq!(
+                Board::from_string(b.to_string(), b.roots.clone(), b.orientations.clone()),
+                Ok(b)
+            );
         }
 
         // Checks that various strings are the same when parsed and stringified
@@ -410,6 +430,7 @@ mod tests {
             ]
             .join("\n"),
             vec![top_left, top_right, bottom_left, bottom_right],
+            vec![Direction::NORTH; 4],
         ) {
             t
         } else {
@@ -457,6 +478,7 @@ mod tests {
             ]
             .join("\n"),
             vec![player_1[0], player_2[0]],
+            vec![Direction::NORTH; 2],
         ) {
             t
         } else {
@@ -678,7 +700,8 @@ mod tests {
                 "_ _ S _ _",
             ]
             .join("\n"),
-            vec![Coordinate { x: 0, y: 0 }, Coordinate { x: 4, y: 4 }],
+            vec![Coordinate { x: 0, y: 0 }],
+            vec![Direction::SOUTH],
         ) {
             board
         } else {
@@ -709,6 +732,7 @@ mod tests {
             ]
             .join("\n"),
             vec![Coordinate { x: 0, y: 0 }, Coordinate { x: 4, y: 4 }],
+            vec![Direction::SOUTH, Direction::NORTH],
         ) {
             board
         } else {
@@ -725,26 +749,33 @@ mod tests {
     #[test]
     fn get_words_orientations() {
         let corners = vec![
-            Coordinate { x: 0, y: 0 },
+            Coordinate { x: 0, y: 0 }, // Anti-clockwise from the top left
             Coordinate { x: 0, y: 6 },
-            Coordinate { x: 6, y: 0 },
             Coordinate { x: 6, y: 6 },
+            Coordinate { x: 6, y: 0 },
         ];
         let cc = corners.clone();
 
         let b = if let Ok(board) = Board::from_string(
             [
-                "T A B _ N E T",
-                "E _ _ _ _ _ A",
-                "N _ _ _ _ _ B",
-                "_ _ _ _ _ _ _",
-                "B _ _ _ _ _ N",
+                "N E Z _ G A N",
                 "A _ _ _ _ _ E",
-                "T E N _ B A T",
+                "G _ _ _ _ _ Z",
+                "_ _ _ _ _ _ _",
+                "Z _ _ _ _ _ G",
+                "E _ _ _ _ _ A",
+                "N A G _ Z E N",
             ]
             .join("\n"),
             corners,
+            vec![
+                Direction::WEST,
+                Direction::SOUTH,
+                Direction::EAST,
+                Direction::NORTH,
+            ],
         ) {
+            // ZEN NAG
             board
         } else {
             panic!("should work")
@@ -767,7 +798,7 @@ mod tests {
                 })
                 .collect::<Vec<String>>();
             words.sort();
-            assert_eq!(words, vec!["BAT", "TEN"]);
+            assert_eq!(words, vec!["NAG", "ZEN"]);
         }
     }
 }
