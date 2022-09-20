@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::battle::{Judge, Outcome};
 use super::board::{Board, Coordinate, Square};
 use super::hand::Hands;
@@ -102,6 +104,8 @@ impl Board {
                 }
             }
         }
+
+        self.truncate();
     }
 
     fn collect_combanants(
@@ -475,6 +479,49 @@ mod tests {
                 "_ _ _ _ _",
                 "_ _ I _ _",
                 "_ _ T _ _",
+            ]
+            .join("\n"),
+        )
+    }
+
+    #[test]
+    fn resolve_truncation() {
+        let mut b = Board::from_string(
+            [
+                "_ S X _ _",
+                "_ T _ _ _",
+                "_ R _ X _",
+                "_ _ B X _",
+                "_ _ I _ _",
+                "_ _ G _ _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 5 }],
+            vec![Direction::North, Direction::South],
+        )
+        .unwrap();
+        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+
+        b.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            &mut hands,
+            &Judge::short_dict(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            b.to_string(),
+            [
+                "_ S X _ _",
+                "_ T _ _ _",
+                "_ R _ _ _",
+                "_ A _ _ _",
+                "_ _ I _ _",
+                "_ _ G _ _",
             ]
             .join("\n"),
         )

@@ -191,6 +191,28 @@ impl Board {
         self.squares[position.y as usize][position.x as usize] = Some(Square::Empty);
     }
 
+    pub fn truncate(&mut self) {
+        let mut attatched = HashSet::new();
+        for root in self.roots.iter() {
+            let tree = self.depth_first_search(*root);
+            for bit in tree {
+                attatched.insert(bit);
+            }
+        }
+
+        for y in 0..self.squares.len() - 1 {
+            for x in 0..self.squares.len() - 1 {
+                let c = Coordinate {
+                    x: x as isize,
+                    y: y as isize,
+                };
+                if !attatched.contains(&c) {
+                    self.clear(c);
+                }
+            }
+        }
+    }
+
     pub fn get_root(&self, player: usize) -> Result<Coordinate, &str> {
         if player >= self.roots.len() {
             Err("Invalid player")
