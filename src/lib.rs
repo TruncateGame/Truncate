@@ -4,6 +4,7 @@ mod hand;
 mod judge;
 mod moves;
 
+use judge::Judge;
 use moves::*;
 
 #[derive(Default)]
@@ -16,7 +17,11 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn play_move(&mut self, next_move: moves::Move) -> Result<(), &str> {
+    pub fn play_move(&mut self, next_move: moves::Move) -> Result<Option<usize>, &str> {
+        if self.winner.is_some() {
+            return Err("Game is already over");
+        }
+
         let player = match next_move {
             Move::Place {
                 player,
@@ -32,8 +37,19 @@ impl Game {
             return Err("Only the next player can play");
         }
 
-        self.board
-            .make_move(next_move, &mut self.hands, &self.judge)?;
-        Ok(())
+        if self
+            .board
+            .make_move(next_move, &mut self.hands, &self.judge)
+            .is_err()
+        {
+            return Err("Couldn't make move"); // TODO: propogate error post polonius
+        }
+
+        if let Some(winner) = Judge::winner(&(self.board)) {
+            self.winner = Some(winner);
+            return Ok(Some(winner));
+        }
+
+        Ok(None)
     }
 }
