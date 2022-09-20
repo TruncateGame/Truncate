@@ -3,6 +3,8 @@ use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use crate::battle::Judge;
+
 #[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
     South,
@@ -184,6 +186,11 @@ impl Board {
         }
     }
 
+    // TODO: safety on index access like get and set - ideally combine error checking for all 3
+    pub fn clear(&mut self, position: Coordinate) {
+        self.squares[position.y as usize][position.x as usize] = Some(Square::Empty);
+    }
+
     pub fn get_root(&self, player: usize) -> Result<Coordinate, &str> {
         if player >= self.roots.len() {
             Err("Invalid player")
@@ -325,6 +332,36 @@ impl Board {
         }
 
         words
+    }
+
+    pub fn word_strings(&self, coordinates: &Vec<Vec<Coordinate>>) -> Result<Vec<String>, &str> {
+        let mut err = None; // TODO: is this a reasonable error handling method? We can't return an Err from the function from within the closure passed to map.
+        let strings = coordinates
+            .iter()
+            .map(|word| {
+                word.iter()
+                    .map(|&square| match self.get(square) {
+                        Ok(sq) => match sq {
+                            Square::Empty => {
+                                err = Some("shouldn't be empty");
+                                '_'
+                            }
+                            Square::Occupied(_, letter) => letter,
+                        },
+                        Err(e) => {
+                            err = Some(e);
+                            '_'
+                        }
+                    })
+                    .collect::<String>()
+            })
+            .collect::<Vec<String>>();
+
+        if let Some(err_string) = err {
+            Err(err_string)
+        } else {
+            Ok(strings)
+        }
     }
 }
 
@@ -801,21 +838,7 @@ mod tests {
         };
 
         for corner in cc {
-            let mut words = b
-                .get_words(corner)
-                .iter()
-                .map(|word| {
-                    word.iter()
-                        .map(|&square| match b.get(square) {
-                            Ok(sq) => match sq {
-                                Square::Empty => panic!("shouldn't be empty"),
-                                Square::Occupied(_, letter) => letter,
-                            },
-                            Err(e) => panic!("{}", e),
-                        })
-                        .collect::<String>()
-                })
-                .collect::<Vec<String>>();
+            let mut words = b.word_strings(&b.get_words(corner)).unwrap();
             words.sort();
             assert_eq!(words, vec!["NAG", "ZEN"]);
         }

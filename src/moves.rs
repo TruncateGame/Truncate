@@ -1,3 +1,4 @@
+use super::battle::{Judge, Outcome};
 use super::board::{Board, Coordinate, Square};
 use super::hand::Hands;
 
@@ -16,7 +17,12 @@ pub enum Move {
 
 // TODO: is it weird to implement this on Board here rather than on Move?
 impl Board {
-    pub fn make_move<'a>(&'a mut self, game_move: Move, hands: &'a mut Hands) -> Result<(), &str> {
+    pub fn make_move<'a>(
+        &'a mut self,
+        game_move: Move,
+        hands: &'a mut Hands,
+        judge: &Judge,
+    ) -> Result<(), &str> {
         match game_move {
             Move::Place {
                 player,
@@ -53,8 +59,10 @@ impl Board {
                 }
 
                 hands.use_tile(player, tile)?; // Use tile checks that the player is valid and has that letter
-                self.set(position, player, tile)?;
-
+                if let Err(_) = self.set(position, player, tile) {
+                    return Err("Couldn't set tile"); // TODO: pass error on post polonius
+                }
+                self.resolve_attack(player, position, judge);
                 Ok(())
             }
             Move::Swap { player, positions } => self.swap(player, positions),
@@ -68,8 +76,32 @@ impl Board {
     //   - Weak and invalid defending words die
     //   - Any remaining defending letters adjacent to the attacking tile die
     //   - Defending tiles are truncated
-    fn resolve_attack(&self, player: usize, position: Coordinate) {
+    fn resolve_attack(&mut self, player: usize, position: Coordinate, judge: &Judge) {
         let (attackers, defenders) = self.collect_combanants(player, position);
+        let attacking_words = self
+            .word_strings(&attackers)
+            .expect("Words were just found and should be valid");
+        let defending_words = self
+            .word_strings(&defenders)
+            .expect("Words were just found and should be valid");
+        match judge.Battle(attacking_words, defending_words) {
+            Outcome::NoBattle => {}
+            Outcome::DefenderWins => {
+                for word in attackers {
+                    for square in word {
+                        self.clear(square);
+                    }
+                }
+            }
+            Outcome::AttackerWins(losers) => {
+                for defender_index in losers {
+                    let defender = defenders.get(defender_index).unwrap();
+                    for square in defender {
+                        self.clear(*square);
+                    }
+                }
+            }
+        }
     }
 
     fn collect_combanants(
@@ -113,7 +145,7 @@ mod tests {
             position: Coordinate { x: 10, y: 10 },
         };
         assert_eq!(
-            b.make_move(out_of_bounds, &mut hands),
+            b.make_move(out_of_bounds, &mut hands, &Judge::short_dict()),
             // Err("y-coordinate is too large for board height") // <- TODO
             Err("Couldn't get square")
         );
@@ -124,7 +156,7 @@ mod tests {
             position: Coordinate { x: 10, y: 0 },
         };
         assert_eq!(
-            b.make_move(out_of_bounds, &mut hands),
+            b.make_move(out_of_bounds, &mut hands, &Judge::short_dict()),
             // Err("x-coordinate is too large for board width") // <- TODO
             Err("Couldn't get square")
         );
@@ -134,7 +166,10 @@ mod tests {
             tile: 'A',
             position: Coordinate { x: 0, y: 0 },
         };
-        assert_eq!(b.make_move(dead, &mut hands), Err("Couldn't get square"));
+        assert_eq!(
+            b.make_move(dead, &mut hands, &Judge::short_dict()),
+            Err("Couldn't get square")
+        );
     }
 
     #[test]
@@ -150,7 +185,8 @@ mod tests {
                     tile: 'A',
                     position: Coordinate { x: 1, y: 0 }
                 },
-                &mut hands
+                &mut hands,
+                &Judge::short_dict()
             ),
             Ok(())
         );
@@ -162,13 +198,14 @@ mod tests {
                     tile: 'A',
                     position: Coordinate { x: 1, y: 0 }
                 },
-                &mut hands
+                &mut hands,
+                &Judge::short_dict()
             ),
             Err("Cannot place a tile in an occupied square")
         );
         // Can't place at a diagonal
         assert_eq!(
-            b.make_move(Move::Place{player: 0, tile: 'A', position: Coordinate { x: 0, y: 1 }}, &mut hands),
+            b.make_move(Move::Place{player: 0, tile: 'A', position: Coordinate { x: 0, y: 1 }}, &mut hands, &Judge::short_dict()),
             Err("Must place tile on square that neighbours one of your already placed tiles, or on your root")
         );
         // Can place directly above
@@ -179,7 +216,8 @@ mod tests {
                     tile: 'A',
                     position: Coordinate { x: 1, y: 1 }
                 },
-                &mut hands
+                &mut hands,
+                &Judge::short_dict()
             ),
             Ok(())
         );
@@ -191,7 +229,8 @@ mod tests {
                     tile: 'A',
                     position: Coordinate { x: 1, y: 1 }
                 },
-                &mut hands
+                &mut hands,
+                &Judge::short_dict()
             ),
             Err("Cannot place a tile in an occupied square")
         );
@@ -202,7 +241,8 @@ mod tests {
                     player: 0,
                     positions: [Coordinate { x: 1, y: 1 }, Coordinate { x: 1, y: 0 }]
                 },
-                &mut hands
+                &mut hands,
+                &Judge::short_dict()
             ),
             Ok(())
         );
@@ -220,7 +260,8 @@ mod tests {
                     tile: 'A',
                     position: Coordinate { x: 1, y: 0 }
                 },
-                &mut hands
+                &mut hands,
+                &Judge::short_dict()
             ),
             Err("Invalid player")
         );
@@ -232,7 +273,8 @@ mod tests {
                     tile: '&',
                     position: Coordinate { x: 1, y: 0 }
                 },
-                &mut hands
+                &mut hands,
+                &Judge::short_dict()
             ),
             Err("Player doesn't have that tile")
         );
@@ -354,5 +396,87 @@ mod tests {
                 vec![middle_defender, short_cross_defender, right_defender],
             )
         );
+    }
+
+    #[test]
+    fn resolve_successful_attack() {
+        let mut b = Board::from_string(
+            [
+                "_ S X _ _",
+                "_ T _ _ _",
+                "_ R _ _ _",
+                "_ _ I _ _",
+                "_ _ T _ _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
+            vec![Direction::North, Direction::South],
+        )
+        .unwrap();
+        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+
+        b.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            &mut hands,
+            &Judge::short_dict(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            b.to_string(),
+            [
+                "_ S X _ _",
+                "_ T _ _ _",
+                "_ R _ _ _",
+                "_ A _ _ _",
+                "_ _ _ _ _",
+            ]
+            .join("\n"),
+        )
+    }
+
+    #[test]
+    fn resolve_failed_attack() {
+        let mut b = Board::from_string(
+            [
+                "_ X X _ _",
+                "_ T _ _ _",
+                "_ R _ _ _",
+                "_ _ I _ _",
+                "_ _ T _ _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
+            vec![Direction::North, Direction::South],
+        )
+        .unwrap();
+        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+
+        b.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            &mut hands,
+            &Judge::short_dict(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            b.to_string(),
+            [
+                "_ _ X _ _",
+                "_ _ _ _ _",
+                "_ _ _ _ _",
+                "_ _ I _ _",
+                "_ _ T _ _",
+            ]
+            .join("\n"),
+        )
     }
 }

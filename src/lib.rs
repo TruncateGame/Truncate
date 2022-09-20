@@ -10,6 +10,7 @@ use moves::*;
 pub struct Game {
     board: board::Board,
     hands: hand::Hands,
+    judge: battle::Judge,
     next_player: usize,
 }
 
@@ -30,7 +31,8 @@ impl Game {
             return Err("Only the next player can play");
         }
 
-        self.board.make_move(next_move, &mut self.hands)?;
+        self.board
+            .make_move(next_move, &mut self.hands, &self.judge)?;
         Ok(())
     }
 }
