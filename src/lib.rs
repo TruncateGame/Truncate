@@ -1,7 +1,7 @@
 mod bag;
-mod battle;
 mod board;
 mod hand;
+mod judge;
 mod moves;
 
 use moves::*;
@@ -10,8 +10,9 @@ use moves::*;
 pub struct Game {
     board: board::Board,
     hands: hand::Hands,
-    judge: battle::Judge,
+    judge: judge::Judge,
     next_player: usize,
+    winner: Option<usize>,
 }
 
 impl Game {

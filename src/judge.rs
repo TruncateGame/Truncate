@@ -1,6 +1,7 @@
+use super::board::{Board, Direction, Square};
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{self, prelude::*, BufReader};
+use std::io::{prelude::*, BufReader};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
@@ -35,6 +36,23 @@ impl Judge {
         Self { dictionary }
     }
 
+    // A player wins if they reach the opposite side of the board
+    // TODO: accept a config that chooses between different win conditions, like occupying enough quadrants
+    // TODO: error (or possibly return a tie) if there are multiple winners - this assume turn based play
+    // TODO: put this somewhere better, it conceptually works as a judge associated function, but it only uses values from the board
+    pub fn winner(board: &Board) -> Option<usize> {
+        for (potential_winner, orientation) in board.get_orientations().iter().enumerate() {
+            for coordinate in board.get_edge(orientation.opposite()) {
+                if let Ok(Square::Occupied(occupier, _)) = board.get(coordinate) {
+                    if potential_winner == occupier {
+                        return Some(potential_winner);
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub fn short_dict() -> Self {
         Self::new(vec!["BIG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS"]) // TODO: Collins 2018 list
     }
@@ -44,7 +62,7 @@ impl Judge {
     // Otherwise the attacker wins
     //
     // There is a defender's advantage, so an attacking word has to be at least 2 letters longer than a defending word to be stronger than it.
-    pub fn Battle(&self, attackers: Vec<String>, defenders: Vec<String>) -> Outcome {
+    pub fn battle(&self, attackers: Vec<String>, defenders: Vec<String>) -> Outcome {
         // If there are no attackers or no defenders there is no battle
         if attackers.is_empty() || defenders.is_empty() {
             return Outcome::NoBattle;
@@ -92,31 +110,36 @@ impl Judge {
 
 #[cfg(test)]
 mod tests {
+    use crate::board::Coordinate;
+
     use super::*;
 
     #[test]
-    fn NoBattle_without_combatants() {
+    fn no_battle_without_combatants() {
         let j = Judge::short_dict();
-        assert_eq!(j.Battle(vec![word()], vec![]), Outcome::NoBattle);
-        assert_eq!(j.Battle(vec![], vec![word()]), Outcome::NoBattle);
-        assert_eq!(j.Battle(vec![], vec![]), Outcome::NoBattle);
+        assert_eq!(j.battle(vec![word()], vec![]), Outcome::NoBattle);
+        assert_eq!(j.battle(vec![], vec![word()]), Outcome::NoBattle);
+        assert_eq!(j.battle(vec![], vec![]), Outcome::NoBattle);
     }
 
     #[test]
     fn attacker_invalid() {
         let j = Judge::short_dict();
-        assert_eq!(j.Battle(vec![xyz()], vec![big()]), Outcome::DefenderWins);
-        assert_eq!(j.Battle(vec![x__yz()], vec![big()]), Outcome::DefenderWins);
+        assert_eq!(j.battle(vec![xyz()], vec![big()]), Outcome::DefenderWins);
         assert_eq!(
-            j.Battle(vec![xyz(), jolly()], vec![big()]),
+            j.battle(vec![long_xyz()], vec![big()]),
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.Battle(vec![big(), xyz()], vec![big()]),
+            j.battle(vec![xyz(), jolly()], vec![big()]),
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.Battle(vec![xyz(), big()], vec![big()]),
+            j.battle(vec![big(), xyz()], vec![big()]),
+            Outcome::DefenderWins
+        );
+        assert_eq!(
+            j.battle(vec![xyz(), big()], vec![big()]),
             Outcome::DefenderWins
         );
     }
@@ -125,19 +148,19 @@ mod tests {
     fn defender_invalid() {
         let j = Judge::short_dict();
         assert_eq!(
-            j.Battle(vec![big()], vec![xyz()]),
+            j.battle(vec![big()], vec![xyz()]),
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.Battle(vec![big()], vec![x__yz()]),
+            j.battle(vec![big()], vec![long_xyz()]),
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.Battle(vec![big()], vec![big(), xyz()]),
+            j.battle(vec![big()], vec![big(), xyz()]),
             Outcome::AttackerWins(vec![1])
         );
         assert_eq!(
-            j.Battle(vec![big()], vec![xyz(), big()]),
+            j.battle(vec![big()], vec![xyz(), big()]),
             Outcome::AttackerWins(vec![0])
         );
     }
@@ -145,9 +168,9 @@ mod tests {
     #[test]
     fn attacker_weaker() {
         let j = Judge::short_dict();
-        assert_eq!(j.Battle(vec![jolly()], vec![folk()]), Outcome::DefenderWins);
+        assert_eq!(j.battle(vec![jolly()], vec![folk()]), Outcome::DefenderWins);
         assert_eq!(
-            j.Battle(vec![jolly(), big()], vec![folk()]),
+            j.battle(vec![jolly(), big()], vec![folk()]),
             Outcome::DefenderWins
         );
     }
@@ -156,15 +179,18 @@ mod tests {
     fn defender_weaker() {
         let j = Judge::short_dict();
         assert_eq!(
-            j.Battle(vec![jolly()], vec![fat()]),
+            j.battle(vec![jolly()], vec![fat()]),
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.Battle(vec![jolly(), big()], vec![fat()]),
+            j.battle(vec![jolly(), big()], vec![fat()]),
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.Battle(vec![jolly()], vec![fat(), big(), jolly(), folk(), x__yz()]),
+            j.battle(
+                vec![jolly()],
+                vec![fat(), big(), jolly(), folk(), long_xyz()]
+            ),
             Outcome::AttackerWins(vec![0, 1, 4])
         );
     }
@@ -176,6 +202,29 @@ mod tests {
         assert!(!j.valid(&String::from("zyzzyvava")));
     }
 
+    #[test]
+    fn win_condition() {
+        let mut b = Board::from_string(
+            [
+                "X _ _ _ _",
+                "X _ _ _ _",
+                "X _ _ _ _",
+                "X _ _ _ _",
+                "X _ _ _ _",
+                "_ _ _ _ _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 0, y: 0 }],
+            vec![Direction::North],
+        )
+        .unwrap();
+
+        assert_eq!(Judge::winner(&b), None);
+        b.set(Coordinate { x: 0, y: 5 }, 0, 'X').unwrap();
+        assert_eq!(Judge::winner(&b), Some(0));
+    }
+
+    // Utils
     // TODO: Refactor this silly thing! Just wanted immediate access to these strings
     fn jolly() -> String {
         String::from("JOLLY")
@@ -189,7 +238,7 @@ mod tests {
     fn big() -> String {
         String::from("BIG")
     }
-    fn x__yz() -> String {
+    fn long_xyz() -> String {
         String::from("XYZXYZXYZ")
     }
     fn folk() -> String {

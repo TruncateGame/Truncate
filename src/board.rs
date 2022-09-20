@@ -3,7 +3,7 @@ use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::battle::Judge;
+use crate::judge::Judge;
 
 #[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
@@ -40,8 +40,18 @@ impl Direction {
         matches!(self, Direction::South) || matches!(self, Direction::West)
     }
 
+    // Returns whether horizontal words should be read from left to right if played by a player on this side of the board
     fn read_left_to_right(self) -> bool {
         matches!(self, Direction::South) || matches!(self, Direction::East)
+    }
+
+    pub fn opposite(self) -> Self {
+        match self {
+            Direction::North => Direction::South,
+            Direction::South => Direction::North,
+            Direction::East => Direction::West,
+            Direction::West => Direction::East,
+        }
     }
 }
 
@@ -55,6 +65,7 @@ pub struct Board {
 impl Board {
     pub fn new(width: usize, height: usize) -> Self {
         // TODO: is all this internal usize <-> isize conversion worth accepting isize as valid coordinates? Is that only used for simpler traversal algorithms?
+        // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
         let roots = vec![
             Coordinate {
                 x: width as isize / 2 + width as isize % 2 - 1,
@@ -385,6 +396,47 @@ impl Board {
             Ok(strings)
         }
     }
+
+    pub fn get_orientations(&self) -> &Vec<Direction> {
+        &self.orientations
+    }
+
+    pub fn width(&self) -> usize {
+        self.squares[0].len()
+    }
+
+    pub fn height(&self) -> usize {
+        self.squares.len()
+    }
+
+    pub fn get_edge(&self, side: Direction) -> Vec<Coordinate> {
+        match side {
+            Direction::North => (0..self.width())
+                .map(|x| Coordinate {
+                    x: x as isize,
+                    y: 0,
+                })
+                .collect(),
+            Direction::South => (0..self.width())
+                .map(|x| Coordinate {
+                    x: x as isize,
+                    y: (self.height() - 1) as isize,
+                })
+                .collect(),
+            Direction::East => (0..self.width())
+                .map(|y| Coordinate {
+                    x: (self.width() - 1) as isize,
+                    y: y as isize,
+                })
+                .collect(),
+            Direction::West => (0..self.width())
+                .map(|y| Coordinate {
+                    x: 0,
+                    y: y as isize,
+                })
+                .collect(),
+        }
+    }
 }
 
 impl Default for Board {
@@ -470,6 +522,13 @@ mod tests {
             Board::new(6, 1).to_string(),
             ["    _      ", "_ _ _ _ _ _", "      _    "].join("\n")
         );
+    }
+
+    #[test]
+    fn width_height() {
+        let b = Board::new(6, 1);
+        assert_eq!(b.width(), 6);
+        assert_eq!(b.height(), 3);
     }
 
     #[test]
@@ -864,5 +923,44 @@ mod tests {
             words.sort();
             assert_eq!(words, vec!["NAG", "ZEN"]);
         }
+    }
+
+    #[test]
+    fn get_edge() {
+        let b = Board::new(3, 1);
+        assert_eq!(
+            b.get_edge(Direction::North),
+            vec![
+                Coordinate { x: 0, y: 0 },
+                Coordinate { x: 1, y: 0 },
+                Coordinate { x: 2, y: 0 }
+            ]
+        );
+
+        assert_eq!(
+            b.get_edge(Direction::South),
+            vec![
+                Coordinate { x: 0, y: 2 },
+                Coordinate { x: 1, y: 2 },
+                Coordinate { x: 2, y: 2 }
+            ]
+        );
+        assert_eq!(
+            b.get_edge(Direction::East),
+            vec![
+                Coordinate { y: 0, x: 2 },
+                Coordinate { y: 1, x: 2 },
+                Coordinate { y: 2, x: 2 }
+            ]
+        );
+
+        assert_eq!(
+            b.get_edge(Direction::West),
+            vec![
+                Coordinate { y: 0, x: 0 },
+                Coordinate { y: 1, x: 0 },
+                Coordinate { y: 2, x: 0 }
+            ]
+        );
     }
 }

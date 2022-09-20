@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use super::battle::{Judge, Outcome};
 use super::board::{Board, Coordinate, Square};
 use super::hand::Hands;
+use super::judge::{Judge, Outcome};
 
 pub enum Move {
     // TODO: make Move a struct and make player a top level property of it
@@ -86,7 +86,7 @@ impl Board {
         let defending_words = self
             .word_strings(&defenders)
             .expect("Words were just found and should be valid");
-        match judge.Battle(attacking_words, defending_words) {
+        match judge.battle(attacking_words, defending_words) {
             Outcome::NoBattle => {}
             Outcome::DefenderWins => {
                 for word in attackers {
