@@ -21,7 +21,7 @@ impl Default for Judge {
         let mut dictionary = HashSet::new();
 
         for line in reader.lines() {
-            dictionary.insert(line.expect("bad encoding"));
+            dictionary.insert(line.expect("bad encoding").to_lowercase());
         }
         Self { dictionary }
     }
@@ -31,7 +31,7 @@ impl Judge {
     pub fn new(words: Vec<&str>) -> Self {
         let mut dictionary = HashSet::new();
         for word in words {
-            dictionary.insert(String::from(word));
+            dictionary.insert(word.to_lowercase());
         }
         Self { dictionary }
     }
@@ -53,11 +53,6 @@ impl Judge {
         None
     }
 
-    #[cfg(test)]
-    pub fn short_dict() -> Self {
-        Self::new(vec!["BIG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS"]) // TODO: Collins 2018 list
-    }
-
     // If there are no attackers or no defenders there is no battle
     // The defender wins if any attacking word is invalid, or all defending words are valid and stronger than the longest attacking words
     // Otherwise the attacker wins
@@ -70,11 +65,7 @@ impl Judge {
         }
 
         // The defender wins if any attacking word is invalid
-        let attackers_invalid = attackers
-            .iter()
-            .map(|word| !self.valid(word))
-            .reduce(|prev, curr| prev || curr);
-        if attackers_invalid.expect("already checked length") {
+        if attackers.iter().any(|word| !self.valid(word)) {
             return Outcome::DefenderWins;
         }
 
@@ -104,8 +95,8 @@ impl Judge {
         Outcome::AttackerWins(weak_defenders)
     }
 
-    fn valid(&self, word: &String) -> bool {
-        self.dictionary.contains(word)
+    fn valid<S: AsRef<str>>(&self, word: S) -> bool {
+        self.dictionary.contains(&word.as_ref().to_lowercase())
     }
 }
 
@@ -117,7 +108,7 @@ mod tests {
 
     #[test]
     fn no_battle_without_combatants() {
-        let j = Judge::short_dict();
+        let j = short_dict();
         assert_eq!(j.battle(vec![word()], vec![]), Outcome::NoBattle);
         assert_eq!(j.battle(vec![], vec![word()]), Outcome::NoBattle);
         assert_eq!(j.battle(vec![], vec![]), Outcome::NoBattle);
@@ -125,7 +116,7 @@ mod tests {
 
     #[test]
     fn attacker_invalid() {
-        let j = Judge::short_dict();
+        let j = short_dict();
         assert_eq!(j.battle(vec![xyz()], vec![big()]), Outcome::DefenderWins);
         assert_eq!(
             j.battle(vec![long_xyz()], vec![big()]),
@@ -147,7 +138,7 @@ mod tests {
 
     #[test]
     fn defender_invalid() {
-        let j = Judge::short_dict();
+        let j = short_dict();
         assert_eq!(
             j.battle(vec![big()], vec![xyz()]),
             Outcome::AttackerWins(vec![0])
@@ -168,7 +159,7 @@ mod tests {
 
     #[test]
     fn attacker_weaker() {
-        let j = Judge::short_dict();
+        let j = short_dict();
         assert_eq!(j.battle(vec![jolly()], vec![folk()]), Outcome::DefenderWins);
         assert_eq!(
             j.battle(vec![jolly(), big()], vec![folk()]),
@@ -178,7 +169,7 @@ mod tests {
 
     #[test]
     fn defender_weaker() {
-        let j = Judge::short_dict();
+        let j = short_dict();
         assert_eq!(
             j.battle(vec![jolly()], vec![fat()]),
             Outcome::AttackerWins(vec![0])
@@ -199,8 +190,10 @@ mod tests {
     #[test]
     fn collins2018() {
         let j = Judge::default();
-        assert!(j.valid(&String::from("zyzzyva")));
-        assert!(!j.valid(&String::from("zyzzyvava")));
+        assert!(j.valid("zyzzyva"));
+        assert!(!j.valid("zyzzyvava"));
+        // Casing indepdendent
+        assert!(j.valid("ZYZZYVA"));
     }
 
     #[test]
@@ -226,6 +219,10 @@ mod tests {
     }
 
     // Utils
+    pub fn short_dict() -> Judge {
+        Judge::new(vec!["BIG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS"]) // TODO: Collins 2018 list
+    }
+
     // TODO: Refactor this silly thing! Just wanted immediate access to these strings
     fn jolly() -> String {
         String::from("JOLLY")
