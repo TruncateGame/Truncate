@@ -90,6 +90,7 @@ impl Board {
         }
     }
 
+    #[cfg(test)]
     pub fn from_string<'a>(
         s: String,
         roots: Vec<Coordinate>,
@@ -199,7 +200,9 @@ impl Board {
 
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
     pub fn clear(&mut self, position: Coordinate) {
-        self.squares[position.y as usize][position.x as usize] = Some(Square::Empty);
+        if self.squares[position.y as usize][position.x as usize].is_some() {
+            self.squares[position.y as usize][position.x as usize] = Some(Square::Empty);
+        }
     }
 
     pub fn truncate(&mut self) {
@@ -211,8 +214,8 @@ impl Board {
             }
         }
 
-        for y in 0..self.squares.len() - 1 {
-            for x in 0..self.squares.len() - 1 {
+        for y in 0..self.height() {
+            for x in 0..self.width() {
                 let c = Coordinate {
                     x: x as isize,
                     y: y as isize,
@@ -356,11 +359,13 @@ impl Board {
             }
         }
 
-        // 1 letter words don't count
-        for i in (0..=1).rev() {
-            // TODO: use filter
-            if words[i].len() <= 1 {
-                words.remove(i);
+        // 1 letter words don't count expect when there's only one tile, in which case it does count as a word
+        if words.iter().filter(|w| w.len() == 1).count() != 2 {
+            for i in (0..=1).rev() {
+                // TODO: use filter
+                if words[i].len() <= 1 {
+                    words.remove(i);
+                }
             }
         }
 
@@ -409,33 +414,58 @@ impl Board {
         self.squares.len()
     }
 
-    pub fn get_edge(&self, side: Direction) -> Vec<Coordinate> {
+    // Get the row just beside the edge
+    pub fn get_near_edge(&self, side: Direction) -> Vec<Coordinate> {
         match side {
             Direction::North => (0..self.width())
                 .map(|x| Coordinate {
                     x: x as isize,
-                    y: 0,
+                    y: 1,
                 })
                 .collect(),
             Direction::South => (0..self.width())
                 .map(|x| Coordinate {
                     x: x as isize,
-                    y: (self.height() - 1) as isize,
+                    y: (self.height() - 2) as isize,
                 })
                 .collect(),
             Direction::East => (0..self.width())
                 .map(|y| Coordinate {
-                    x: (self.width() - 1) as isize,
+                    x: (self.width() - 2) as isize,
                     y: y as isize,
                 })
                 .collect(),
             Direction::West => (0..self.width())
                 .map(|y| Coordinate {
-                    x: 0,
+                    x: 1,
                     y: y as isize,
                 })
                 .collect(),
         }
+    }
+
+    pub fn render_squares<F: Fn(&Square) -> String, G: Fn(usize, &String) -> String>(
+        &self,
+        square_renderer: F,
+        line_transform: G,
+    ) -> String {
+        self.squares
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|opt| match opt {
+                        Some(sq) => square_renderer(sq),
+                        None => " ".to_string(),
+                    })
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            })
+            .collect::<Vec<String>>()
+            .iter()
+            .enumerate()
+            .map(|(line_number, line)| line_transform(line_number, line))
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 }
 
@@ -447,21 +477,11 @@ impl Default for Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let str = self
-            .squares
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|opt| match opt {
-                        Some(sq) => sq.to_string(),
-                        None => " ".to_string(),
-                    })
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            })
-            .collect::<Vec<String>>()
-            .join("\n");
-        write!(f, "{}", str)
+        write!(
+            f,
+            "{}",
+            self.render_squares(|sq| sq.to_string(), |_, s| s.clone()) // TODO: remove this clone
+        )
     }
 }
 
@@ -489,6 +509,34 @@ impl fmt::Display for Square {
             Square::Empty => write!(f, "_"),
             Square::Occupied(_, tile) => write!(f, "{}", tile),
         }
+    }
+}
+
+impl Square {
+    pub fn to_oriented_string(&self, orientations: &Vec<Direction>) -> String {
+        match &self {
+            Square::Empty => String::from("_"),
+            Square::Occupied(player, tile) => {
+                if *(orientations
+                    .get(*player)
+                    .expect("Should only pass valid players"))
+                    == Direction::North
+                {
+                    Self::flip(tile).to_string()
+                } else {
+                    tile.to_string()
+                }
+            }
+        }
+    }
+
+    fn flip(character: &char) -> char {
+        const flipped: [char; 26] = [
+            // TODO: does this recompute every time, or is it created at compile time since it's a const?
+            '∀', 'ꓭ', 'Ͻ', 'ᗡ', 'Ǝ', 'ᖵ', '⅁', 'H', 'I', 'ᒋ', 'ꓘ', '⅂', 'ꟽ', 'N', 'O', 'Ԁ', 'Ꝺ',
+            'ꓤ', 'S', 'ꓕ', 'Ո', 'Ʌ', 'Ϻ', 'X', '⅄', 'Z',
+        ];
+        flipped[(*character as usize) - 65]
     }
 }
 
@@ -926,41 +974,48 @@ mod tests {
     }
 
     #[test]
-    fn get_edge() {
+    fn get_near_edge() {
         let b = Board::new(3, 1);
         assert_eq!(
-            b.get_edge(Direction::North),
+            b.get_near_edge(Direction::North),
             vec![
-                Coordinate { x: 0, y: 0 },
-                Coordinate { x: 1, y: 0 },
-                Coordinate { x: 2, y: 0 }
+                Coordinate { x: 0, y: 1 },
+                Coordinate { x: 1, y: 1 },
+                Coordinate { x: 2, y: 1 }
             ]
         );
 
         assert_eq!(
-            b.get_edge(Direction::South),
+            b.get_near_edge(Direction::South),
             vec![
-                Coordinate { x: 0, y: 2 },
-                Coordinate { x: 1, y: 2 },
-                Coordinate { x: 2, y: 2 }
+                Coordinate { x: 0, y: 1 },
+                Coordinate { x: 1, y: 1 },
+                Coordinate { x: 2, y: 1 }
             ]
         );
         assert_eq!(
-            b.get_edge(Direction::East),
+            b.get_near_edge(Direction::East),
             vec![
-                Coordinate { y: 0, x: 2 },
-                Coordinate { y: 1, x: 2 },
-                Coordinate { y: 2, x: 2 }
+                Coordinate { y: 0, x: 1 },
+                Coordinate { y: 1, x: 1 },
+                Coordinate { y: 2, x: 1 }
             ]
         );
 
         assert_eq!(
-            b.get_edge(Direction::West),
+            b.get_near_edge(Direction::West),
             vec![
-                Coordinate { y: 0, x: 0 },
-                Coordinate { y: 1, x: 0 },
-                Coordinate { y: 2, x: 0 }
+                Coordinate { y: 0, x: 1 },
+                Coordinate { y: 1, x: 1 },
+                Coordinate { y: 2, x: 1 }
             ]
         );
+    }
+
+    #[test]
+    fn flipped() {
+        assert_eq!(Square::flip(&'A'), '∀');
+        assert_eq!(Square::flip(&'J'), 'ᒋ');
+        assert_eq!(Square::flip(&'Z'), 'Z');
     }
 }

@@ -42,7 +42,7 @@ impl Judge {
     // TODO: put this somewhere better, it conceptually works as a judge associated function, but it only uses values from the board
     pub fn winner(board: &Board) -> Option<usize> {
         for (potential_winner, orientation) in board.get_orientations().iter().enumerate() {
-            for coordinate in board.get_edge(orientation.opposite()) {
+            for coordinate in board.get_near_edge(orientation.opposite()) {
                 if let Ok(Square::Occupied(occupier, _)) = board.get(coordinate) {
                     if potential_winner == occupier {
                         return Some(potential_winner);
@@ -53,6 +53,7 @@ impl Judge {
         None
     }
 
+    #[cfg(test)]
     pub fn short_dict() -> Self {
         Self::new(vec!["BIG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS"]) // TODO: Collins 2018 list
     }
@@ -206,12 +207,12 @@ mod tests {
     fn win_condition() {
         let mut b = Board::from_string(
             [
-                "X _ _ _ _",
-                "X _ _ _ _",
-                "X _ _ _ _",
+                "    X    ",
+                "X X X _ _",
                 "X _ _ _ _",
                 "X _ _ _ _",
                 "_ _ _ _ _",
+                "    _    ",
             ]
             .join("\n"),
             vec![Coordinate { x: 0, y: 0 }],
@@ -220,7 +221,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(Judge::winner(&b), None);
-        b.set(Coordinate { x: 0, y: 5 }, 0, 'X').unwrap();
+        b.set(Coordinate { x: 0, y: 4 }, 0, 'X').unwrap();
         assert_eq!(Judge::winner(&b), Some(0));
     }
 

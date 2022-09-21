@@ -34,8 +34,9 @@ impl Board {
                 match self.get(position) {
                     Err(_) => return Err("Couldn't get square"), // TODO: propogate the internal error, ideally succinctly with the ? operator. This is hard because of a borrow checker issue https://github.com/rust-lang/rfcs/blob/master/text/2094-nll.md#problem-case-3-conditional-control-flow-across-functions
                     Ok(sq) => match sq {
-                        Square::Occupied(_, _) => {
-                            return Err("Cannot place a tile in an occupied square")
+                        Square::Occupied(player, value) => {
+                            println!("Square owned by player {} with value '{}'", player, value);
+                            return Err("Cannot place a tile in an occupied square.");
                         }
                         Square::Empty => {}
                     },

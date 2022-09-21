@@ -31,6 +31,10 @@ impl Hands {
             }
         }
     }
+
+    pub fn get_hand(&self, player: usize) -> &Vec<char> {
+        &self.hands[player]
+    }
 }
 
 impl Default for Hands {
