@@ -139,6 +139,10 @@ mod tests {
     use super::super::bag::tests as TileUtils;
     use super::*;
 
+    pub fn short_dict() -> Judge {
+        Judge::new(vec!["BIG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS"]) // TODO: Collins 2018 list
+    }
+
     #[test]
     fn invalid_placement_locations() {
         let mut b = Board::new(3, 1);
@@ -150,7 +154,7 @@ mod tests {
             position: Coordinate { x: 10, y: 10 },
         };
         assert_eq!(
-            b.make_move(out_of_bounds, &mut hands, &Judge::short_dict()),
+            b.make_move(out_of_bounds, &mut hands, &short_dict()),
             // Err("y-coordinate is too large for board height") // <- TODO
             Err("Couldn't get square")
         );
@@ -161,7 +165,7 @@ mod tests {
             position: Coordinate { x: 10, y: 0 },
         };
         assert_eq!(
-            b.make_move(out_of_bounds, &mut hands, &Judge::short_dict()),
+            b.make_move(out_of_bounds, &mut hands, &short_dict()),
             // Err("x-coordinate is too large for board width") // <- TODO
             Err("Couldn't get square")
         );
@@ -172,7 +176,7 @@ mod tests {
             position: Coordinate { x: 0, y: 0 },
         };
         assert_eq!(
-            b.make_move(dead, &mut hands, &Judge::short_dict()),
+            b.make_move(dead, &mut hands, &short_dict()),
             Err("Couldn't get square")
         );
     }
@@ -191,7 +195,7 @@ mod tests {
                     position: Coordinate { x: 1, y: 0 }
                 },
                 &mut hands,
-                &Judge::short_dict()
+                &short_dict()
             ),
             Ok(())
         );
@@ -204,13 +208,13 @@ mod tests {
                     position: Coordinate { x: 1, y: 0 }
                 },
                 &mut hands,
-                &Judge::short_dict()
+                &short_dict()
             ),
             Err("Cannot place a tile in an occupied square")
         );
         // Can't place at a diagonal
         assert_eq!(
-            b.make_move(Move::Place{player: 0, tile: 'A', position: Coordinate { x: 0, y: 1 }}, &mut hands, &Judge::short_dict()),
+            b.make_move(Move::Place{player: 0, tile: 'A', position: Coordinate { x: 0, y: 1 }}, &mut hands, &short_dict()),
             Err("Must place tile on square that neighbours one of your already placed tiles, or on your root")
         );
         // Can place directly above
@@ -222,7 +226,7 @@ mod tests {
                     position: Coordinate { x: 1, y: 1 }
                 },
                 &mut hands,
-                &Judge::short_dict()
+                &short_dict()
             ),
             Ok(())
         );
@@ -235,7 +239,7 @@ mod tests {
                     position: Coordinate { x: 1, y: 1 }
                 },
                 &mut hands,
-                &Judge::short_dict()
+                &short_dict()
             ),
             Err("Cannot place a tile in an occupied square")
         );
@@ -247,7 +251,7 @@ mod tests {
                     positions: [Coordinate { x: 1, y: 1 }, Coordinate { x: 1, y: 0 }]
                 },
                 &mut hands,
-                &Judge::short_dict()
+                &short_dict()
             ),
             Ok(())
         );
@@ -266,7 +270,7 @@ mod tests {
                     position: Coordinate { x: 1, y: 0 }
                 },
                 &mut hands,
-                &Judge::short_dict()
+                &short_dict()
             ),
             Err("Invalid player")
         );
@@ -279,7 +283,7 @@ mod tests {
                     position: Coordinate { x: 1, y: 0 }
                 },
                 &mut hands,
-                &Judge::short_dict()
+                &short_dict()
             ),
             Err("Player doesn't have that tile")
         );
@@ -427,7 +431,7 @@ mod tests {
                 position: Coordinate { x: 1, y: 3 },
             },
             &mut hands,
-            &Judge::short_dict(),
+            &short_dict(),
         )
         .unwrap();
 
@@ -468,7 +472,7 @@ mod tests {
                 position: Coordinate { x: 1, y: 3 },
             },
             &mut hands,
-            &Judge::short_dict(),
+            &short_dict(),
         )
         .unwrap();
 
@@ -510,7 +514,7 @@ mod tests {
                 position: Coordinate { x: 1, y: 3 },
             },
             &mut hands,
-            &Judge::short_dict(),
+            &short_dict(),
         )
         .unwrap();
 
