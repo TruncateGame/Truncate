@@ -13,10 +13,10 @@ use std::io;
 // TODO: this whole file is absolute garbage, clean it up
 
 fn main() {
-    // let (mut game, players) = setup();
-    let (mut game, players) = test_setup();
+    clear();
+    let (mut game, players) = setup();
     loop {
-        // pre_turn(&game, &players);
+        pre_turn(&game, &players);
         match turn(&mut game) {
             Some(winner) => {
                 clear();
@@ -37,7 +37,30 @@ fn turn(game: &mut Game) -> Option<usize> {
     println!();
     println!();
     render_hand(&game);
-    place(game)
+    println!();
+
+    let mut swapping: Option<bool> = None;
+    while swapping.is_none() {
+        let choice = user_input("Press 'p' to place a tile, or 's' to swap two tiles");
+        if choice.len() != 1 {
+            println!("Sorry I couldn't read that");
+            continue;
+        }
+        let choice = choice.chars().next().unwrap();
+        if choice != 'p' && choice != 's' {
+            println!("Sorry I couldn't read that");
+            continue;
+        } else {
+            swapping = Some(choice == 's');
+        }
+    }
+
+    // TODO: allow one to go back if they change their mind
+    if swapping.unwrap() {
+        swap(game)
+    } else {
+        place(game)
+    }
 }
 
 fn render_board(game: &Game) {
@@ -113,6 +136,23 @@ fn render_hand(game: &Game) {
     );
 }
 
+fn swap(game: &mut Game) -> Option<usize> {
+    loop {
+        match game.play_move(Move::Swap {
+            player: game.next(),
+            positions: [
+                user_input_coordinate("Where is the first tile you'd like to swap?"),
+                user_input_coordinate("Where is the second tile you'd like to swap?"),
+            ],
+        }) {
+            Err(e) => {
+                println!("{}", e)
+            }
+            Ok(winner) => return winner,
+        }
+    }
+}
+
 fn place(game: &mut Game) -> Option<usize> {
     loop {
         let mut tile: Option<char> = None;
@@ -125,22 +165,9 @@ fn place(game: &mut Game) -> Option<usize> {
             }
         }
 
-        let mut position: Option<Coordinate> = None;
-        while position.is_none() {
-            let input = user_input("Where would you like to place your tile? I.e., A1");
-            if input.len() == 2 {
-                let mut chars = input.chars();
-                let y = chars.next().unwrap() as isize - 65;
-                let x = chars.next().unwrap() as isize - 49; // 48 is the character 0, and our board is 1 indexed on scren
-                position = Some(Coordinate { x, y });
-            } else {
-                println!("Sorry, I couldn't read that coordinate");
-            }
-        }
-
         match game.play_move(Move::Place {
             player: game.next(),
-            position: position.unwrap(),
+            position: user_input_coordinate("Where would you like to place your tile?"),
             tile: tile.unwrap(),
         }) {
             Err(e) => {
@@ -149,6 +176,22 @@ fn place(game: &mut Game) -> Option<usize> {
             Ok(winner) => return winner,
         }
     }
+}
+
+fn user_input_coordinate(prompt: &str) -> Coordinate {
+    let mut position: Option<Coordinate> = None;
+    while position.is_none() {
+        let input = user_input(prompt);
+        if input.len() == 2 {
+            let mut chars = input.chars();
+            let y = chars.next().unwrap() as isize - 65;
+            let x = chars.next().unwrap() as isize - 49; // 48 is the character 0, and our board is 1 indexed on scren
+            position = Some(Coordinate { x, y });
+        } else {
+            println!("Sorry, I couldn't read that coordinate");
+        }
+    }
+    position.unwrap()
 }
 
 fn pre_turn(game: &Game, players: &Vec<String>) {
