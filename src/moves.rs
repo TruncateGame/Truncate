@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+use crate::error::GamePlayError;
+use crate::game::Game;
+
 use super::board::{Board, Coordinate, Square};
 use super::hand::Hands;
 use super::judge::{Judge, Outcome};
@@ -24,30 +27,22 @@ impl Board {
         game_move: Move,
         hands: &'a mut Hands,
         judge: &Judge,
-    ) -> Result<(), &str> {
+    ) -> Result<(), GamePlayError> {
         match game_move {
             Move::Place {
                 player,
                 tile,
                 position,
             } => {
-                match self.get(position) {
-                    Err(_) => return Err("Couldn't get square"), // TODO: propogate the internal error, ideally succinctly with the ? operator. This is hard because of a borrow checker issue https://github.com/rust-lang/rfcs/blob/master/text/2094-nll.md#problem-case-3-conditional-control-flow-across-functions
-                    Ok(sq) => match sq {
-                        Square::Occupied(player, value) => {
-                            println!("Square owned by player {} with value '{}'", player, value);
-                            return Err("Cannot place a tile in an occupied square");
-                        }
-                        Square::Empty => {}
-                    },
+                match self.get(position)? {
+                    Square::Occupied(player, value) => {
+                        println!("Square owned by player {} with value '{}'", player, value);
+                        return Err(GamePlayError::OccupiedPlace);
+                    }
+                    Square::Empty => {}
                 };
 
-                let root = match self.get_root(player) {
-                    Err(_) => return Err("Invalid player"), // TODO: propogate using ? with Polonius https://github.com/rust-lang/rfcs/blob/master/text/2094-nll.md#problem-case-3-conditional-control-flow-across-functions
-                    Ok(coordinate) => coordinate,
-                };
-
-                if position != root
+                if position != self.get_root(player)?
                     && self
                         .neighbouring_squares(position)
                         .iter()
@@ -58,13 +53,11 @@ impl Board {
                         .count()
                         == 0
                 {
-                    return Err("Must place tile on square that neighbours one of your already placed tiles, or on your root");
+                    return Err(GamePlayError::NonAdjacentPlace);
                 }
 
-                hands.use_tile(player, tile)?; // Use tile checks that the player is valid and has that letter
-                if let Err(_) = self.set(position, player, tile) {
-                    return Err("Couldn't set tile"); // TODO: pass error on post polonius
-                }
+                hands.use_tile(player, tile)?;
+                self.set(position, player, tile)?;
                 self.resolve_attack(player, position, judge);
                 Ok(())
             }
@@ -148,36 +141,37 @@ mod tests {
         let mut b = Board::new(3, 1);
         let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
 
+        let position = Coordinate { x: 10, y: 10 };
         let out_of_bounds = Move::Place {
             player: 0,
             tile: 'A',
-            position: Coordinate { x: 10, y: 10 },
+            position,
         };
         assert_eq!(
             b.make_move(out_of_bounds, &mut hands, &short_dict()),
-            // Err("y-coordinate is too large for board height") // <- TODO
-            Err("Couldn't get square")
+            Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
+        let position = Coordinate { x: 10, y: 0 };
         let out_of_bounds = Move::Place {
             player: 0,
             tile: 'A',
-            position: Coordinate { x: 10, y: 0 },
+            position,
         };
         assert_eq!(
             b.make_move(out_of_bounds, &mut hands, &short_dict()),
-            // Err("x-coordinate is too large for board width") // <- TODO
-            Err("Couldn't get square")
+            Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
+        let position = Coordinate { x: 0, y: 0 };
         let dead = Move::Place {
             player: 0,
             tile: 'A',
-            position: Coordinate { x: 0, y: 0 },
+            position,
         };
         assert_eq!(
             b.make_move(dead, &mut hands, &short_dict()),
-            Err("Couldn't get square")
+            Err(GamePlayError::InvalidPosition { position })
         );
     }
 
@@ -210,12 +204,20 @@ mod tests {
                 &mut hands,
                 &short_dict()
             ),
-            Err("Cannot place a tile in an occupied square")
+            Err(GamePlayError::OccupiedPlace)
         );
         // Can't place at a diagonal
         assert_eq!(
-            b.make_move(Move::Place{player: 0, tile: 'A', position: Coordinate { x: 0, y: 1 }}, &mut hands, &short_dict()),
-            Err("Must place tile on square that neighbours one of your already placed tiles, or on your root")
+            b.make_move(
+                Move::Place {
+                    player: 0,
+                    tile: 'A',
+                    position: Coordinate { x: 0, y: 1 }
+                },
+                &mut hands,
+                &short_dict()
+            ),
+            Err(GamePlayError::NonAdjacentPlace)
         );
         // Can place directly above
         assert_eq!(
@@ -241,7 +243,7 @@ mod tests {
                 &mut hands,
                 &short_dict()
             ),
-            Err("Cannot place a tile in an occupied square")
+            Err(GamePlayError::OccupiedPlace)
         );
 
         assert_eq!(
@@ -272,7 +274,7 @@ mod tests {
                 &mut hands,
                 &short_dict()
             ),
-            Err("Invalid player")
+            Err(GamePlayError::NonExistentPlayer { index: 2 })
         );
 
         assert_eq!(
@@ -285,7 +287,10 @@ mod tests {
                 &mut hands,
                 &short_dict()
             ),
-            Err("Player doesn't have that tile")
+            Err(GamePlayError::PlayerDoesNotHaveTile {
+                player: 0,
+                tile: '&'
+            })
         );
     }
 

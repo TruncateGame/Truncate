@@ -1,3 +1,5 @@
+use crate::error::GamePlayError;
+
 use super::bag::TileBag;
 
 pub struct Hands {
@@ -17,17 +19,17 @@ impl Hands {
         Self { hands, bag }
     }
 
-    pub fn use_tile(&mut self, player: usize, tile: char) -> Result<(), &str> {
-        if let Some(player) = self.hands.get_mut(player) {
-            match player.iter().position(|t| t == &tile) {
-                None => Err("Player doesn't have that tile"), // TODO: say which player and tile
+    pub fn use_tile(&mut self, player: usize, tile: char) -> Result<(), GamePlayError> {
+        if let Some(hand) = self.hands.get_mut(player) {
+            match hand.iter().position(|t| t == &tile) {
+                None => Err(GamePlayError::PlayerDoesNotHaveTile { player, tile }),
                 Some(index) => {
-                    player[index] = self.bag.draw_tile();
+                    hand[index] = self.bag.draw_tile();
                     Ok(())
                 }
             }
         } else {
-            Err("Invalid player") // TODO: say which player is wrong
+            Err(GamePlayError::NonExistentPlayer { index: player })
         }
     }
 
@@ -45,6 +47,8 @@ impl Default for Hands {
 
 #[cfg(test)]
 mod tests {
+    use crate::game::Game;
+
     use super::super::bag::tests as TileUtils;
     use super::*;
 
@@ -73,7 +77,7 @@ mod tests {
     }
 
     #[test]
-    fn get_works() -> Result<(), String> {
+    fn get_works() -> Result<(), GamePlayError> {
         let mut h = Hands::new(2, 12, TileUtils::a_b_bag());
         // Make sure that we get an equal amount of As and Bs if we draw an even number
         let mut drawn_tiles: Vec<char> = Vec::new();
@@ -93,7 +97,16 @@ mod tests {
     #[test]
     fn get_errors() {
         let mut h = Hands::new(2, 7, TileUtils::trivial_bag());
-        assert_eq!(h.use_tile(2, 'A'), Err("Invalid player"));
-        assert_eq!(h.use_tile(0, 'B'), Err("Player doesn't have that tile"));
+        assert_eq!(
+            h.use_tile(2, 'A'),
+            Err(GamePlayError::NonExistentPlayer { index: 2 })
+        );
+        assert_eq!(
+            h.use_tile(0, 'B'),
+            Err(GamePlayError::PlayerDoesNotHaveTile {
+                player: 0,
+                tile: 'B'
+            })
+        );
     }
 }

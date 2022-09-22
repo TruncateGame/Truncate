@@ -1,9 +1,11 @@
+use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::judge::Judge;
+use crate::error::GamePlayError;
+use crate::game::Game;
 
 #[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
@@ -74,21 +76,26 @@ impl Board {
     //  - there are at least 2 roots
     //  - the roots are at empty squares
 
-    pub fn get(&self, position: Coordinate) -> Result<Square, &str> {
+    pub fn get(&self, position: Coordinate) -> Result<Square, GamePlayError> {
         match self
             .squares
             .get(position.y)
             .and_then(|row| row.get(position.x))
         {
             Some(Some(square)) => Ok(*square),
-            Some(None) => Err("Invalid position"),
-            None => Err("Coordinate is not within board dimensions"),
+            Some(None) => Err(GamePlayError::InvalidPosition { position }),
+            None => Err(GamePlayError::OutSideBoardDimensions { position }),
         }
     }
 
-    pub fn set(&mut self, position: Coordinate, player: usize, value: char) -> Result<(), &str> {
+    pub fn set(
+        &mut self,
+        position: Coordinate,
+        player: usize,
+        value: char,
+    ) -> Result<(), GamePlayError> {
         if self.roots.get(player).is_none() {
-            return Err("player does not exist");
+            return Err(GamePlayError::NonExistentPlayer { index: player });
         }
 
         match self
@@ -100,8 +107,8 @@ impl Board {
                 *square = Square::Occupied(player, value);
                 Ok(())
             }
-            Some(None) => Err("Invalid position"),
-            None => Err("Coordinate is not within board dimensions"),
+            Some(None) => Err(GamePlayError::InvalidPosition { position }),
+            None => Err(GamePlayError::OutSideBoardDimensions { position }),
         }
     }
 
@@ -135,10 +142,10 @@ impl Board {
         }
     }
 
-    pub fn get_root(&self, player: usize) -> Result<Coordinate, &str> {
+    pub fn get_root(&self, player: usize) -> Result<Coordinate, GamePlayError> {
         match self.roots.get(player) {
             Some(player) => Ok(*player),
-            None => Err("Invalid player"),
+            None => Err(GamePlayError::NonExistentPlayer { index: player }),
         }
     }
 
@@ -179,32 +186,25 @@ impl Board {
         set
     }
 
-    pub fn swap(&mut self, player: usize, positions: [Coordinate; 2]) -> Result<(), &str> {
+    pub fn swap(&mut self, player: usize, positions: [Coordinate; 2]) -> Result<(), GamePlayError> {
         if positions[0] == positions[1] {
-            return Err("Can't swap a square with itself");
+            return Err(GamePlayError::SelfSwap);
         }
 
         let mut tiles = ['&'; 2];
         for (i, pos) in positions.iter().enumerate() {
-            match self.get(*pos) {
-                // TODO: use ? and (possibly) combine function into single match post Polonius
-                Err(_) => return Err("Invalid swap position"),
-                Ok(square) => match square {
-                    Square::Empty => return Err("Must swap between occupied squares"),
-                    Square::Occupied(owner, tile) => {
-                        if owner != player {
-                            return Err("Player must own the squares they swap");
-                        }
-                        tiles[i] = tile;
+            match self.get(*pos)? {
+                Square::Empty => return Err(GamePlayError::UnoccupiedSwap),
+                Square::Occupied(owner, tile) => {
+                    if owner != player {
+                        return Err(GamePlayError::UnownedSwap);
                     }
-                },
+                    tiles[i] = tile;
+                }
             };
         }
 
-        // TODO: use ? post Polonius
-        if self.set(positions[0], player, tiles[1]).is_err() {
-            return Err("Can't set");
-        }
+        self.set(positions[0], player, tiles[1])?;
         self.set(positions[1], player, tiles[0])?;
 
         Ok(())
@@ -274,7 +274,10 @@ impl Board {
         words
     }
 
-    pub fn word_strings(&self, coordinates: &Vec<Vec<Coordinate>>) -> Result<Vec<String>, &str> {
+    pub fn word_strings(
+        &self,
+        coordinates: &Vec<Vec<Coordinate>>,
+    ) -> Result<Vec<String>, GamePlayError> {
         let mut err = None; // TODO: is this a reasonable error handling method? We can't return an Err from the function from within the closure passed to map.
         let strings = coordinates
             .iter()
@@ -283,7 +286,7 @@ impl Board {
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
                             Square::Empty => {
-                                err = Some("shouldn't be empty");
+                                err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
                             }
                             Square::Occupied(_, letter) => letter,
@@ -319,24 +322,20 @@ impl Board {
     // Get the row just beside the edge
     pub fn get_near_edge(&self, side: Direction) -> Vec<Coordinate> {
         match side {
-            Direction::North => (0..self.width())
-                .map(|x| Coordinate { x: x, y: 1 })
-                .collect(),
+            Direction::North => (0..self.width()).map(|x| Coordinate { x, y: 1 }).collect(),
             Direction::South => (0..self.width())
                 .map(|x| Coordinate {
-                    x: x,
+                    x,
                     y: (self.height() - 2),
                 })
                 .collect(),
             Direction::East => (0..self.width())
                 .map(|y| Coordinate {
                     x: (self.width() - 2),
-                    y: y,
+                    y,
                 })
                 .collect(),
-            Direction::West => (0..self.width())
-                .map(|y| Coordinate { x: 1, y: y })
-                .collect(),
+            Direction::West => (0..self.width()).map(|y| Coordinate { x: 1, y }).collect(),
         }
     }
 
@@ -501,39 +500,32 @@ pub mod tests {
     #[test]
     fn getset_errors_out_of_bounds() {
         let mut b = Board::new(1, 1); // Note, height is 3 from home rows
-        assert_eq!(
-            b.get(Coordinate { x: 1, y: 0 }),
-            Err("Coordinate is not within board dimensions")
-        );
-        assert_eq!(
-            b.get(Coordinate { x: 0, y: 3 }),
-            Err("Coordinate is not within board dimensions")
-        );
-
-        assert_eq!(
-            b.set(Coordinate { x: 1, y: 0 }, 0, 'a'),
-            Err("Coordinate is not within board dimensions")
-        );
-        assert_eq!(
-            b.set(Coordinate { x: 0, y: 3 }, 0, 'a'),
-            Err("Coordinate is not within board dimensions")
-        );
+        for position in [Coordinate { x: 1, y: 0 }, Coordinate { x: 0, y: 3 }] {
+            assert_eq!(
+                b.get(position),
+                Err(GamePlayError::OutSideBoardDimensions { position })
+            );
+            assert_eq!(
+                b.set(position, 0, 'a'),
+                Err(GamePlayError::OutSideBoardDimensions { position })
+            );
+        }
     }
 
     #[test]
     fn getset_errors_for_dead_squares() {
         let mut b = Board::new(2, 1); // Note, height is 3 from home rows
-        assert_eq!(b.get(Coordinate { x: 1, y: 0 }), Err("Invalid position"));
-        assert_eq!(b.get(Coordinate { x: 0, y: 2 }), Err("Invalid position"));
 
-        assert_eq!(
-            b.set(Coordinate { x: 1, y: 0 }, 0, 'a'),
-            Err("Invalid position")
-        );
-        assert_eq!(
-            b.set(Coordinate { x: 0, y: 2 }, 0, 'a'),
-            Err("Invalid position")
-        );
+        for position in [Coordinate { x: 1, y: 0 }, Coordinate { x: 0, y: 2 }] {
+            assert_eq!(
+                b.get(position),
+                Err(GamePlayError::InvalidPosition { position })
+            );
+            assert_eq!(
+                b.set(position, 0, 'a'),
+                Err(GamePlayError::InvalidPosition { position })
+            );
+        }
     }
 
     #[test]
@@ -557,15 +549,15 @@ pub mod tests {
         assert_eq!(b.set(Coordinate { x: 1, y: 2 }, 1, 'a'), Ok(()));
         assert_eq!(
             b.set(Coordinate { x: 1, y: 2 }, 2, 'a'),
-            Err("player does not exist")
+            Err(GamePlayError::NonExistentPlayer { index: 2 })
         );
         assert_eq!(
             b.set(Coordinate { x: 1, y: 2 }, 3, 'a'),
-            Err("player does not exist")
+            Err(GamePlayError::NonExistentPlayer { index: 3 })
         );
         assert_eq!(
             b.set(Coordinate { x: 1, y: 2 }, 100, 'a'),
-            Err("player does not exist")
+            Err(GamePlayError::NonExistentPlayer { index: 100 })
         );
     }
 
@@ -670,18 +662,9 @@ pub mod tests {
         assert_eq!(b.swap(0, [c0_1, c1_1]), Ok(()));
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'a')));
-        assert_eq!(
-            b.swap(0, [c0_1, c0_1]),
-            Err("Can't swap a square with itself")
-        );
-        assert_eq!(
-            b.swap(0, [c0_1, c2_1]),
-            Err("Player must own the squares they swap")
-        );
-        assert_eq!(
-            b.swap(1, [c0_1, c1_1]),
-            Err("Player must own the squares they swap")
-        );
+        assert_eq!(b.swap(0, [c0_1, c0_1]), Err(GamePlayError::SelfSwap));
+        assert_eq!(b.swap(0, [c0_1, c2_1]), Err(GamePlayError::UnownedSwap));
+        assert_eq!(b.swap(1, [c0_1, c1_1]), Err(GamePlayError::UnownedSwap));
     }
 
     #[test]
@@ -949,7 +932,10 @@ pub mod tests {
         assert_eq!(donut.get(top_left), Ok(Square::Occupied(0, 'A')));
         assert_eq!(donut.get(top_right), Ok(Square::Occupied(1, 'B')));
         assert_eq!(donut.get(bottom_left), Ok(Square::Occupied(2, 'C')));
-        assert_eq!(donut.get(hole), Err("Invalid position"));
+        assert_eq!(
+            donut.get(hole),
+            Err(GamePlayError::InvalidPosition { position: hole })
+        );
         assert_eq!(donut.get(dangling), Ok(Square::Occupied(0, 'D')));
         assert_eq!(donut.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
 

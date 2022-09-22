@@ -1,5 +1,6 @@
 mod bag;
 mod board;
+mod error;
 mod game;
 mod hand;
 mod judge;

@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "anyhow"
+version = "1.0.65"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98161a4e3e2184da77bb14f02184cdd111e83bbbcc9979dfee3c44b9a85f5602"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -375,10 +381,12 @@ dependencies = [
 name = "truncate"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "clearscreen",
  "rand 0.8.5",
  "strum",
  "strum_macros",
+ "thiserror",
 ]
 
 [[package]]
