@@ -36,7 +36,7 @@ impl Board {
                     Ok(sq) => match sq {
                         Square::Occupied(player, value) => {
                             println!("Square owned by player {} with value '{}'", player, value);
-                            return Err("Cannot place a tile in an occupied square.");
+                            return Err("Cannot place a tile in an occupied square");
                         }
                         Square::Empty => {}
                     },
@@ -134,7 +134,7 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
-    use crate::board::Direction;
+    use crate::board::{tests as BoardUtils, Direction};
 
     use super::super::bag::tests as TileUtils;
     use super::*;
@@ -310,7 +310,7 @@ mod tests {
         // Note, 3 attackers are impossible because the letter being placed will combine two of the words into one
 
         // 1v1
-        let mut one_v_one = Board::from_string(
+        let mut one_v_one = BoardUtils::from_string(
             [
                 "_ _ M _ _",
                 "_ _ D _ _",
@@ -331,7 +331,7 @@ mod tests {
         );
 
         // 1v2
-        let mut one_v_two = Board::from_string(
+        let mut one_v_two = BoardUtils::from_string(
             [
                 "_ _ M _ _",
                 "_ _ D _ _",
@@ -355,7 +355,7 @@ mod tests {
         );
 
         // 1v3
-        let mut one_v_three = Board::from_string(
+        let mut one_v_three = BoardUtils::from_string(
             [
                 "_ _ M _ _",
                 "_ _ D _ _",
@@ -384,7 +384,7 @@ mod tests {
         );
 
         // 2v2
-        let mut two_v_two = Board::from_string(
+        let mut two_v_two = BoardUtils::from_string(
             [
                 "X X M _ _",
                 "X _ D _ _",
@@ -409,7 +409,7 @@ mod tests {
 
     #[test]
     fn resolve_successful_attack() {
-        let mut b = Board::from_string(
+        let mut b = BoardUtils::from_string(
             [
                 "_ S X _ _",
                 "_ T _ _ _",
@@ -450,7 +450,7 @@ mod tests {
 
     #[test]
     fn resolve_failed_attack() {
-        let mut b = Board::from_string(
+        let mut b = BoardUtils::from_string(
             [
                 "_ X X _ _",
                 "_ T _ _ _",
@@ -491,7 +491,7 @@ mod tests {
 
     #[test]
     fn resolve_truncation() {
-        let mut b = Board::from_string(
+        let mut b = BoardUtils::from_string(
             [
                 "_ S X _ _",
                 "_ T _ _ _",

@@ -14,27 +14,6 @@ pub enum Direction {
 }
 
 impl Direction {
-    fn add(self, point: Coordinate) -> Coordinate {
-        match self {
-            Direction::North => Coordinate {
-                x: point.x,
-                y: point.y + -1, // We use the computer graphics convention of (0,0) in the top left
-            },
-            Direction::South => Coordinate {
-                x: point.x,
-                y: point.y + 1,
-            },
-            Direction::East => Coordinate {
-                x: point.x + 1,
-                y: point.y,
-            },
-            Direction::West => Coordinate {
-                x: point.x + -1,
-                y: point.y,
-            },
-        }
-    }
-
     // Returns whether vertical words should be read from top to bottom if played by a player on this side of the board
     fn read_top_to_bottom(self) -> bool {
         matches!(self, Direction::South) || matches!(self, Direction::West)
@@ -88,66 +67,6 @@ impl Board {
             roots,
             orientations: vec![Direction::North, Direction::South],
         }
-    }
-
-    #[cfg(test)]
-    pub fn from_string<'a>(
-        s: String,
-        roots: Vec<Coordinate>,
-        orientations: Vec<Direction>,
-    ) -> Result<Self, &'a str> {
-        if roots.len() != orientations.len() {
-            return Err("Every player needs a root and orientation");
-        }
-
-        // Transform string into a board
-        let mut squares = vec![];
-        for line in s.split('\n') {
-            let mut squares_in_line: Vec<Option<Square>> = vec![];
-            for (i, letter) in line.chars().enumerate() {
-                if i % 2 == 1 {
-                    if letter != ' ' {
-                        return Err("board strings should have spaces to separate each tile");
-                    }
-                } else if letter == ' ' {
-                    squares_in_line.push(None);
-                } else if letter == '_' {
-                    squares_in_line.push(Some(Square::Empty));
-                } else {
-                    squares_in_line.push(Some(Square::Occupied(0, letter)));
-                }
-            }
-            squares.push(squares_in_line);
-        }
-
-        // Make sure the board is an valid non-jagged grid
-        for line in squares.iter().skip(1) {
-            if line.len() != squares[0].len() {
-                return Err("Unequal line lengths");
-            }
-        }
-
-        // Make sure letters connected to players' roots are owned by the player
-        let r = roots.clone(); // TODO: remove hack
-        let mut board = Self {
-            roots,
-            squares,
-            orientations,
-        };
-        for (player, root) in r.iter().enumerate() {
-            if player != 0 {
-                // All tiles are already owned by the first player by default
-                for square in board.depth_first_search(*root).iter() {
-                    if let Ok(Square::Occupied(_, value)) = board.get(*square) {
-                        board.set(*square, player, value).expect(
-                            "A coordinate returned from a DFS should always be valid and settable",
-                        );
-                    }
-                }
-            }
-        }
-
-        Ok(board)
     }
 
     // TODO: generic board constructor that accepts a grid of squares with arbitrary values, as long as:
@@ -238,7 +157,7 @@ impl Board {
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
         let mut neighbours = Vec::new();
         for delta in Direction::iter() {
-            let neighbour_coordinate = delta.add(position);
+            let neighbour_coordinate = position.add(delta);
             match self.get(neighbour_coordinate) {
                 Err(_) => {
                     continue; // Skips invalid squares
@@ -330,7 +249,7 @@ impl Board {
                 } else {
                     break 'wordbuilder; // Word ends at the edge of the board or empty squares
                 }
-                location = direction.add(location);
+                location = location.add(direction);
             }
             if i < 2 {
                 words.push(word);
@@ -491,6 +410,29 @@ pub struct Coordinate {
     pub y: isize,
 }
 
+impl Coordinate {
+    fn add(self, direction: Direction) -> Coordinate {
+        match direction {
+            Direction::North => Coordinate {
+                x: self.x,
+                y: self.y + -1, // We use the computer graphics convention of (0,0) in the top left
+            },
+            Direction::South => Coordinate {
+                x: self.x,
+                y: self.y + 1,
+            },
+            Direction::East => Coordinate {
+                x: self.x + 1,
+                y: self.y,
+            },
+            Direction::West => Coordinate {
+                x: self.x + -1,
+                y: self.y,
+            },
+        }
+    }
+}
+
 impl fmt::Display for Coordinate {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
@@ -541,7 +483,7 @@ impl Square {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
     #[test]
@@ -577,105 +519,6 @@ mod tests {
         let b = Board::new(6, 1);
         assert_eq!(b.width(), 6);
         assert_eq!(b.height(), 3);
-    }
-
-    #[test]
-    fn from_string() {
-        // Checks that our default boards come are the same after being stringified and parsed
-        let boards = [Board::default(), Board::new(34, 28)];
-        for b in boards {
-            assert_eq!(
-                Board::from_string(b.to_string(), b.roots.clone(), b.orientations.clone()),
-                Ok(b)
-            );
-        }
-
-        // Checks that various strings are the same when parsed and stringified
-        let strings = [
-            ["_ _ _", "_   _", "_ _ _"].join("\n"),
-            ["_ X _", "_   A", "V _ _"].join("\n"),
-            ["_ X _ _", "_ B A _", "V _ _ _", "  _ J _"].join("\n"),
-        ];
-
-        // Checks that various complex boards have the correct players assigned to them
-        // Donut board
-        let top_left = Coordinate { x: 0, y: 0 };
-        let top_right = Coordinate { x: 4, y: 0 };
-        let bottom_left = Coordinate { x: 0, y: 4 };
-        let bottom_right = Coordinate { x: 4, y: 4 };
-        let dangling = Coordinate { x: 2, y: 3 };
-        let hole = Coordinate { x: 2, y: 2 };
-        let donut = if let Ok(t) = Board::from_string(
-            [
-                "A _ _ _ B",
-                "_ _ _ _ _",
-                "_ _   _ _",
-                "_ _ D _ _",
-                "C _ _ _ _",
-            ]
-            .join("\n"),
-            vec![top_left, top_right, bottom_left, bottom_right],
-            vec![Direction::North; 4],
-        ) {
-            t
-        } else {
-            panic!("Should build");
-        };
-        assert_eq!(donut.get(top_left), Ok(Square::Occupied(0, 'A')));
-        assert_eq!(donut.get(top_right), Ok(Square::Occupied(1, 'B')));
-        assert_eq!(donut.get(bottom_left), Ok(Square::Occupied(2, 'C')));
-        assert_eq!(donut.get(hole), Err("Invalid position"));
-        assert_eq!(donut.get(dangling), Ok(Square::Occupied(0, 'D')));
-        assert_eq!(donut.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
-
-        // Complex trees
-        let player_1 = [
-            Coordinate { x: 2, y: 0 }, // First row
-            Coordinate { x: 0, y: 1 }, // Second row
-            Coordinate { x: 1, y: 1 },
-            Coordinate { x: 2, y: 1 },
-            Coordinate { x: 3, y: 1 },
-            Coordinate { x: 4, y: 1 },
-            Coordinate { x: 0, y: 2 }, // Third row
-            Coordinate { x: 0, y: 3 }, // Fourth row
-            Coordinate { x: 0, y: 4 }, // Fifth row
-            Coordinate { x: 1, y: 4 },
-            Coordinate { x: 0, y: 5 }, // Sixth row
-        ];
-        let player_2 = [
-            Coordinate { x: 2, y: 6 }, // Seventh row
-            Coordinate { x: 2, y: 5 }, // Sixth row
-            Coordinate { x: 3, y: 5 },
-            Coordinate { x: 3, y: 4 }, // Fifth row
-            Coordinate { x: 2, y: 3 }, // Fourth row
-            Coordinate { x: 3, y: 3 },
-            Coordinate { x: 4, y: 3 },
-        ];
-        let complex_tree = if let Ok(t) = Board::from_string(
-            [
-                "    A    ",
-                "A A A A A",
-                "A _ _ _ _",
-                "A _ B B B",
-                "A A _ B _",
-                "A _ B B _",
-                "    B    ",
-            ]
-            .join("\n"),
-            vec![player_1[0], player_2[0]],
-            vec![Direction::North; 2],
-        ) {
-            t
-        } else {
-            panic!("Should build");
-        };
-
-        for square in player_1 {
-            assert_eq!(complex_tree.get(square), Ok(Square::Occupied(0, 'A')));
-        }
-        for square in player_2 {
-            assert_eq!(complex_tree.get(square), Ok(Square::Occupied(1, 'B')));
-        }
     }
 
     #[test]
@@ -876,7 +719,7 @@ mod tests {
         }
 
         // Gets two words in the middle of a cross
-        let b = if let Ok(board) = Board::from_string(
+        let b = from_string(
             [
                 "_ _ C _ _",
                 "_ _ R _ _",
@@ -887,11 +730,8 @@ mod tests {
             .join("\n"),
             vec![Coordinate { x: 0, y: 0 }],
             vec![Direction::South],
-        ) {
-            board
-        } else {
-            panic!("Should build")
-        };
+        )
+        .unwrap();
         let cross = ([0, 1, 2, 3, 4]).map(|y| Coordinate { x: 2, y }); // TODO: range
         let sword = ([0, 1, 2, 3, 4]).map(|x| Coordinate { x, y: 2 }); // TODO: range
         assert_eq!(b.get_words(Coordinate { x: 2, y: 2 }), vec![cross, sword]);
@@ -907,7 +747,7 @@ mod tests {
         }
 
         // Doesn't cross other players
-        let mut b = if let Ok(board) = Board::from_string(
+        let mut b = from_string(
             [
                 "_ _ C _ _",
                 "_ _ R _ _",
@@ -918,11 +758,8 @@ mod tests {
             .join("\n"),
             vec![Coordinate { x: 0, y: 0 }, Coordinate { x: 4, y: 4 }],
             vec![Direction::South, Direction::North],
-        ) {
-            board
-        } else {
-            panic!("Should build")
-        };
+        )
+        .unwrap();
         assert_eq!(
             b.get(Coordinate { x: 2, y: 4 }),
             Ok(Square::Occupied(0, 'S'))
@@ -941,7 +778,7 @@ mod tests {
         ];
         let cc = corners.clone();
 
-        let b = if let Ok(board) = Board::from_string(
+        let b = from_string(
             [
                 "N E Z _ G A N",
                 "A _ _ _ _ _ E",
@@ -959,12 +796,8 @@ mod tests {
                 Direction::East,
                 Direction::North,
             ],
-        ) {
-            // ZEN NAG
-            board
-        } else {
-            panic!("should work")
-        };
+        )
+        .unwrap();
 
         for corner in cc {
             let mut words = b.word_strings(&b.get_words(corner)).unwrap();
@@ -1017,5 +850,170 @@ mod tests {
         assert_eq!(Square::flip(&'A'), '∀');
         assert_eq!(Square::flip(&'J'), 'ᒋ');
         assert_eq!(Square::flip(&'Z'), 'Z');
+    }
+
+    pub fn from_string<'a>(
+        s: String,
+        roots: Vec<Coordinate>,
+        orientations: Vec<Direction>,
+    ) -> Result<Board, &'a str> {
+        if roots.len() != orientations.len() {
+            return Err("Every player needs a root and orientation");
+        }
+
+        // Transform string into a board
+        let mut squares: Vec<Vec<Option<Square>>> = vec![];
+        for line in s.split('\n') {
+            if line.chars().skip(1).step_by(2).any(|letter| letter != ' ') {
+                return Err("board strings should have spaces to separate each tile");
+            }
+
+            squares.push(
+                line.chars()
+                    .step_by(2)
+                    .map(|letter| match letter {
+                        ' ' => None,
+                        '_' => Some(Square::Empty),
+                        letter => Some(Square::Occupied(0, letter)),
+                    })
+                    .collect(),
+            );
+        }
+
+        // Make sure the board is an valid non-jagged grid
+        if squares
+            .iter()
+            .skip(1)
+            .any(|line| line.len() != squares[0].len())
+        {
+            return Err("Unequal line lengths");
+        }
+
+        // Make sure letters connected to players' roots are owned by the player
+        let r = roots.clone(); // TODO: remove hack
+        let mut board = Board {
+            roots,
+            squares,
+            orientations,
+        };
+        for (player, root) in r.iter().enumerate() {
+            if player != 0 {
+                // All tiles are already owned by the first player by default
+                for square in board.depth_first_search(*root).iter() {
+                    if let Ok(Square::Occupied(_, value)) = board.get(*square) {
+                        board.set(*square, player, value).expect(
+                            "A coordinate returned from a DFS should always be valid and settable",
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(board)
+    }
+
+    #[test]
+    fn from_string_fails() {
+        assert_eq!(
+            from_string(
+                ["AXB"].join("\n"),
+                vec![Coordinate { x: 0, y: 0 }],
+                vec![Direction::North],
+            ),
+            Err("board strings should have spaces to separate each tile")
+        );
+    }
+
+    #[test]
+    fn from_string_succeeds() {
+        // Checks that our default boards come are the same after being stringified and parsed
+        let boards = [Board::default(), Board::new(34, 28)];
+        for b in boards {
+            assert_eq!(
+                from_string(b.to_string(), b.roots.clone(), b.orientations.clone()),
+                Ok(b)
+            );
+        }
+
+        // Checks that various strings are the same when parsed and stringified
+        let strings = [
+            ["_ _ _", "_   _", "_ _ _"].join("\n"),
+            ["_ X _", "_   A", "V _ _"].join("\n"),
+            ["_ X _ _", "_ B A _", "V _ _ _", "  _ J _"].join("\n"),
+        ];
+
+        // Checks that various complex boards have the correct players assigned to them
+        // Donut board
+        let top_left = Coordinate { x: 0, y: 0 };
+        let top_right = Coordinate { x: 4, y: 0 };
+        let bottom_left = Coordinate { x: 0, y: 4 };
+        let bottom_right = Coordinate { x: 4, y: 4 };
+        let dangling = Coordinate { x: 2, y: 3 };
+        let hole = Coordinate { x: 2, y: 2 };
+        let donut = from_string(
+            [
+                "A _ _ _ B",
+                "_ _ _ _ _",
+                "_ _   _ _",
+                "_ _ D _ _",
+                "C _ _ _ _",
+            ]
+            .join("\n"),
+            vec![top_left, top_right, bottom_left, bottom_right],
+            vec![Direction::North; 4],
+        )
+        .unwrap();
+        assert_eq!(donut.get(top_left), Ok(Square::Occupied(0, 'A')));
+        assert_eq!(donut.get(top_right), Ok(Square::Occupied(1, 'B')));
+        assert_eq!(donut.get(bottom_left), Ok(Square::Occupied(2, 'C')));
+        assert_eq!(donut.get(hole), Err("Invalid position"));
+        assert_eq!(donut.get(dangling), Ok(Square::Occupied(0, 'D')));
+        assert_eq!(donut.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
+
+        // Complex trees
+        let player_1 = [
+            Coordinate { x: 2, y: 0 }, // First row
+            Coordinate { x: 0, y: 1 }, // Second row
+            Coordinate { x: 1, y: 1 },
+            Coordinate { x: 2, y: 1 },
+            Coordinate { x: 3, y: 1 },
+            Coordinate { x: 4, y: 1 },
+            Coordinate { x: 0, y: 2 }, // Third row
+            Coordinate { x: 0, y: 3 }, // Fourth row
+            Coordinate { x: 0, y: 4 }, // Fifth row
+            Coordinate { x: 1, y: 4 },
+            Coordinate { x: 0, y: 5 }, // Sixth row
+        ];
+        let player_2 = [
+            Coordinate { x: 2, y: 6 }, // Seventh row
+            Coordinate { x: 2, y: 5 }, // Sixth row
+            Coordinate { x: 3, y: 5 },
+            Coordinate { x: 3, y: 4 }, // Fifth row
+            Coordinate { x: 2, y: 3 }, // Fourth row
+            Coordinate { x: 3, y: 3 },
+            Coordinate { x: 4, y: 3 },
+        ];
+        let complex_tree = from_string(
+            [
+                "    A    ",
+                "A A A A A",
+                "A _ _ _ _",
+                "A _ B B B",
+                "A A _ B _",
+                "A _ B B _",
+                "    B    ",
+            ]
+            .join("\n"),
+            vec![player_1[0], player_2[0]],
+            vec![Direction::North; 2],
+        )
+        .unwrap();
+
+        for square in player_1 {
+            assert_eq!(complex_tree.get(square), Ok(Square::Occupied(0, 'A')));
+        }
+        for square in player_2 {
+            assert_eq!(complex_tree.get(square), Ok(Square::Occupied(1, 'B')));
+        }
     }
 }

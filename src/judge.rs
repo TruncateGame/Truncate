@@ -102,7 +102,7 @@ impl Judge {
 
 #[cfg(test)]
 mod tests {
-    use crate::board::Coordinate;
+    use crate::board::{tests as BoardUtils, Coordinate};
 
     use super::*;
 
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn win_condition() {
-        let mut b = Board::from_string(
+        let mut b = BoardUtils::from_string(
             [
                 "    X    ",
                 "X X X _ _",
