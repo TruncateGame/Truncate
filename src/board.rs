@@ -75,39 +75,33 @@ impl Board {
     //  - the roots are at empty squares
 
     pub fn get(&self, position: Coordinate) -> Result<Square, &str> {
-        if let Some(row) = self.squares.get(position.y) {
-            if let Some(square) = row.get(position.x) {
-                match square {
-                    None => Err("Invalid position"),
-                    Some(square) => Ok(*square),
-                }
-            } else {
-                Err("x-coordinate is too large for board width") // TODO: specify the coordinate and width
-            }
-        } else {
-            Err("y-coordinate is too large for board height") // TODO: specify the coordinate and height
+        match self
+            .squares
+            .get(position.y)
+            .and_then(|row| row.get(position.x))
+        {
+            Some(Some(square)) => Ok(*square),
+            Some(None) => Err("Invalid position"),
+            None => Err("Coordinate is not within board dimensions"),
         }
     }
 
     pub fn set(&mut self, position: Coordinate, player: usize, value: char) -> Result<(), &str> {
-        if self.roots.get(player).is_some() {
-            if let Some(row) = self.squares.get_mut(position.y) {
-                if let Some(square) = row.get_mut(position.x) {
-                    match square {
-                        Some(_) => {
-                            *square = Some(Square::Occupied(player, value));
-                            Ok(())
-                        }
-                        None => Err("Can't set the value of a non-existant square"),
-                    }
-                } else {
-                    Err("x-coordinate is too large for board width") // TODO: specify the coordinate and width
-                }
-            } else {
-                Err("y-coordinate is too large for board height") // TODO: specify the coordinate and height
+        if self.roots.get(player).is_none() {
+            return Err("player does not exist");
+        }
+
+        match self
+            .squares
+            .get_mut(position.y)
+            .and_then(|row| row.get_mut(position.x))
+        {
+            Some(Some(square)) => {
+                *square = Square::Occupied(player, value);
+                Ok(())
             }
-        } else {
-            Err("player does not exist") // TODO: specify the number of players and which player this is
+            Some(None) => Err("Invalid position"),
+            None => Err("Coordinate is not within board dimensions"),
         }
     }
 
@@ -509,20 +503,20 @@ pub mod tests {
         let mut b = Board::new(1, 1); // Note, height is 3 from home rows
         assert_eq!(
             b.get(Coordinate { x: 1, y: 0 }),
-            Err("x-coordinate is too large for board width")
+            Err("Coordinate is not within board dimensions")
         );
         assert_eq!(
             b.get(Coordinate { x: 0, y: 3 }),
-            Err("y-coordinate is too large for board height")
+            Err("Coordinate is not within board dimensions")
         );
 
         assert_eq!(
             b.set(Coordinate { x: 1, y: 0 }, 0, 'a'),
-            Err("x-coordinate is too large for board width")
+            Err("Coordinate is not within board dimensions")
         );
         assert_eq!(
             b.set(Coordinate { x: 0, y: 3 }, 0, 'a'),
-            Err("y-coordinate is too large for board height")
+            Err("Coordinate is not within board dimensions")
         );
     }
 
@@ -534,11 +528,11 @@ pub mod tests {
 
         assert_eq!(
             b.set(Coordinate { x: 1, y: 0 }, 0, 'a'),
-            Err("Can't set the value of a non-existant square")
+            Err("Invalid position")
         );
         assert_eq!(
             b.set(Coordinate { x: 0, y: 2 }, 0, 'a'),
-            Err("Can't set the value of a non-existant square")
+            Err("Invalid position")
         );
     }
 
