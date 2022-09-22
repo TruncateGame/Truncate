@@ -1,11 +1,7 @@
-use std::collections::HashMap;
-
-use crate::error::GamePlayError;
-use crate::game::Game;
-
 use super::board::{Board, Coordinate, Square};
 use super::hand::Hands;
 use super::judge::{Judge, Outcome};
+use crate::error::GamePlayError;
 
 pub enum Move {
     // TODO: make Move a struct and make player a top level property of it

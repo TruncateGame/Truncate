@@ -216,13 +216,6 @@ fn pre_turn(game: &Game, players: &Vec<String>) {
     clear();
 }
 
-fn test_setup() -> (Game, Vec<String>) {
-    (
-        Game::new(3, 3),
-        vec![String::from("Blake"), String::from("Liam")],
-    )
-}
-
 fn setup() -> (Game, Vec<String>) {
     clear();
     // Get player names

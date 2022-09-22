@@ -1,11 +1,10 @@
 use anyhow::Result;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use crate::error::GamePlayError;
-use crate::game::Game;
 
 #[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
@@ -36,7 +35,7 @@ impl Direction {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Board {
     squares: Vec<Vec<Option<Square>>>,
     roots: Vec<Coordinate>,
@@ -219,7 +218,7 @@ impl Board {
             let mut location = position;
 
             'wordbuilder: loop {
-                if let Ok(Square::Occupied(player, value)) = self.get(location) {
+                if let Ok(Square::Occupied(player, _)) = self.get(location) {
                     if owner == None {
                         owner = Some(player);
                     }
@@ -449,12 +448,12 @@ impl Square {
     }
 
     fn flip(character: &char) -> char {
-        const flipped: [char; 26] = [
+        const FLIPPED: [char; 26] = [
             // TODO: does this recompute every time, or is it created at compile time since it's a const?
             '∀', 'ꓭ', 'Ͻ', 'ᗡ', 'Ǝ', 'ᖵ', '⅁', 'H', 'I', 'ᒋ', 'ꓘ', '⅂', 'ꟽ', 'N', 'O', 'Ԁ', 'Ꝺ',
             'ꓤ', 'S', 'ꓕ', 'Ո', 'Ʌ', 'Ϻ', 'X', '⅄', 'Z',
         ];
-        flipped[(*character as usize) - 65]
+        FLIPPED[(*character as usize) - 65]
     }
 }
 
@@ -583,15 +582,15 @@ pub mod tests {
             Coordinate { x: 1, y: 0 },
             Coordinate { x: 0, y: 1 },
         ];
-        let partsSet = HashSet::from(parts);
+        let parts_set = HashSet::from(parts);
         for part in parts {
             assert_eq!(b.set(part, 0, 'a'), Ok(()));
         }
 
         // The tree should be returned no matter where in the tree we start DFS from
         for part in parts {
-            assert!(b.depth_first_search(part).is_subset(&partsSet));
-            assert!(b.depth_first_search(part).is_superset(&partsSet));
+            assert!(b.depth_first_search(part).is_subset(&parts_set));
+            assert!(b.depth_first_search(part).is_superset(&parts_set));
         }
 
         // Set the remaining unoccupied square on the board to be occupied by another player
@@ -603,8 +602,8 @@ pub mod tests {
 
         // The result of DFS on the main tree should not have changed
         for part in parts {
-            assert!(b.depth_first_search(part).is_subset(&partsSet));
-            assert!(b.depth_first_search(part).is_superset(&partsSet));
+            assert!(b.depth_first_search(part).is_subset(&parts_set));
+            assert!(b.depth_first_search(part).is_superset(&parts_set));
         }
     }
 
@@ -907,6 +906,15 @@ pub mod tests {
             ["_ X _", "_   A", "V _ _"].join("\n"),
             ["_ X _ _", "_ B A _", "V _ _ _", "  _ J _"].join("\n"),
         ];
+        for s in strings {
+            let s1 = s.clone();
+            assert_eq!(
+                from_string(s, vec![Coordinate { x: 0, y: 0 }], vec![Direction::South])
+                    .unwrap()
+                    .to_string(),
+                s1
+            );
+        }
 
         // Checks that various complex boards have the correct players assigned to them
         // Donut board

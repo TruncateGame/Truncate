@@ -47,8 +47,6 @@ impl Default for Hands {
 
 #[cfg(test)]
 mod tests {
-    use crate::game::Game;
-
     use super::super::bag::tests as TileUtils;
     use super::*;
 
