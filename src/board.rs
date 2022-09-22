@@ -125,10 +125,7 @@ impl Board {
     pub fn truncate(&mut self) {
         let mut attatched = HashSet::new();
         for root in self.roots.iter() {
-            let tree = self.depth_first_search(*root);
-            for bit in tree {
-                attatched.insert(bit);
-            }
+            attatched.extend(self.depth_first_search(*root));
         }
 
         for y in 0..self.height() {
@@ -149,40 +146,37 @@ impl Board {
     }
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
-        let mut neighbours = Vec::new();
-        for delta in Direction::iter() {
-            let neighbour_coordinate = position.add(delta);
-            if let Ok(square) = self.get(neighbour_coordinate) {
-                neighbours.push((neighbour_coordinate, square));
-            };
-        }
-        neighbours
+        Direction::iter()
+            .filter_map(|delta| {
+                let neighbour_coordinate = position.add(delta);
+                if let Ok(square) = self.get(neighbour_coordinate) {
+                    Some((neighbour_coordinate, square))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     // TODO: return iterator or rename since it doesn't matter that this is depth first when we return a HashSet
     fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
-        let mut set = HashSet::new();
+        let mut visited = HashSet::new();
 
-        let player = if let Ok(Square::Occupied(player, _)) = self.get(position) {
-            player
-        } else {
-            return set;
-        };
-        let mut stack = vec![position]; // TODO: consider more efficient stack type
-
-        while let Some(current) = stack.pop() {
-            set.insert(current);
-            for (position, square) in self.neighbouring_squares(current) {
-                // Put the neighbour in the set if it is occupied by the current player
-                if let Square::Occupied(neighbours_player, _) = square {
-                    if !set.contains(&position) && player == neighbours_player {
-                        stack.push(position);
+        fn dfs(b: &Board, position: Coordinate, visited: &mut HashSet<Coordinate>) {
+            if let Ok(Square::Occupied(player, _)) = b.get(position) {
+                visited.insert(position);
+                for (position, square) in b.neighbouring_squares(position) {
+                    if let Square::Occupied(neighbours_player, _) = square {
+                        if !visited.contains(&position) && player == neighbours_player {
+                            dfs(b, position, visited);
+                        };
                     }
                 }
             }
         }
 
-        set
+        dfs(self, position, &mut visited);
+        visited
     }
 
     pub fn swap(&mut self, player: usize, positions: [Coordinate; 2]) -> Result<(), GamePlayError> {
