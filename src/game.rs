@@ -29,15 +29,8 @@ impl Game {
         }
 
         let player = match next_move {
-            Move::Place {
-                player,
-                tile: _,
-                position: _,
-            } => player,
-            Move::Swap {
-                player,
-                positions: _,
-            } => player,
+            Move::Place { player, .. } => player,
+            Move::Swap { player, .. } => player,
         };
         if player != self.next_player {
             return Err("Only the next player can play");

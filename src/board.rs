@@ -47,20 +47,20 @@ impl Board {
         // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
         let roots = vec![
             Coordinate {
-                x: width as isize / 2 + width as isize % 2 - 1,
+                x: width / 2 + width % 2 - 1,
                 y: 0,
             },
             Coordinate {
-                x: width as isize / 2,
-                y: height as isize + 1,
+                x: width / 2,
+                y: height + 1,
             },
         ];
 
         let mut squares = vec![vec![None; width]]; // Start with an unoccupiable row to house player 1's root
         squares.extend(vec![vec![Some(Square::Empty); width]; height]); // Make the centre of the board empty
         squares.extend(vec![vec![None; width]]); // Add an unoccupiable row to house player 2's root
-        squares[roots[0].y as usize][roots[0].x as usize] = Some(Square::Empty); // Create root square
-        squares[roots[1].y as usize][roots[1].x as usize] = Some(Square::Empty);
+        squares[roots[0].y][roots[0].x] = Some(Square::Empty); // Create root square
+        squares[roots[1].y][roots[1].x] = Some(Square::Empty);
 
         Board {
             squares,
@@ -75,52 +75,50 @@ impl Board {
     //  - the roots are at empty squares
 
     pub fn get(&self, position: Coordinate) -> Result<Square, &str> {
-        if position.y < 0 || position.x < 0 {
-            return Err("negative coordinates");
-        };
-        let x = position.x as usize;
-        let y = position.y as usize;
-
-        if y >= self.squares.len() {
-            Err("y-coordinate is too large for board height") // TODO: specify the coordinate and height
-        } else if x >= self.squares[0].len() {
-            Err("x-coordinate is too large for board width") // TODO: specify the coordinate and width
-        } else {
-            match self.squares[y][x] {
-                None => Err("Invalid position"),
-                Some(square) => Ok(square),
+        if let Some(row) = self.squares.get(position.y) {
+            if let Some(square) = row.get(position.x) {
+                match square {
+                    None => Err("Invalid position"),
+                    Some(square) => Ok(*square),
+                }
+            } else {
+                Err("x-coordinate is too large for board width") // TODO: specify the coordinate and width
             }
+        } else {
+            Err("y-coordinate is too large for board height") // TODO: specify the coordinate and height
         }
     }
 
     pub fn set(&mut self, position: Coordinate, player: usize, value: char) -> Result<(), &str> {
-        if position.y < 0 || position.x < 0 {
-            return Err("negative coordinates");
-        };
-        let x = position.x as usize;
-        let y = position.y as usize;
-
-        if player >= self.roots.len() {
-            Err("player does not exist") // TODO: specify the number of players and which player this is
-        } else if y >= self.squares.len() {
-            Err("y-coordinate is too large for board height") // TODO: specify the coordinate and height
-        } else if x >= self.squares[0].len() {
-            Err("x-coordinate is too large for board width") // TODO: specify the coordinate and width
-        } else {
-            match self.squares[y][x] {
-                Some(_) => {
-                    self.squares[y][x] = Some(Square::Occupied(player, value));
-                    Ok(())
+        if self.roots.get(player).is_some() {
+            if let Some(row) = self.squares.get_mut(position.y) {
+                if let Some(square) = row.get_mut(position.x) {
+                    match square {
+                        Some(_) => {
+                            *square = Some(Square::Occupied(player, value));
+                            Ok(())
+                        }
+                        None => Err("Can't set the value of a non-existant square"),
+                    }
+                } else {
+                    Err("x-coordinate is too large for board width") // TODO: specify the coordinate and width
                 }
-                None => Err("Can't set the value of a non-existant square"),
+            } else {
+                Err("y-coordinate is too large for board height") // TODO: specify the coordinate and height
             }
+        } else {
+            Err("player does not exist") // TODO: specify the number of players and which player this is
         }
     }
 
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
     pub fn clear(&mut self, position: Coordinate) {
-        if self.squares[position.y as usize][position.x as usize].is_some() {
-            self.squares[position.y as usize][position.x as usize] = Some(Square::Empty);
+        if let Some(pos) = self
+            .squares
+            .get_mut(position.y as usize)
+            .and_then(|y| y.get_mut(position.x as usize))
+        {
+            *pos = Some(Square::Empty);
         }
     }
 
@@ -135,10 +133,7 @@ impl Board {
 
         for y in 0..self.height() {
             for x in 0..self.width() {
-                let c = Coordinate {
-                    x: x as isize,
-                    y: y as isize,
-                };
+                let c = Coordinate { x, y };
                 if !attatched.contains(&c) {
                     self.clear(c);
                 }
@@ -147,10 +142,9 @@ impl Board {
     }
 
     pub fn get_root(&self, player: usize) -> Result<Coordinate, &str> {
-        if player >= self.roots.len() {
-            Err("Invalid player")
-        } else {
-            Ok(self.roots[player])
+        match self.roots.get(player) {
+            Some(player) => Ok(*player),
+            None => Err("Invalid player"),
         }
     }
 
@@ -158,14 +152,9 @@ impl Board {
         let mut neighbours = Vec::new();
         for delta in Direction::iter() {
             let neighbour_coordinate = position.add(delta);
-            match self.get(neighbour_coordinate) {
-                Err(_) => {
-                    continue; // Skips invalid squares
-                }
-                Ok(square) => {
-                    neighbours.push((neighbour_coordinate, square));
-                }
-            }
+            if let Ok(square) = self.get(neighbour_coordinate) {
+                neighbours.push((neighbour_coordinate, square));
+            };
         }
         neighbours
     }
@@ -337,28 +326,22 @@ impl Board {
     pub fn get_near_edge(&self, side: Direction) -> Vec<Coordinate> {
         match side {
             Direction::North => (0..self.width())
-                .map(|x| Coordinate {
-                    x: x as isize,
-                    y: 1,
-                })
+                .map(|x| Coordinate { x: x, y: 1 })
                 .collect(),
             Direction::South => (0..self.width())
                 .map(|x| Coordinate {
-                    x: x as isize,
-                    y: (self.height() - 2) as isize,
+                    x: x,
+                    y: (self.height() - 2),
                 })
                 .collect(),
             Direction::East => (0..self.width())
                 .map(|y| Coordinate {
-                    x: (self.width() - 2) as isize,
-                    y: y as isize,
+                    x: (self.width() - 2),
+                    y: y,
                 })
                 .collect(),
             Direction::West => (0..self.width())
-                .map(|y| Coordinate {
-                    x: 1,
-                    y: y as isize,
-                })
+                .map(|y| Coordinate { x: 1, y: y })
                 .collect(),
         }
     }
@@ -406,8 +389,8 @@ impl fmt::Display for Board {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct Coordinate {
-    pub x: isize,
-    pub y: isize,
+    pub x: usize,
+    pub y: usize,
 }
 
 impl Coordinate {
@@ -415,7 +398,7 @@ impl Coordinate {
         match direction {
             Direction::North => Coordinate {
                 x: self.x,
-                y: self.y + -1, // We use the computer graphics convention of (0,0) in the top left
+                y: usize::wrapping_sub(self.y, 1), // We use the computer graphics convention of (0,0) in the top left
             },
             Direction::South => Coordinate {
                 x: self.x,
@@ -426,7 +409,7 @@ impl Coordinate {
                 y: self.y,
             },
             Direction::West => Coordinate {
-                x: self.x + -1,
+                x: usize::wrapping_sub(self.x, 1),
                 y: self.y,
             },
         }
@@ -712,9 +695,15 @@ pub mod tests {
         // Should return an empty list of words for all points on an empty board, and for positions off the board
         let empty: Vec<Vec<Coordinate>> = vec![];
         let b = Board::default();
-        for x in -2..10 {
-            for y in -2..10 {
-                assert_eq!(b.get_words(Coordinate { x, y }), empty);
+        for x in 0..12 {
+            for y in 0..12 {
+                assert_eq!(
+                    b.get_words(Coordinate {
+                        x: usize::wrapping_sub(x, 2),
+                        y: usize::wrapping_sub(y, 2)
+                    }),
+                    empty
+                );
             }
         }
 

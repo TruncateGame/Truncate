@@ -184,8 +184,8 @@ fn user_input_coordinate(prompt: &str) -> Coordinate {
         let input = user_input(prompt);
         if input.len() == 2 {
             let mut chars = input.chars();
-            let y = chars.next().unwrap() as isize - 65;
-            let x = chars.next().unwrap() as isize - 49; // 48 is the character 0, and our board is 1 indexed on scren
+            let y = chars.next().unwrap() as usize - 65;
+            let x = chars.next().unwrap() as usize - 49; // 48 is the character 0, and our board is 1 indexed on scren
             position = Some(Coordinate { x, y });
         } else {
             println!("Sorry, I couldn't read that coordinate");

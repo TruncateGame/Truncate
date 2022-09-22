@@ -9,7 +9,7 @@ impl Hands {
     pub fn new(player_count: usize, capacity: usize, mut bag: TileBag) -> Self {
         let mut hands = Vec::new();
         for player in 0..player_count {
-            hands.push(Vec::new());
+            hands.push(Vec::with_capacity(capacity));
             for _ in 0..capacity {
                 hands[player].push(bag.draw_tile());
             }
@@ -18,17 +18,16 @@ impl Hands {
     }
 
     pub fn use_tile(&mut self, player: usize, tile: char) -> Result<(), &str> {
-        if self.hands.len() <= player {
-            return Err("Invalid player"); // TODO: say which player is wrong
-        }
-
-        let index = self.hands[player].iter().position(|t| t == &tile);
-        match index {
-            None => Err("Player doesn't have that tile"), // TODO: say which player and tile
-            Some(index) => {
-                self.hands[player][index] = self.bag.draw_tile();
-                Ok(())
+        if let Some(player) = self.hands.get_mut(player) {
+            match player.iter().position(|t| t == &tile) {
+                None => Err("Player doesn't have that tile"), // TODO: say which player and tile
+                Some(index) => {
+                    player[index] = self.bag.draw_tile();
+                    Ok(())
+                }
             }
+        } else {
+            Err("Invalid player") // TODO: say which player is wrong
         }
     }
 
