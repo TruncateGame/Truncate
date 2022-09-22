@@ -1,10 +1,11 @@
+use crate::error::GamePlayError;
 use anyhow::Result;
 use std::collections::HashSet;
 use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::error::GamePlayError;
+use super::hand::Hands;
 
 #[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
@@ -122,7 +123,7 @@ impl Board {
         }
     }
 
-    pub fn truncate(&mut self) {
+    pub fn truncate(&mut self, hands: &mut Hands) {
         let mut attatched = HashSet::new();
         for root in self.roots.iter() {
             attatched.extend(self.depth_first_search(*root));
@@ -132,6 +133,9 @@ impl Board {
             for x in 0..self.width() {
                 let c = Coordinate { x, y };
                 if !attatched.contains(&c) {
+                    if let Ok(Square::Occupied(_, letter)) = self.get(c) {
+                        hands.return_tile(letter);
+                    }
                     self.clear(c);
                 }
             }

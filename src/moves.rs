@@ -47,7 +47,7 @@ impl Board {
 
                 hands.use_tile(player, tile)?;
                 self.set(position, player, tile)?;
-                self.resolve_attack(player, position, judge);
+                self.resolve_attack(player, position, judge, hands);
                 Ok(())
             }
             Move::Swap { player, positions } => self.swap(player, positions),
@@ -61,7 +61,13 @@ impl Board {
     //   - Weak and invalid defending words die
     //   - Any remaining defending letters adjacent to the attacking tile die
     //   - Defending tiles are truncated
-    fn resolve_attack(&mut self, player: usize, position: Coordinate, judge: &Judge) {
+    fn resolve_attack(
+        &mut self,
+        player: usize,
+        position: Coordinate,
+        judge: &Judge,
+        hands: &mut Hands,
+    ) {
         let (attackers, defenders) = self.collect_combanants(player, position);
         let attacking_words = self
             .word_strings(&attackers)
@@ -74,6 +80,9 @@ impl Board {
             Outcome::DefenderWins => {
                 for word in attackers {
                     for square in word {
+                        if let Ok(Square::Occupied(_, letter)) = self.get(square) {
+                            hands.return_tile(letter);
+                        }
                         self.clear(square);
                     }
                 }
@@ -84,13 +93,16 @@ impl Board {
                         .get(defender_index)
                         .expect("Losers should only contain valid squares")
                     {
+                        if let Ok(Square::Occupied(_, letter)) = self.get(*square) {
+                            hands.return_tile(letter);
+                        }
                         self.clear(*square);
                     }
                 }
             }
         }
 
-        self.truncate();
+        self.truncate(hands);
     }
 
     fn collect_combanants(
@@ -499,6 +511,8 @@ mod tests {
         )
         .unwrap();
         let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+        let mut test_hands = Hands::new(2, 7, TileUtils::trivial_bag());
+        assert_eq!(hands, test_hands);
 
         b.make_move(
             Move::Place {
@@ -511,6 +525,11 @@ mod tests {
         )
         .unwrap();
 
+        for letter in ['B', 'X', 'X'] {
+            test_hands.return_tile(letter);
+        }
+        assert_eq!(hands, test_hands);
+
         assert_eq!(
             b.to_string(),
             [
@@ -522,6 +541,6 @@ mod tests {
                 "_ _ G _ _",
             ]
             .join("\n"),
-        )
+        );
     }
 }
