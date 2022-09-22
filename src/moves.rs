@@ -30,24 +30,17 @@ impl Board {
                 tile,
                 position,
             } => {
-                match self.get(position)? {
-                    Square::Occupied(player, value) => {
-                        println!("Square owned by player {} with value '{}'", player, value);
-                        return Err(GamePlayError::OccupiedPlace);
-                    }
-                    Square::Empty => {}
-                };
+                if let Square::Occupied(..) = self.get(position)? {
+                    return Err(GamePlayError::OccupiedPlace);
+                }
 
                 if position != self.get_root(player)?
-                    && self
-                        .neighbouring_squares(position)
-                        .iter()
-                        .filter(|square| match (*square).1 {
-                            Square::Empty => false,
+                    && !self.neighbouring_squares(position).iter().any(
+                        |&(_, square)| match square {
                             Square::Occupied(p, _) => p == player,
-                        })
-                        .count()
-                        == 0
+                            _ => false,
+                        },
+                    )
                 {
                     return Err(GamePlayError::NonAdjacentPlace);
                 }
@@ -87,8 +80,10 @@ impl Board {
             }
             Outcome::AttackerWins(losers) => {
                 for defender_index in losers {
-                    let defender = defenders.get(defender_index).unwrap();
-                    for square in defender {
+                    for square in defenders
+                        .get(defender_index)
+                        .expect("Losers should only contain valid squares")
+                    {
                         self.clear(*square);
                     }
                 }
@@ -108,12 +103,9 @@ impl Board {
         let defenders = self
             .neighbouring_squares(position)
             .iter()
-            .filter(|pos| {
-                if let Square::Occupied(adjacent_player, _) = pos.1 {
-                    player != adjacent_player
-                } else {
-                    false
-                }
+            .filter(|(_, square)| match square {
+                Square::Occupied(adjacent_player, _) => player != *adjacent_player,
+                _ => false,
             })
             .flat_map(|(position, _)| self.get_words(*position))
             .collect();
