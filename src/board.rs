@@ -208,67 +208,54 @@ impl Board {
     }
 
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
-        let mut words = Vec::new();
-        let mut owner = None;
+        let mut words: Vec<Vec<Coordinate>> = Vec::new();
+        let owner = match self.get(position) {
+            Ok(Square::Occupied(player, _)) => player,
+            _ => return words,
+        };
 
-        for (i, direction) in Direction::iter().enumerate() {
-            let mut word = Vec::new();
-            let mut location = position;
+        let axes = [
+            [Direction::South, Direction::North],
+            [Direction::East, Direction::West],
+        ];
 
-            'wordbuilder: loop {
-                if let Ok(Square::Occupied(player, _)) = self.get(location) {
-                    if owner == None {
-                        owner = Some(player);
+        // Build each of the two possible words from either side
+        for axis in axes {
+            let mut word = vec![position];
+            for direction in axis {
+                let fowards = direction == Direction::South || direction == Direction::East;
+                let mut location = position.add(direction);
+
+                while let Ok(Square::Occupied(player, _)) = self.get(location) {
+                    if player != owner {
+                        break;
                     }
-
-                    if owner != Some(player) {
-                        break 'wordbuilder; // Word ends at other players' letters
-                    }
-
-                    word.push(location);
-                } else {
-                    break 'wordbuilder; // Word ends at the edge of the board or empty squares
-                }
-                location = location.add(direction);
-            }
-            if i < 2 {
-                words.push(word);
-            } else {
-                // Combine North/South and East/West words
-                word.reverse();
-                if word.len() > 0 {
-                    if words[i - 2].len() > 0 {
-                        words[i - 2].splice(0..1, word);
-                        // Prepend and remove repeated letter
+                    if fowards {
+                        word.push(location);
                     } else {
-                        words[i - 2] = word;
+                        word.splice(0..0, [location]);
                     }
+                    location = location.add(direction);
                 }
             }
+            words.push(word);
         }
 
         // Reverse words based on the player's orientation
-        if let Some(owner) = owner {
-            let orientation = self.orientations[owner];
-            if !orientation.read_top_to_bottom() {
-                words[0].reverse();
-            }
-            if !orientation.read_left_to_right() {
-                words[1].reverse();
-            }
+        let orientation = self.orientations[owner];
+        if !orientation.read_top_to_bottom() {
+            words[0].reverse();
+        }
+        if !orientation.read_left_to_right() {
+            words[1].reverse();
         }
 
         // 1 letter words don't count expect when there's only one tile, in which case it does count as a word
-        if words.iter().filter(|w| w.len() == 1).count() != 2 {
-            for i in (0..=1).rev() {
-                // TODO: use filter
-                if words[i].len() <= 1 {
-                    words.remove(i);
-                }
-            }
+        if words.iter().all(|w| w.len() == 1) {
+            words
+        } else {
+            words.into_iter().filter(|word| word.len() > 1).collect()
         }
-
-        words
     }
 
     pub fn word_strings(
