@@ -79,8 +79,7 @@ fn render_board(game: &Game) {
         |sq| sq.to_oriented_string(orientations),
         |line_number, line| {
             let mut line = line;
-            let f: String = line.chars().rev().collect();
-            let flipped_line = &f;
+            let flipped_line: String = line.chars().rev().collect();
             if flipped {
                 line = flipped_line;
             }

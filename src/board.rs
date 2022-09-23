@@ -45,7 +45,6 @@ pub struct Board {
 
 impl Board {
     pub fn new(width: usize, height: usize) -> Self {
-        // TODO: is all this internal usize <-> isize conversion worth accepting isize as valid coordinates? Is that only used for simpler traversal algorithms?
         // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
         let roots = vec![
             Coordinate {
@@ -323,7 +322,7 @@ impl Board {
         }
     }
 
-    pub fn render_squares<F: Fn(&Square) -> String, G: Fn(usize, &String) -> String>(
+    pub fn render_squares<F: Fn(&Square) -> String, G: Fn(usize, String) -> String>(
         &self,
         square_renderer: F,
         line_transform: G,
@@ -339,8 +338,6 @@ impl Board {
                     .collect::<Vec<String>>()
                     .join(" ")
             })
-            .collect::<Vec<String>>()
-            .iter()
             .enumerate()
             .map(|(line_number, line)| line_transform(line_number, line))
             .collect::<Vec<String>>()
@@ -356,11 +353,7 @@ impl Default for Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.render_squares(|sq| sq.to_string(), |_, s| s.clone()) // TODO: remove this clone
-        )
+        write!(f, "{}", self.render_squares(|sq| sq.to_string(), |_, s| s))
     }
 }
 
