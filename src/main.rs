@@ -34,10 +34,10 @@ fn main() {
 }
 
 fn turn(game: &mut Game) -> Option<usize> {
-    render_board(&game);
+    render_board(game);
     println!();
     println!();
-    render_hand(&game);
+    render_hand(game);
     println!();
 
     let mut swapping: Option<bool> = None;
@@ -87,7 +87,7 @@ fn render_board(game: &Game) {
                 .unwrap()
                 .to_string();
             s.push_str("  ");
-            s.push_str(&line.clone());
+            s.push_str(&line);
             s
         },
     );
@@ -128,7 +128,6 @@ fn render_hand(game: &Game) {
         "{}",
         game.hands
             .get_hand(game.next())
-            .clone()
             .iter()
             .map(|c| c.to_string())
             .collect::<Vec<String>>()
@@ -178,23 +177,7 @@ fn place(game: &mut Game) -> Option<usize> {
     }
 }
 
-fn user_input_coordinate(prompt: &str) -> Coordinate {
-    let mut position: Option<Coordinate> = None;
-    while position.is_none() {
-        let input = user_input(prompt);
-        if input.len() == 2 {
-            let mut chars = input.chars();
-            let y = chars.next().unwrap() as usize - 65;
-            let x = chars.next().unwrap() as usize - 49; // 48 is the character 0, and our board is 1 indexed on scren
-            position = Some(Coordinate { x, y });
-        } else {
-            println!("Sorry, I couldn't read that coordinate");
-        }
-    }
-    position.unwrap()
-}
-
-fn pre_turn(game: &Game, players: &Vec<String>) {
+fn pre_turn(game: &Game, players: &[String]) {
     render_board(game);
     println!();
     println!();
@@ -260,6 +243,22 @@ fn user_input_usize(prompt: &str) -> usize {
         result = Some(parsed);
     }
     result.expect("Should unwrap because the above loop can only end when result is Ok")
+}
+
+fn user_input_coordinate(prompt: &str) -> Coordinate {
+    let mut position: Option<Coordinate> = None;
+    while position.is_none() {
+        let input = user_input(prompt);
+        if input.len() == 2 {
+            let mut chars = input.chars();
+            let y = chars.next().unwrap() as usize - 65;
+            let x = chars.next().unwrap() as usize - 49; // 48 is the character 0, and our board is 1 indexed on scren
+            position = Some(Coordinate { x, y });
+        } else {
+            println!("Sorry, I couldn't read that coordinate");
+        }
+    }
+    position.unwrap()
 }
 
 fn clear() {

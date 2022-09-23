@@ -232,7 +232,7 @@ impl Board {
                     if fowards {
                         word.push(location);
                     } else {
-                        word.splice(0..0, [location]);
+                        word.insert(0, location);
                     }
                     location = location.add(direction);
                 }
