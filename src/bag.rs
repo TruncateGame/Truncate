@@ -1,6 +1,7 @@
 use rand::Rng;
 use std::fmt;
 
+#[derive(Debug)]
 pub struct TileBag {
     bag: Vec<char>,
     rng: rand::rngs::ThreadRng,
@@ -47,6 +48,12 @@ impl Default for TileBag {
             // banagrams letter distribution
             13, 3, 3, 6, 18, 3, 4, 3, 12, 2, 2, 5, 3, 8, 11, 3, 2, 9, 6, 9, 6, 3, 3, 2, 3, 2,
         ])
+    }
+}
+
+impl PartialEq for TileBag {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.bag == rhs.bag && self.letter_distribution == rhs.letter_distribution
     }
 }
 

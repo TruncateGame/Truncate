@@ -1,10 +1,11 @@
+use crate::error::GamePlayError;
 use anyhow::Result;
 use std::collections::HashSet;
 use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::error::GamePlayError;
+use super::hand::Hands;
 
 #[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
@@ -44,7 +45,6 @@ pub struct Board {
 
 impl Board {
     pub fn new(width: usize, height: usize) -> Self {
-        // TODO: is all this internal usize <-> isize conversion worth accepting isize as valid coordinates? Is that only used for simpler traversal algorithms?
         // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
         let roots = vec![
             Coordinate {
@@ -122,19 +122,19 @@ impl Board {
         }
     }
 
-    pub fn truncate(&mut self) {
+    pub fn truncate(&mut self, hands: &mut Hands) {
         let mut attatched = HashSet::new();
         for root in self.roots.iter() {
-            let tree = self.depth_first_search(*root);
-            for bit in tree {
-                attatched.insert(bit);
-            }
+            attatched.extend(self.depth_first_search(*root));
         }
 
         for y in 0..self.height() {
             for x in 0..self.width() {
                 let c = Coordinate { x, y };
                 if !attatched.contains(&c) {
+                    if let Ok(Square::Occupied(_, letter)) = self.get(c) {
+                        hands.return_tile(letter);
+                    }
                     self.clear(c);
                 }
             }
@@ -149,40 +149,37 @@ impl Board {
     }
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
-        let mut neighbours = Vec::new();
-        for delta in Direction::iter() {
-            let neighbour_coordinate = position.add(delta);
-            if let Ok(square) = self.get(neighbour_coordinate) {
-                neighbours.push((neighbour_coordinate, square));
-            };
-        }
-        neighbours
+        Direction::iter()
+            .filter_map(|delta| {
+                let neighbour_coordinate = position.add(delta);
+                if let Ok(square) = self.get(neighbour_coordinate) {
+                    Some((neighbour_coordinate, square))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     // TODO: return iterator or rename since it doesn't matter that this is depth first when we return a HashSet
     fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
-        let mut set = HashSet::new();
+        let mut visited = HashSet::new();
 
-        let player = if let Ok(Square::Occupied(player, _)) = self.get(position) {
-            player
-        } else {
-            return set;
-        };
-        let mut stack = vec![position]; // TODO: consider more efficient stack type
-
-        while let Some(current) = stack.pop() {
-            set.insert(current);
-            for (position, square) in self.neighbouring_squares(current) {
-                // Put the neighbour in the set if it is occupied by the current player
-                if let Square::Occupied(neighbours_player, _) = square {
-                    if !set.contains(&position) && player == neighbours_player {
-                        stack.push(position);
+        fn dfs(b: &Board, position: Coordinate, visited: &mut HashSet<Coordinate>) {
+            if let Ok(Square::Occupied(player, _)) = b.get(position) {
+                visited.insert(position);
+                for (position, square) in b.neighbouring_squares(position) {
+                    if let Square::Occupied(neighbours_player, _) = square {
+                        if !visited.contains(&position) && player == neighbours_player {
+                            dfs(b, position, visited);
+                        };
                     }
                 }
             }
         }
 
-        set
+        dfs(self, position, &mut visited);
+        visited
     }
 
     pub fn swap(&mut self, player: usize, positions: [Coordinate; 2]) -> Result<(), GamePlayError> {
@@ -210,67 +207,54 @@ impl Board {
     }
 
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
-        let mut words = Vec::new();
-        let mut owner = None;
+        let mut words: Vec<Vec<Coordinate>> = Vec::new();
+        let owner = match self.get(position) {
+            Ok(Square::Occupied(player, _)) => player,
+            _ => return words,
+        };
 
-        for (i, direction) in Direction::iter().enumerate() {
-            let mut word = Vec::new();
-            let mut location = position;
+        let axes = [
+            [Direction::South, Direction::North],
+            [Direction::East, Direction::West],
+        ];
 
-            'wordbuilder: loop {
-                if let Ok(Square::Occupied(player, _)) = self.get(location) {
-                    if owner == None {
-                        owner = Some(player);
+        // Build each of the two possible words from either side
+        for axis in axes {
+            let mut word = vec![position];
+            for direction in axis {
+                let fowards = direction == Direction::South || direction == Direction::East;
+                let mut location = position.add(direction);
+
+                while let Ok(Square::Occupied(player, _)) = self.get(location) {
+                    if player != owner {
+                        break;
                     }
-
-                    if owner != Some(player) {
-                        break 'wordbuilder; // Word ends at other players' letters
-                    }
-
-                    word.push(location);
-                } else {
-                    break 'wordbuilder; // Word ends at the edge of the board or empty squares
-                }
-                location = location.add(direction);
-            }
-            if i < 2 {
-                words.push(word);
-            } else {
-                // Combine North/South and East/West words
-                word.reverse();
-                if word.len() > 0 {
-                    if words[i - 2].len() > 0 {
-                        words[i - 2].splice(0..1, word);
-                        // Prepend and remove repeated letter
+                    if fowards {
+                        word.push(location);
                     } else {
-                        words[i - 2] = word;
+                        word.insert(0, location);
                     }
+                    location = location.add(direction);
                 }
             }
+            words.push(word);
         }
 
         // Reverse words based on the player's orientation
-        if let Some(owner) = owner {
-            let orientation = self.orientations[owner];
-            if !orientation.read_top_to_bottom() {
-                words[0].reverse();
-            }
-            if !orientation.read_left_to_right() {
-                words[1].reverse();
-            }
+        let orientation = self.orientations[owner];
+        if !orientation.read_top_to_bottom() {
+            words[0].reverse();
+        }
+        if !orientation.read_left_to_right() {
+            words[1].reverse();
         }
 
         // 1 letter words don't count expect when there's only one tile, in which case it does count as a word
-        if words.iter().filter(|w| w.len() == 1).count() != 2 {
-            for i in (0..=1).rev() {
-                // TODO: use filter
-                if words[i].len() <= 1 {
-                    words.remove(i);
-                }
-            }
+        if words.iter().all(|w| w.len() == 1) {
+            words
+        } else {
+            words.into_iter().filter(|word| word.len() > 1).collect()
         }
-
-        words
     }
 
     pub fn word_strings(
@@ -338,7 +322,7 @@ impl Board {
         }
     }
 
-    pub fn render_squares<F: Fn(&Square) -> String, G: Fn(usize, &String) -> String>(
+    pub fn render_squares<F: Fn(&Square) -> String, G: Fn(usize, String) -> String>(
         &self,
         square_renderer: F,
         line_transform: G,
@@ -354,8 +338,6 @@ impl Board {
                     .collect::<Vec<String>>()
                     .join(" ")
             })
-            .collect::<Vec<String>>()
-            .iter()
             .enumerate()
             .map(|(line_number, line)| line_transform(line_number, line))
             .collect::<Vec<String>>()
@@ -371,11 +353,7 @@ impl Default for Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.render_squares(|sq| sq.to_string(), |_, s| s.clone()) // TODO: remove this clone
-        )
+        write!(f, "{}", self.render_squares(|sq| sq.to_string(), |_, s| s))
     }
 }
 
