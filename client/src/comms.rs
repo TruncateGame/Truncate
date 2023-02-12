@@ -10,6 +10,8 @@ pub async fn connect(
     tx_game: UnboundedSender<GameMessage>,
     rx_player: UnboundedReceiver<PlayerMessage>,
 ) {
+    println!("Connecting to {connect_addr}");
+
     let (ws_stream, _) = connect_async(connect_addr)
         .await
         .expect("Failed to connect");

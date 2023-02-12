@@ -1,7 +1,13 @@
-use core::{game::Game, messages::PlayerMessage};
+use core::{
+    game::Game,
+    messages::{GameMessage, PlayerMessage},
+};
 use std::{net::SocketAddr, time::Instant};
 
 use tokio::sync::mpsc::UnboundedReceiver;
+use uuid::Uuid;
+
+use crate::PeerMap;
 
 pub struct Player {
     pub name: String,
@@ -14,7 +20,12 @@ pub struct GameState {
     pub game: Game,
 }
 
-pub fn run_game(mut rx: UnboundedReceiver<PlayerMessage>, player: Player) {
+pub fn run_game(
+    game_id: Uuid,
+    mut rx: UnboundedReceiver<PlayerMessage>,
+    peer_map: PeerMap,
+    player: Player,
+) {
     let game = GameState {
         started_at: Instant::now(),
         players: vec![player],
@@ -25,10 +36,23 @@ pub fn run_game(mut rx: UnboundedReceiver<PlayerMessage>, player: Player) {
     // async in tokio's world, rather than this persistent thread with a block.
     // (maybe... this has some virtues too, in which case maybe change to poll_recv)
     while let Some(msg) = rx.blocking_recv() {
+        use PlayerMessage::*;
         match msg {
-            PlayerMessage::Place(_, _) => todo!(),
-            // TODO: List outer game messages here exhaustively so new messages throw compilation errors
-            _ => {}
+            Place(_, _) => todo!(),
+            StartGame => {
+                for player in game.players.iter() {
+                    let Some(socket) = player.socket.as_ref() else {continue};
+                    let Some(peer) = peer_map.get(socket) else {continue};
+
+                    peer.send(GameMessage::StartedGame(
+                        game_id,
+                        game.game.board.clone(),
+                        game.game.hands.get_hand(0).clone(),
+                    ))
+                    .unwrap();
+                }
+            }
+            NewGame => {}
         }
         println!("Game got {msg:#?}");
     }

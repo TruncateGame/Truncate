@@ -43,9 +43,9 @@ impl Direction {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Board {
-    squares: Vec<Vec<Option<Square>>>,
+    pub squares: Vec<Vec<Option<Square>>>,
     roots: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
 }

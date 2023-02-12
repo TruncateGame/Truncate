@@ -1,10 +1,14 @@
+use serde::{Deserialize, Serialize};
+
 use crate::error::GamePlayError;
 
 use super::bag::TileBag;
 
+pub type Hand = Vec<char>;
+
 #[derive(Debug, PartialEq)]
 pub struct Hands {
-    hands: Vec<Vec<char>>,
+    hands: Vec<Hand>,
     bag: TileBag,
 }
 

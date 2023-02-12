@@ -42,15 +42,18 @@ async fn handle_connection(maps: Maps, raw_stream: TcpStream, addr: SocketAddr) 
         let parsed_msg: PlayerMessage =
             serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
         println!("Parsed message as: {:?}", parsed_msg);
+        use PlayerMessage::*;
         match parsed_msg {
-            PlayerMessage::NewGame => {
+            NewGame => {
                 let new_game_id = Uuid::new_v4();
                 let (game_tx, game_rx) = mpsc::unbounded_channel();
-                // TODO: Need to give the game some way to access PeerMap
-                // so it can send messages to the players
+
+                let peers = peer_map.clone();
                 std::thread::spawn(move || {
                     game_state::run_game(
+                        new_game_id,
                         game_rx,
+                        peers,
                         Player {
                             name: "TODO".into(),
                             socket: Some(addr.clone()),
@@ -63,8 +66,7 @@ async fn handle_connection(maps: Maps, raw_stream: TcpStream, addr: SocketAddr) 
                     .send(GameMessage::JoinedGame(new_game_id))
                     .unwrap();
             }
-            // TODO: List inner game messages here exhaustively so new messages throw compilation errors
-            _ => {
+            Place(_, _) | StartGame => {
                 let existing_game = active_map
                     .get(&addr)
                     .map(|game_id| game_map.get(&game_id))
@@ -100,7 +102,7 @@ async fn handle_connection(maps: Maps, raw_stream: TcpStream, addr: SocketAddr) 
 async fn main() -> Result<(), IoError> {
     let addr = env::args()
         .nth(1)
-        .unwrap_or_else(|| "127.0.0.1:8080".to_string());
+        .unwrap_or_else(|| "0.0.0.0:8080".to_string());
 
     let maps = (
         PeerMap::new(DashMap::new()),
