@@ -1,12 +1,13 @@
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use super::hand::Hands;
 use crate::error::GamePlayError;
 use crate::moves::{Change, ChangeAction, ChangeDetail};
-use super::hand::Hands;
 
 #[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
@@ -389,13 +390,17 @@ impl fmt::Display for Board {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct Coordinate {
     pub x: usize,
     pub y: usize,
 }
 
 impl Coordinate {
+    pub fn new(x: usize, y: usize) -> Self {
+        Self { x, y }
+    }
+
     fn add(self, direction: Direction) -> Coordinate {
         match direction {
             Direction::North => Coordinate {

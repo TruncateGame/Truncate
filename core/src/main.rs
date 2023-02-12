@@ -11,7 +11,8 @@ use game::Game;
 use moves::Move;
 use std::io;
 
-// TODO: this whole file is absolute garbage, clean it up
+// ~~TODO: this whole file is absolute garbage, clean it up~~
+// TODO: Delete this file once re-implemented since core is no longer a bin
 
 fn main() {
     clear();

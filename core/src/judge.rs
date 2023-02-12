@@ -14,14 +14,15 @@ pub struct Judge {
     dictionary: HashSet<String>,
 }
 
+// TODO: Allow dictionary to be swapped out.
+static DICT: &str = include_str!("../dictionary.txt");
+
 impl Default for Judge {
     fn default() -> Self {
-        let file = File::open("./dictionary.txt").expect("file missing"); // collins2018 list
-        let reader = BufReader::new(file);
         let mut dictionary = HashSet::new();
 
-        for line in reader.lines() {
-            dictionary.insert(line.expect("bad encoding").to_lowercase());
+        for line in DICT.lines() {
+            dictionary.insert(line.to_lowercase());
         }
         Self { dictionary }
     }

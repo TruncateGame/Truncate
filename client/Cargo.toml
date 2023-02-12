@@ -1,0 +1,20 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+tokio-tungstenite = "0.18"
+tungstenite = { version = "0.18", default-features = false }
+eframe = "0.21"
+futures-util = { version = "0.3", default-features = false, features = [
+    "sink",
+    "std",
+] }
+serde_json = "1"
+uuid = { version = "0.8", features = ["serde", "v4"] }
+core = { path = "../core" }
