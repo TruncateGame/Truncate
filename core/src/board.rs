@@ -2,14 +2,13 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use std::slice::Iter;
 
 use super::hand::Hands;
 use crate::error::GamePlayError;
 use crate::moves::{Change, ChangeAction, ChangeDetail};
 
-#[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     South,
     East,
@@ -18,6 +17,12 @@ pub enum Direction {
 }
 
 impl Direction {
+    pub fn iter() -> Iter<'static, Direction> {
+        use Direction::*;
+        static DIRECTIONS: [Direction; 4] = [South, East, North, West];
+        DIRECTIONS.iter()
+    }
+
     // Returns whether vertical words should be read from top to bottom if played by a player on this side of the board
     fn read_top_to_bottom(self) -> bool {
         matches!(self, Direction::South) || matches!(self, Direction::West)
@@ -38,7 +43,7 @@ impl Direction {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Board {
     squares: Vec<Vec<Option<Square>>>,
     roots: Vec<Coordinate>,
@@ -174,7 +179,7 @@ impl Board {
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
         Direction::iter()
             .filter_map(|delta| {
-                let neighbour_coordinate = position.add(delta);
+                let neighbour_coordinate = position.add(*delta);
                 if let Ok(square) = self.get(neighbour_coordinate) {
                     Some((neighbour_coordinate, square))
                 } else {
@@ -429,7 +434,7 @@ impl fmt::Display for Coordinate {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Square {
     Empty,
     Occupied(usize, char),
