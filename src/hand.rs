@@ -2,6 +2,7 @@ use crate::error::GamePlayError;
 
 use super::bag::TileBag;
 
+#[derive(Debug, PartialEq)]
 pub struct Hands {
     hands: Vec<Vec<char>>,
     bag: TileBag,
@@ -35,6 +36,10 @@ impl Hands {
 
     pub fn get_hand(&self, player: usize) -> &Vec<char> {
         &self.hands[player]
+    }
+
+    pub fn return_tile(&mut self, c: char) {
+        self.bag.return_tile(c);
     }
 }
 

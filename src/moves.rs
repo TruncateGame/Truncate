@@ -52,24 +52,17 @@ impl Board {
                 tile,
                 position,
             } => {
-                match self.get(position)? {
-                    Square::Occupied(player, value) => {
-                        println!("Square owned by player {} with value '{}'", player, value);
-                        return Err(GamePlayError::OccupiedPlace);
-                    }
-                    Square::Empty => {}
-                };
+                if let Square::Occupied(..) = self.get(position)? {
+                    return Err(GamePlayError::OccupiedPlace);
+                }
 
                 if position != self.get_root(player)?
-                    && self
-                        .neighbouring_squares(position)
-                        .iter()
-                        .filter(|square| match (*square).1 {
-                            Square::Empty => false,
+                    && !self.neighbouring_squares(position).iter().any(
+                        |&(_, square)| match square {
                             Square::Occupied(p, _) => p == player,
-                        })
-                        .count()
-                        == 0
+                            _ => false,
+                        },
+                    )
                 {
                     return Err(GamePlayError::NonAdjacentPlace);
                 }
@@ -79,7 +72,7 @@ impl Board {
                     detail: self.set(position, player, tile)?,
                     change: ChangeAction::Added,
                 });
-                self.resolve_attack(player, position, judge, &mut changes);
+                self.resolve_attack(player, position, judge, hands, &mut changes);
                 Ok(changes)
             }
             Move::Swap { player, positions } => self.swap(player, positions),
@@ -98,6 +91,7 @@ impl Board {
         player: usize,
         position: Coordinate,
         judge: &Judge,
+        hands: &mut Hands,
         changes: &mut Vec<Change>,
     ) {
         let (attackers, defenders) = self.collect_combanants(player, position);
@@ -112,6 +106,9 @@ impl Board {
             Outcome::DefenderWins => {
                 let squares = attackers.into_iter().flat_map(|word| word.into_iter());
                 changes.extend(squares.flat_map(|square| {
+                    if let Ok(Square::Occupied(_, letter)) = self.get(square) {
+                        hands.return_tile(letter);
+                    }
                     self.clear(square).map(|detail| Change {
                         detail,
                         change: ChangeAction::Defeated,
@@ -120,10 +117,13 @@ impl Board {
             }
             Outcome::AttackerWins(losers) => {
                 let squares = losers.into_iter().flat_map(|defender_index| {
-                    let defender = defenders.get(defender_index).unwrap();
+                    let defender = defenders.get(defender_index).expect("Losers should only contain valid squares");
                     defender.into_iter()
                 });
                 changes.extend(squares.flat_map(|square| {
+                    if let Ok(Square::Occupied(_, letter)) = self.get(*square) {
+                        hands.return_tile(letter);
+                    }
                     self.clear(*square).map(|detail| Change {
                         detail,
                         change: ChangeAction::Defeated,
@@ -132,7 +132,7 @@ impl Board {
             }
         }
 
-        changes.extend(self.truncate().into_iter());
+        changes.extend(self.truncate(hands).into_iter());
     }
 
     fn collect_combanants(
@@ -145,12 +145,9 @@ impl Board {
         let defenders = self
             .neighbouring_squares(position)
             .iter()
-            .filter(|pos| {
-                if let Square::Occupied(adjacent_player, _) = pos.1 {
-                    player != adjacent_player
-                } else {
-                    false
-                }
+            .filter(|(_, square)| match square {
+                Square::Occupied(adjacent_player, _) => player != *adjacent_player,
+                _ => false,
             })
             .flat_map(|(position, _)| self.get_words(*position))
             .collect();
@@ -571,6 +568,8 @@ mod tests {
         )
         .unwrap();
         let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+        let mut test_hands = Hands::new(2, 7, TileUtils::trivial_bag());
+        assert_eq!(hands, test_hands);
 
         b.make_move(
             Move::Place {
@@ -583,6 +582,11 @@ mod tests {
         )
         .unwrap();
 
+        for letter in ['B', 'X', 'X'] {
+            test_hands.return_tile(letter);
+        }
+        assert_eq!(hands, test_hands);
+
         assert_eq!(
             b.to_string(),
             [
@@ -594,6 +598,6 @@ mod tests {
                 "_ _ G _ _",
             ]
             .join("\n"),
-        )
+        );
     }
 }

@@ -1,4 +1,4 @@
-use super::board::{Board, Direction, Square};
+use super::board::{Board, Square};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
@@ -102,7 +102,7 @@ impl Judge {
 
 #[cfg(test)]
 mod tests {
-    use crate::board::{tests as BoardUtils, Coordinate};
+    use crate::board::{tests as BoardUtils, Coordinate, Direction};
 
     use super::*;
 
