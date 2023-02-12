@@ -3,6 +3,26 @@ use super::hand::Hands;
 use super::judge::{Judge, Outcome};
 use crate::error::GamePlayError;
 
+#[derive(Debug, PartialEq)]
+pub enum ChangeAction {
+    Added,
+    Swapped,
+    Defeated,
+    Truncated,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ChangeDetail {
+    pub square: Square,
+    pub coordinate: Coordinate,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Change {
+    pub detail: ChangeDetail,
+    pub change: ChangeAction,
+}
+
 pub enum Move {
     // TODO: make Move a struct and make player a top level property of it
     Place {
@@ -23,7 +43,9 @@ impl Board {
         game_move: Move,
         hands: &'a mut Hands,
         judge: &Judge,
-    ) -> Result<(), GamePlayError> {
+    ) -> Result<Vec<Change>, GamePlayError> {
+        let mut changes = vec![];
+
         match game_move {
             Move::Place {
                 player,
@@ -46,9 +68,12 @@ impl Board {
                 }
 
                 hands.use_tile(player, tile)?;
-                self.set(position, player, tile)?;
-                self.resolve_attack(player, position, judge, hands);
-                Ok(())
+                changes.push(Change {
+                    detail: self.set(position, player, tile)?,
+                    change: ChangeAction::Added,
+                });
+                self.resolve_attack(player, position, judge, hands, &mut changes);
+                Ok(changes)
             }
             Move::Swap { player, positions } => self.swap(player, positions),
         }
@@ -67,6 +92,7 @@ impl Board {
         position: Coordinate,
         judge: &Judge,
         hands: &mut Hands,
+        changes: &mut Vec<Change>,
     ) {
         let (attackers, defenders) = self.collect_combanants(player, position);
         let attacking_words = self
@@ -78,31 +104,35 @@ impl Board {
         match judge.battle(attacking_words, defending_words) {
             Outcome::NoBattle => {}
             Outcome::DefenderWins => {
-                for word in attackers {
-                    for square in word {
-                        if let Ok(Square::Occupied(_, letter)) = self.get(square) {
-                            hands.return_tile(letter);
-                        }
-                        self.clear(square);
+                let squares = attackers.into_iter().flat_map(|word| word.into_iter());
+                changes.extend(squares.flat_map(|square| {
+                    if let Ok(Square::Occupied(_, letter)) = self.get(square) {
+                        hands.return_tile(letter);
                     }
-                }
+                    self.clear(square).map(|detail| Change {
+                        detail,
+                        change: ChangeAction::Defeated,
+                    })
+                }));
             }
             Outcome::AttackerWins(losers) => {
-                for defender_index in losers {
-                    for square in defenders
-                        .get(defender_index)
-                        .expect("Losers should only contain valid squares")
-                    {
-                        if let Ok(Square::Occupied(_, letter)) = self.get(*square) {
-                            hands.return_tile(letter);
-                        }
-                        self.clear(*square);
+                let squares = losers.into_iter().flat_map(|defender_index| {
+                    let defender = defenders.get(defender_index).expect("Losers should only contain valid squares");
+                    defender.into_iter()
+                });
+                changes.extend(squares.flat_map(|square| {
+                    if let Ok(Square::Occupied(_, letter)) = self.get(*square) {
+                        hands.return_tile(letter);
                     }
-                }
+                    self.clear(*square).map(|detail| Change {
+                        detail,
+                        change: ChangeAction::Defeated,
+                    })
+                }));
             }
         }
 
-        self.truncate(hands);
+        changes.extend(self.truncate(hands).into_iter());
     }
 
     fn collect_combanants(
@@ -191,14 +221,20 @@ mod tests {
                 &mut hands,
                 &short_dict()
             ),
-            Ok(())
+            Ok(vec![Change {
+                detail: ChangeDetail {
+                    square: Square::Occupied(0, 'A'),
+                    coordinate: Coordinate { x: 1, y: 0 },
+                },
+                change: ChangeAction::Added
+            }])
         );
         // Can't place on the same place again
         assert_eq!(
             b.make_move(
                 Move::Place {
                     player: 0,
-                    tile: 'A',
+                    tile: 'B',
                     position: Coordinate { x: 1, y: 0 }
                 },
                 &mut hands,
@@ -211,7 +247,7 @@ mod tests {
             b.make_move(
                 Move::Place {
                     player: 0,
-                    tile: 'A',
+                    tile: 'B',
                     position: Coordinate { x: 0, y: 1 }
                 },
                 &mut hands,
@@ -224,20 +260,26 @@ mod tests {
             b.make_move(
                 Move::Place {
                     player: 0,
-                    tile: 'A',
+                    tile: 'B',
                     position: Coordinate { x: 1, y: 1 }
                 },
                 &mut hands,
                 &short_dict()
             ),
-            Ok(())
+            Ok(vec![Change {
+                detail: ChangeDetail {
+                    square: Square::Occupied(0, 'B'),
+                    coordinate: Coordinate { x: 1, y: 1 },
+                },
+                change: ChangeAction::Added
+            }])
         );
         // Can't place on the same place again
         assert_eq!(
             b.make_move(
                 Move::Place {
                     player: 0,
-                    tile: 'A',
+                    tile: 'B',
                     position: Coordinate { x: 1, y: 1 }
                 },
                 &mut hands,
@@ -255,7 +297,22 @@ mod tests {
                 &mut hands,
                 &short_dict()
             ),
-            Ok(())
+            Ok(vec![
+                Change {
+                    detail: ChangeDetail {
+                        square: Square::Occupied(0, 'A'),
+                        coordinate: Coordinate { x: 1, y: 1 },
+                    },
+                    change: ChangeAction::Swapped
+                },
+                Change {
+                    detail: ChangeDetail {
+                        square: Square::Occupied(0, 'B'),
+                        coordinate: Coordinate { x: 1, y: 0 },
+                    },
+                    change: ChangeAction::Swapped
+                }
+            ])
         );
     }
 

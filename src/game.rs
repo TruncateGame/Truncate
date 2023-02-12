@@ -1,13 +1,14 @@
-use super::board::Board;
+use super::board::{Board, Coordinate, Square};
 use super::hand::Hands;
 use super::judge::Judge;
-use super::moves::Move;
+use super::moves::{Change, Move};
 
 #[derive(Default)]
 pub struct Game {
     pub board: Board, // TODO: should these actually be public?
     pub hands: Hands,
     pub judge: Judge,
+    pub recent_changes: Vec<Change>,
     next_player: usize,
     winner: Option<usize>,
 }
@@ -18,6 +19,7 @@ impl Game {
             board: Board::new(width, height),
             hands: Hands::default(),
             judge: Judge::default(),
+            recent_changes: vec![],
             next_player: 0,
             winner: None,
         }
@@ -36,13 +38,16 @@ impl Game {
             return Err("Only the next player can play");
         }
 
-        if let Err(msg) = self
+        self.recent_changes = match self
             .board
             .make_move(next_move, &mut self.hands, &self.judge)
         {
-            println!("{}", msg);
-            return Err("Couldn't make move"); // TODO: propogate error post polonius
-        }
+            Ok(changes) => changes,
+            Err(msg) => {
+                println!("{}", msg);
+                return Err("Couldn't make move"); // TODO: propogate error post polonius
+            }
+        };
 
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);

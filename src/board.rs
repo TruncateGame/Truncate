@@ -1,10 +1,11 @@
-use crate::error::GamePlayError;
 use anyhow::Result;
 use std::collections::HashSet;
 use std::fmt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use crate::error::GamePlayError;
+use crate::moves::{Change, ChangeAction, ChangeDetail};
 use super::hand::Hands;
 
 #[derive(EnumIter, Clone, Copy, Debug, PartialEq, Eq)]
@@ -92,7 +93,7 @@ impl Board {
         position: Coordinate,
         player: usize,
         value: char,
-    ) -> Result<(), GamePlayError> {
+    ) -> Result<ChangeDetail, GamePlayError> {
         if self.roots.get(player).is_none() {
             return Err(GamePlayError::NonExistentPlayer { index: player });
         }
@@ -104,7 +105,10 @@ impl Board {
         {
             Some(Some(square)) => {
                 *square = Square::Occupied(player, value);
-                Ok(())
+                Ok(ChangeDetail {
+                    square: square.to_owned(),
+                    coordinate: position,
+                })
             }
             Some(None) => Err(GamePlayError::InvalidPosition { position }),
             None => Err(GamePlayError::OutSideBoardDimensions { position }),
@@ -112,33 +116,51 @@ impl Board {
     }
 
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
-    pub fn clear(&mut self, position: Coordinate) {
+    pub fn clear(&mut self, position: Coordinate) -> Option<ChangeDetail> {
         if let Some(pos) = self
             .squares
             .get_mut(position.y as usize)
             .and_then(|y| y.get_mut(position.x as usize))
         {
-            *pos = Some(Square::Empty);
+            match pos.replace(Square::Empty) {
+                Some(square) if matches!(square, Square::Occupied(_, _)) => {
+                    return Some(ChangeDetail {
+                        square,
+                        coordinate: position,
+                    })
+                }
+                _ => return None,
+            }
         }
+        None
     }
 
-    pub fn truncate(&mut self, hands: &mut Hands) {
+    pub fn truncate(&mut self, hands: &mut Hands) -> Vec<Change> {
         let mut attatched = HashSet::new();
         for root in self.roots.iter() {
             attatched.extend(self.depth_first_search(*root));
         }
 
-        for y in 0..self.height() {
-            for x in 0..self.width() {
+        let rows = self.height();
+        let cols = self.width();
+        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
+
+        squares
+            .flat_map(|(x, y)| {
                 let c = Coordinate { x, y };
                 if !attatched.contains(&c) {
                     if let Ok(Square::Occupied(_, letter)) = self.get(c) {
                         hands.return_tile(letter);
                     }
-                    self.clear(c);
+                    self.clear(c).map(|detail| Change {
+                        detail,
+                        change: ChangeAction::Truncated,
+                    })
+                } else {
+                    None
                 }
-            }
-        }
+            })
+            .collect()
     }
 
     pub fn get_root(&self, player: usize) -> Result<Coordinate, GamePlayError> {
@@ -182,7 +204,11 @@ impl Board {
         visited
     }
 
-    pub fn swap(&mut self, player: usize, positions: [Coordinate; 2]) -> Result<(), GamePlayError> {
+    pub fn swap(
+        &mut self,
+        player: usize,
+        positions: [Coordinate; 2],
+    ) -> Result<Vec<Change>, GamePlayError> {
         if positions[0] == positions[1] {
             return Err(GamePlayError::SelfSwap);
         }
@@ -200,10 +226,16 @@ impl Board {
             };
         }
 
-        self.set(positions[0], player, tiles[1])?;
-        self.set(positions[1], player, tiles[0])?;
-
-        Ok(())
+        Ok(vec![
+            Change {
+                detail: self.set(positions[0], player, tiles[1])?,
+                change: ChangeAction::Swapped,
+            },
+            Change {
+                detail: self.set(positions[1], player, tiles[0])?,
+                change: ChangeAction::Swapped,
+            },
+        ])
     }
 
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
@@ -513,17 +545,53 @@ pub mod tests {
         assert_eq!(b.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
         assert_eq!(b.get(Coordinate { x: 1, y: 2 }), Ok(Square::Empty));
 
-        assert_eq!(b.set(Coordinate { x: 0, y: 0 }, 0, 'a'), Ok(()));
-        assert_eq!(b.set(Coordinate { x: 0, y: 1 }, 0, 'a'), Ok(()));
-        assert_eq!(b.set(Coordinate { x: 1, y: 1 }, 0, 'a'), Ok(()));
-        assert_eq!(b.set(Coordinate { x: 1, y: 2 }, 0, 'a'), Ok(()));
+        assert_eq!(
+            b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(0, 'a'),
+                coordinate: Coordinate { x: 0, y: 0 },
+            })
+        );
+        assert_eq!(
+            b.set(Coordinate { x: 0, y: 1 }, 0, 'a'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(0, 'a'),
+                coordinate: Coordinate { x: 0, y: 1 },
+            })
+        );
+        assert_eq!(
+            b.set(Coordinate { x: 1, y: 1 }, 0, 'a'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(0, 'a'),
+                coordinate: Coordinate { x: 1, y: 1 },
+            })
+        );
+        assert_eq!(
+            b.set(Coordinate { x: 1, y: 2 }, 0, 'a'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(0, 'a'),
+                coordinate: Coordinate { x: 1, y: 2 },
+            })
+        );
     }
 
     #[test]
     fn set_requires_valid_player() {
         let mut b = Board::new(2, 1);
-        assert_eq!(b.set(Coordinate { x: 1, y: 2 }, 0, 'a'), Ok(()));
-        assert_eq!(b.set(Coordinate { x: 1, y: 2 }, 1, 'a'), Ok(()));
+        assert_eq!(
+            b.set(Coordinate { x: 1, y: 2 }, 0, 'a'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(0, 'a'),
+                coordinate: Coordinate { x: 1, y: 2 },
+            })
+        );
+        assert_eq!(
+            b.set(Coordinate { x: 1, y: 2 }, 1, 'a'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(1, 'a'),
+                coordinate: Coordinate { x: 1, y: 2 },
+            })
+        );
         assert_eq!(
             b.set(Coordinate { x: 1, y: 2 }, 2, 'a'),
             Err(GamePlayError::NonExistentPlayer { index: 2 })
@@ -542,7 +610,13 @@ pub mod tests {
     fn set_changes_get() {
         let mut b = Board::new(1, 1); // Note, height is 3 from home rows
         assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Empty));
-        assert_eq!(b.set(Coordinate { x: 0, y: 0 }, 0, 'a'), Ok(()));
+        assert_eq!(
+            b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(0, 'a'),
+                coordinate: Coordinate { x: 0, y: 0 },
+            })
+        );
         assert_eq!(
             b.get(Coordinate { x: 0, y: 0 }),
             Ok(Square::Occupied(0, 'a'))
@@ -562,7 +636,13 @@ pub mod tests {
         ];
         let parts_set = HashSet::from(parts);
         for part in parts {
-            assert_eq!(b.set(part, 0, 'a'), Ok(()));
+            assert_eq!(
+                b.set(part, 0, 'a'),
+                Ok(ChangeDetail {
+                    square: Square::Occupied(0, 'a'),
+                    coordinate: part,
+                })
+            );
         }
 
         // The tree should be returned no matter where in the tree we start DFS from
@@ -575,7 +655,13 @@ pub mod tests {
         let other = Coordinate { x: 1, y: 2 };
         // WHen unoccupied it should give the empty set, when occupied, just itself
         assert!(b.depth_first_search(other).iter().eq([].iter()));
-        assert_eq!(b.set(other, 1, 'a'), Ok(()));
+        assert_eq!(
+            b.set(other, 1, 'a'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(1, 'a'),
+                coordinate: other,
+            })
+        );
         assert!(b.depth_first_search(other).iter().eq([other].iter()));
 
         // The result of DFS on the main tree should not have changed
@@ -630,13 +716,49 @@ pub mod tests {
         let c0_1 = Coordinate { x: 0, y: 1 };
         let c1_1 = Coordinate { x: 1, y: 1 };
         let c2_1 = Coordinate { x: 2, y: 1 };
-        assert_eq!(b.set(c0_1, 0, 'a'), Ok(()));
-        assert_eq!(b.set(c1_1, 0, 'b'), Ok(()));
-        assert_eq!(b.set(c2_1, 1, 'c'), Ok(()));
+        assert_eq!(
+            b.set(c0_1, 0, 'a'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(0, 'a'),
+                coordinate: c0_1,
+            })
+        );
+        assert_eq!(
+            b.set(c1_1, 0, 'b'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(0, 'b'),
+                coordinate: c1_1,
+            })
+        );
+        assert_eq!(
+            b.set(c2_1, 1, 'c'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(1, 'c'),
+                coordinate: c2_1,
+            })
+        );
 
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'a')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'b')));
-        assert_eq!(b.swap(0, [c0_1, c1_1]), Ok(()));
+        assert_eq!(
+            b.swap(0, [c0_1, c1_1]),
+            Ok(vec![
+                Change {
+                    detail: ChangeDetail {
+                        square: Square::Occupied(0, 'b'),
+                        coordinate: c0_1,
+                    },
+                    change: ChangeAction::Swapped
+                },
+                Change {
+                    detail: ChangeDetail {
+                        square: Square::Occupied(0, 'a'),
+                        coordinate: c1_1,
+                    },
+                    change: ChangeAction::Swapped
+                }
+            ])
+        );
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'a')));
         assert_eq!(b.swap(0, [c0_1, c0_1]), Err(GamePlayError::SelfSwap));
@@ -707,7 +829,13 @@ pub mod tests {
             b.get(Coordinate { x: 2, y: 4 }),
             Ok(Square::Occupied(0, 'S'))
         );
-        assert_eq!(b.set(Coordinate { x: 3, y: 4 }, 1, 'O'), Ok(()));
+        assert_eq!(
+            b.set(Coordinate { x: 3, y: 4 }, 1, 'O'),
+            Ok(ChangeDetail {
+                square: Square::Occupied(1, 'O'),
+                coordinate: Coordinate { x: 3, y: 4 },
+            })
+        );
         assert_eq!(b.get_words(Coordinate { x: 2, y: 4 }), vec![cross]); // TODO: check coordinates
     }
 
