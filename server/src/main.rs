@@ -1,6 +1,7 @@
 mod game_state;
 mod room_codes;
 
+use core::game::Game;
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
 use dashmap::DashMap;
@@ -13,11 +14,11 @@ use tungstenite::protocol::Message;
 
 use crate::game_state::Player;
 use core::messages::{GameMessage, PlayerMessage};
-use game_state::IncomingMessage;
+use game_state::GameState;
 use room_codes::RoomCodes;
 
 type PeerMap = Arc<DashMap<SocketAddr, UnboundedSender<GameMessage>>>;
-type GameMap = Arc<DashMap<String, UnboundedSender<IncomingMessage>>>;
+type GameMap = Arc<DashMap<String, GameState>>;
 type ActiveGameMap = Arc<DashMap<SocketAddr, String>>;
 type Maps = (PeerMap, GameMap, ActiveGameMap);
 
@@ -49,60 +50,69 @@ async fn handle_connection(
         let parsed_msg: PlayerMessage =
             serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
         println!("Parsed message as: {:?}", parsed_msg);
+
+        let get_current_game = |addr| {
+            active_map
+                .get(&addr)
+                .map(|game_id| game_map.get_mut(&*game_id))
+                .flatten()
+        };
+
         use PlayerMessage::*;
         match parsed_msg {
             NewGame => {
                 let new_game_id = code_provider.get_free_code();
-                let (game_tx, game_rx) = mpsc::unbounded_channel();
+                let mut game = GameState::new(new_game_id.clone());
+                game.add_player(Player {
+                    name: "TODO".into(),
+                    socket: Some(addr.clone()),
+                })
+                .expect("Failed to add first player to game");
 
-                let (peers, run_game_id) = (peer_map.clone(), new_game_id.clone());
-                std::thread::spawn(move || {
-                    game_state::run_game(
-                        run_game_id,
-                        game_rx,
-                        peers,
-                        Player {
-                            name: "TODO".into(),
-                            socket: Some(addr.clone()),
-                        },
-                    )
-                });
-                game_map.insert(new_game_id.clone(), game_tx);
+                game_map.insert(new_game_id.clone(), game);
                 active_map.insert(addr, new_game_id.clone());
+
                 player_tx
                     .send(GameMessage::JoinedGame(new_game_id))
                     .unwrap();
             }
             JoinGame(room_code) => {
                 let code = room_code.to_ascii_lowercase();
-                if let Some(existing_game) = game_map.get(&code) {
+                if let Some(mut existing_game) = game_map.get_mut(&code) {
                     active_map.insert(addr, code.clone());
-                    // TODO: Need a way to check if the game is in progress first
-                    // Probably should have an open_games map and an active_games map
-                    existing_game
-                        .send(IncomingMessage::AddPlayer(Player {
+
+                    if existing_game
+                        .add_player(Player {
                             name: "TODO".into(),
                             socket: Some(addr.clone()),
-                        }))
-                        .unwrap();
-                    player_tx.send(GameMessage::JoinedGame(code)).unwrap();
+                        })
+                        .is_ok()
+                    {
+                        player_tx.send(GameMessage::JoinedGame(code)).unwrap();
+                    } else {
+                        todo!("Handle error when adding player to a room");
+                    }
                 } else {
-                    println!("No room exists for {code}");
-                    // TODO: Handle bad room codes
+                    todo!("Handle error when a room doesn't exist");
                 }
             }
-            // Inner-game messages, pass through to the GameState
-            Place(_, _) | StartGame => {
-                let existing_game = active_map
-                    .get(&addr)
-                    .map(|game_id| game_map.get(&*game_id))
-                    .flatten();
-                if let Some(tx_game) = existing_game {
-                    tx_game
-                        .send(IncomingMessage::Instruction(parsed_msg))
-                        .unwrap();
+            StartGame => {
+                if let Some(mut game_state) = get_current_game(addr) {
+                    for (player, message) in game_state.start() {
+                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                        let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+
+                        peer.send(message).unwrap();
+                    }
                 } else {
-                    // TODO: Send error message to user as they are not enrolled in any game
+                    todo!("Handle player not being enrolled in a game");
+                }
+            }
+            Place(_, _) => {
+                if let Some(mut game_state) = get_current_game(addr) {
+                    todo!("Handle placing a piece in the game");
+                } else {
+                    todo!("Handle player not being enrolled in a game");
                 }
             }
         }

@@ -1,12 +1,5 @@
-use core::{
-    game::Game,
-    messages::{GameMessage, PlayerMessage},
-};
+use core::{game::Game, messages::GameMessage};
 use std::{net::SocketAddr, time::Instant};
-
-use tokio::sync::mpsc::UnboundedReceiver;
-
-use crate::PeerMap;
 
 #[derive(Debug)]
 pub struct Player {
@@ -15,64 +8,56 @@ pub struct Player {
 }
 
 pub struct GameState {
-    pub started_at: Instant,
+    pub game_id: String,
+    pub started_at: Option<Instant>,
     pub players: Vec<Player>,
     pub game: Game,
 }
 
-#[derive(Debug)]
-pub enum IncomingMessage {
-    AddPlayer(Player),
-    Instruction(PlayerMessage),
-}
-
-pub fn run_game(
-    game_id: String,
-    mut rx: UnboundedReceiver<IncomingMessage>,
-    peer_map: PeerMap,
-    player: Player,
-) {
-    let game = GameState {
-        started_at: Instant::now(),
-        players: vec![player],
-        game: Game::default(),
-    };
-
-    // TODO: Update the core game's RNG to be Send so that this fn can be
-    // async in tokio's world, rather than this persistent thread with a block.
-    // (maybe... this has some virtues too, in which case maybe change to poll_recv)
-    while let Some(msg) = rx.blocking_recv() {
-        use IncomingMessage::*;
-        use PlayerMessage::*;
-        match &msg {
-            AddPlayer(player) => {
-                println!("Adding {player:?} to game {game_id}");
-            }
-            Instruction(Place(_, _)) => todo!(),
-            Instruction(StartGame) => {
-                let mut hands = (0..game.players.len()).map(|player| {
-                    game.game
-                        .hands
-                        .get_hand(player)
-                        .expect("Player was not dealt a hand")
-                });
-                // TODO: Maintain an index of Player to the Game player index
-                // For cases where players reconnect and game.hands[0] is players[1] etc
-                for player in game.players.iter() {
-                    let Some(socket) = player.socket.as_ref() else {continue};
-                    let Some(peer) = peer_map.get(socket) else {continue};
-
-                    peer.send(GameMessage::StartedGame(
-                        game_id.clone(),
-                        game.game.board.clone(),
-                        hands.next().cloned().unwrap(),
-                    ))
-                    .unwrap();
-                }
-            }
-            // Outer-game messages should not have been passed through
-            Instruction(NewGame) | Instruction(JoinGame(_)) => unreachable!(),
+impl GameState {
+    pub fn new(game_id: String) -> Self {
+        Self {
+            game_id,
+            started_at: None,
+            players: vec![],
+            game: Game::default(),
         }
-        println!("Game got {msg:#?}");
+    }
+
+    pub fn add_player(&mut self, player: Player) -> Result<(), ()> {
+        if self.started_at.is_some() {
+            return Err(()); // TODO: Error types
+        }
+        // TODO: Check player #
+        self.players.push(player);
+        self.game.hands.add_player();
+        Ok(())
+    }
+
+    pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
+        // TODO: Check correct # of players
+        self.started_at = Some(Instant::now());
+        let mut messages = Vec::with_capacity(self.players.len());
+
+        let mut hands = (0..self.players.len()).map(|player| {
+            self.game
+                .hands
+                .get_hand(player)
+                .expect("Player was not dealt a hand")
+        });
+        // TODO: Maintain an index of Player to the Game player index
+        // For cases where players reconnect and game.hands[0] is players[1] etc
+        for player in self.players.iter() {
+            messages.push((
+                player.clone(),
+                GameMessage::StartedGame(
+                    self.game_id.clone(),
+                    self.game.board.clone(),
+                    hands.next().cloned().unwrap(),
+                ),
+            ));
+        }
+
+        messages
     }
 }
