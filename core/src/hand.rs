@@ -8,20 +8,30 @@ pub type Hand = Vec<char>;
 
 #[derive(Debug, PartialEq)]
 pub struct Hands {
+    hand_capacity: usize,
     hands: Vec<Hand>,
     bag: TileBag,
 }
 
 impl Hands {
-    pub fn new(player_count: usize, capacity: usize, mut bag: TileBag) -> Self {
+    pub fn new(player_count: usize, hand_capacity: usize, mut bag: TileBag) -> Self {
         let mut hands = Vec::new();
-        for player in 0..player_count {
-            hands.push(Vec::with_capacity(capacity));
-            for _ in 0..capacity {
-                hands[player].push(bag.draw_tile());
-            }
+        for _ in 0..player_count {
+            hands.push((0..hand_capacity).map(|_| bag.draw_tile()).collect());
         }
-        Self { hands, bag }
+        Self {
+            hand_capacity,
+            hands,
+            bag,
+        }
+    }
+
+    pub fn add_player(&mut self) {
+        self.hands.push(
+            (0..self.hand_capacity)
+                .map(|_| self.bag.draw_tile())
+                .collect(),
+        );
     }
 
     pub fn use_tile(&mut self, player: usize, tile: char) -> Result<(), GamePlayError> {
@@ -38,8 +48,8 @@ impl Hands {
         }
     }
 
-    pub fn get_hand(&self, player: usize) -> &Vec<char> {
-        &self.hands[player]
+    pub fn get_hand(&self, player: usize) -> Option<&Vec<char>> {
+        self.hands.get(player)
     }
 
     pub fn return_tile(&mut self, c: char) {
@@ -50,7 +60,7 @@ impl Hands {
 impl Default for Hands {
     fn default() -> Self {
         let bag = TileBag::default();
-        Hands::new(2, 7, bag)
+        Hands::new(1, 7, bag)
     }
 }
 

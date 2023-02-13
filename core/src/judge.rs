@@ -15,7 +15,7 @@ pub struct Judge {
 }
 
 // TODO: Allow dictionary to be swapped out.
-static DICT: &str = include_str!("../dictionary.txt");
+pub static DICT: &str = include_str!("../dictionary.txt");
 
 impl Default for Judge {
     fn default() -> Self {

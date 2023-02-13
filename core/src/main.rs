@@ -125,15 +125,15 @@ fn render_board(game: &Game) {
 }
 
 fn render_hand(game: &Game) {
-    println!(
-        "{}",
-        game.hands
-            .get_hand(game.next())
-            .iter()
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>()
-            .join(" ")
-    );
+    // println!(
+    //     "{}",
+    //     game.hands
+    //         .get_hand(game.next())
+    //         .iter()
+    //         .map(|c| c.to_string())
+    //         .collect::<Vec<String>>()
+    //         .join(" ")
+    // );
 }
 
 fn swap(game: &mut Game) -> Option<usize> {

@@ -1,4 +1,5 @@
 mod game_state;
+mod room_codes;
 
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
@@ -9,17 +10,22 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tungstenite::protocol::Message;
-use uuid::Uuid;
 
 use crate::game_state::Player;
 use core::messages::{GameMessage, PlayerMessage};
+use room_codes::RoomCodes;
 
 type PeerMap = Arc<DashMap<SocketAddr, UnboundedSender<GameMessage>>>;
-type GameMap = Arc<DashMap<Uuid, UnboundedSender<PlayerMessage>>>;
-type ActiveGameMap = Arc<DashMap<SocketAddr, Uuid>>;
+type GameMap = Arc<DashMap<&'static str, UnboundedSender<PlayerMessage>>>;
+type ActiveGameMap = Arc<DashMap<SocketAddr, &'static str>>;
 type Maps = (PeerMap, GameMap, ActiveGameMap);
 
-async fn handle_connection(maps: Maps, raw_stream: TcpStream, addr: SocketAddr) {
+async fn handle_connection(
+    maps: Maps,
+    raw_stream: TcpStream,
+    addr: SocketAddr,
+    code_provider: RoomCodes,
+) {
     let (peer_map, game_map, active_map) = maps;
     println!("Incoming TCP connection from: {}", addr);
 
@@ -45,13 +51,13 @@ async fn handle_connection(maps: Maps, raw_stream: TcpStream, addr: SocketAddr) 
         use PlayerMessage::*;
         match parsed_msg {
             NewGame => {
-                let new_game_id = Uuid::new_v4();
+                let new_game_id = code_provider.get_free_code();
                 let (game_tx, game_rx) = mpsc::unbounded_channel();
 
                 let peers = peer_map.clone();
                 std::thread::spawn(move || {
                     game_state::run_game(
-                        new_game_id,
+                        new_game_id.to_string(),
                         game_rx,
                         peers,
                         Player {
@@ -63,13 +69,13 @@ async fn handle_connection(maps: Maps, raw_stream: TcpStream, addr: SocketAddr) 
                 game_map.insert(new_game_id, game_tx);
                 active_map.insert(addr, new_game_id);
                 player_tx
-                    .send(GameMessage::JoinedGame(new_game_id))
+                    .send(GameMessage::JoinedGame(new_game_id.into()))
                     .unwrap();
             }
             Place(_, _) | StartGame => {
                 let existing_game = active_map
                     .get(&addr)
-                    .map(|game_id| game_map.get(&game_id))
+                    .map(|game_id| game_map.get(&*game_id))
                     .flatten();
                 if let Some(tx_game) = existing_game {
                     tx_game.send(parsed_msg).unwrap();
@@ -110,12 +116,21 @@ async fn main() -> Result<(), IoError> {
         ActiveGameMap::new(DashMap::new()),
     );
 
+    let code_provider = RoomCodes::new(maps.1.clone());
+
     let try_socket = TcpListener::bind(&addr).await;
     let listener = try_socket.expect("Failed to bind");
     println!("Listening on: {}", addr);
 
     while let Ok((stream, addr)) = listener.accept().await {
-        tokio::spawn(handle_connection(maps.clone(), stream, addr));
+        tokio::spawn(handle_connection(
+            maps.clone(),
+            stream,
+            addr,
+            // TODO: This is a very expensive clone,
+            // refactor RoomCodes to be an Arc/Mutex shindig
+            code_provider.clone(),
+        ));
     }
 
     Ok(())

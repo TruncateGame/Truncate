@@ -5,7 +5,6 @@ use eframe::egui;
 use tokio::runtime::{Builder, Runtime};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use uuid::Uuid;
 
 use core::messages::{GameMessage, PlayerMessage};
 use game::GameStatus;

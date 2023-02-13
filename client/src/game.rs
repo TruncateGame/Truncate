@@ -3,8 +3,6 @@ use eframe::{
     epaint::{Color32, Stroke},
 };
 
-use uuid::Uuid;
-
 use super::GameClient;
 use core::{
     board::{Board, Coordinate, Square},
@@ -15,9 +13,9 @@ use core::{
 pub enum GameStatus {
     None,
     PendingCreate,
-    PendingStart(Uuid),
-    Active(Uuid, Board),
-    Concluded(Uuid),
+    PendingStart(String),
+    Active(String, Board),
+    Concluded(String),
 }
 
 pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
@@ -78,9 +76,11 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
     while let Ok(msg) = rx_game.try_recv() {
         match msg {
-            GameMessage::JoinedGame(id) => *game_status = GameStatus::PendingStart(id),
+            GameMessage::JoinedGame(id) => {
+                *game_status = GameStatus::PendingStart(id.to_uppercase())
+            }
             GameMessage::StartedGame(id, board, hand) => {
-                *game_status = GameStatus::Active(id, board);
+                *game_status = GameStatus::Active(id.to_uppercase(), board);
                 println!("Starting a game")
             }
         }

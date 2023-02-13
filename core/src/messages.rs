@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{
     board::{Board, Coordinate},
@@ -15,6 +14,6 @@ pub enum PlayerMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
-    JoinedGame(Uuid),
-    StartedGame(Uuid, Board, Hand), // TODO: All other events. GameStart(Board, Hand) next
+    JoinedGame(String),
+    StartedGame(String, Board, Hand), // TODO: All other events. GameStart(Board, Hand) next
 }

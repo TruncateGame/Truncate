@@ -17,5 +17,5 @@ futures-util = { version = "0.3", default-features = false, features = [
 ] }
 dashmap = "5.0"
 serde_json = "1"
-uuid = { version = "0.8", features = ["serde", "v4"] }
+rand = "0.8.5"
 "core" = { path = "../core" }

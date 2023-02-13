@@ -5,7 +5,6 @@ use core::{
 use std::{net::SocketAddr, time::Instant};
 
 use tokio::sync::mpsc::UnboundedReceiver;
-use uuid::Uuid;
 
 use crate::PeerMap;
 
@@ -21,7 +20,7 @@ pub struct GameState {
 }
 
 pub fn run_game(
-    game_id: Uuid,
+    game_id: String,
     mut rx: UnboundedReceiver<PlayerMessage>,
     peer_map: PeerMap,
     player: Player,
@@ -40,14 +39,22 @@ pub fn run_game(
         match msg {
             Place(_, _) => todo!(),
             StartGame => {
+                let mut hands = (0..game.players.len()).map(|player| {
+                    game.game
+                        .hands
+                        .get_hand(player)
+                        .expect("Player was not dealt a hand")
+                });
+                // TODO: Maintain an index of Player to the Game player index
+                // For cases where players reconnect and game.hands[0] is players[1] etc
                 for player in game.players.iter() {
                     let Some(socket) = player.socket.as_ref() else {continue};
                     let Some(peer) = peer_map.get(socket) else {continue};
 
                     peer.send(GameMessage::StartedGame(
-                        game_id,
+                        game_id.clone(),
                         game.game.board.clone(),
-                        game.game.hands.get_hand(0).clone(),
+                        hands.next().cloned().unwrap(),
                     ))
                     .unwrap();
                 }
