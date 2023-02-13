@@ -13,11 +13,12 @@ use tungstenite::protocol::Message;
 
 use crate::game_state::Player;
 use core::messages::{GameMessage, PlayerMessage};
+use game_state::IncomingMessage;
 use room_codes::RoomCodes;
 
 type PeerMap = Arc<DashMap<SocketAddr, UnboundedSender<GameMessage>>>;
-type GameMap = Arc<DashMap<&'static str, UnboundedSender<PlayerMessage>>>;
-type ActiveGameMap = Arc<DashMap<SocketAddr, &'static str>>;
+type GameMap = Arc<DashMap<String, UnboundedSender<IncomingMessage>>>;
+type ActiveGameMap = Arc<DashMap<SocketAddr, String>>;
 type Maps = (PeerMap, GameMap, ActiveGameMap);
 
 async fn handle_connection(
@@ -54,10 +55,10 @@ async fn handle_connection(
                 let new_game_id = code_provider.get_free_code();
                 let (game_tx, game_rx) = mpsc::unbounded_channel();
 
-                let peers = peer_map.clone();
+                let (peers, run_game_id) = (peer_map.clone(), new_game_id.clone());
                 std::thread::spawn(move || {
                     game_state::run_game(
-                        new_game_id.to_string(),
+                        run_game_id,
                         game_rx,
                         peers,
                         Player {
@@ -66,19 +67,40 @@ async fn handle_connection(
                         },
                     )
                 });
-                game_map.insert(new_game_id, game_tx);
-                active_map.insert(addr, new_game_id);
+                game_map.insert(new_game_id.clone(), game_tx);
+                active_map.insert(addr, new_game_id.clone());
                 player_tx
-                    .send(GameMessage::JoinedGame(new_game_id.into()))
+                    .send(GameMessage::JoinedGame(new_game_id))
                     .unwrap();
             }
+            JoinGame(room_code) => {
+                let code = room_code.to_ascii_lowercase();
+                if let Some(existing_game) = game_map.get(&code) {
+                    active_map.insert(addr, code.clone());
+                    // TODO: Need a way to check if the game is in progress first
+                    // Probably should have an open_games map and an active_games map
+                    existing_game
+                        .send(IncomingMessage::AddPlayer(Player {
+                            name: "TODO".into(),
+                            socket: Some(addr.clone()),
+                        }))
+                        .unwrap();
+                    player_tx.send(GameMessage::JoinedGame(code)).unwrap();
+                } else {
+                    println!("No room exists for {code}");
+                    // TODO: Handle bad room codes
+                }
+            }
+            // Inner-game messages, pass through to the GameState
             Place(_, _) | StartGame => {
                 let existing_game = active_map
                     .get(&addr)
                     .map(|game_id| game_map.get(&*game_id))
                     .flatten();
                 if let Some(tx_game) = existing_game {
-                    tx_game.send(parsed_msg).unwrap();
+                    tx_game
+                        .send(IncomingMessage::Instruction(parsed_msg))
+                        .unwrap();
                 } else {
                     // TODO: Send error message to user as they are not enrolled in any game
                 }

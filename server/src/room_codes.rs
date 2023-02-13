@@ -26,11 +26,11 @@ impl RoomCodes {
     }
 
     // TODO: Track codes given out internally through a Mutex rather than accessing the GameMap directly
-    pub fn get_free_code(&self) -> &'static str {
+    pub fn get_free_code(&self) -> String {
         let mut word = self.rand_code();
         while self.active_games.get(word).is_some() {
             word = self.rand_code();
         }
-        word
+        word.to_owned()
     }
 }

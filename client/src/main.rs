@@ -25,7 +25,7 @@ impl GameClient {
     ) -> Self {
         Self {
             name: "Mystery Player".into(),
-            game_status: GameStatus::None,
+            game_status: GameStatus::None("".into()),
             rx_game,
             tx_player,
         }

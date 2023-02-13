@@ -8,6 +8,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::PeerMap;
 
+#[derive(Debug)]
 pub struct Player {
     pub name: String,
     pub socket: Option<SocketAddr>,
@@ -19,9 +20,15 @@ pub struct GameState {
     pub game: Game,
 }
 
+#[derive(Debug)]
+pub enum IncomingMessage {
+    AddPlayer(Player),
+    Instruction(PlayerMessage),
+}
+
 pub fn run_game(
     game_id: String,
-    mut rx: UnboundedReceiver<PlayerMessage>,
+    mut rx: UnboundedReceiver<IncomingMessage>,
     peer_map: PeerMap,
     player: Player,
 ) {
@@ -35,10 +42,14 @@ pub fn run_game(
     // async in tokio's world, rather than this persistent thread with a block.
     // (maybe... this has some virtues too, in which case maybe change to poll_recv)
     while let Some(msg) = rx.blocking_recv() {
+        use IncomingMessage::*;
         use PlayerMessage::*;
-        match msg {
-            Place(_, _) => todo!(),
-            StartGame => {
+        match &msg {
+            AddPlayer(player) => {
+                println!("Adding {player:?} to game {game_id}");
+            }
+            Instruction(Place(_, _)) => todo!(),
+            Instruction(StartGame) => {
                 let mut hands = (0..game.players.len()).map(|player| {
                     game.game
                         .hands
@@ -59,7 +70,8 @@ pub fn run_game(
                     .unwrap();
                 }
             }
-            NewGame => {}
+            // Outer-game messages should not have been passed through
+            Instruction(NewGame) | Instruction(JoinGame(_)) => unreachable!(),
         }
         println!("Game got {msg:#?}");
     }

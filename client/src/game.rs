@@ -9,13 +9,16 @@ use core::{
     messages::{GameMessage, PlayerMessage},
 };
 
+type RoomCode = String;
+
 #[derive(Debug)]
 pub enum GameStatus {
-    None,
+    None(RoomCode),
+    PendingJoin(RoomCode),
     PendingCreate,
-    PendingStart(String),
-    Active(String, Board),
-    Concluded(String),
+    PendingStart(RoomCode),
+    Active(RoomCode, Board),
+    Concluded(RoomCode),
 }
 
 pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
@@ -28,7 +31,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
     ui.label("Truncate");
 
-    if matches!(game_status, GameStatus::None) {
+    if matches!(game_status, GameStatus::None(_)) {
         ui.horizontal(|ui| {
             ui.label("Name: ");
             ui.text_edit_singleline(name);
@@ -39,13 +42,26 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
     // TODO: Option to join an existing game
 
+    let mut new_game_status = None;
     match game_status {
-        GameStatus::None => {
+        GameStatus::None(room_code) => {
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
                 tx_player.send(PlayerMessage::NewGame).unwrap();
-                *game_status = GameStatus::PendingCreate;
+                new_game_status = Some(GameStatus::PendingCreate);
             }
+            ui.horizontal(|ui| {
+                ui.text_edit_singleline(room_code);
+                if ui.button("Join Game").clicked() {
+                    tx_player
+                        .send(PlayerMessage::JoinGame(room_code.clone()))
+                        .unwrap();
+                    new_game_status = Some(GameStatus::PendingJoin(room_code.clone()));
+                }
+            });
+        }
+        GameStatus::PendingJoin(room_code) => {
+            ui.label(format!("Waiting to join room {room_code}"));
         }
         GameStatus::PendingCreate => {
             ui.label("Waiting for a new game to be created . . .");
@@ -72,6 +88,9 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             ui.label(format!("Game {game_id} has concluded"));
             // TODO: Reset state and play again
         }
+    }
+    if let Some(new_game_status) = new_game_status {
+        *game_status = new_game_status;
     }
 
     while let Ok(msg) = rx_game.try_recv() {
