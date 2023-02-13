@@ -19,10 +19,21 @@ pub struct GameClient {
 
 impl GameClient {
     fn new(
-        _cc: &eframe::CreationContext<'_>,
+        cc: &eframe::CreationContext<'_>,
         rx_game: UnboundedReceiver<GameMessage>,
         tx_player: UnboundedSender<PlayerMessage>,
     ) -> Self {
+        let mut fonts = egui::FontDefinitions::default();
+        fonts.font_data.insert(
+            "Heebo-Medium".into(),
+            egui::FontData::from_static(include_bytes!("../font/Heebo-Medium.ttf")),
+        );
+        fonts.families.insert(
+            egui::FontFamily::Name("Tile".into()),
+            vec!["Heebo-Medium".into()],
+        );
+        cc.egui_ctx.set_fonts(fonts);
+
         Self {
             name: "Mystery Player".into(),
             game_status: GameStatus::None("".into()),

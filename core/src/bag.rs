@@ -1,5 +1,6 @@
 use oorandom::Rand32;
 use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug)]
 pub struct TileBag {
@@ -12,7 +13,13 @@ impl TileBag {
     pub fn new(letter_distribution: [usize; 26]) -> Self {
         let mut tile_bag = TileBag {
             bag: Vec::new(),
-            rng: Rand32::new(34),
+            rng: Rand32::new(
+                // TODO: Use some other RNG to get a seed for the game
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Time went backwards")
+                    .as_secs(),
+            ),
             letter_distribution,
         };
         tile_bag.fill();

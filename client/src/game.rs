@@ -1,11 +1,15 @@
 use eframe::{
     egui,
-    epaint::{Color32, Stroke},
+    emath::{Align2, Rot2},
+    epaint::{Color32, Rect, Stroke, TextShape, Vec2},
 };
+
+use std::f32;
 
 use super::GameClient;
 use core::{
     board::{Board, Coordinate, Square},
+    hand::Hand,
     messages::{GameMessage, PlayerMessage},
 };
 
@@ -17,7 +21,7 @@ pub enum GameStatus {
     PendingJoin(RoomCode),
     PendingCreate,
     PendingStart(RoomCode),
-    Active(RoomCode, Board),
+    Active(RoomCode, Board, Hand),
     Concluded(RoomCode),
 }
 
@@ -74,7 +78,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 tx_player.send(PlayerMessage::StartGame).unwrap();
             }
         }
-        GameStatus::Active(game_id, board) => {
+        GameStatus::Active(game_id, board, hand) => {
             // TODO: All actual board/game state
             ui.label(format!("Playing in game {game_id}"));
             if ui.button("Play a move").clicked() {
@@ -83,6 +87,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                     .unwrap();
             }
             render_board(board, ui);
+            render_hand(hand, ui);
         }
         GameStatus::Concluded(game_id) => {
             ui.label(format!("Game {game_id} has concluded"));
@@ -99,7 +104,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 *game_status = GameStatus::PendingStart(id.to_uppercase())
             }
             GameMessage::StartedGame(id, board, hand) => {
-                *game_status = GameStatus::Active(id.to_uppercase(), board);
+                *game_status = GameStatus::Active(id.to_uppercase(), board, hand);
                 println!("Starting a game")
             }
         }
@@ -132,4 +137,64 @@ fn render_board(board: &Board, ui: &mut egui::Ui) {
             }
         });
     }
+}
+
+fn render_hand(hand: &Hand, ui: &mut egui::Ui) {
+    ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
+    ui.separator();
+    ui.horizontal(|ui| {
+        for char in hand {
+            let (rect, response) =
+                ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
+            if ui.is_rect_visible(rect) {
+                ui.painter()
+                    .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::GOLD));
+                if response.hovered() {
+                    ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
+                }
+                render_char(char, false, rect, ui);
+            }
+        }
+    });
+    ui.separator();
+    ui.horizontal(|ui| {
+        for char in hand {
+            let (rect, response) =
+                ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
+            if ui.is_rect_visible(rect) {
+                ui.painter()
+                    .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::GOLD));
+                if response.hovered() {
+                    ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
+                }
+                render_char(char, true, rect, ui);
+            }
+        }
+    });
+}
+
+fn render_char(char: &char, inverted: bool, rect: Rect, ui: &mut egui::Ui) {
+    let angle = if inverted { f32::consts::PI } else { 0.0 };
+    let pos = if inverted {
+        rect.right_bottom()
+    } else {
+        rect.left_top()
+    };
+
+    let galley = ui.painter().layout_no_wrap(
+        char.to_uppercase().to_string(),
+        egui::FontId::new(20.0, egui::FontFamily::Name("Tile".into())),
+        Color32::LIGHT_GREEN,
+    );
+
+    let shift = Vec2::new(
+        (rect.width() - galley.size().x) / if inverted { -2.0 } else { 2.0 },
+        if inverted { 4.0 } else { -4.0 }, // TODO: Fix magic number for font alignment
+    );
+
+    ui.painter().add(TextShape {
+        angle,
+        override_text_color: Some(Color32::LIGHT_GREEN),
+        ..TextShape::new(pos + shift, galley)
+    });
 }
