@@ -123,19 +123,17 @@ impl Board {
 
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
     pub fn clear(&mut self, position: Coordinate) -> Option<ChangeDetail> {
-        if let Some(pos) = self
+        if let Some(Some(square)) = self
             .squares
             .get_mut(position.y as usize)
             .and_then(|y| y.get_mut(position.x as usize))
         {
-            match pos.replace(Square::Empty) {
-                Some(square) if matches!(square, Square::Occupied(_, _)) => {
-                    return Some(ChangeDetail {
-                        square,
-                        coordinate: position,
-                    })
-                }
-                _ => return None,
+            if matches!(square, Square::Occupied(_, _)) {
+                *square = Square::Empty;
+                return Some(ChangeDetail {
+                    square: *square,
+                    coordinate: position,
+                });
             }
         }
         None

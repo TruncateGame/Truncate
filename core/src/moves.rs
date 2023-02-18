@@ -117,7 +117,9 @@ impl Board {
             }
             Outcome::AttackerWins(losers) => {
                 let squares = losers.into_iter().flat_map(|defender_index| {
-                    let defender = defenders.get(defender_index).expect("Losers should only contain valid squares");
+                    let defender = defenders
+                        .get(defender_index)
+                        .expect("Losers should only contain valid squares");
                     defender.into_iter()
                 });
                 changes.extend(squares.flat_map(|square| {
@@ -599,5 +601,46 @@ mod tests {
             ]
             .join("\n"),
         );
+    }
+
+    #[test]
+    fn resolve_noop() {
+        let mut b = BoardUtils::from_string(
+            [
+                "    _    ",
+                "_ _ _ _ _",
+                "_ _ _ _ _",
+                "_ _ _ _ _",
+                "    T    ",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
+            vec![Direction::North, Direction::South],
+        )
+        .unwrap();
+        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+
+        b.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 2, y: 0 },
+            },
+            &mut hands,
+            &short_dict(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            b.to_string(),
+            [
+                "    A    ",
+                "_ _ _ _ _",
+                "_ _ _ _ _",
+                "_ _ _ _ _",
+                "    T    ",
+            ]
+            .join("\n"),
+        )
     }
 }
