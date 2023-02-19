@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::slice::Iter;
 
-use super::hand::Hands;
+use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::moves::{Change, ChangeAction, ChangeDetail};
 
@@ -48,6 +48,7 @@ pub struct Board {
     pub squares: Vec<Vec<Option<Square>>>,
     roots: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
+                                  // TODO: Move orientations off the Board and have them tagged against specific players
 }
 
 impl Board {
@@ -139,7 +140,7 @@ impl Board {
         None
     }
 
-    pub fn truncate(&mut self, hands: &mut Hands) -> Vec<Change> {
+    pub fn truncate(&mut self, bag: &mut TileBag) -> Vec<Change> {
         let mut attatched = HashSet::new();
         for root in self.roots.iter() {
             attatched.extend(self.depth_first_search(*root));
@@ -154,7 +155,7 @@ impl Board {
                 let c = Coordinate { x, y };
                 if !attatched.contains(&c) {
                     if let Ok(Square::Occupied(_, letter)) = self.get(c) {
-                        hands.return_tile(letter);
+                        bag.return_tile(letter);
                     }
                     self.clear(c).map(|detail| Change {
                         detail,

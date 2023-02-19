@@ -2,9 +2,9 @@ mod bag;
 mod board;
 mod error;
 mod game;
-mod hand;
 mod judge;
 mod moves;
+mod player;
 
 use board::Coordinate;
 use game::Game;

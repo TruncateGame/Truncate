@@ -1,7 +1,8 @@
 use super::board::{Board, Coordinate, Square};
-use super::hand::Hands;
 use super::judge::{Judge, Outcome};
+use crate::bag::TileBag;
 use crate::error::GamePlayError;
+use crate::player::Player;
 
 #[derive(Debug, PartialEq)]
 pub enum ChangeAction {
@@ -41,7 +42,8 @@ impl Board {
     pub fn make_move<'a>(
         &'a mut self,
         game_move: Move,
-        hands: &'a mut Hands,
+        players: &'a mut Vec<Player>,
+        bag: &'a mut TileBag,
         judge: &Judge,
     ) -> Result<Vec<Change>, GamePlayError> {
         let mut changes = vec![];
@@ -67,12 +69,12 @@ impl Board {
                     return Err(GamePlayError::NonAdjacentPlace);
                 }
 
-                hands.use_tile(player, tile)?;
+                players[player].use_tile(tile, bag)?;
                 changes.push(Change {
                     detail: self.set(position, player, tile)?,
                     change: ChangeAction::Added,
                 });
-                self.resolve_attack(player, position, judge, hands, &mut changes);
+                self.resolve_attack(player, position, judge, bag, &mut changes);
                 Ok(changes)
             }
             Move::Swap { player, positions } => self.swap(player, positions),
@@ -91,7 +93,7 @@ impl Board {
         player: usize,
         position: Coordinate,
         judge: &Judge,
-        hands: &mut Hands,
+        bag: &mut TileBag,
         changes: &mut Vec<Change>,
     ) {
         let (attackers, defenders) = self.collect_combanants(player, position);
@@ -107,7 +109,7 @@ impl Board {
                 let squares = attackers.into_iter().flat_map(|word| word.into_iter());
                 changes.extend(squares.flat_map(|square| {
                     if let Ok(Square::Occupied(_, letter)) = self.get(square) {
-                        hands.return_tile(letter);
+                        bag.return_tile(letter);
                     }
                     self.clear(square).map(|detail| Change {
                         detail,
@@ -124,7 +126,7 @@ impl Board {
                 });
                 changes.extend(squares.flat_map(|square| {
                     if let Ok(Square::Occupied(_, letter)) = self.get(*square) {
-                        hands.return_tile(letter);
+                        bag.return_tile(letter);
                     }
                     self.clear(*square).map(|detail| Change {
                         detail,
@@ -134,7 +136,7 @@ impl Board {
             }
         }
 
-        changes.extend(self.truncate(hands).into_iter());
+        changes.extend(self.truncate(bag).into_iter());
     }
 
     fn collect_combanants(
@@ -171,7 +173,11 @@ mod tests {
     #[test]
     fn invalid_placement_locations() {
         let mut b = Board::new(3, 1);
-        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+        let mut bag = TileUtils::trivial_bag();
+        let mut players = vec![
+            Player::new("A".into(), 0, 7, &mut bag),
+            Player::new("B".into(), 1, 7, &mut bag),
+        ];
 
         let position = Coordinate { x: 10, y: 10 };
         let out_of_bounds = Move::Place {
@@ -180,7 +186,7 @@ mod tests {
             position,
         };
         assert_eq!(
-            b.make_move(out_of_bounds, &mut hands, &short_dict()),
+            b.make_move(out_of_bounds, &mut players, &mut bag, &short_dict()),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
@@ -191,7 +197,7 @@ mod tests {
             position,
         };
         assert_eq!(
-            b.make_move(out_of_bounds, &mut hands, &short_dict()),
+            b.make_move(out_of_bounds, &mut players, &mut bag, &short_dict()),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
@@ -202,7 +208,7 @@ mod tests {
             position,
         };
         assert_eq!(
-            b.make_move(dead, &mut hands, &short_dict()),
+            b.make_move(dead, &mut players, &mut bag, &short_dict()),
             Err(GamePlayError::InvalidPosition { position })
         );
     }
@@ -210,7 +216,8 @@ mod tests {
     #[test]
     fn can_place_and_swap() {
         let mut b = Board::new(3, 1);
-        let mut hands = Hands::new(1, 7, TileUtils::a_b_bag());
+        let mut bag = TileUtils::a_b_bag();
+        let mut players = vec![Player::new("A".into(), 0, 7, &mut bag)];
 
         // Places on the root
         assert_eq!(
@@ -220,7 +227,8 @@ mod tests {
                     tile: 'A',
                     position: Coordinate { x: 1, y: 0 }
                 },
-                &mut hands,
+                &mut players,
+                &mut bag,
                 &short_dict()
             ),
             Ok(vec![Change {
@@ -239,7 +247,8 @@ mod tests {
                     tile: 'B',
                     position: Coordinate { x: 1, y: 0 }
                 },
-                &mut hands,
+                &mut players,
+                &mut bag,
                 &short_dict()
             ),
             Err(GamePlayError::OccupiedPlace)
@@ -252,7 +261,8 @@ mod tests {
                     tile: 'B',
                     position: Coordinate { x: 0, y: 1 }
                 },
-                &mut hands,
+                &mut players,
+                &mut bag,
                 &short_dict()
             ),
             Err(GamePlayError::NonAdjacentPlace)
@@ -265,7 +275,8 @@ mod tests {
                     tile: 'B',
                     position: Coordinate { x: 1, y: 1 }
                 },
-                &mut hands,
+                &mut players,
+                &mut bag,
                 &short_dict()
             ),
             Ok(vec![Change {
@@ -284,7 +295,8 @@ mod tests {
                     tile: 'B',
                     position: Coordinate { x: 1, y: 1 }
                 },
-                &mut hands,
+                &mut players,
+                &mut bag,
                 &short_dict()
             ),
             Err(GamePlayError::OccupiedPlace)
@@ -296,7 +308,8 @@ mod tests {
                     player: 0,
                     positions: [Coordinate { x: 1, y: 1 }, Coordinate { x: 1, y: 0 }]
                 },
-                &mut hands,
+                &mut players,
+                &mut bag,
                 &short_dict()
             ),
             Ok(vec![
@@ -321,7 +334,11 @@ mod tests {
     #[test]
     fn invalid_player_or_tile() {
         let mut b = Board::new(3, 1);
-        let mut hands = Hands::default();
+        let mut bag = TileBag::default();
+        let mut players = vec![
+            Player::new("A".into(), 0, 7, &mut bag),
+            Player::new("B".into(), 1, 7, &mut bag),
+        ];
 
         assert_eq!(
             b.make_move(
@@ -330,7 +347,8 @@ mod tests {
                     tile: 'A',
                     position: Coordinate { x: 1, y: 0 }
                 },
-                &mut hands,
+                &mut players,
+                &mut bag,
                 &short_dict()
             ),
             Err(GamePlayError::NonExistentPlayer { index: 2 })
@@ -343,7 +361,8 @@ mod tests {
                     tile: '&',
                     position: Coordinate { x: 1, y: 0 }
                 },
-                &mut hands,
+                &mut players,
+                &mut bag,
                 &short_dict()
             ),
             Err(GamePlayError::PlayerDoesNotHaveTile {
@@ -486,7 +505,11 @@ mod tests {
             vec![Direction::North, Direction::South],
         )
         .unwrap();
-        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+        let mut bag = TileUtils::trivial_bag();
+        let mut players = vec![
+            Player::new("A".into(), 0, 7, &mut bag),
+            Player::new("B".into(), 1, 7, &mut bag),
+        ];
 
         b.make_move(
             Move::Place {
@@ -494,7 +517,8 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
-            &mut hands,
+            &mut players,
+            &mut bag,
             &short_dict(),
         )
         .unwrap();
@@ -527,7 +551,11 @@ mod tests {
             vec![Direction::North, Direction::South],
         )
         .unwrap();
-        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+        let mut bag = TileUtils::trivial_bag();
+        let mut players = vec![
+            Player::new("A".into(), 0, 7, &mut bag),
+            Player::new("B".into(), 1, 7, &mut bag),
+        ];
 
         b.make_move(
             Move::Place {
@@ -535,7 +563,8 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
-            &mut hands,
+            &mut players,
+            &mut bag,
             &short_dict(),
         )
         .unwrap();
@@ -569,9 +598,20 @@ mod tests {
             vec![Direction::North, Direction::South],
         )
         .unwrap();
-        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
-        let mut test_hands = Hands::new(2, 7, TileUtils::trivial_bag());
-        assert_eq!(hands, test_hands);
+        let mut bag = TileUtils::trivial_bag();
+        let mut players = vec![
+            Player::new("A".into(), 0, 7, &mut bag),
+            Player::new("B".into(), 1, 7, &mut bag),
+        ];
+
+        let mut test_bag = TileUtils::trivial_bag();
+        let mut test_players = vec![
+            Player::new("A".into(), 0, 7, &mut test_bag),
+            Player::new("B".into(), 1, 7, &mut test_bag),
+        ];
+
+        assert_eq!(players, test_players);
+        assert_eq!(bag, test_bag);
 
         b.make_move(
             Move::Place {
@@ -579,15 +619,17 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
-            &mut hands,
+            &mut players,
+            &mut bag,
             &short_dict(),
         )
         .unwrap();
 
         for letter in ['B', 'X', 'X'] {
-            test_hands.return_tile(letter);
+            test_bag.return_tile(letter);
         }
-        assert_eq!(hands, test_hands);
+        assert_eq!(players, test_players);
+        assert_eq!(bag, test_bag);
 
         assert_eq!(
             b.to_string(),
@@ -618,7 +660,11 @@ mod tests {
             vec![Direction::North, Direction::South],
         )
         .unwrap();
-        let mut hands = Hands::new(2, 7, TileUtils::trivial_bag());
+        let mut bag = TileUtils::trivial_bag();
+        let mut players = vec![
+            Player::new("A".into(), 0, 7, &mut bag),
+            Player::new("B".into(), 1, 7, &mut bag),
+        ];
 
         b.make_move(
             Move::Place {
@@ -626,7 +672,8 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 2, y: 0 },
             },
-            &mut hands,
+            &mut players,
+            &mut bag,
             &short_dict(),
         )
         .unwrap();

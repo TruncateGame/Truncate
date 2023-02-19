@@ -8,8 +8,8 @@ use std::f32;
 use super::GameClient;
 use core::{
     board::{Board, Coordinate, Square},
-    hand::Hand,
     messages::{GameMessage, GameStateMessage, PlayerMessage},
+    player::Hand,
 };
 
 type RoomCode = String;

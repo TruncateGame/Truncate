@@ -34,8 +34,8 @@ impl GameState {
             return Err(()); // TODO: Error types
         }
         // TODO: Check player #
+        self.game.add_player(player.name.clone());
         self.players.push(player);
-        self.game.hands.add_player();
         Ok(())
     }
 
@@ -46,10 +46,12 @@ impl GameState {
 
         let mut hands = (0..self.players.len()).map(|player| {
             self.game
-                .hands
-                .get_hand(player)
+                .get_player(player)
                 .expect("Player was not dealt a hand")
+                .hand
+                .clone()
         });
+
         // TODO: Maintain an index of Player to the Game player index
         // For cases where players reconnect and game.hands[0] is players[1] etc
         for (number, player) in self.players.iter().enumerate() {
@@ -60,7 +62,7 @@ impl GameState {
                     player_number: number as u64,
                     next_player_number: self.game.next() as u64,
                     board: self.game.board.clone(),
-                    hand: hands.next().cloned().unwrap(),
+                    hand: hands.next().unwrap(),
                 }),
             ));
         }
@@ -124,9 +126,10 @@ impl GameState {
         // TODO: Tidy
         let mut hands = (0..self.players.len()).map(|player| {
             self.game
-                .hands
-                .get_hand(player)
+                .get_player(player)
                 .expect("Player was not dealt a hand")
+                .hand
+                .clone()
         });
         for (number, player) in self.players.iter().enumerate() {
             messages.push((
@@ -136,7 +139,7 @@ impl GameState {
                     player_number: number as u64,
                     next_player_number: self.game.next() as u64,
                     board: self.game.board.clone(),
-                    hand: hands.next().cloned().unwrap(),
+                    hand: hands.next().unwrap(),
                 }),
             ));
         }
@@ -186,9 +189,10 @@ impl GameState {
         // TODO: Tidy
         let mut hands = (0..self.players.len()).map(|player| {
             self.game
-                .hands
-                .get_hand(player)
+                .get_player(player)
                 .expect("Player was not dealt a hand")
+                .hand
+                .clone()
         });
         for (number, player) in self.players.iter().enumerate() {
             messages.push((
@@ -198,7 +202,7 @@ impl GameState {
                     player_number: number as u64,
                     next_player_number: self.game.next() as u64,
                     board: self.game.board.clone(),
-                    hand: hands.next().cloned().unwrap(),
+                    hand: hands.next().unwrap(),
                 }),
             ));
         }

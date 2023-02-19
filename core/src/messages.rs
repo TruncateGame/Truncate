@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     board::{Board, Coordinate},
-    hand::Hand,
+    player::Hand,
 };
 
 pub type RoomCode = String;

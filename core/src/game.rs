@@ -1,12 +1,15 @@
+use crate::bag::TileBag;
+
 use super::board::{Board, Coordinate, Square};
-use super::hand::Hands;
 use super::judge::Judge;
 use super::moves::{Change, Move};
+use super::player::Player;
 
 #[derive(Default)]
 pub struct Game {
+    pub players: Vec<Player>,
     pub board: Board, // TODO: should these actually be public?
-    pub hands: Hands,
+    pub bag: TileBag,
     pub judge: Judge,
     pub recent_changes: Vec<Change>,
     next_player: usize,
@@ -16,13 +19,24 @@ pub struct Game {
 impl Game {
     pub fn new(width: usize, height: usize) -> Self {
         Self {
+            players: Vec::with_capacity(2),
             board: Board::new(width, height),
-            hands: Hands::default(),
+            bag: TileBag::default(),
             judge: Judge::default(),
             recent_changes: vec![],
             next_player: 0,
             winner: None,
         }
+    }
+
+    pub fn add_player(&mut self, name: String) {
+        self.players
+            .push(Player::new(name, self.players.len(), 7, &mut self.bag));
+    }
+
+    pub fn get_player(&self, player: usize) -> Option<&Player> {
+        // TODO: Lookup player by `index` field rather than vec position
+        self.players.get(player)
     }
 
     pub fn play_move(&mut self, next_move: Move) -> Result<Option<usize>, String> {
@@ -38,16 +52,17 @@ impl Game {
             return Err("Only the next player can play".into());
         }
 
-        self.recent_changes = match self
-            .board
-            .make_move(next_move, &mut self.hands, &self.judge)
-        {
-            Ok(changes) => changes,
-            Err(msg) => {
-                println!("{}", msg);
-                return Err(format!("Couldn't make move: {msg}")); // TODO: propogate error post polonius
-            }
-        };
+        self.recent_changes =
+            match self
+                .board
+                .make_move(next_move, &mut self.players, &mut self.bag, &self.judge)
+            {
+                Ok(changes) => changes,
+                Err(msg) => {
+                    println!("{}", msg);
+                    return Err(format!("Couldn't make move: {msg}")); // TODO: propogate error post polonius
+                }
+            };
 
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
