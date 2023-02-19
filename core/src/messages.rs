@@ -14,12 +14,14 @@ pub enum PlayerMessage {
     StartGame,
     JoinGame(RoomCode),
     Place(Coordinate, char),
+    Swap(Coordinate, Coordinate),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameStateMessage {
     pub room_code: RoomCode,
     pub player_number: PlayerNumber,
+    pub next_player_number: PlayerNumber,
     pub board: Board,
     pub hand: Hand,
 }

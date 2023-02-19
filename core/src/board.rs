@@ -432,6 +432,12 @@ impl fmt::Display for Coordinate {
     }
 }
 
+impl std::cmp::PartialEq<(usize, usize)> for Coordinate {
+    fn eq(&self, (x, y): &(usize, usize)) -> bool {
+        return self.x == *x && self.y == *y;
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Square {
     Empty,
@@ -662,7 +668,11 @@ pub mod tests {
         // Set the remaining unoccupied square on the board to be occupied by another player
         let other = Coordinate { x: 1, y: 2 };
         // WHen unoccupied it should give the empty set, when occupied, just itself
-        assert!(b.depth_first_search(other).iter().eq([].iter()));
+        assert!(b
+            .depth_first_search(other)
+            .iter()
+            .collect::<Vec<_>>()
+            .is_empty());
         assert_eq!(
             b.set(other, 1, 'a'),
             Ok(ChangeDetail {

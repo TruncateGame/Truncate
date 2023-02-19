@@ -58,6 +58,7 @@ impl GameState {
                 GameMessage::StartedGame(GameStateMessage {
                     room_code: self.game_id.clone(),
                     player_number: number as u64,
+                    next_player_number: self.game.next() as u64,
                     board: self.game.board.clone(),
                     hand: hands.next().cloned().unwrap(),
                 }),
@@ -94,6 +95,7 @@ impl GameState {
                                 GameStateMessage {
                                     room_code: self.game_id.clone(),
                                     player_number: number as u64,
+                                    next_player_number: self.game.next() as u64,
                                     board: self.game.board.clone(),
                                     hand: vec![],
                                 },
@@ -132,6 +134,69 @@ impl GameState {
                 GameMessage::GameUpdate(GameStateMessage {
                     room_code: self.game_id.clone(),
                     player_number: number as u64,
+                    next_player_number: self.game.next() as u64,
+                    board: self.game.board.clone(),
+                    hand: hands.next().cloned().unwrap(),
+                }),
+            ));
+        }
+
+        messages
+    }
+
+    // TODO: Combine method with play and pass in a `Move` type
+    // (need to solve the player lookup first)
+    pub fn swap(
+        &mut self,
+        player: SocketAddr,
+        from: Coordinate,
+        to: Coordinate,
+    ) -> Vec<(&Player, GameMessage)> {
+        let mut messages = Vec::with_capacity(self.players.len());
+
+        if let Some((player_index, _)) = self
+            .players
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.socket == Some(player))
+        {
+            match self.game.play_move(Move::Swap {
+                player: player_index,
+                positions: [from, to],
+            }) {
+                Ok(Some(_)) => {
+                    unreachable!("Cannot win by swapping")
+                }
+                Ok(None) => {}
+                Err(msg) => {
+                    return vec![(
+                        &self.players[player_index],
+                        GameMessage::GameError(
+                            self.game_id.clone(),
+                            player_index as u64,
+                            msg.into(),
+                        ),
+                    )]
+                }
+            }
+        } else {
+            todo!("Handle missing player");
+        }
+
+        // TODO: Tidy
+        let mut hands = (0..self.players.len()).map(|player| {
+            self.game
+                .hands
+                .get_hand(player)
+                .expect("Player was not dealt a hand")
+        });
+        for (number, player) in self.players.iter().enumerate() {
+            messages.push((
+                player.clone(),
+                GameMessage::GameUpdate(GameStateMessage {
+                    room_code: self.game_id.clone(),
+                    player_number: number as u64,
+                    next_player_number: self.game.next() as u64,
                     board: self.game.board.clone(),
                     hand: hands.next().cloned().unwrap(),
                 }),

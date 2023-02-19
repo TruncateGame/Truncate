@@ -122,6 +122,19 @@ async fn handle_connection(
                     todo!("Handle player not being enrolled in a game");
                 }
             }
+            Swap(from, to) => {
+                if let Some(mut game_state) = get_current_game(addr) {
+                    for (player, message) in game_state.swap(addr, from, to) {
+                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                        let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+
+                        peer.send(message).unwrap();
+                    }
+                    // TODO: Error handling flow
+                } else {
+                    todo!("Handle player not being enrolled in a game");
+                }
+            }
         }
 
         future::ok(())

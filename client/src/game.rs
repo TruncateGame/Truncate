@@ -18,11 +18,35 @@ type RoomCode = String;
 pub struct ActiveGame {
     room_code: RoomCode,
     player_number: u64,
+    next_player_number: u64,
     board: Board,
     hand: Hand,
     selected_tile_in_hand: Option<usize>,
+    selected_square_on_board: Option<Coordinate>,
     playing_tile: Option<char>,
     error_msg: Option<String>,
+}
+
+impl ActiveGame {
+    fn new(
+        room_code: RoomCode,
+        player_number: u64,
+        next_player_number: u64,
+        board: Board,
+        hand: Hand,
+    ) -> Self {
+        Self {
+            room_code,
+            player_number,
+            next_player_number,
+            board,
+            hand,
+            selected_tile_in_hand: None,
+            selected_square_on_board: None,
+            playing_tile: None,
+            error_msg: None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -42,8 +66,6 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         rx_game,
         tx_player,
     } = client;
-
-    ui.label("Truncate");
 
     if matches!(game_status, GameStatus::None(_)) {
         ui.horizontal(|ui| {
@@ -92,20 +114,20 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             // TODO: All actual board/game state
             ui.label(format!("Playing in game {}", game.room_code));
 
+            if game.player_number == game.next_player_number {
+                ui.label("It is your turn! :)");
+            } else {
+                ui.label("It is not your turn :(");
+            }
+
             if let Some(error) = &game.error_msg {
                 ui.label(error);
             } else {
                 ui.label("");
             }
 
-            if let Some(pos) = render_board(game, ui) {
-                if let Some(tile) = game.selected_tile_in_hand {
-                    tx_player
-                        .send(PlayerMessage::Place(pos, game.hand[tile]))
-                        .unwrap();
-                    game.playing_tile = Some(game.hand[tile]);
-                    game.selected_tile_in_hand = None;
-                }
+            if let Some(msg) = render_board(game, ui) {
+                tx_player.send(msg).unwrap();
             }
             render_hand(game, ui);
         }
@@ -128,23 +150,23 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             GameMessage::StartedGame(GameStateMessage {
                 room_code,
                 player_number,
+                next_player_number,
                 board,
                 hand,
             }) => {
-                *game_status = GameStatus::Active(ActiveGame {
-                    room_code: room_code.to_uppercase(),
+                *game_status = GameStatus::Active(ActiveGame::new(
+                    room_code.to_uppercase(),
                     player_number,
+                    next_player_number,
                     board,
                     hand,
-                    selected_tile_in_hand: None,
-                    playing_tile: None,
-                    error_msg: None,
-                });
+                ));
                 println!("Starting a game")
             }
             GameMessage::GameUpdate(GameStateMessage {
                 room_code: _,
                 player_number: _,
+                next_player_number,
                 board,
                 hand: mut new_hand,
             }) => {
@@ -153,6 +175,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                         // assert_eq!(game.room_code, room_code);
                         // assert_eq!(game.player_number, player_number);
                         game.board = board;
+                        game.next_player_number = next_player_number;
                         // TODO: Remove all of this logic and return hand updates from the server
                         if let Some(playing) = game.playing_tile {
                             game.hand.remove(
@@ -183,6 +206,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 GameStateMessage {
                     room_code: _,
                     player_number: _,
+                    next_player_number: _,
                     board,
                     hand: _,
                 },
@@ -208,7 +232,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
     }
 }
 
-fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<Coordinate> {
+fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessage> {
     let mut msg = None;
     let is_flipped = game.player_number == 0;
     ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
@@ -221,6 +245,14 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<Coordinate> 
                     let (rect, response) =
                         ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
                     if ui.is_rect_visible(rect) {
+                        if square.is_some() && response.hovered() {
+                            ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
+                        }
+                        if let Some(selected) = game.selected_square_on_board {
+                            if selected.eq(&(colnum, rownum)) {
+                                ui.painter().rect_filled(rect, 0.0, Color32::KHAKI);
+                            }
+                        }
                         match square {
                             Some(Square::Empty) => {
                                 ui.painter().rect_stroke(
@@ -230,21 +262,32 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<Coordinate> 
                                 );
                             }
                             Some(Square::Occupied(player, char)) => {
-                                ui.painter().rect_stroke(
-                                    rect,
-                                    0.0,
-                                    Stroke::new(1.0, Color32::GOLD),
-                                );
-                                render_char(char, *player as u64 != game.player_number, rect, ui);
+                                let is_self = *player as u64 == game.player_number;
+                                let color = if is_self {
+                                    Color32::LIGHT_GREEN
+                                } else {
+                                    Color32::RED
+                                };
+                                ui.painter().rect_stroke(rect, 0.0, Stroke::new(1.0, color));
+                                render_char(char, !is_self, rect, ui, color);
                             }
                             None => {}
                         };
-                        if square.is_some() && response.hovered() {
-                            ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
-                        }
                     }
                     if response.clicked() {
-                        msg = Some(Coordinate::new(colnum, rownum));
+                        let coord = Coordinate::new(colnum, rownum);
+                        if let Some(tile) = game.selected_tile_in_hand {
+                            msg = Some(PlayerMessage::Place(coord, game.hand[tile]));
+                            game.playing_tile = Some(game.hand[tile]);
+                            game.selected_tile_in_hand = None;
+                        } else if let Some(selected_coord) = game.selected_square_on_board {
+                            if selected_coord != coord {
+                                msg = Some(PlayerMessage::Swap(coord, selected_coord));
+                            }
+                            game.selected_square_on_board = None;
+                        } else {
+                            game.selected_square_on_board = Some(coord);
+                        }
                     }
                 }
             });
@@ -283,7 +326,7 @@ fn render_hand(game: &mut ActiveGame, ui: &mut egui::Ui) {
                 if game.selected_tile_in_hand == Some(i) {
                     ui.painter().rect_filled(rect, 0.0, Color32::KHAKI);
                 }
-                render_char(char, false, rect, ui);
+                render_char(char, false, rect, ui, Color32::LIGHT_GREEN);
             }
             if response.clicked() {
                 if let Some(selected) = game.selected_tile_in_hand {
@@ -294,6 +337,7 @@ fn render_hand(game: &mut ActiveGame, ui: &mut egui::Ui) {
                 } else {
                     game.selected_tile_in_hand = Some(i);
                 }
+                game.selected_square_on_board = None;
             }
         }
     });
@@ -301,25 +345,9 @@ fn render_hand(game: &mut ActiveGame, ui: &mut egui::Ui) {
         let c = game.hand.remove(from);
         game.hand.insert(to, c);
     }
-    // Debug:
-    ui.separator();
-    ui.horizontal(|ui| {
-        for char in &game.hand {
-            let (rect, response) =
-                ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
-            if ui.is_rect_visible(rect) {
-                ui.painter()
-                    .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::GOLD));
-                if response.hovered() {
-                    ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
-                }
-                render_char(&char, true, rect, ui);
-            }
-        }
-    });
 }
 
-fn render_char(char: &char, inverted: bool, rect: Rect, ui: &mut egui::Ui) {
+fn render_char(char: &char, inverted: bool, rect: Rect, ui: &mut egui::Ui, color: Color32) {
     let angle = if inverted { f32::consts::PI } else { 0.0 };
     let pos = if inverted {
         rect.right_bottom()
@@ -330,7 +358,7 @@ fn render_char(char: &char, inverted: bool, rect: Rect, ui: &mut egui::Ui) {
     let galley = ui.painter().layout_no_wrap(
         char.to_uppercase().to_string(),
         egui::FontId::new(20.0, egui::FontFamily::Name("Tile".into())),
-        Color32::LIGHT_GREEN,
+        color,
     );
 
     let shift = Vec2::new(
@@ -340,7 +368,7 @@ fn render_char(char: &char, inverted: bool, rect: Rect, ui: &mut egui::Ui) {
 
     ui.painter().add(TextShape {
         angle,
-        override_text_color: Some(Color32::LIGHT_GREEN),
+        override_text_color: Some(color),
         ..TextShape::new(pos + shift, galley)
     });
 }
