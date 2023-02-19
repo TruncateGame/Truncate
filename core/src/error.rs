@@ -1,7 +1,7 @@
 use super::board::Coordinate;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Clone, Error, Debug, PartialEq)]
 pub enum GamePlayError {
     #[error("Invalid position ({:?}, {:?})", position.x, position.y)]
     InvalidPosition { position: Coordinate },

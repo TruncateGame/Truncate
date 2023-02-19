@@ -2,6 +2,7 @@ use eframe::{
     egui,
     epaint::{Color32, Rect, Stroke, TextShape, Vec2},
 };
+use hashbrown::HashMap;
 
 use std::f32;
 
@@ -10,6 +11,7 @@ use core::{
     board::{Board, Coordinate, Square},
     messages::{GameMessage, GameStateMessage, PlayerMessage},
     player::Hand,
+    reporting::{BoardChange, Change, HandChange},
 };
 
 type RoomCode = String;
@@ -25,6 +27,8 @@ pub struct ActiveGame {
     selected_square_on_board: Option<Coordinate>,
     playing_tile: Option<char>,
     error_msg: Option<String>,
+    board_changes: HashMap<Coordinate, BoardChange>,
+    new_hand_tiles: Vec<usize>,
 }
 
 impl ActiveGame {
@@ -45,6 +49,8 @@ impl ActiveGame {
             selected_square_on_board: None,
             playing_tile: None,
             error_msg: None,
+            board_changes: HashMap::new(),
+            new_hand_tiles: vec![],
         }
     }
 }
@@ -153,6 +159,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 next_player_number,
                 board,
                 hand,
+                changes: _,
             }) => {
                 *game_status = GameStatus::Active(ActiveGame::new(
                     room_code.to_uppercase(),
@@ -168,7 +175,8 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 player_number: _,
                 next_player_number,
                 board,
-                hand: mut new_hand,
+                hand: _,
+                changes,
             }) => {
                 match game_status {
                     GameStatus::Active(game) => {
@@ -177,24 +185,34 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                         game.board = board;
                         game.next_player_number = next_player_number;
                         // TODO: Remove all of this logic and return hand updates from the server
-                        if let Some(playing) = game.playing_tile {
-                            game.hand.remove(
-                                game.hand
-                                    .iter()
-                                    .enumerate()
-                                    .find(|(_, t)| **t == playing)
-                                    .unwrap()
-                                    .0,
-                            );
-                            for tile in &game.hand {
-                                if let Some((i, _)) =
-                                    new_hand.iter().enumerate().find(|(_, t)| **t == *tile)
-                                {
-                                    new_hand.remove(i);
-                                }
-                            }
-                            game.hand.extend(new_hand);
+
+                        game.board_changes.clear();
+                        for board_change in changes.iter().filter_map(|c| match c {
+                            Change::Board(change) => Some(change),
+                            Change::Hand(_) => None,
+                        }) {
+                            game.board_changes
+                                .insert(board_change.detail.coordinate, board_change.clone());
                         }
+
+                        for hand_change in changes.iter().filter_map(|c| match c {
+                            Change::Board(_) => None,
+                            Change::Hand(change) => Some(change),
+                        }) {
+                            for removed in &hand_change.removed {
+                                game.hand.remove(
+                                    game.hand
+                                        .iter()
+                                        .position(|t| t == removed)
+                                        .expect("Player doesn't have tile being removed"),
+                                );
+                            }
+                            let reduced_length = game.hand.len();
+                            game.hand.extend(&hand_change.added);
+                            game.new_hand_tiles = (reduced_length..game.hand.len()).collect();
+                        }
+
+                        // TODO: Verify that our modified hand matches the actual hand in GameStateMessage
 
                         game.playing_tile = None;
                         game.error_msg = None;
@@ -209,6 +227,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                     next_player_number: _,
                     board,
                     hand: _,
+                    changes,
                 },
                 winner,
             ) => match game_status {
@@ -216,6 +235,14 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                     // assert_eq!(game.room_code, id);
                     // assert_eq!(game.player_number, num);
                     game.board = board;
+                    game.board_changes.clear();
+                    for board_change in changes.iter().filter_map(|c| match c {
+                        Change::Board(change) => Some(change),
+                        Change::Hand(_) => None,
+                    }) {
+                        game.board_changes
+                            .insert(board_change.detail.coordinate, board_change.clone());
+                    }
                     *game_status = GameStatus::Concluded(game.clone(), winner);
                 }
                 _ => todo!("Game error hit an unknown state"),
@@ -242,31 +269,82 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
         let mut render_row = |rownum, row: Box<dyn Iterator<Item = (usize, &Option<Square>)>>| {
             ui.horizontal(|ui| {
                 for (colnum, square) in row {
+                    let coord = Coordinate::new(colnum, rownum);
                     let (rect, response) =
                         ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
                     if ui.is_rect_visible(rect) {
+                        // Highlight changes
+                        if let Some(change) = game.board_changes.get(&coord) {
+                            match change.action {
+                                core::reporting::BoardChangeAction::Added => {
+                                    ui.painter().rect_stroke(
+                                        rect,
+                                        0.0,
+                                        Stroke::new(2.0, Color32::LIGHT_GREEN),
+                                    );
+                                }
+                                core::reporting::BoardChangeAction::Swapped => {
+                                    ui.painter().rect_stroke(
+                                        rect,
+                                        0.0,
+                                        Stroke::new(2.0, Color32::GOLD),
+                                    );
+                                }
+                                core::reporting::BoardChangeAction::Defeated => {
+                                    if let Some((player, tile)) = match change.detail.square {
+                                        Square::Empty => None,
+                                        Square::Occupied(player, tile) => Some((player, tile)),
+                                    } {
+                                        let is_self = player as u64 == game.player_number;
+                                        ui.painter().rect_filled(rect, 0.0, Color32::DARK_RED);
+                                        let color = if is_self {
+                                            Color32::LIGHT_BLUE
+                                        } else {
+                                            Color32::LIGHT_RED
+                                        };
+                                        render_char(&tile, !is_self, rect, ui, color);
+                                    }
+                                }
+                                core::reporting::BoardChangeAction::Truncated => {
+                                    if let Some((player, tile)) = match change.detail.square {
+                                        Square::Empty => None,
+                                        Square::Occupied(player, tile) => Some((player, tile)),
+                                    } {
+                                        let is_self = player as u64 == game.player_number;
+                                        ui.painter().rect_filled(rect, 0.0, Color32::GRAY);
+                                        render_char(&tile, !is_self, rect, ui, Color32::BLACK);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Highlight interactions
                         if square.is_some() && response.hovered() {
                             ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
                         }
+
+                        // Highlight selections
                         if let Some(selected) = game.selected_square_on_board {
                             if selected.eq(&(colnum, rownum)) {
                                 ui.painter().rect_filled(rect, 0.0, Color32::KHAKI);
                             }
                         }
+
+                        // Draw tile
                         match square {
                             Some(Square::Empty) => {
                                 ui.painter().rect_stroke(
                                     rect,
                                     0.0,
-                                    Stroke::new(1.0, Color32::GOLD),
+                                    Stroke::new(1.0, Color32::LIGHT_GRAY),
                                 );
                             }
                             Some(Square::Occupied(player, char)) => {
                                 let is_self = *player as u64 == game.player_number;
                                 let color = if is_self {
-                                    Color32::LIGHT_GREEN
+                                    Color32::LIGHT_BLUE
                                 } else {
-                                    Color32::RED
+                                    Color32::LIGHT_RED
                                 };
                                 ui.painter().rect_stroke(rect, 0.0, Stroke::new(1.0, color));
                                 render_char(char, !is_self, rect, ui, color);
@@ -275,7 +353,6 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                         };
                     }
                     if response.clicked() {
-                        let coord = Coordinate::new(colnum, rownum);
                         if let Some(tile) = game.selected_tile_in_hand {
                             msg = Some(PlayerMessage::Place(coord, game.hand[tile]));
                             game.playing_tile = Some(game.hand[tile]);
@@ -319,14 +396,19 @@ fn render_hand(game: &mut ActiveGame, ui: &mut egui::Ui) {
                 ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
             if ui.is_rect_visible(rect) {
                 ui.painter()
-                    .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::GOLD));
+                    .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::LIGHT_GRAY));
                 if response.hovered() {
                     ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
                 }
                 if game.selected_tile_in_hand == Some(i) {
                     ui.painter().rect_filled(rect, 0.0, Color32::KHAKI);
                 }
-                render_char(char, false, rect, ui, Color32::LIGHT_GREEN);
+                let tile_color = if game.new_hand_tiles.contains(&i) {
+                    Color32::LIGHT_GREEN
+                } else {
+                    Color32::LIGHT_BLUE
+                };
+                render_char(char, false, rect, ui, tile_color);
             }
             if response.clicked() {
                 if let Some(selected) = game.selected_tile_in_hand {
@@ -344,6 +426,8 @@ fn render_hand(game: &mut ActiveGame, ui: &mut egui::Ui) {
     if let Some((from, to)) = rearrange {
         let c = game.hand.remove(from);
         game.hand.insert(to, c);
+        // Stop highlighting new tiles
+        game.new_hand_tiles.clear();
     }
 }
 

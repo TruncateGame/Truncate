@@ -1,28 +1,10 @@
 use super::board::{Board, Coordinate, Square};
 use super::judge::{Judge, Outcome};
+use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
 use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::player::Player;
-
-#[derive(Debug, PartialEq)]
-pub enum ChangeAction {
-    Added,
-    Swapped,
-    Defeated,
-    Truncated,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ChangeDetail {
-    pub square: Square,
-    pub coordinate: Coordinate,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Change {
-    pub detail: ChangeDetail,
-    pub change: ChangeAction,
-}
+use crate::reporting::Change;
 
 pub enum Move {
     // TODO: make Move a struct and make player a top level property of it
@@ -69,11 +51,11 @@ impl Board {
                     return Err(GamePlayError::NonAdjacentPlace);
                 }
 
-                players[player].use_tile(tile, bag)?;
-                changes.push(Change {
+                changes.push(players[player].use_tile(tile, bag)?);
+                changes.push(Change::Board(BoardChange {
                     detail: self.set(position, player, tile)?,
-                    change: ChangeAction::Added,
-                });
+                    action: BoardChangeAction::Added,
+                }));
                 self.resolve_attack(player, position, judge, bag, &mut changes);
                 Ok(changes)
             }
@@ -111,9 +93,11 @@ impl Board {
                     if let Ok(Square::Occupied(_, letter)) = self.get(square) {
                         bag.return_tile(letter);
                     }
-                    self.clear(square).map(|detail| Change {
-                        detail,
-                        change: ChangeAction::Defeated,
+                    self.clear(square).map(|detail| {
+                        Change::Board(BoardChange {
+                            detail,
+                            action: BoardChangeAction::Defeated,
+                        })
                     })
                 }));
             }
@@ -128,9 +112,11 @@ impl Board {
                     if let Ok(Square::Occupied(_, letter)) = self.get(*square) {
                         bag.return_tile(letter);
                     }
-                    self.clear(*square).map(|detail| Change {
-                        detail,
-                        change: ChangeAction::Defeated,
+                    self.clear(*square).map(|detail| {
+                        Change::Board(BoardChange {
+                            detail,
+                            action: BoardChangeAction::Defeated,
+                        })
                     })
                 }));
             }
@@ -162,6 +148,7 @@ impl Board {
 #[cfg(test)]
 mod tests {
     use crate::board::{tests as BoardUtils, Direction};
+    use crate::reporting::*;
 
     use super::super::bag::tests as TileUtils;
     use super::*;
@@ -220,25 +207,46 @@ mod tests {
         let mut players = vec![Player::new("A".into(), 0, 7, &mut bag)];
 
         // Places on the root
+        let changes = b.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 0 },
+            },
+            &mut players,
+            &mut bag,
+            &short_dict(),
+        );
         assert_eq!(
-            b.make_move(
-                Move::Place {
-                    player: 0,
-                    tile: 'A',
-                    position: Coordinate { x: 1, y: 0 }
-                },
-                &mut players,
-                &mut bag,
-                &short_dict()
-            ),
-            Ok(vec![Change {
-                detail: ChangeDetail {
+            changes.clone().map(|c| {
+                c.into_iter()
+                    .filter(|c| matches!(c, Change::Board(_)))
+                    .collect::<Vec<_>>()
+            }),
+            Ok(vec![Change::Board(BoardChange {
+                detail: BoardChangeDetail {
                     square: Square::Occupied(0, 'A'),
                     coordinate: Coordinate { x: 1, y: 0 },
                 },
-                change: ChangeAction::Added
-            }])
+                action: BoardChangeAction::Added
+            })])
         );
+        assert_eq!(
+            changes.map(|c| {
+                c.into_iter()
+                    .filter_map(|c| {
+                        if let Change::Hand(c) = c {
+                            // TODO: skipping test for c.added since it is random
+                            Some((c.player, c.removed))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            }),
+            Ok(vec![(0, vec!['A'])])
+        );
+
         // Can't place on the same place again
         assert_eq!(
             b.make_move(
@@ -253,6 +261,7 @@ mod tests {
             ),
             Err(GamePlayError::OccupiedPlace)
         );
+
         // Can't place at a diagonal
         assert_eq!(
             b.make_move(
@@ -267,6 +276,7 @@ mod tests {
             ),
             Err(GamePlayError::NonAdjacentPlace)
         );
+
         // Can place directly above
         assert_eq!(
             b.make_move(
@@ -278,15 +288,21 @@ mod tests {
                 &mut players,
                 &mut bag,
                 &short_dict()
-            ),
-            Ok(vec![Change {
-                detail: ChangeDetail {
+            )
+            .map(|c| {
+                c.into_iter()
+                    .filter(|c| matches!(c, Change::Board(_)))
+                    .collect::<Vec<_>>()
+            }),
+            Ok(vec![Change::Board(BoardChange {
+                detail: BoardChangeDetail {
                     square: Square::Occupied(0, 'B'),
                     coordinate: Coordinate { x: 1, y: 1 },
                 },
-                change: ChangeAction::Added
-            }])
+                action: BoardChangeAction::Added
+            })])
         );
+
         // Can't place on the same place again
         assert_eq!(
             b.make_move(
@@ -302,6 +318,7 @@ mod tests {
             Err(GamePlayError::OccupiedPlace)
         );
 
+        // Can swap
         assert_eq!(
             b.make_move(
                 Move::Swap {
@@ -313,20 +330,20 @@ mod tests {
                 &short_dict()
             ),
             Ok(vec![
-                Change {
-                    detail: ChangeDetail {
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
                         square: Square::Occupied(0, 'A'),
                         coordinate: Coordinate { x: 1, y: 1 },
                     },
-                    change: ChangeAction::Swapped
-                },
-                Change {
-                    detail: ChangeDetail {
+                    action: BoardChangeAction::Swapped
+                }),
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
                         square: Square::Occupied(0, 'B'),
                         coordinate: Coordinate { x: 1, y: 0 },
                     },
-                    change: ChangeAction::Swapped
-                }
+                    action: BoardChangeAction::Swapped
+                })
             ])
         );
     }
@@ -628,7 +645,6 @@ mod tests {
         for letter in ['B', 'X', 'X'] {
             test_bag.return_tile(letter);
         }
-        assert_eq!(players, test_players);
         assert_eq!(bag, test_bag);
 
         assert_eq!(

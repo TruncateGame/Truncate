@@ -6,3 +6,4 @@ pub mod judge;
 pub mod messages;
 pub mod moves;
 pub mod player;
+pub mod reporting;

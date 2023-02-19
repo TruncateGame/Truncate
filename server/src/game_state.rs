@@ -3,8 +3,24 @@ use core::{
     game::Game,
     messages::{GameMessage, GameStateMessage},
     moves::Move,
+    reporting::{Change, HandChange},
 };
 use std::{net::SocketAddr, time::Instant};
+
+fn filter_changes_for_player(changes: &Vec<Change>, player: usize) -> Vec<Change> {
+    changes
+        .iter()
+        .filter(|change| match change {
+            Change::Hand(HandChange {
+                player: changed_player,
+                removed: _,
+                added: _,
+            }) => *changed_player == player,
+            Change::Board(_) => true,
+        })
+        .cloned()
+        .collect::<Vec<_>>()
+}
 
 #[derive(Debug)]
 pub struct Player {
@@ -63,6 +79,7 @@ impl GameState {
                     next_player_number: self.game.next() as u64,
                     board: self.game.board.clone(),
                     hand: hands.next().unwrap(),
+                    changes: vec![],
                 }),
             ));
         }
@@ -89,7 +106,7 @@ impl GameState {
                 tile,
                 position,
             }) {
-                Ok(Some(winner)) => {
+                Ok((changes, Some(winner))) => {
                     for (number, player) in self.players.iter().enumerate() {
                         messages.push((
                             player.clone(),
@@ -100,6 +117,7 @@ impl GameState {
                                     next_player_number: self.game.next() as u64,
                                     board: self.game.board.clone(),
                                     hand: vec![],
+                                    changes: filter_changes_for_player(&changes, number),
                                 },
                                 winner as u64,
                             ),
@@ -107,7 +125,30 @@ impl GameState {
                     }
                     return messages;
                 }
-                Ok(None) => {}
+                Ok((changes, None)) => {
+                    // TODO: Tidy
+                    let mut hands = (0..self.players.len()).map(|player| {
+                        self.game
+                            .get_player(player)
+                            .expect("Player was not dealt a hand")
+                            .hand
+                            .clone()
+                    });
+                    for (number, player) in self.players.iter().enumerate() {
+                        messages.push((
+                            player.clone(),
+                            GameMessage::GameUpdate(GameStateMessage {
+                                room_code: self.game_id.clone(),
+                                player_number: number as u64,
+                                next_player_number: self.game.next() as u64,
+                                board: self.game.board.clone(),
+                                hand: hands.next().unwrap(),
+                                changes: filter_changes_for_player(&changes, number),
+                            }),
+                        ));
+                    }
+                    return messages;
+                }
                 Err(msg) => {
                     return vec![(
                         &self.players[player_index],
@@ -122,29 +163,6 @@ impl GameState {
         } else {
             todo!("Handle missing player");
         }
-
-        // TODO: Tidy
-        let mut hands = (0..self.players.len()).map(|player| {
-            self.game
-                .get_player(player)
-                .expect("Player was not dealt a hand")
-                .hand
-                .clone()
-        });
-        for (number, player) in self.players.iter().enumerate() {
-            messages.push((
-                player.clone(),
-                GameMessage::GameUpdate(GameStateMessage {
-                    room_code: self.game_id.clone(),
-                    player_number: number as u64,
-                    next_player_number: self.game.next() as u64,
-                    board: self.game.board.clone(),
-                    hand: hands.next().unwrap(),
-                }),
-            ));
-        }
-
-        messages
     }
 
     // TODO: Combine method with play and pass in a `Move` type
@@ -167,10 +185,34 @@ impl GameState {
                 player: player_index,
                 positions: [from, to],
             }) {
-                Ok(Some(_)) => {
+                Ok((_, Some(_))) => {
                     unreachable!("Cannot win by swapping")
                 }
-                Ok(None) => {}
+                Ok((changes, None)) => {
+                    // TODO: Tidy
+                    let mut hands = (0..self.players.len()).map(|player| {
+                        self.game
+                            .get_player(player)
+                            .expect("Player was not dealt a hand")
+                            .hand
+                            .clone()
+                    });
+                    for (number, player) in self.players.iter().enumerate() {
+                        messages.push((
+                            player.clone(),
+                            GameMessage::GameUpdate(GameStateMessage {
+                                room_code: self.game_id.clone(),
+                                player_number: number as u64,
+                                next_player_number: self.game.next() as u64,
+                                board: self.game.board.clone(),
+                                hand: hands.next().unwrap(),
+                                changes: filter_changes_for_player(&changes, number),
+                            }),
+                        ));
+                    }
+
+                    messages
+                }
                 Err(msg) => {
                     return vec![(
                         &self.players[player_index],
@@ -185,28 +227,5 @@ impl GameState {
         } else {
             todo!("Handle missing player");
         }
-
-        // TODO: Tidy
-        let mut hands = (0..self.players.len()).map(|player| {
-            self.game
-                .get_player(player)
-                .expect("Player was not dealt a hand")
-                .hand
-                .clone()
-        });
-        for (number, player) in self.players.iter().enumerate() {
-            messages.push((
-                player.clone(),
-                GameMessage::GameUpdate(GameStateMessage {
-                    room_code: self.game_id.clone(),
-                    player_number: number as u64,
-                    next_player_number: self.game.next() as u64,
-                    board: self.game.board.clone(),
-                    hand: hands.next().unwrap(),
-                }),
-            ));
-        }
-
-        messages
     }
 }

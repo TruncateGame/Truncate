@@ -5,6 +5,7 @@ mod game;
 mod judge;
 mod moves;
 mod player;
+mod reporting;
 
 use board::Coordinate;
 use game::Game;
@@ -148,7 +149,7 @@ fn swap(game: &mut Game) -> Option<usize> {
             Err(e) => {
                 println!("{}", e)
             }
-            Ok(winner) => return winner,
+            Ok(winner) => return winner.1,
         }
     }
 }
@@ -173,7 +174,7 @@ fn place(game: &mut Game) -> Option<usize> {
             Err(e) => {
                 println!("{}", e)
             }
-            Ok(winner) => return winner,
+            Ok(winner) => return winner.1,
         }
     }
 }

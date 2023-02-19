@@ -4,9 +4,10 @@ use std::collections::HashSet;
 use std::fmt;
 use std::slice::Iter;
 
+use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
 use crate::bag::TileBag;
 use crate::error::GamePlayError;
-use crate::moves::{Change, ChangeAction, ChangeDetail};
+use crate::reporting::Change;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -100,7 +101,7 @@ impl Board {
         position: Coordinate,
         player: usize,
         value: char,
-    ) -> Result<ChangeDetail, GamePlayError> {
+    ) -> Result<BoardChangeDetail, GamePlayError> {
         if self.roots.get(player).is_none() {
             return Err(GamePlayError::NonExistentPlayer { index: player });
         }
@@ -112,7 +113,7 @@ impl Board {
         {
             Some(Some(square)) => {
                 *square = Square::Occupied(player, value);
-                Ok(ChangeDetail {
+                Ok(BoardChangeDetail {
                     square: square.to_owned(),
                     coordinate: position,
                 })
@@ -123,18 +124,19 @@ impl Board {
     }
 
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
-    pub fn clear(&mut self, position: Coordinate) -> Option<ChangeDetail> {
+    pub fn clear(&mut self, position: Coordinate) -> Option<BoardChangeDetail> {
         if let Some(Some(square)) = self
             .squares
             .get_mut(position.y as usize)
             .and_then(|y| y.get_mut(position.x as usize))
         {
             if matches!(square, Square::Occupied(_, _)) {
-                *square = Square::Empty;
-                return Some(ChangeDetail {
+                let change = Some(BoardChangeDetail {
                     square: *square,
                     coordinate: position,
                 });
+                *square = Square::Empty;
+                return change;
             }
         }
         None
@@ -157,9 +159,11 @@ impl Board {
                     if let Ok(Square::Occupied(_, letter)) = self.get(c) {
                         bag.return_tile(letter);
                     }
-                    self.clear(c).map(|detail| Change {
-                        detail,
-                        change: ChangeAction::Truncated,
+                    self.clear(c).map(|detail| {
+                        Change::Board(BoardChange {
+                            detail,
+                            action: BoardChangeAction::Truncated,
+                        })
                     })
                 } else {
                     None
@@ -232,14 +236,14 @@ impl Board {
         }
 
         Ok(vec![
-            Change {
+            Change::Board(BoardChange {
                 detail: self.set(positions[0], player, tiles[1])?,
-                change: ChangeAction::Swapped,
-            },
-            Change {
+                action: BoardChangeAction::Swapped,
+            }),
+            Change::Board(BoardChange {
                 detail: self.set(positions[1], player, tiles[0])?,
-                change: ChangeAction::Swapped,
-            },
+                action: BoardChangeAction::Swapped,
+            }),
         ])
     }
 
@@ -562,28 +566,28 @@ pub mod tests {
 
         assert_eq!(
             b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'a'),
                 coordinate: Coordinate { x: 0, y: 0 },
             })
         );
         assert_eq!(
             b.set(Coordinate { x: 0, y: 1 }, 0, 'a'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'a'),
                 coordinate: Coordinate { x: 0, y: 1 },
             })
         );
         assert_eq!(
             b.set(Coordinate { x: 1, y: 1 }, 0, 'a'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'a'),
                 coordinate: Coordinate { x: 1, y: 1 },
             })
         );
         assert_eq!(
             b.set(Coordinate { x: 1, y: 2 }, 0, 'a'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'a'),
                 coordinate: Coordinate { x: 1, y: 2 },
             })
@@ -595,14 +599,14 @@ pub mod tests {
         let mut b = Board::new(2, 1);
         assert_eq!(
             b.set(Coordinate { x: 1, y: 2 }, 0, 'a'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'a'),
                 coordinate: Coordinate { x: 1, y: 2 },
             })
         );
         assert_eq!(
             b.set(Coordinate { x: 1, y: 2 }, 1, 'a'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(1, 'a'),
                 coordinate: Coordinate { x: 1, y: 2 },
             })
@@ -627,7 +631,7 @@ pub mod tests {
         assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Empty));
         assert_eq!(
             b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'a'),
                 coordinate: Coordinate { x: 0, y: 0 },
             })
@@ -653,7 +657,7 @@ pub mod tests {
         for part in parts {
             assert_eq!(
                 b.set(part, 0, 'a'),
-                Ok(ChangeDetail {
+                Ok(BoardChangeDetail {
                     square: Square::Occupied(0, 'a'),
                     coordinate: part,
                 })
@@ -676,7 +680,7 @@ pub mod tests {
             .is_empty());
         assert_eq!(
             b.set(other, 1, 'a'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(1, 'a'),
                 coordinate: other,
             })
@@ -737,21 +741,21 @@ pub mod tests {
         let c2_1 = Coordinate { x: 2, y: 1 };
         assert_eq!(
             b.set(c0_1, 0, 'a'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'a'),
                 coordinate: c0_1,
             })
         );
         assert_eq!(
             b.set(c1_1, 0, 'b'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'b'),
                 coordinate: c1_1,
             })
         );
         assert_eq!(
             b.set(c2_1, 1, 'c'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(1, 'c'),
                 coordinate: c2_1,
             })
@@ -762,20 +766,20 @@ pub mod tests {
         assert_eq!(
             b.swap(0, [c0_1, c1_1]),
             Ok(vec![
-                Change {
-                    detail: ChangeDetail {
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
                         square: Square::Occupied(0, 'b'),
                         coordinate: c0_1,
                     },
-                    change: ChangeAction::Swapped
-                },
-                Change {
-                    detail: ChangeDetail {
+                    action: BoardChangeAction::Swapped
+                }),
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
                         square: Square::Occupied(0, 'a'),
                         coordinate: c1_1,
                     },
-                    change: ChangeAction::Swapped
-                }
+                    action: BoardChangeAction::Swapped
+                })
             ])
         );
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'b')));
@@ -850,7 +854,7 @@ pub mod tests {
         );
         assert_eq!(
             b.set(Coordinate { x: 3, y: 4 }, 1, 'O'),
-            Ok(ChangeDetail {
+            Ok(BoardChangeDetail {
                 square: Square::Occupied(1, 'O'),
                 coordinate: Coordinate { x: 3, y: 4 },
             })

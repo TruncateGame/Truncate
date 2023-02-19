@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use super::bag::TileBag;
-use crate::error::GamePlayError;
+use crate::{
+    error::GamePlayError,
+    reporting::{Change, HandChange},
+};
 
 pub type Hand = Vec<char>;
 
@@ -21,7 +24,7 @@ impl Player {
         }
     }
 
-    pub fn use_tile(&mut self, tile: char, bag: &mut TileBag) -> Result<(), GamePlayError> {
+    pub fn use_tile(&mut self, tile: char, bag: &mut TileBag) -> Result<Change, GamePlayError> {
         match self.hand.iter().position(|t| t == &tile) {
             None => Err(GamePlayError::PlayerDoesNotHaveTile {
                 player: self.index,
@@ -29,7 +32,11 @@ impl Player {
             }),
             Some(index) => {
                 self.hand[index] = bag.draw_tile();
-                Ok(())
+                Ok(Change::Hand(HandChange {
+                    player: self.index,
+                    removed: vec![tile],
+                    added: vec![self.hand[index]],
+                }))
             }
         }
     }

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     board::{Board, Coordinate},
     player::Hand,
+    reporting::Change,
 };
 
 pub type RoomCode = String;
@@ -24,6 +25,7 @@ pub struct GameStateMessage {
     pub next_player_number: PlayerNumber,
     pub board: Board,
     pub hand: Hand,
+    pub changes: Vec<Change>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -2,8 +2,9 @@ use crate::bag::TileBag;
 
 use super::board::{Board, Coordinate, Square};
 use super::judge::Judge;
-use super::moves::{Change, Move};
+use super::moves::Move;
 use super::player::Player;
+use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change};
 
 #[derive(Default)]
 pub struct Game {
@@ -39,7 +40,7 @@ impl Game {
         self.players.get(player)
     }
 
-    pub fn play_move(&mut self, next_move: Move) -> Result<Option<usize>, String> {
+    pub fn play_move(&mut self, next_move: Move) -> Result<(Vec<Change>, Option<usize>), String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
         }
@@ -66,12 +67,12 @@ impl Game {
 
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
-            return Ok(Some(winner));
+            return Ok((self.recent_changes.clone(), Some(winner)));
         }
 
         self.next_player = (self.next_player + 1) % self.board.get_orientations().len(); // TODO: remove this hacky way to get the number of players
 
-        Ok(None)
+        Ok((self.recent_changes.clone(), None))
     }
 
     pub fn next(&self) -> usize {
