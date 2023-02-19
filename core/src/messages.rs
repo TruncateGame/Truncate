@@ -6,6 +6,7 @@ use crate::{
 };
 
 pub type RoomCode = String;
+pub type PlayerNumber = u64;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PlayerMessage {
@@ -16,7 +17,18 @@ pub enum PlayerMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameStateMessage {
+    pub room_code: RoomCode,
+    pub player_number: PlayerNumber,
+    pub board: Board,
+    pub hand: Hand,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
     JoinedGame(RoomCode),
-    StartedGame(RoomCode, Board, Hand), // TODO: All other events. GameStart(Board, Hand) next
+    StartedGame(GameStateMessage),
+    GameUpdate(GameStateMessage),
+    GameEnd(GameStateMessage, PlayerNumber),
+    GameError(RoomCode, PlayerNumber, String),
 }

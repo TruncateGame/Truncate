@@ -1,6 +1,5 @@
 use eframe::{
     egui,
-    emath::{Align2, Rot2},
     epaint::{Color32, Rect, Stroke, TextShape, Vec2},
 };
 
@@ -10,10 +9,21 @@ use super::GameClient;
 use core::{
     board::{Board, Coordinate, Square},
     hand::Hand,
-    messages::{GameMessage, PlayerMessage},
+    messages::{GameMessage, GameStateMessage, PlayerMessage},
 };
 
 type RoomCode = String;
+
+#[derive(Debug, Clone)]
+pub struct ActiveGame {
+    room_code: RoomCode,
+    player_number: u64,
+    board: Board,
+    hand: Hand,
+    selected_tile_in_hand: Option<usize>,
+    playing_tile: Option<char>,
+    error_msg: Option<String>,
+}
 
 #[derive(Debug)]
 pub enum GameStatus {
@@ -21,8 +31,8 @@ pub enum GameStatus {
     PendingJoin(RoomCode),
     PendingCreate,
     PendingStart(RoomCode),
-    Active(RoomCode, Board, Hand),
-    Concluded(RoomCode),
+    Active(ActiveGame),
+    Concluded(ActiveGame, u64),
 }
 
 pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
@@ -78,19 +88,31 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 tx_player.send(PlayerMessage::StartGame).unwrap();
             }
         }
-        GameStatus::Active(game_id, board, hand) => {
+        GameStatus::Active(game) => {
             // TODO: All actual board/game state
-            ui.label(format!("Playing in game {game_id}"));
-            if ui.button("Play a move").clicked() {
-                tx_player
-                    .send(PlayerMessage::Place(Coordinate::new(5, 5), 'a'))
-                    .unwrap();
+            ui.label(format!("Playing in game {}", game.room_code));
+
+            if let Some(error) = &game.error_msg {
+                ui.label(error);
+            } else {
+                ui.label("");
             }
-            render_board(board, ui);
-            render_hand(hand, ui);
+
+            if let Some(pos) = render_board(game, ui) {
+                if let Some(tile) = game.selected_tile_in_hand {
+                    tx_player
+                        .send(PlayerMessage::Place(pos, game.hand[tile]))
+                        .unwrap();
+                    game.playing_tile = Some(game.hand[tile]);
+                    game.selected_tile_in_hand = None;
+                }
+            }
+            render_hand(game, ui);
         }
-        GameStatus::Concluded(game_id) => {
-            ui.label(format!("Game {game_id} has concluded"));
+        GameStatus::Concluded(game, winner) => {
+            ui.label(format!("Game {} has concluded", game.room_code));
+            ui.label(format!("Player {winner} won"));
+            render_board(game, ui);
             // TODO: Reset state and play again
         }
     }
@@ -103,47 +125,153 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             GameMessage::JoinedGame(id) => {
                 *game_status = GameStatus::PendingStart(id.to_uppercase())
             }
-            GameMessage::StartedGame(id, board, hand) => {
-                *game_status = GameStatus::Active(id.to_uppercase(), board, hand);
+            GameMessage::StartedGame(GameStateMessage {
+                room_code,
+                player_number,
+                board,
+                hand,
+            }) => {
+                *game_status = GameStatus::Active(ActiveGame {
+                    room_code: room_code.to_uppercase(),
+                    player_number,
+                    board,
+                    hand,
+                    selected_tile_in_hand: None,
+                    playing_tile: None,
+                    error_msg: None,
+                });
                 println!("Starting a game")
             }
+            GameMessage::GameUpdate(GameStateMessage {
+                room_code: _,
+                player_number: _,
+                board,
+                hand: mut new_hand,
+            }) => {
+                match game_status {
+                    GameStatus::Active(game) => {
+                        // assert_eq!(game.room_code, room_code);
+                        // assert_eq!(game.player_number, player_number);
+                        game.board = board;
+                        // TODO: Remove all of this logic and return hand updates from the server
+                        if let Some(playing) = game.playing_tile {
+                            game.hand.remove(
+                                game.hand
+                                    .iter()
+                                    .enumerate()
+                                    .find(|(_, t)| **t == playing)
+                                    .unwrap()
+                                    .0,
+                            );
+                            for tile in &game.hand {
+                                if let Some((i, _)) =
+                                    new_hand.iter().enumerate().find(|(_, t)| **t == *tile)
+                                {
+                                    new_hand.remove(i);
+                                }
+                            }
+                            game.hand.extend(new_hand);
+                        }
+
+                        game.playing_tile = None;
+                        game.error_msg = None;
+                    }
+                    _ => todo!("Game update hit an unknown state"),
+                }
+            }
+            GameMessage::GameEnd(
+                GameStateMessage {
+                    room_code: _,
+                    player_number: _,
+                    board,
+                    hand: _,
+                },
+                winner,
+            ) => match game_status {
+                GameStatus::Active(game) => {
+                    // assert_eq!(game.room_code, id);
+                    // assert_eq!(game.player_number, num);
+                    game.board = board;
+                    *game_status = GameStatus::Concluded(game.clone(), winner);
+                }
+                _ => todo!("Game error hit an unknown state"),
+            },
+            GameMessage::GameError(id, num, err) => match game_status {
+                GameStatus::Active(game) => {
+                    // assert_eq!(game.room_code, id);
+                    // assert_eq!(game.player_number, num);
+                    game.error_msg = Some(err);
+                }
+                _ => todo!("Game error hit an unknown state"),
+            },
         }
     }
 }
 
-fn render_board(board: &Board, ui: &mut egui::Ui) {
+fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<Coordinate> {
+    let mut msg = None;
+    let is_flipped = game.player_number == 0;
     ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
-    for row in &board.squares {
-        ui.horizontal(|ui| {
-            for square in row {
-                let (rect, response) =
-                    ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
-                if ui.is_rect_visible(rect) {
-                    match square {
-                        Some(Square::Empty) => {
-                            ui.painter()
-                                .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::GOLD));
+
+    // This is super gross but I'm just powering through
+    let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Option<Square>>)>>| {
+        let mut render_row = |rownum, row: Box<dyn Iterator<Item = (usize, &Option<Square>)>>| {
+            ui.horizontal(|ui| {
+                for (colnum, square) in row {
+                    let (rect, response) =
+                        ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
+                    if ui.is_rect_visible(rect) {
+                        match square {
+                            Some(Square::Empty) => {
+                                ui.painter().rect_stroke(
+                                    rect,
+                                    0.0,
+                                    Stroke::new(1.0, Color32::GOLD),
+                                );
+                            }
+                            Some(Square::Occupied(player, char)) => {
+                                ui.painter().rect_stroke(
+                                    rect,
+                                    0.0,
+                                    Stroke::new(1.0, Color32::GOLD),
+                                );
+                                render_char(char, *player as u64 != game.player_number, rect, ui);
+                            }
+                            None => {}
+                        };
+                        if square.is_some() && response.hovered() {
+                            ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
                         }
-                        Some(Square::Occupied(player, char)) => {
-                            ui.painter()
-                                .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::GOLD));
-                        }
-                        None => {}
-                    };
-                    if square.is_some() && response.hovered() {
-                        ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
+                    }
+                    if response.clicked() {
+                        msg = Some(Coordinate::new(colnum, rownum));
                     }
                 }
+            });
+        };
+
+        for (rownum, row) in rows {
+            if is_flipped {
+                render_row(rownum, Box::new(row.iter().enumerate().rev()));
+            } else {
+                render_row(rownum, Box::new(row.iter().enumerate()));
             }
-        });
+        }
+    };
+    if is_flipped {
+        render(Box::new(game.board.squares.iter().enumerate().rev()));
+    } else {
+        render(Box::new(game.board.squares.iter().enumerate()));
     }
+    msg
 }
 
-fn render_hand(hand: &Hand, ui: &mut egui::Ui) {
+fn render_hand(game: &mut ActiveGame, ui: &mut egui::Ui) {
+    let mut rearrange = None;
     ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
     ui.separator();
     ui.horizontal(|ui| {
-        for char in hand {
+        for (i, char) in game.hand.iter().enumerate() {
             let (rect, response) =
                 ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
             if ui.is_rect_visible(rect) {
@@ -151,14 +279,32 @@ fn render_hand(hand: &Hand, ui: &mut egui::Ui) {
                     .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::GOLD));
                 if response.hovered() {
                     ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
+                }
+                if game.selected_tile_in_hand == Some(i) {
+                    ui.painter().rect_filled(rect, 0.0, Color32::KHAKI);
                 }
                 render_char(char, false, rect, ui);
             }
+            if response.clicked() {
+                if let Some(selected) = game.selected_tile_in_hand {
+                    game.selected_tile_in_hand = None;
+                    if selected != i {
+                        rearrange = Some((selected, i));
+                    }
+                } else {
+                    game.selected_tile_in_hand = Some(i);
+                }
+            }
         }
     });
+    if let Some((from, to)) = rearrange {
+        let c = game.hand.remove(from);
+        game.hand.insert(to, c);
+    }
+    // Debug:
     ui.separator();
     ui.horizontal(|ui| {
-        for char in hand {
+        for char in &game.hand {
             let (rect, response) =
                 ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
             if ui.is_rect_visible(rect) {
@@ -167,7 +313,7 @@ fn render_hand(hand: &Hand, ui: &mut egui::Ui) {
                 if response.hovered() {
                     ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
                 }
-                render_char(char, true, rect, ui);
+                render_char(&char, true, rect, ui);
             }
         }
     });

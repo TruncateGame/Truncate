@@ -2,6 +2,7 @@ mod game_state;
 mod room_codes;
 
 use core::game::Game;
+use core::moves::Move;
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
 use dashmap::DashMap;
@@ -108,9 +109,15 @@ async fn handle_connection(
                     todo!("Handle player not being enrolled in a game");
                 }
             }
-            Place(_, _) => {
+            Place(position, tile) => {
                 if let Some(mut game_state) = get_current_game(addr) {
-                    todo!("Handle placing a piece in the game");
+                    for (player, message) in game_state.play(addr, position, tile) {
+                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                        let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+
+                        peer.send(message).unwrap();
+                    }
+                    // TODO: Error handling flow
                 } else {
                     todo!("Handle player not being enrolled in a game");
                 }
@@ -122,10 +129,7 @@ async fn handle_connection(
 
     let messages_to_player = {
         UnboundedReceiverStream::new(player_rx)
-            .map(|msg| {
-                println!("Sending {msg:#?}");
-                Ok(Message::Text(serde_json::to_string(&msg).unwrap()))
-            })
+            .map(|msg| Ok(Message::Text(serde_json::to_string(&msg).unwrap())))
             .forward(outgoing)
     };
 

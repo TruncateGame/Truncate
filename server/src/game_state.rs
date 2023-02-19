@@ -1,4 +1,9 @@
-use core::{game::Game, messages::GameMessage};
+use core::{
+    board::Coordinate,
+    game::Game,
+    messages::{GameMessage, GameStateMessage},
+    moves::Move,
+};
 use std::{net::SocketAddr, time::Instant};
 
 #[derive(Debug)]
@@ -47,14 +52,89 @@ impl GameState {
         });
         // TODO: Maintain an index of Player to the Game player index
         // For cases where players reconnect and game.hands[0] is players[1] etc
-        for player in self.players.iter() {
+        for (number, player) in self.players.iter().enumerate() {
             messages.push((
                 player.clone(),
-                GameMessage::StartedGame(
-                    self.game_id.clone(),
-                    self.game.board.clone(),
-                    hands.next().cloned().unwrap(),
-                ),
+                GameMessage::StartedGame(GameStateMessage {
+                    room_code: self.game_id.clone(),
+                    player_number: number as u64,
+                    board: self.game.board.clone(),
+                    hand: hands.next().cloned().unwrap(),
+                }),
+            ));
+        }
+
+        messages
+    }
+
+    pub fn play(
+        &mut self,
+        player: SocketAddr,
+        position: Coordinate,
+        tile: char,
+    ) -> Vec<(&Player, GameMessage)> {
+        let mut messages = Vec::with_capacity(self.players.len());
+
+        if let Some((player_index, _)) = self
+            .players
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.socket == Some(player))
+        {
+            match self.game.play_move(Move::Place {
+                player: player_index,
+                tile,
+                position,
+            }) {
+                Ok(Some(winner)) => {
+                    for (number, player) in self.players.iter().enumerate() {
+                        messages.push((
+                            player.clone(),
+                            GameMessage::GameEnd(
+                                GameStateMessage {
+                                    room_code: self.game_id.clone(),
+                                    player_number: number as u64,
+                                    board: self.game.board.clone(),
+                                    hand: vec![],
+                                },
+                                winner as u64,
+                            ),
+                        ));
+                    }
+                    return messages;
+                }
+                Ok(None) => {}
+                Err(msg) => {
+                    return vec![(
+                        &self.players[player_index],
+                        GameMessage::GameError(
+                            self.game_id.clone(),
+                            player_index as u64,
+                            msg.into(),
+                        ),
+                    )]
+                }
+            }
+        } else {
+            todo!("Handle missing player");
+        }
+
+        // TODO: Tidy
+        let mut hands = (0..self.players.len()).map(|player| {
+            self.game
+                .hands
+                .get_hand(player)
+                .expect("Player was not dealt a hand")
+        });
+        for (number, player) in self.players.iter().enumerate() {
+            messages.push((
+                player.clone(),
+                GameMessage::GameUpdate(GameStateMessage {
+                    room_code: self.game_id.clone(),
+                    player_number: number as u64,
+                    board: self.game.board.clone(),
+                    hand: hands.next().cloned().unwrap(),
+                }),
             ));
         }
 

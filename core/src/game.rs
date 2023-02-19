@@ -25,9 +25,9 @@ impl Game {
         }
     }
 
-    pub fn play_move(&mut self, next_move: Move) -> Result<Option<usize>, &str> {
+    pub fn play_move(&mut self, next_move: Move) -> Result<Option<usize>, String> {
         if self.winner.is_some() {
-            return Err("Game is already over");
+            return Err("Game is already over".into());
         }
 
         let player = match next_move {
@@ -35,7 +35,7 @@ impl Game {
             Move::Swap { player, .. } => player,
         };
         if player != self.next_player {
-            return Err("Only the next player can play");
+            return Err("Only the next player can play".into());
         }
 
         self.recent_changes = match self
@@ -45,7 +45,7 @@ impl Game {
             Ok(changes) => changes,
             Err(msg) => {
                 println!("{}", msg);
-                return Err("Couldn't make move"); // TODO: propogate error post polonius
+                return Err(format!("Couldn't make move: {msg}")); // TODO: propogate error post polonius
             }
         };
 
