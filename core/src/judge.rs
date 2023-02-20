@@ -99,7 +99,18 @@ impl Judge {
     }
 
     fn valid<S: AsRef<str>>(&self, word: S) -> bool {
-        self.dictionary.contains(&word.as_ref().to_lowercase())
+        if word.as_ref().contains('*') {
+            // Try all letters in the first wildcard spot
+            // TODO: find a fun way to optimize this to not be 26^wildcard_count (regex?)
+            // TODO: return the validated word all the way to the client for info
+            (97..=122_u8)
+                .any(|c| self.valid(word.as_ref().replacen('*', &(c as char).to_string(), 1)))
+        } else {
+            if self.dictionary.contains(&word.as_ref().to_lowercase()) {
+                println!("Valid! {}", word.as_ref().to_lowercase());
+            }
+            self.dictionary.contains(&word.as_ref().to_lowercase())
+        }
     }
 }
 
@@ -192,6 +203,21 @@ mod tests {
     }
 
     #[test]
+    fn wildcards() {
+        let j = short_dict();
+        assert_eq!(
+            j.battle(vec!["B*G"], vec!["XYZ"]),
+            Outcome::AttackerWins(vec![0])
+        );
+        assert_eq!(j.battle(vec!["R*G"], vec!["XYZ"]), Outcome::DefenderWins);
+        assert_eq!(
+            j.battle(vec!["ARTS"], vec!["JALL*"]),
+            Outcome::AttackerWins(vec![0])
+        );
+        assert_eq!(j.battle(vec!["BAG"], vec!["JOLL*"]), Outcome::DefenderWins);
+    }
+
+    #[test]
     fn collins2018() {
         let j = Judge::default();
         assert!(j.valid("zyzzyva"));
@@ -224,6 +250,8 @@ mod tests {
 
     // Utils
     pub fn short_dict() -> Judge {
-        Judge::new(vec!["BIG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS"]) // TODO: Collins 2018 list
+        Judge::new(vec![
+            "BIG", "BAG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS",
+        ]) // TODO: Collins 2018 list
     }
 }
