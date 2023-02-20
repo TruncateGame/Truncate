@@ -40,7 +40,7 @@ impl Game {
             self.players.len(),
             7,
             &mut self.bag,
-            Duration::new(5, 0), // TODO: un-hardcode the duration of turns
+            Duration::new(900, 0), // TODO: un-hardcode the duration of turns
         ));
     }
 
@@ -99,6 +99,7 @@ impl Game {
         let mut apply_penalties = 0;
 
         if this_player.time_remaining.is_negative() {
+            // TODO: Make the penalty period an option
             let total_penalties = 1 + (this_player.time_remaining.whole_seconds() / -60) as usize; // usize cast as we guaranteed both are negative
             println!("Player {player} now has {total_penalties} penalties");
             apply_penalties = total_penalties - this_player.penalties_incurred;
@@ -111,8 +112,10 @@ impl Game {
                 if other_player.index == player {
                     continue;
                 }
-                println!("Player {} gets a free tile", other_player.name);
-                self.recent_changes.push(other_player.add_special_tile('*'));
+                for _ in 0..apply_penalties {
+                    println!("Player {} gets a free tile", other_player.name);
+                    self.recent_changes.push(other_player.add_special_tile('*'));
+                }
             }
         }
 
