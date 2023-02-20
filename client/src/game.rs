@@ -1,5 +1,5 @@
 use eframe::{
-    egui,
+    egui::{self, Label},
     epaint::{Color32, Rect, Stroke, TextShape, Vec2},
 };
 use epaint::hex_color;
@@ -87,7 +87,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         ui.label(format!("Playing as {name}"));
     }
 
-    // TODO: Option to join an existing game
+    ui.separator();
 
     let mut new_game_status = None;
     match game_status {
@@ -165,11 +165,29 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 });
             }
 
-            if game.player_number == game.next_player_number {
-                ui.label("It is your turn! :)");
-            } else {
-                ui.label("It is not your turn :(");
-            }
+            ui.separator();
+
+            let frame = egui::Frame::none().inner_margin(egui::Margin::same(6.0));
+            let resp = frame.show(ui, |ui| {
+                if game.player_number == game.next_player_number {
+                    ui.label("It is your turn! :)");
+                } else {
+                    ui.label("It is not your turn :(");
+                }
+            });
+
+            ui.painter().rect_stroke(
+                resp.response.rect,
+                2.0,
+                Stroke::new(
+                    2.0,
+                    if game.player_number == game.next_player_number {
+                        Color32::LIGHT_GREEN
+                    } else {
+                        Color32::LIGHT_RED
+                    },
+                ),
+            );
 
             if let Some(error) = &game.error_msg {
                 ui.label(error);
