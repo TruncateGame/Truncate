@@ -16,13 +16,27 @@ pub struct Judge {
 
 // TODO: Allow dictionary to be swapped out.
 pub static DICT: &str = include_str!("../dictionary.txt");
+pub static CSWDICT: &str = include_str!("../csw19.txt");
 
 impl Default for Judge {
     fn default() -> Self {
         let mut dictionary = HashSet::new();
 
-        for line in DICT.lines() {
-            dictionary.insert(line.to_lowercase());
+        // for line in DICT.lines() {
+        //     dictionary.insert(line.to_lowercase());
+        // }
+
+        let mut lines = CSWDICT.lines();
+        lines.next(); // Skip copyright
+
+        // TODO: Store definitions somewhere to return to the client
+        for line in lines {
+            dictionary.insert(
+                line.split_once(' ')
+                    .expect("Word had no definition")
+                    .0
+                    .to_lowercase(),
+            );
         }
         Self { dictionary }
     }
