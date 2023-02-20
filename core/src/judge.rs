@@ -59,7 +59,7 @@ impl Judge {
     // Otherwise the attacker wins
     //
     // There is a defender's advantage, so an attacking word has to be at least 2 letters longer than a defending word to be stronger than it.
-    pub fn battle(&self, attackers: Vec<String>, defenders: Vec<String>) -> Outcome {
+    pub fn battle<S: AsRef<str>>(&self, attackers: Vec<S>, defenders: Vec<S>) -> Outcome {
         // If there are no attackers or no defenders there is no battle
         if attackers.is_empty() || defenders.is_empty() {
             return Outcome::NoBattle;
@@ -74,7 +74,7 @@ impl Judge {
         let longest_attacker = attackers
             .iter()
             .reduce(|longest, curr| {
-                if curr.len() > longest.len() {
+                if curr.as_ref().len() > longest.as_ref().len() {
                     curr
                 } else {
                     longest
@@ -85,7 +85,9 @@ impl Judge {
         let weak_defenders: Vec<usize> = defenders // Indices of the weak defenders
             .iter()
             .enumerate()
-            .filter(|(_, word)| !self.valid(word) || word.len() + 1 < longest_attacker.len())
+            .filter(|(_, word)| {
+                !self.valid(word) || word.as_ref().len() + 1 < longest_attacker.as_ref().len()
+            })
             .map(|(index, _)| index)
             .collect();
         if weak_defenders.is_empty() {
@@ -110,29 +112,30 @@ mod tests {
     #[test]
     fn no_battle_without_combatants() {
         let j = short_dict();
-        assert_eq!(j.battle(vec![word()], vec![]), Outcome::NoBattle);
-        assert_eq!(j.battle(vec![], vec![word()]), Outcome::NoBattle);
-        assert_eq!(j.battle(vec![], vec![]), Outcome::NoBattle);
+        assert_eq!(j.battle(vec!["WORD"], vec![]), Outcome::NoBattle);
+        assert_eq!(j.battle(vec![], vec!["WORD"]), Outcome::NoBattle);
+        // need to specify a generic here since the vecs are empty, only needed in test
+        assert_eq!(j.battle::<&'static str>(vec![], vec![]), Outcome::NoBattle);
     }
 
     #[test]
     fn attacker_invalid() {
         let j = short_dict();
-        assert_eq!(j.battle(vec![xyz()], vec![big()]), Outcome::DefenderWins);
+        assert_eq!(j.battle(vec!["XYZ"], vec!["BIG"]), Outcome::DefenderWins);
         assert_eq!(
-            j.battle(vec![long_xyz()], vec![big()]),
+            j.battle(vec!["XYZXYZXYZ"], vec!["BIG"]),
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.battle(vec![xyz(), jolly()], vec![big()]),
+            j.battle(vec!["XYZ", "JOLLY"], vec!["BIG"]),
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.battle(vec![big(), xyz()], vec![big()]),
+            j.battle(vec!["BIG", "XYZ"], vec!["BIG"]),
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.battle(vec![xyz(), big()], vec![big()]),
+            j.battle(vec!["XYZ", "BIG"], vec!["BIG"]),
             Outcome::DefenderWins
         );
     }
@@ -141,19 +144,19 @@ mod tests {
     fn defender_invalid() {
         let j = short_dict();
         assert_eq!(
-            j.battle(vec![big()], vec![xyz()]),
+            j.battle(vec!["BIG"], vec!["XYZ"]),
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.battle(vec![big()], vec![long_xyz()]),
+            j.battle(vec!["BIG"], vec!["XYZXYZXYZ"]),
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.battle(vec![big()], vec![big(), xyz()]),
+            j.battle(vec!["BIG"], vec!["BIG", "XYZ"]),
             Outcome::AttackerWins(vec![1])
         );
         assert_eq!(
-            j.battle(vec![big()], vec![xyz(), big()]),
+            j.battle(vec!["BIG"], vec!["XYZ", "BIG"]),
             Outcome::AttackerWins(vec![0])
         );
     }
@@ -161,9 +164,9 @@ mod tests {
     #[test]
     fn attacker_weaker() {
         let j = short_dict();
-        assert_eq!(j.battle(vec![jolly()], vec![folk()]), Outcome::DefenderWins);
+        assert_eq!(j.battle(vec!["JOLLY"], vec!["FOLK"]), Outcome::DefenderWins);
         assert_eq!(
-            j.battle(vec![jolly(), big()], vec![folk()]),
+            j.battle(vec!["JOLLY", "BIG"], vec!["FOLK"]),
             Outcome::DefenderWins
         );
     }
@@ -172,17 +175,17 @@ mod tests {
     fn defender_weaker() {
         let j = short_dict();
         assert_eq!(
-            j.battle(vec![jolly()], vec![fat()]),
+            j.battle(vec!["JOLLY"], vec!["FAT"]),
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.battle(vec![jolly(), big()], vec![fat()]),
+            j.battle(vec!["JOLLY", "BIG"], vec!["FAT"]),
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
             j.battle(
-                vec![jolly()],
-                vec![fat(), big(), jolly(), folk(), long_xyz()]
+                vec!["JOLLY"],
+                vec!["FAT", "BIG", "JOLLY", "FOLK", "XYZXYZXYZ"]
             ),
             Outcome::AttackerWins(vec![0, 1, 4])
         );
@@ -222,28 +225,5 @@ mod tests {
     // Utils
     pub fn short_dict() -> Judge {
         Judge::new(vec!["BIG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS"]) // TODO: Collins 2018 list
-    }
-
-    // TODO: Refactor this silly thing! Just wanted immediate access to these strings
-    fn jolly() -> String {
-        String::from("JOLLY")
-    }
-    fn word() -> String {
-        String::from("WORD")
-    }
-    fn xyz() -> String {
-        String::from("XYZ")
-    }
-    fn big() -> String {
-        String::from("BIG")
-    }
-    fn long_xyz() -> String {
-        String::from("XYZXYZXYZ")
-    }
-    fn folk() -> String {
-        String::from("FOLK")
-    }
-    fn fat() -> String {
-        String::from("FAT")
     }
 }
