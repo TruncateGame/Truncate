@@ -95,8 +95,26 @@ impl Game {
         self.next_player = (self.next_player + 1) % self.board.get_orientations().len(); // TODO: remove this hacky way to get the number of players
 
         let this_player = &mut self.players[player];
-
         this_player.time_remaining -= turn_duration;
+        let mut apply_penalties = 0;
+
+        if this_player.time_remaining.is_negative() {
+            let total_penalties = 1 + (this_player.time_remaining.whole_seconds() / -60) as usize; // usize cast as we guaranteed both are negative
+            println!("Player {player} now has {total_penalties} penalties");
+            apply_penalties = total_penalties - this_player.penalties_incurred;
+            println!("Player {player} needs {apply_penalties} to be applied");
+            this_player.penalties_incurred = total_penalties;
+        }
+
+        if apply_penalties > 0 {
+            for other_player in &mut self.players {
+                if other_player.index == player {
+                    continue;
+                }
+                println!("Player {} gets a free tile", other_player.name);
+                self.recent_changes.push(other_player.add_special_tile('*'));
+            }
+        }
 
         self.players[player].turn_starts_at = None;
         self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());

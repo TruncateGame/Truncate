@@ -15,8 +15,10 @@ pub struct Player {
     pub name: String,
     pub index: usize,
     pub hand: Hand,
+    pub hand_capacity: usize,
     pub time_remaining: Duration,
     pub turn_starts_at: Option<OffsetDateTime>,
+    pub penalties_incurred: usize,
 }
 
 impl Player {
@@ -31,8 +33,10 @@ impl Player {
             name,
             index,
             hand: (0..hand_capacity).map(|_| bag.draw_tile()).collect(),
+            hand_capacity,
             time_remaining: time_allowance,
             turn_starts_at: None,
+            penalties_incurred: 0,
         }
     }
 
@@ -43,14 +47,33 @@ impl Player {
                 tile,
             }),
             Some(index) => {
-                self.hand[index] = bag.draw_tile();
-                Ok(Change::Hand(HandChange {
-                    player: self.index,
-                    removed: vec![tile],
-                    added: vec![self.hand[index]],
-                }))
+                if self.hand.len() > self.hand_capacity {
+                    // They have too many tiles, so we don't give them a new one
+                    self.hand.swap_remove(index);
+                    Ok(Change::Hand(HandChange {
+                        player: self.index,
+                        removed: vec![tile],
+                        added: vec![],
+                    }))
+                } else {
+                    self.hand[index] = bag.draw_tile();
+                    Ok(Change::Hand(HandChange {
+                        player: self.index,
+                        removed: vec![tile],
+                        added: vec![self.hand[index]],
+                    }))
+                }
             }
         }
+    }
+
+    pub fn add_special_tile(&mut self, tile: char) -> Change {
+        self.hand.push(tile);
+        Change::Hand(HandChange {
+            player: self.index,
+            removed: vec![],
+            added: vec![tile],
+        })
     }
 }
 
