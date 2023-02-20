@@ -1,3 +1,5 @@
+use time::{Duration, OffsetDateTime};
+
 use crate::bag::TileBag;
 
 use super::board::{Board, Coordinate, Square};
@@ -13,6 +15,7 @@ pub struct Game {
     pub bag: TileBag,
     pub judge: Judge,
     pub recent_changes: Vec<Change>,
+    pub started_at: Option<OffsetDateTime>,
     next_player: usize,
     winner: Option<usize>,
 }
@@ -25,19 +28,31 @@ impl Game {
             bag: TileBag::default(),
             judge: Judge::default(),
             recent_changes: vec![],
+            started_at: None,
             next_player: 0,
             winner: None,
         }
     }
 
     pub fn add_player(&mut self, name: String) {
-        self.players
-            .push(Player::new(name, self.players.len(), 7, &mut self.bag));
+        self.players.push(Player::new(
+            name,
+            self.players.len(),
+            7,
+            &mut self.bag,
+            Duration::new(5, 0), // TODO: un-hardcode the duration of turns
+        ));
     }
 
     pub fn get_player(&self, player: usize) -> Option<&Player> {
         // TODO: Lookup player by `index` field rather than vec position
         self.players.get(player)
+    }
+
+    pub fn start(&mut self) {
+        self.started_at = Some(OffsetDateTime::now_utc());
+        // TODO: Lookup player by `index` field rather than vec position
+        self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
     }
 
     pub fn play_move(&mut self, next_move: Move) -> Result<(Vec<Change>, Option<usize>), String> {
@@ -51,6 +66,13 @@ impl Game {
         };
         if player != self.next_player {
             return Err("Only the next player can play".into());
+        }
+        let turn_duration = OffsetDateTime::now_utc()
+            - self.players[player]
+                .turn_starts_at
+                .expect("Player played without the time running");
+        if turn_duration.is_negative() {
+            return Err("Player's turn has not yet started".into());
         }
 
         self.recent_changes =
@@ -71,6 +93,13 @@ impl Game {
         }
 
         self.next_player = (self.next_player + 1) % self.board.get_orientations().len(); // TODO: remove this hacky way to get the number of players
+
+        let this_player = &mut self.players[player];
+
+        this_player.time_remaining -= turn_duration;
+
+        self.players[player].turn_starts_at = None;
+        self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
 
         Ok((self.recent_changes.clone(), None))
     }

@@ -1,3 +1,5 @@
+use time::{Duration, OffsetDateTime};
+
 use serde::{Deserialize, Serialize};
 
 use super::bag::TileBag;
@@ -13,14 +15,24 @@ pub struct Player {
     pub name: String,
     pub index: usize,
     pub hand: Hand,
+    pub time_remaining: Duration,
+    pub turn_starts_at: Option<OffsetDateTime>,
 }
 
 impl Player {
-    pub fn new(name: String, index: usize, hand_capacity: usize, bag: &mut TileBag) -> Self {
+    pub fn new(
+        name: String,
+        index: usize,
+        hand_capacity: usize,
+        bag: &mut TileBag,
+        time_allowance: Duration,
+    ) -> Self {
         Self {
             name,
             index,
             hand: (0..hand_capacity).map(|_| bag.draw_tile()).collect(),
+            time_remaining: time_allowance,
+            turn_starts_at: None,
         }
     }
 
@@ -50,7 +62,13 @@ mod tests {
     #[test]
     fn default() {
         let mut bag = TileBag::default();
-        let player = Player::new("Liam Gallagher".into(), 0, 7, &mut bag);
+        let player = Player::new(
+            "Liam Gallagher".into(),
+            0,
+            7,
+            &mut bag,
+            Duration::new(60, 0),
+        );
         assert_eq!(player.hand.len(), 7);
         // Note, this relies on randomness, so could fail even though it generally passes
         // TODO(liam): Disabling this check for as the randomness has changed and may change again

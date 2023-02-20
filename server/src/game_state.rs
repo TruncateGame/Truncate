@@ -1,7 +1,7 @@
 use core::{
     board::Coordinate,
     game::Game,
-    messages::{GameMessage, GameStateMessage},
+    messages::{GameMessage, GamePlayerMessage, GameStateMessage},
     moves::Move,
     reporting::{Change, HandChange},
 };
@@ -30,7 +30,6 @@ pub struct Player {
 
 pub struct GameState {
     pub game_id: String,
-    pub started_at: Option<Instant>,
     pub players: Vec<Player>,
     pub game: Game,
 }
@@ -39,14 +38,13 @@ impl GameState {
     pub fn new(game_id: String) -> Self {
         Self {
             game_id,
-            started_at: None,
             players: vec![],
             game: Game::default(),
         }
     }
 
     pub fn add_player(&mut self, player: Player) -> Result<(), ()> {
-        if self.started_at.is_some() {
+        if self.game.started_at.is_some() {
             return Err(()); // TODO: Error types
         }
         // TODO: Check player #
@@ -57,7 +55,7 @@ impl GameState {
 
     pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
         // TODO: Check correct # of players
-        self.started_at = Some(Instant::now());
+        self.game.start();
         let mut messages = Vec::with_capacity(self.players.len());
 
         let mut hands = (0..self.players.len()).map(|player| {
@@ -75,6 +73,17 @@ impl GameState {
                 player.clone(),
                 GameMessage::StartedGame(GameStateMessage {
                     room_code: self.game_id.clone(),
+                    players: self
+                        .game
+                        .players
+                        .iter()
+                        .map(|p| GamePlayerMessage {
+                            name: p.name.clone(),
+                            index: p.index,
+                            time_remaining: p.time_remaining,
+                            turn_starts_at: p.turn_starts_at,
+                        })
+                        .collect(),
                     player_number: number as u64,
                     next_player_number: self.game.next() as u64,
                     board: self.game.board.clone(),
@@ -113,6 +122,17 @@ impl GameState {
                             GameMessage::GameEnd(
                                 GameStateMessage {
                                     room_code: self.game_id.clone(),
+                                    players: self
+                                        .game
+                                        .players
+                                        .iter()
+                                        .map(|p| GamePlayerMessage {
+                                            name: p.name.clone(),
+                                            index: p.index,
+                                            time_remaining: p.time_remaining,
+                                            turn_starts_at: p.turn_starts_at,
+                                        })
+                                        .collect(),
                                     player_number: number as u64,
                                     next_player_number: self.game.next() as u64,
                                     board: self.game.board.clone(),
@@ -139,6 +159,17 @@ impl GameState {
                             player.clone(),
                             GameMessage::GameUpdate(GameStateMessage {
                                 room_code: self.game_id.clone(),
+                                players: self
+                                    .game
+                                    .players
+                                    .iter()
+                                    .map(|p| GamePlayerMessage {
+                                        name: p.name.clone(),
+                                        index: p.index,
+                                        time_remaining: p.time_remaining,
+                                        turn_starts_at: p.turn_starts_at,
+                                    })
+                                    .collect(),
                                 player_number: number as u64,
                                 next_player_number: self.game.next() as u64,
                                 board: self.game.board.clone(),
@@ -202,6 +233,17 @@ impl GameState {
                             player.clone(),
                             GameMessage::GameUpdate(GameStateMessage {
                                 room_code: self.game_id.clone(),
+                                players: self
+                                    .game
+                                    .players
+                                    .iter()
+                                    .map(|p| GamePlayerMessage {
+                                        name: p.name.clone(),
+                                        index: p.index,
+                                        time_remaining: p.time_remaining,
+                                        turn_starts_at: p.turn_starts_at,
+                                    })
+                                    .collect(),
                                 player_number: number as u64,
                                 next_player_number: self.game.next() as u64,
                                 board: self.game.board.clone(),

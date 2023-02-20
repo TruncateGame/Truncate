@@ -147,6 +147,8 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
+    use time::Duration;
+
     use crate::board::{tests as BoardUtils, Direction};
     use crate::reporting::*;
 
@@ -162,8 +164,8 @@ mod tests {
         let mut b = Board::new(3, 1);
         let mut bag = TileUtils::trivial_bag();
         let mut players = vec![
-            Player::new("A".into(), 0, 7, &mut bag),
-            Player::new("B".into(), 1, 7, &mut bag),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
         ];
 
         let position = Coordinate { x: 10, y: 10 };
@@ -204,7 +206,13 @@ mod tests {
     fn can_place_and_swap() {
         let mut b = Board::new(3, 1);
         let mut bag = TileUtils::a_b_bag();
-        let mut players = vec![Player::new("A".into(), 0, 7, &mut bag)];
+        let mut players = vec![Player::new(
+            "A".into(),
+            0,
+            7,
+            &mut bag,
+            Duration::new(60, 0),
+        )];
 
         // Places on the root
         let changes = b.make_move(
@@ -353,8 +361,8 @@ mod tests {
         let mut b = Board::new(3, 1);
         let mut bag = TileBag::default();
         let mut players = vec![
-            Player::new("A".into(), 0, 7, &mut bag),
-            Player::new("B".into(), 1, 7, &mut bag),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
         ];
 
         assert_eq!(
@@ -524,8 +532,8 @@ mod tests {
         .unwrap();
         let mut bag = TileUtils::trivial_bag();
         let mut players = vec![
-            Player::new("A".into(), 0, 7, &mut bag),
-            Player::new("B".into(), 1, 7, &mut bag),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
         ];
 
         b.make_move(
@@ -570,8 +578,8 @@ mod tests {
         .unwrap();
         let mut bag = TileUtils::trivial_bag();
         let mut players = vec![
-            Player::new("A".into(), 0, 7, &mut bag),
-            Player::new("B".into(), 1, 7, &mut bag),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
         ];
 
         b.make_move(
@@ -617,14 +625,14 @@ mod tests {
         .unwrap();
         let mut bag = TileUtils::trivial_bag();
         let mut players = vec![
-            Player::new("A".into(), 0, 7, &mut bag),
-            Player::new("B".into(), 1, 7, &mut bag),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
         ];
 
         let mut test_bag = TileUtils::trivial_bag();
         let mut test_players = vec![
-            Player::new("A".into(), 0, 7, &mut test_bag),
-            Player::new("B".into(), 1, 7, &mut test_bag),
+            Player::new("A".into(), 0, 7, &mut test_bag, Duration::new(60, 0)),
+            Player::new("B".into(), 1, 7, &mut test_bag, Duration::new(60, 0)),
         ];
 
         assert_eq!(players, test_players);
@@ -678,8 +686,8 @@ mod tests {
         .unwrap();
         let mut bag = TileUtils::trivial_bag();
         let mut players = vec![
-            Player::new("A".into(), 0, 7, &mut bag),
-            Player::new("B".into(), 1, 7, &mut bag),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
         ];
 
         b.make_move(

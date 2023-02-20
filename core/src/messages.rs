@@ -1,3 +1,5 @@
+use time::{Duration, OffsetDateTime};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -11,16 +13,25 @@ pub type PlayerNumber = u64;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PlayerMessage {
-    NewGame, // TODO: Add player Name
+    NewGame(String),
+    JoinGame(RoomCode, String),
     StartGame,
-    JoinGame(RoomCode),
     Place(Coordinate, char),
     Swap(Coordinate, Coordinate),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GamePlayerMessage {
+    pub name: String,
+    pub index: usize,
+    pub time_remaining: Duration,
+    pub turn_starts_at: Option<OffsetDateTime>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameStateMessage {
     pub room_code: RoomCode,
+    pub players: Vec<GamePlayerMessage>,
     pub player_number: PlayerNumber,
     pub next_player_number: PlayerNumber,
     pub board: Board,

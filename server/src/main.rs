@@ -61,11 +61,11 @@ async fn handle_connection(
 
         use PlayerMessage::*;
         match parsed_msg {
-            NewGame => {
+            NewGame(name) => {
                 let new_game_id = code_provider.get_free_code();
                 let mut game = GameState::new(new_game_id.clone());
                 game.add_player(Player {
-                    name: "TODO".into(),
+                    name: name,
                     socket: Some(addr.clone()),
                 })
                 .expect("Failed to add first player to game");
@@ -77,14 +77,14 @@ async fn handle_connection(
                     .send(GameMessage::JoinedGame(new_game_id))
                     .unwrap();
             }
-            JoinGame(room_code) => {
+            JoinGame(room_code, player_name) => {
                 let code = room_code.to_ascii_lowercase();
                 if let Some(mut existing_game) = game_map.get_mut(&code) {
                     active_map.insert(addr, code.clone());
 
                     if existing_game
                         .add_player(Player {
-                            name: "TODO".into(),
+                            name: player_name,
                             socket: Some(addr.clone()),
                         })
                         .is_ok()

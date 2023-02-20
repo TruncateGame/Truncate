@@ -3,13 +3,14 @@ use eframe::{
     epaint::{Color32, Rect, Stroke, TextShape, Vec2},
 };
 use hashbrown::HashMap;
+use time::OffsetDateTime;
 
 use std::f32;
 
 use super::GameClient;
 use core::{
     board::{Board, Coordinate, Square},
-    messages::{GameMessage, GameStateMessage, PlayerMessage},
+    messages::{GameMessage, GamePlayerMessage, GameStateMessage, PlayerMessage},
     player::Hand,
     reporting::{BoardChange, Change, HandChange},
 };
@@ -19,6 +20,7 @@ type RoomCode = String;
 #[derive(Debug, Clone)]
 pub struct ActiveGame {
     room_code: RoomCode,
+    players: Vec<GamePlayerMessage>,
     player_number: u64,
     next_player_number: u64,
     board: Board,
@@ -34,6 +36,7 @@ pub struct ActiveGame {
 impl ActiveGame {
     fn new(
         room_code: RoomCode,
+        players: Vec<GamePlayerMessage>,
         player_number: u64,
         next_player_number: u64,
         board: Board,
@@ -41,6 +44,7 @@ impl ActiveGame {
     ) -> Self {
         Self {
             room_code,
+            players,
             player_number,
             next_player_number,
             board,
@@ -89,14 +93,16 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         GameStatus::None(room_code) => {
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
-                tx_player.send(PlayerMessage::NewGame).unwrap();
+                tx_player
+                    .send(PlayerMessage::NewGame(name.clone()))
+                    .unwrap();
                 new_game_status = Some(GameStatus::PendingCreate);
             }
             ui.horizontal(|ui| {
                 ui.text_edit_singleline(room_code);
                 if ui.button("Join Game").clicked() {
                     tx_player
-                        .send(PlayerMessage::JoinGame(room_code.clone()))
+                        .send(PlayerMessage::JoinGame(room_code.clone(), name.clone()))
                         .unwrap();
                     new_game_status = Some(GameStatus::PendingJoin(room_code.clone()));
                 }
@@ -119,6 +125,44 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         GameStatus::Active(game) => {
             // TODO: All actual board/game state
             ui.label(format!("Playing in game {}", game.room_code));
+
+            for player in &game.players {
+                ui.horizontal(|ui| {
+                    match player.turn_starts_at {
+                        Some(next_turn) => {
+                            let elapsed = OffsetDateTime::now_utc() - next_turn;
+                            if elapsed.is_positive() {
+                                ui.label(format!(
+                                    "Player: {} has {:?}s remaining.",
+                                    player.name,
+                                    (player.time_remaining - elapsed).whole_seconds()
+                                ));
+                                ui.label(format!(
+                                    "Their turn started {:?}s ago",
+                                    elapsed.whole_seconds()
+                                ));
+                            } else {
+                                ui.label(format!(
+                                    "Player: {} has {:?}s remaining.",
+                                    player.name,
+                                    player.time_remaining.whole_seconds()
+                                ));
+                                ui.label(format!(
+                                    "Their turn starts in {:?}s",
+                                    elapsed.whole_seconds() * -1
+                                ));
+                            }
+                        }
+                        None => {
+                            ui.label(format!(
+                                "Player: {} has {:?}s remaining.",
+                                player.name,
+                                player.time_remaining.whole_seconds()
+                            ));
+                        }
+                    };
+                });
+            }
 
             if game.player_number == game.next_player_number {
                 ui.label("It is your turn! :)");
@@ -155,6 +199,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             }
             GameMessage::StartedGame(GameStateMessage {
                 room_code,
+                players,
                 player_number,
                 next_player_number,
                 board,
@@ -163,6 +208,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             }) => {
                 *game_status = GameStatus::Active(ActiveGame::new(
                     room_code.to_uppercase(),
+                    players,
                     player_number,
                     next_player_number,
                     board,
@@ -172,6 +218,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             }
             GameMessage::GameUpdate(GameStateMessage {
                 room_code: _,
+                players,
                 player_number: _,
                 next_player_number,
                 board,
@@ -182,9 +229,9 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                     GameStatus::Active(game) => {
                         // assert_eq!(game.room_code, room_code);
                         // assert_eq!(game.player_number, player_number);
+                        game.players = players;
                         game.board = board;
                         game.next_player_number = next_player_number;
-                        // TODO: Remove all of this logic and return hand updates from the server
 
                         game.board_changes.clear();
                         for board_change in changes.iter().filter_map(|c| match c {
@@ -223,6 +270,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             GameMessage::GameEnd(
                 GameStateMessage {
                     room_code: _,
+                    players,
                     player_number: _,
                     next_player_number: _,
                     board,
@@ -234,6 +282,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 GameStatus::Active(game) => {
                     // assert_eq!(game.room_code, id);
                     // assert_eq!(game.player_number, num);
+                    game.players = players;
                     game.board = board;
                     game.board_changes.clear();
                     for board_change in changes.iter().filter_map(|c| match c {
