@@ -2,6 +2,7 @@ use eframe::{
     egui,
     epaint::{Color32, Rect, Stroke, TextShape, Vec2},
 };
+use epaint::hex_color;
 use hashbrown::HashMap;
 use time::OffsetDateTime;
 
@@ -322,6 +323,7 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                     let (rect, response) =
                         ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
                     if ui.is_rect_visible(rect) {
+                        let mut has_stroke = false;
                         // Highlight changes
                         if let Some(change) = game.board_changes.get(&coord) {
                             match change.action {
@@ -331,6 +333,7 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                                         0.0,
                                         Stroke::new(2.0, Color32::LIGHT_GREEN),
                                     );
+                                    has_stroke = true;
                                 }
                                 core::reporting::BoardChangeAction::Swapped => {
                                     ui.painter().rect_stroke(
@@ -338,6 +341,7 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                                         0.0,
                                         Stroke::new(2.0, Color32::GOLD),
                                     );
+                                    has_stroke = true;
                                 }
                                 core::reporting::BoardChangeAction::Defeated => {
                                     if let Some((player, tile)) = match change.detail.square {
@@ -345,13 +349,13 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                                         Square::Occupied(player, tile) => Some((player, tile)),
                                     } {
                                         let is_self = player as u64 == game.player_number;
-                                        ui.painter().rect_filled(rect, 0.0, Color32::DARK_RED);
-                                        let color = if is_self {
-                                            Color32::LIGHT_BLUE
-                                        } else {
-                                            Color32::LIGHT_RED
-                                        };
-                                        render_char(&tile, !is_self, rect, ui, color);
+                                        render_char(
+                                            &tile,
+                                            !is_self,
+                                            rect,
+                                            ui,
+                                            hex_color!("#9b9b9b"),
+                                        );
                                     }
                                 }
                                 core::reporting::BoardChangeAction::Truncated => {
@@ -360,8 +364,13 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                                         Square::Occupied(player, tile) => Some((player, tile)),
                                     } {
                                         let is_self = player as u64 == game.player_number;
-                                        ui.painter().rect_filled(rect, 0.0, Color32::GRAY);
-                                        render_char(&tile, !is_self, rect, ui, Color32::BLACK);
+                                        render_char(
+                                            &tile,
+                                            !is_self,
+                                            rect,
+                                            ui,
+                                            hex_color!("#6b6b6b"),
+                                        );
                                     }
                                 }
                             }
@@ -382,11 +391,13 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                         // Draw tile
                         match square {
                             Some(Square::Empty) => {
-                                ui.painter().rect_stroke(
-                                    rect,
-                                    0.0,
-                                    Stroke::new(1.0, Color32::LIGHT_GRAY),
-                                );
+                                if !has_stroke {
+                                    ui.painter().rect_stroke(
+                                        rect,
+                                        0.0,
+                                        Stroke::new(1.0, Color32::LIGHT_GRAY),
+                                    );
+                                }
                             }
                             Some(Square::Occupied(player, char)) => {
                                 let is_self = *player as u64 == game.player_number;
@@ -395,7 +406,9 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                                 } else {
                                     Color32::LIGHT_RED
                                 };
-                                ui.painter().rect_stroke(rect, 0.0, Stroke::new(1.0, color));
+                                if !has_stroke {
+                                    ui.painter().rect_stroke(rect, 0.0, Stroke::new(1.0, color));
+                                }
                                 render_char(char, !is_self, rect, ui, color);
                             }
                             None => {}
