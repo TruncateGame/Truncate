@@ -277,7 +277,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                                 );
                             }
                             let reduced_length = game.hand.len();
-                            game.hand.extend(&hand_change.added);
+                            game.hand.0.extend(&hand_change.added);
                             game.new_hand_tiles = (reduced_length..game.hand.len()).collect();
                         }
 
@@ -441,8 +441,8 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                     }
                     if response.clicked() {
                         if let Some(tile) = game.selected_tile_in_hand {
-                            msg = Some(PlayerMessage::Place(coord, game.hand[tile]));
-                            game.playing_tile = Some(game.hand[tile]);
+                            msg = Some(PlayerMessage::Place(coord, *game.hand.get(tile).unwrap()));
+                            game.playing_tile = Some(*game.hand.get(tile).unwrap());
                             game.selected_tile_in_hand = None;
                         } else if let Some(selected_coord) = game.selected_square_on_board {
                             if selected_coord != coord {
@@ -515,8 +515,7 @@ fn render_hand(game: &mut ActiveGame, ui: &mut egui::Ui) {
         }
     });
     if let Some((from, to)) = rearrange {
-        let c = game.hand.remove(from);
-        game.hand.insert(to, c);
+        game.hand.rearrange(from, to);
         // Stop highlighting new tiles
         game.new_hand_tiles.clear();
     }

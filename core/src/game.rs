@@ -40,7 +40,7 @@ impl Game {
             self.players.len(),
             7,
             &mut self.bag,
-            Duration::new(900, 0), // TODO: un-hardcode the duration of turns
+            Duration::new(600, 0), // TODO: un-hardcode the duration of turns
         ));
     }
 

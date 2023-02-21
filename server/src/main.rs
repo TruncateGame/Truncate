@@ -50,7 +50,7 @@ async fn handle_connection(
 
         let parsed_msg: PlayerMessage =
             serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
-        println!("Parsed message as: {:?}", parsed_msg);
+        println!("Message: {}", parsed_msg);
 
         let get_current_game = |addr| {
             active_map
@@ -142,7 +142,10 @@ async fn handle_connection(
 
     let messages_to_player = {
         UnboundedReceiverStream::new(player_rx)
-            .map(|msg| Ok(Message::Text(serde_json::to_string(&msg).unwrap())))
+            .map(|msg| {
+                println!("Sending message: {msg}");
+                Ok(Message::Text(serde_json::to_string(&msg).unwrap()))
+            })
             .forward(outgoing)
     };
 

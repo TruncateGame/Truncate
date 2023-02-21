@@ -1,3 +1,4 @@
+use std::fmt;
 use time::{Duration, OffsetDateTime};
 
 use serde::{Deserialize, Serialize};
@@ -8,7 +9,49 @@ use crate::{
     reporting::{Change, HandChange},
 };
 
-pub type Hand = Vec<char>;
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Hand(pub Vec<char>);
+
+impl fmt::Display for Hand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0.iter().map(|c| c.to_string()).collect::<String>()
+        )
+    }
+}
+
+impl Hand {
+    pub fn iter(&self) -> std::slice::Iter<'_, char> {
+        self.0.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn get(&self, index: usize) -> Option<&char> {
+        self.0.get(index)
+    }
+
+    pub fn replace(&mut self, index: usize, tile: char) {
+        self.0.insert(index, tile);
+    }
+
+    pub fn add(&mut self, tile: char) {
+        self.0.push(tile);
+    }
+
+    pub fn remove(&mut self, index: usize) {
+        self.0.swap_remove(index);
+    }
+
+    pub fn rearrange(&mut self, from: usize, to: usize) {
+        let c = self.0.remove(from);
+        self.0.insert(to, c);
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Player {
@@ -32,7 +75,7 @@ impl Player {
         Self {
             name,
             index,
-            hand: (0..hand_capacity).map(|_| bag.draw_tile()).collect(),
+            hand: Hand((0..hand_capacity).map(|_| bag.draw_tile()).collect()),
             hand_capacity,
             time_remaining: time_allowance,
             turn_starts_at: None,
@@ -49,18 +92,18 @@ impl Player {
             Some(index) => {
                 if self.hand.len() > self.hand_capacity {
                     // They have too many tiles, so we don't give them a new one
-                    self.hand.swap_remove(index);
+                    self.hand.remove(index);
                     Ok(Change::Hand(HandChange {
                         player: self.index,
                         removed: vec![tile],
                         added: vec![],
                     }))
                 } else {
-                    self.hand[index] = bag.draw_tile();
+                    self.hand.replace(index, bag.draw_tile());
                     Ok(Change::Hand(HandChange {
                         player: self.index,
                         removed: vec![tile],
-                        added: vec![self.hand[index]],
+                        added: vec![*self.hand.get(index).unwrap()],
                     }))
                 }
             }
@@ -68,7 +111,7 @@ impl Player {
     }
 
     pub fn add_special_tile(&mut self, tile: char) -> Change {
-        self.hand.push(tile);
+        self.hand.add(tile);
         Change::Hand(HandChange {
             player: self.index,
             removed: vec![],

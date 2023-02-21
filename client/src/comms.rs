@@ -24,15 +24,17 @@ pub async fn connect(
             let parsed_msg: GameMessage =
                 serde_json::from_str(msg.unwrap().to_text().expect("Was not valid UTF-8"))
                     .expect("Was not valid JSON");
-            println!("Received {parsed_msg:#?}");
-            tx_game.send(parsed_msg).unwrap();
+            println!("Received {parsed_msg}");
+            tx_game
+                .send(parsed_msg)
+                .expect("Message should have been able to go into the unbounded channel");
         })
     };
 
     let player_messages = {
         UnboundedReceiverStream::new(rx_player)
             .map(|msg| {
-                println!("Sending {msg:#?}");
+                println!("Sending {msg}");
                 Ok(Message::Text(serde_json::to_string(&msg).unwrap()))
             })
             .forward(outgoing)

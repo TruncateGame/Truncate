@@ -3,6 +3,7 @@ use core::{
     game::Game,
     messages::{GameMessage, GamePlayerMessage, GameStateMessage},
     moves::Move,
+    player::Hand,
     reporting::{Change, HandChange},
 };
 use std::{net::SocketAddr, time::Instant};
@@ -36,10 +37,22 @@ pub struct GameState {
 
 impl GameState {
     pub fn new(game_id: String) -> Self {
+        let mut game = Game::new(13, 13);
+
+        game.board.squares[7][6] = None;
+
+        game.board.squares[7][8] = None;
+        game.board.squares[7][10] = None;
+        game.board.squares[7][12] = None;
+
+        game.board.squares[7][4] = None;
+        game.board.squares[7][2] = None;
+        game.board.squares[7][0] = None;
+
         Self {
             game_id,
             players: vec![],
-            game: Game::default(),
+            game,
         }
     }
 
@@ -136,7 +149,7 @@ impl GameState {
                                     player_number: number as u64,
                                     next_player_number: self.game.next() as u64,
                                     board: self.game.board.clone(),
-                                    hand: vec![],
+                                    hand: Hand(vec![]),
                                     changes: filter_changes_for_player(&changes, number),
                                 },
                                 winner as u64,
