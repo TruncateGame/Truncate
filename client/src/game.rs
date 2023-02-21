@@ -434,7 +434,9 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
                                 }
                                 render_char(char, !is_self, rect, ui, color);
                             }
-                            None => {}
+                            None => {
+                                ui.painter().rect_filled(rect, 0.0, Color32::BLACK);
+                            }
                         };
                     }
                     if response.clicked() {
