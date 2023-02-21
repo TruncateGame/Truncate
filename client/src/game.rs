@@ -18,6 +18,9 @@ use core::{
 
 type RoomCode = String;
 
+const TILE_SIZE: f32 = 36.0;
+const LETTER_SIZE: f32 = 30.0;
+
 #[derive(Debug, Clone)]
 pub struct ActiveGame {
     room_code: RoomCode,
@@ -338,8 +341,10 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
             ui.horizontal(|ui| {
                 for (colnum, square) in row {
                     let coord = Coordinate::new(colnum, rownum);
-                    let (rect, response) =
-                        ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
+                    let (rect, response) = ui.allocate_exact_size(
+                        egui::vec2(TILE_SIZE, TILE_SIZE),
+                        egui::Sense::click(),
+                    );
                     if ui.is_rect_visible(rect) {
                         let mut has_stroke = false;
                         // Highlight changes
@@ -469,11 +474,15 @@ fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessag
 fn render_hand(game: &mut ActiveGame, ui: &mut egui::Ui) {
     let mut rearrange = None;
     ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
+    ui.add_space(TILE_SIZE);
     ui.separator();
     ui.horizontal(|ui| {
+        if game.hand.len() < 8 {
+            ui.add_space(TILE_SIZE);
+        }
         for (i, char) in game.hand.iter().enumerate() {
             let (rect, response) =
-                ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
+                ui.allocate_exact_size(egui::vec2(TILE_SIZE, TILE_SIZE), egui::Sense::click());
             if ui.is_rect_visible(rect) {
                 ui.painter()
                     .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::LIGHT_GRAY));
@@ -521,13 +530,17 @@ fn render_char(char: &char, inverted: bool, rect: Rect, ui: &mut egui::Ui, color
 
     let galley = ui.painter().layout_no_wrap(
         char.to_uppercase().to_string(),
-        egui::FontId::new(20.0, egui::FontFamily::Name("Tile".into())),
+        egui::FontId::new(LETTER_SIZE, egui::FontFamily::Name("Tile".into())),
         color,
     );
 
     let shift = Vec2::new(
         (rect.width() - galley.size().x) / if inverted { -2.0 } else { 2.0 },
-        if inverted { 4.0 } else { -4.0 }, // TODO: Fix magic number for font alignment
+        if inverted {
+            LETTER_SIZE * 0.2
+        } else {
+            LETTER_SIZE * -0.2
+        }, // TODO: Fix magic number for font alignment
     );
 
     ui.painter().add(TextShape {
