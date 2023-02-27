@@ -1,6 +1,6 @@
 use super::board::{Board, Coordinate, Square};
 use super::judge::{Judge, Outcome};
-use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
+use super::reporting::{BoardChange, BoardChangeAction};
 use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::player::Player;
@@ -630,7 +630,7 @@ mod tests {
         ];
 
         let mut test_bag = TileUtils::trivial_bag();
-        let mut test_players = vec![
+        let test_players = vec![
             Player::new("A".into(), 0, 7, &mut test_bag, Duration::new(60, 0)),
             Player::new("B".into(), 1, 7, &mut test_bag, Duration::new(60, 0)),
         ];

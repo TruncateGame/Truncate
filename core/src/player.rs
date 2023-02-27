@@ -36,7 +36,7 @@ impl Hand {
     }
 
     pub fn replace(&mut self, index: usize, tile: char) {
-        self.0.insert(index, tile);
+        self.0[index] = tile;
     }
 
     pub fn add(&mut self, tile: char) {
@@ -122,7 +122,6 @@ impl Player {
 
 #[cfg(test)]
 mod tests {
-    use super::super::bag::tests as TileUtils;
     use super::*;
 
     #[test]

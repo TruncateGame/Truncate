@@ -1,67 +1,13 @@
-use eframe::{
-    egui::{self, Label},
-    epaint::{Color32, Rect, Stroke, TextShape, Vec2},
-};
-use epaint::hex_color;
-use hashbrown::HashMap;
-use time::OffsetDateTime;
+use core::messages::RoomCode;
+use eframe::egui;
 
-use std::f32;
+use crate::active_game::ActiveGame;
 
 use super::GameClient;
 use core::{
-    board::{Board, Coordinate, Square},
-    messages::{GameMessage, GamePlayerMessage, GameStateMessage, PlayerMessage},
-    player::Hand,
-    reporting::{BoardChange, Change, HandChange},
+    messages::{GameMessage, GameStateMessage, PlayerMessage},
+    reporting::Change,
 };
-
-type RoomCode = String;
-
-const TILE_SIZE: f32 = 36.0;
-const LETTER_SIZE: f32 = 30.0;
-
-#[derive(Debug, Clone)]
-pub struct ActiveGame {
-    room_code: RoomCode,
-    players: Vec<GamePlayerMessage>,
-    player_number: u64,
-    next_player_number: u64,
-    board: Board,
-    hand: Hand,
-    selected_tile_in_hand: Option<usize>,
-    selected_square_on_board: Option<Coordinate>,
-    playing_tile: Option<char>,
-    error_msg: Option<String>,
-    board_changes: HashMap<Coordinate, BoardChange>,
-    new_hand_tiles: Vec<usize>,
-}
-
-impl ActiveGame {
-    fn new(
-        room_code: RoomCode,
-        players: Vec<GamePlayerMessage>,
-        player_number: u64,
-        next_player_number: u64,
-        board: Board,
-        hand: Hand,
-    ) -> Self {
-        Self {
-            room_code,
-            players,
-            player_number,
-            next_player_number,
-            board,
-            hand,
-            selected_tile_in_hand: None,
-            selected_square_on_board: None,
-            playing_tile: None,
-            error_msg: None,
-            board_changes: HashMap::new(),
-            new_hand_tiles: vec![],
-        }
-    }
-}
 
 #[derive(Debug)]
 pub enum GameStatus {
@@ -76,6 +22,7 @@ pub enum GameStatus {
 pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
     let GameClient {
         name,
+        theme,
         game_status,
         rx_game,
         tx_player,
@@ -127,86 +74,14 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             }
         }
         GameStatus::Active(game) => {
-            // TODO: All actual board/game state
-            ui.label(format!("Playing in game {}", game.room_code));
-
-            for player in &game.players {
-                ui.horizontal(|ui| {
-                    match player.turn_starts_at {
-                        Some(next_turn) => {
-                            let elapsed = OffsetDateTime::now_utc() - next_turn;
-                            if elapsed.is_positive() {
-                                ui.label(format!(
-                                    "Player: {} has {:?}s remaining.",
-                                    player.name,
-                                    (player.time_remaining - elapsed).whole_seconds()
-                                ));
-                                ui.label(format!(
-                                    "Their turn started {:?}s ago",
-                                    elapsed.whole_seconds()
-                                ));
-                            } else {
-                                ui.label(format!(
-                                    "Player: {} has {:?}s remaining.",
-                                    player.name,
-                                    player.time_remaining.whole_seconds()
-                                ));
-                                ui.label(format!(
-                                    "Their turn starts in {:?}s",
-                                    elapsed.whole_seconds() * -1
-                                ));
-                            }
-                        }
-                        None => {
-                            ui.label(format!(
-                                "Player: {} has {:?}s remaining.",
-                                player.name,
-                                player.time_remaining.whole_seconds()
-                            ));
-                        }
-                    };
-                });
-            }
-
-            ui.separator();
-
-            let frame = egui::Frame::none().inner_margin(egui::Margin::same(6.0));
-            let resp = frame.show(ui, |ui| {
-                if game.player_number == game.next_player_number {
-                    ui.label("It is your turn! :)");
-                } else {
-                    ui.label("It is not your turn :(");
-                }
-            });
-
-            ui.painter().rect_stroke(
-                resp.response.rect,
-                2.0,
-                Stroke::new(
-                    2.0,
-                    if game.player_number == game.next_player_number {
-                        Color32::LIGHT_GREEN
-                    } else {
-                        Color32::LIGHT_RED
-                    },
-                ),
-            );
-
-            if let Some(error) = &game.error_msg {
-                ui.label(error);
-            } else {
-                ui.label("");
-            }
-
-            if let Some(msg) = render_board(game, ui) {
+            if let Some(msg) = game.render(ui, theme) {
                 tx_player.send(msg).unwrap();
             }
-            render_hand(game, ui);
         }
         GameStatus::Concluded(game, winner) => {
             ui.label(format!("Game {} has concluded", game.room_code));
             ui.label(format!("Player {winner} won"));
-            render_board(game, ui);
+            // render_board(game, ui);
             // TODO: Reset state and play again
         }
     }
@@ -318,7 +193,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 }
                 _ => todo!("Game error hit an unknown state"),
             },
-            GameMessage::GameError(id, num, err) => match game_status {
+            GameMessage::GameError(_id, _num, err) => match game_status {
                 GameStatus::Active(game) => {
                     // assert_eq!(game.room_code, id);
                     // assert_eq!(game.player_number, num);
@@ -328,225 +203,4 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             },
         }
     }
-}
-
-fn render_board(game: &mut ActiveGame, ui: &mut egui::Ui) -> Option<PlayerMessage> {
-    let mut msg = None;
-    let is_flipped = game.player_number == 0;
-    ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
-
-    // This is super gross but I'm just powering through
-    let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Option<Square>>)>>| {
-        let mut render_row = |rownum, row: Box<dyn Iterator<Item = (usize, &Option<Square>)>>| {
-            ui.horizontal(|ui| {
-                for (colnum, square) in row {
-                    let coord = Coordinate::new(colnum, rownum);
-                    let (rect, response) = ui.allocate_exact_size(
-                        egui::vec2(TILE_SIZE, TILE_SIZE),
-                        egui::Sense::click(),
-                    );
-                    if ui.is_rect_visible(rect) {
-                        let mut has_stroke = false;
-                        // Highlight changes
-                        if let Some(change) = game.board_changes.get(&coord) {
-                            match change.action {
-                                core::reporting::BoardChangeAction::Added => {
-                                    ui.painter().rect_stroke(
-                                        rect,
-                                        0.0,
-                                        Stroke::new(2.0, Color32::LIGHT_GREEN),
-                                    );
-                                    has_stroke = true;
-                                }
-                                core::reporting::BoardChangeAction::Swapped => {
-                                    ui.painter().rect_stroke(
-                                        rect,
-                                        0.0,
-                                        Stroke::new(2.0, Color32::GOLD),
-                                    );
-                                    has_stroke = true;
-                                }
-                                core::reporting::BoardChangeAction::Defeated => {
-                                    if let Some((player, tile)) = match change.detail.square {
-                                        Square::Empty => None,
-                                        Square::Occupied(player, tile) => Some((player, tile)),
-                                    } {
-                                        let is_self = player as u64 == game.player_number;
-                                        render_char(
-                                            &tile,
-                                            !is_self,
-                                            rect,
-                                            ui,
-                                            hex_color!("#9b9b9b"),
-                                        );
-                                    }
-                                }
-                                core::reporting::BoardChangeAction::Truncated => {
-                                    if let Some((player, tile)) = match change.detail.square {
-                                        Square::Empty => None,
-                                        Square::Occupied(player, tile) => Some((player, tile)),
-                                    } {
-                                        let is_self = player as u64 == game.player_number;
-                                        render_char(
-                                            &tile,
-                                            !is_self,
-                                            rect,
-                                            ui,
-                                            hex_color!("#6b6b6b"),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-
-                        // Highlight interactions
-                        if square.is_some() && response.hovered() {
-                            ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
-                        }
-
-                        // Highlight selections
-                        if let Some(selected) = game.selected_square_on_board {
-                            if selected.eq(&(colnum, rownum)) {
-                                ui.painter().rect_filled(rect, 0.0, Color32::KHAKI);
-                            }
-                        }
-
-                        // Draw tile
-                        match square {
-                            Some(Square::Empty) => {
-                                if !has_stroke {
-                                    ui.painter().rect_stroke(
-                                        rect,
-                                        0.0,
-                                        Stroke::new(1.0, Color32::LIGHT_GRAY),
-                                    );
-                                }
-                            }
-                            Some(Square::Occupied(player, char)) => {
-                                let is_self = *player as u64 == game.player_number;
-                                let color = if is_self {
-                                    Color32::LIGHT_BLUE
-                                } else {
-                                    Color32::LIGHT_RED
-                                };
-                                if !has_stroke {
-                                    ui.painter().rect_stroke(rect, 0.0, Stroke::new(1.0, color));
-                                }
-                                render_char(char, !is_self, rect, ui, color);
-                            }
-                            None => {
-                                ui.painter().rect_filled(rect, 0.0, Color32::BLACK);
-                            }
-                        };
-                    }
-                    if response.clicked() {
-                        if let Some(tile) = game.selected_tile_in_hand {
-                            msg = Some(PlayerMessage::Place(coord, *game.hand.get(tile).unwrap()));
-                            game.playing_tile = Some(*game.hand.get(tile).unwrap());
-                            game.selected_tile_in_hand = None;
-                        } else if let Some(selected_coord) = game.selected_square_on_board {
-                            if selected_coord != coord {
-                                msg = Some(PlayerMessage::Swap(coord, selected_coord));
-                            }
-                            game.selected_square_on_board = None;
-                        } else {
-                            game.selected_square_on_board = Some(coord);
-                        }
-                    }
-                }
-            });
-        };
-
-        for (rownum, row) in rows {
-            if is_flipped {
-                render_row(rownum, Box::new(row.iter().enumerate().rev()));
-            } else {
-                render_row(rownum, Box::new(row.iter().enumerate()));
-            }
-        }
-    };
-    if is_flipped {
-        render(Box::new(game.board.squares.iter().enumerate().rev()));
-    } else {
-        render(Box::new(game.board.squares.iter().enumerate()));
-    }
-    msg
-}
-
-fn render_hand(game: &mut ActiveGame, ui: &mut egui::Ui) {
-    let mut rearrange = None;
-    ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
-    ui.add_space(TILE_SIZE);
-    ui.separator();
-    ui.horizontal(|ui| {
-        if game.hand.len() < 8 {
-            ui.add_space(TILE_SIZE);
-        }
-        for (i, char) in game.hand.iter().enumerate() {
-            let (rect, response) =
-                ui.allocate_exact_size(egui::vec2(TILE_SIZE, TILE_SIZE), egui::Sense::click());
-            if ui.is_rect_visible(rect) {
-                ui.painter()
-                    .rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::LIGHT_GRAY));
-                if response.hovered() {
-                    ui.painter().rect_filled(rect, 0.0, Color32::LIGHT_YELLOW);
-                }
-                if game.selected_tile_in_hand == Some(i) {
-                    ui.painter().rect_filled(rect, 0.0, Color32::KHAKI);
-                }
-                let tile_color = if game.new_hand_tiles.contains(&i) {
-                    Color32::LIGHT_GREEN
-                } else {
-                    Color32::LIGHT_BLUE
-                };
-                render_char(char, false, rect, ui, tile_color);
-            }
-            if response.clicked() {
-                if let Some(selected) = game.selected_tile_in_hand {
-                    game.selected_tile_in_hand = None;
-                    if selected != i {
-                        rearrange = Some((selected, i));
-                    }
-                } else {
-                    game.selected_tile_in_hand = Some(i);
-                }
-                game.selected_square_on_board = None;
-            }
-        }
-    });
-    if let Some((from, to)) = rearrange {
-        game.hand.rearrange(from, to);
-        // Stop highlighting new tiles
-        game.new_hand_tiles.clear();
-    }
-}
-
-fn render_char(char: &char, inverted: bool, rect: Rect, ui: &mut egui::Ui, color: Color32) {
-    let angle = if inverted { f32::consts::PI } else { 0.0 };
-    let pos = if inverted {
-        rect.right_bottom()
-    } else {
-        rect.left_top()
-    };
-
-    let galley = ui.painter().layout_no_wrap(
-        char.to_uppercase().to_string(),
-        egui::FontId::new(LETTER_SIZE, egui::FontFamily::Name("Tile".into())),
-        color,
-    );
-
-    let shift = Vec2::new(
-        (rect.width() - galley.size().x) / if inverted { -2.0 } else { 2.0 },
-        if inverted {
-            LETTER_SIZE * 0.2
-        } else {
-            LETTER_SIZE * -0.2
-        }, // TODO: Fix magic number for font alignment
-    );
-
-    ui.painter().add(TextShape {
-        angle,
-        override_text_color: Some(color),
-        ..TextShape::new(pos + shift, galley)
-    });
 }

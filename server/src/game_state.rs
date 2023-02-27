@@ -6,7 +6,7 @@ use core::{
     player::Hand,
     reporting::{Change, HandChange},
 };
-use std::{net::SocketAddr, time::Instant};
+use std::net::SocketAddr;
 
 fn filter_changes_for_player(changes: &Vec<Change>, player: usize) -> Vec<Change> {
     changes
@@ -37,17 +37,18 @@ pub struct GameState {
 
 impl GameState {
     pub fn new(game_id: String) -> Self {
-        let mut game = Game::new(13, 13);
+        let game = Game::new(9, 9);
+        // let mut game = Game::new(13, 13);
 
-        game.board.squares[7][6] = None;
+        // game.board.squares[7][6] = None;
 
-        game.board.squares[7][8] = None;
-        game.board.squares[7][10] = None;
-        game.board.squares[7][12] = None;
+        // game.board.squares[7][8] = None;
+        // game.board.squares[7][10] = None;
+        // game.board.squares[7][12] = None;
 
-        game.board.squares[7][4] = None;
-        game.board.squares[7][2] = None;
-        game.board.squares[7][0] = None;
+        // game.board.squares[7][4] = None;
+        // game.board.squares[7][2] = None;
+        // game.board.squares[7][0] = None;
 
         Self {
             game_id,

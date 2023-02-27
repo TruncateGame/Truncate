@@ -1,8 +1,12 @@
+mod active_game;
 mod comms;
 mod game;
+mod lil_bits;
+mod theming;
 
 use eframe::egui;
-use tokio::runtime::{Builder, Runtime};
+use theming::Theme;
+use tokio::runtime::Builder;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
@@ -12,6 +16,7 @@ use game::GameStatus;
 #[derive(Debug)]
 pub struct GameClient {
     name: String,
+    theme: Theme,
     game_status: GameStatus,
     rx_game: UnboundedReceiver<GameMessage>,
     tx_player: UnboundedSender<PlayerMessage>,
@@ -36,6 +41,7 @@ impl GameClient {
 
         Self {
             name: "Mystery Player".into(),
+            theme: Theme::default(),
             game_status: GameStatus::None("".into()),
             rx_game,
             tx_player,

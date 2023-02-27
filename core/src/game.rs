@@ -2,11 +2,11 @@ use time::{Duration, OffsetDateTime};
 
 use crate::bag::TileBag;
 
-use super::board::{Board, Coordinate, Square};
+use super::board::Board;
 use super::judge::Judge;
 use super::moves::Move;
 use super::player::Player;
-use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change};
+use super::reporting::Change;
 
 #[derive(Default)]
 pub struct Game {
