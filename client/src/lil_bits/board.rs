@@ -103,11 +103,19 @@ impl<'a> BoardUI<'a> {
                                 }
                             }
 
+                            let mut overlay = None;
+                            if let Some(placing_tile) = hand_selected_tile {
+                                if matches!(square, Some(Square::Empty)) {
+                                    overlay = Some(*hand.get(placing_tile).unwrap());
+                                }
+                            }
+
                             let mut tile_clicked = false;
                             if (SquareUI::new()
                                 .enabled(square.is_some())
                                 .empty(matches!(square, Some(Square::Empty)))
                                 .selected(is_selected)
+                                .overlay(overlay)
                                 .render(ui, theme, |ui, theme| {
                                     if let Some(tile) = tile {
                                         tile_clicked = tile.render(ui, theme).clicked();

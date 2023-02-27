@@ -6,10 +6,13 @@ use epaint::Stroke;
 
 use crate::theming::Theme;
 
+use super::{character::CharacterOrient, CharacterUI};
+
 pub struct SquareUI {
     enabled: bool,
     empty: bool,
     selected: bool,
+    overlay: Option<char>,
 }
 
 impl SquareUI {
@@ -18,6 +21,7 @@ impl SquareUI {
             enabled: true,
             empty: false,
             selected: false,
+            overlay: None,
         }
     }
 
@@ -33,6 +37,11 @@ impl SquareUI {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    pub fn overlay(mut self, overlay: Option<char>) -> Self {
+        self.overlay = overlay;
         self
     }
 
@@ -77,8 +86,16 @@ impl SquareUI {
                 response = ui.allocate_rect(rect, egui::Sense::click());
 
                 if response.hovered() {
-                    ui.painter()
-                        .rect_filled(rect.shrink(4.0), 4.0, theme.outlines);
+                    if let Some(overlay) = self.overlay {
+                        ui.painter()
+                            .rect_filled(rect.shrink(4.0), 4.0, theme.text.dark);
+                        CharacterUI::new(overlay, CharacterOrient::North)
+                            .ghost(true)
+                            .render(ui, rect.shrink(4.0), theme);
+                    } else {
+                        ui.painter()
+                            .rect_filled(rect.shrink(4.0), 4.0, theme.outlines);
+                    }
                 }
             }
         }
