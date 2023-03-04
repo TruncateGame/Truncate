@@ -79,6 +79,46 @@ impl Board {
         }
     }
 
+    /// Trims edges containing only empty squares
+    pub fn trim(&mut self) {
+        let trim_front = self
+            .squares
+            .iter()
+            .position(|row| row.iter().any(|s| s.is_some()))
+            .unwrap_or_default();
+
+        let trim_back = self
+            .squares
+            .iter()
+            .rev()
+            .position(|row| row.iter().any(|s| s.is_some()))
+            .unwrap_or_default();
+
+        let trim_left = (0..self.width())
+            .position(|i| self.squares.iter().any(|row| row[i].is_some()))
+            .unwrap_or_default();
+
+        let trim_right = (0..self.width())
+            .rev()
+            .position(|i| self.squares.iter().any(|row| row[i].is_some()))
+            .unwrap_or_default();
+
+        for _ in 0..trim_front {
+            self.squares.remove(0);
+        }
+        for _ in 0..trim_back {
+            self.squares.remove(self.height() - 1);
+        }
+        for row in &mut self.squares {
+            for _ in 0..trim_left {
+                row.remove(0);
+            }
+            for _ in 0..trim_right {
+                row.remove(row.len() - 1);
+            }
+        }
+    }
+
     // TODO: generic board constructor that accepts a grid of squares with arbitrary values, as long as:
     //  - the empty squares are fully connected
     //  - there are at least 2 roots
@@ -515,6 +555,68 @@ pub mod tests {
         assert_eq!(
             Board::new(6, 1).to_string(),
             ["    _      ", "_ _ _ _ _ _", "      _    "].join("\n")
+        );
+    }
+
+    #[test]
+    fn trim_board() {
+        fn assert_board_trim(before: String, after: String) {
+            let mut b = from_string(
+                before,
+                vec![Coordinate { x: 0, y: 0 }],
+                vec![Direction::South],
+            )
+            .unwrap();
+
+            b.trim();
+
+            assert_eq!(b.to_string(), after);
+        }
+
+        // Nothing to trim
+        assert_board_trim(
+            [
+                "_ _ _ _ _",
+                "_ _ R _ _",
+                "_ W O R _",
+                "_ _ S _ _",
+                "_ _ _ _ _",
+            ]
+            .join("\n"),
+            [
+                "_ _ _ _ _",
+                "_ _ R _ _",
+                "_ W O R _",
+                "_ _ S _ _",
+                "_ _ _ _ _",
+            ]
+            .join("\n"),
+        );
+
+        // Edges to trim
+        assert_board_trim(
+            [
+                "         ",
+                "  _ R _  ",
+                "  W O R  ",
+                "  _ S _  ",
+                "         ",
+            ]
+            .join("\n"),
+            ["_ R _", "W O R", "_ S _"].join("\n"),
+        );
+
+        // Don't trim inners
+        assert_board_trim(
+            [
+                "_ _ _   _",
+                "_ _ R   _",
+                "         ",
+                "_ _ S   _",
+                "         ",
+            ]
+            .join("\n"),
+            ["_ _ _   _", "_ _ R   _", "         ", "_ _ S   _"].join("\n"),
         );
     }
 
