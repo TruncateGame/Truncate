@@ -72,7 +72,10 @@ impl CharacterUI {
 
     pub fn render(self, ui: &mut egui::Ui, rect: egui::Rect, theme: &Theme) {
         let color = self.char_color(theme);
+        self.render_with_color(ui, rect, color);
+    }
 
+    pub fn render_with_color(self, ui: &mut egui::Ui, rect: egui::Rect, color: Color32) {
         let galley = ui.painter().layout_no_wrap(
             self.letter.to_string(),
             egui::FontId::new(self.size, egui::FontFamily::Name("Tile".into())),
