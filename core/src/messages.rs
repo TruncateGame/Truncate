@@ -71,7 +71,8 @@ impl fmt::Display for GameStateMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
-    JoinedGame(RoomCode),
+    JoinedLobby(RoomCode, Vec<String>),
+    LobbyUpdate(RoomCode, Vec<String>),
     StartedGame(GameStateMessage),
     GameUpdate(GameStateMessage),
     GameEnd(GameStateMessage, PlayerNumber),
@@ -81,7 +82,18 @@ pub enum GameMessage {
 impl fmt::Display for GameMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            GameMessage::JoinedGame(room) => write!(f, "Joined game {}", room),
+            GameMessage::JoinedLobby(room, players) => write!(
+                f,
+                "Joined lobby {} with players {}",
+                room,
+                players.join(", ")
+            ),
+            GameMessage::LobbyUpdate(room, players) => write!(
+                f,
+                "Update to lobby {} with players {}",
+                room,
+                players.join(", ")
+            ),
             GameMessage::StartedGame(game) => write!(f, "Started game:\n{}", game),
             GameMessage::GameUpdate(game) => write!(f, "Update to game:\n{}", game),
             GameMessage::GameEnd(game, winner) => {

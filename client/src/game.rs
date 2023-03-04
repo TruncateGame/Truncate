@@ -14,7 +14,7 @@ pub enum GameStatus {
     None(RoomCode),
     PendingJoin(RoomCode),
     PendingCreate,
-    PendingStart(RoomCode),
+    PendingStart(RoomCode, Vec<String>),
     Active(ActiveGame),
     Concluded(ActiveGame, u64),
 }
@@ -65,9 +65,10 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         GameStatus::PendingCreate => {
             ui.label("Waiting for a new game to be created . . .");
         }
-        GameStatus::PendingStart(game_id) => {
+        GameStatus::PendingStart(game_id, players) => {
             // TODO: Make this state exist
             ui.label(format!("Playing in game {game_id}"));
+            ui.label(format!("In lobby: {}", players.join(", ")));
             ui.label("Waiting for the game to start . . .");
             if ui.button("Start game").clicked() {
                 tx_player.send(PlayerMessage::StartGame).unwrap();
@@ -91,8 +92,11 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
     while let Ok(msg) = rx_game.try_recv() {
         match msg {
-            GameMessage::JoinedGame(id) => {
-                *game_status = GameStatus::PendingStart(id.to_uppercase())
+            GameMessage::JoinedLobby(id, players) => {
+                *game_status = GameStatus::PendingStart(id.to_uppercase(), players)
+            }
+            GameMessage::LobbyUpdate(id, players) => {
+                *game_status = GameStatus::PendingStart(id.to_uppercase(), players)
             }
             GameMessage::StartedGame(GameStateMessage {
                 room_code,

@@ -63,7 +63,7 @@ async fn handle_connection(
                 let new_game_id = code_provider.get_free_code();
                 let mut game = GameState::new(new_game_id.clone());
                 game.add_player(Player {
-                    name: name,
+                    name: name.clone(),
                     socket: Some(addr.clone()),
                 })
                 .expect("Failed to add first player to game");
@@ -72,7 +72,7 @@ async fn handle_connection(
                 active_map.insert(addr, new_game_id.clone());
 
                 player_tx
-                    .send(GameMessage::JoinedGame(new_game_id))
+                    .send(GameMessage::JoinedLobby(new_game_id, vec![name]))
                     .unwrap();
             }
             JoinGame(room_code, player_name) => {
@@ -87,7 +87,15 @@ async fn handle_connection(
                         })
                         .is_ok()
                     {
-                        player_tx.send(GameMessage::JoinedGame(code)).unwrap();
+                        let player_list: Vec<_> = existing_game.players.iter().map(|p| p.name.clone()).collect();
+                        player_tx.send(GameMessage::JoinedLobby(code.clone(), player_list.clone())).unwrap();
+
+                        for player in &existing_game.players {
+                            let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                            let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+    
+                            peer.send(GameMessage::LobbyUpdate(code.clone(), player_list.clone())).unwrap();
+                        }
                     } else {
                         todo!("Handle error when adding player to a room");
                     }
