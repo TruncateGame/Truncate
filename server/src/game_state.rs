@@ -73,6 +73,7 @@ impl GameState {
 
     pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
         // TODO: Check correct # of players
+        self.game.board.trim();
         self.game.start();
         let mut messages = Vec::with_capacity(self.players.len());
 
