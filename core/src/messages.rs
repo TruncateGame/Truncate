@@ -16,6 +16,7 @@ pub type PlayerNumber = u64;
 pub enum PlayerMessage {
     NewGame(String),
     JoinGame(RoomCode, String),
+    EditBoard(Board),
     StartGame,
     Place(Coordinate, char),
     Swap(Coordinate, Coordinate),
@@ -26,6 +27,7 @@ impl fmt::Display for PlayerMessage {
         match self {
             PlayerMessage::NewGame(name) => write!(f, "Create a new game as player {}", name),
             PlayerMessage::JoinGame(room, name) => write!(f, "Join game {room} as player {}", name),
+            PlayerMessage::EditBoard(board) => write!(f, "Set board to {board}"),
             PlayerMessage::StartGame => write!(f, "Start the game"),
             PlayerMessage::Place(coord, tile) => write!(f, "Place {} at {}", tile, coord),
             PlayerMessage::Swap(a, b) => write!(f, "Swap the tiles at {} and {}", a, b),
@@ -71,8 +73,8 @@ impl fmt::Display for GameStateMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
-    JoinedLobby(RoomCode, Vec<String>),
-    LobbyUpdate(RoomCode, Vec<String>),
+    JoinedLobby(RoomCode, Vec<String>, Board),
+    LobbyUpdate(RoomCode, Vec<String>, Board),
     StartedGame(GameStateMessage),
     GameUpdate(GameStateMessage),
     GameEnd(GameStateMessage, PlayerNumber),
@@ -82,17 +84,19 @@ pub enum GameMessage {
 impl fmt::Display for GameMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            GameMessage::JoinedLobby(room, players) => write!(
+            GameMessage::JoinedLobby(room, players, board) => write!(
                 f,
-                "Joined lobby {} with players {}",
+                "Joined lobby {} with players {}. Board is:\n{}",
                 room,
-                players.join(", ")
+                players.join(", "),
+                board
             ),
-            GameMessage::LobbyUpdate(room, players) => write!(
+            GameMessage::LobbyUpdate(room, players, board) => write!(
                 f,
-                "Update to lobby {} with players {}",
+                "Update to lobby {}. Players are {}. Board is:\n{}",
                 room,
-                players.join(", ")
+                players.join(", "),
+                board
             ),
             GameMessage::StartedGame(game) => write!(f, "Started game:\n{}", game),
             GameMessage::GameUpdate(game) => write!(f, "Update to game:\n{}", game),

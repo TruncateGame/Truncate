@@ -68,11 +68,12 @@ async fn handle_connection(
                 })
                 .expect("Failed to add first player to game");
 
+                let board = game.game.board.clone();
                 game_map.insert(new_game_id.clone(), game);
                 active_map.insert(addr, new_game_id.clone());
 
                 player_tx
-                    .send(GameMessage::JoinedLobby(new_game_id, vec![name]))
+                    .send(GameMessage::JoinedLobby(new_game_id, vec![name], board))
                     .unwrap();
             }
             JoinGame(room_code, player_name) => {
@@ -88,19 +89,34 @@ async fn handle_connection(
                         .is_ok()
                     {
                         let player_list: Vec<_> = existing_game.players.iter().map(|p| p.name.clone()).collect();
-                        player_tx.send(GameMessage::JoinedLobby(code.clone(), player_list.clone())).unwrap();
+                        player_tx.send(GameMessage::JoinedLobby(code.clone(), player_list.clone(), existing_game.game.board.clone())).unwrap();
 
                         for player in &existing_game.players {
                             let Some(socket) = player.socket else { todo!("Handle disconnected player") };
                             let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
     
-                            peer.send(GameMessage::LobbyUpdate(code.clone(), player_list.clone())).unwrap();
+                            peer.send(GameMessage::LobbyUpdate(code.clone(), player_list.clone(), existing_game.game.board.clone())).unwrap();
                         }
                     } else {
                         todo!("Handle error when adding player to a room");
                     }
                 } else {
                     todo!("Handle error when a room doesn't exist");
+                }
+            }
+            EditBoard(board) => {
+                if let Some(mut game_state) = get_current_game(addr) {
+                    game_state.edit_board(board.clone());
+                    let player_list: Vec<_> = game_state.players.iter().map(|p| p.name.clone()).collect();
+
+                    for player in &game_state.players {
+                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                        let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+
+                        peer.send(GameMessage::LobbyUpdate(game_state.game_id.clone(), player_list.clone(), board.clone())).unwrap();
+                    }
+                } else {
+                    todo!("Handle player not being enrolled in a game");
                 }
             }
             StartGame => {

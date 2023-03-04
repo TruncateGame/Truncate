@@ -1,7 +1,11 @@
-use core::messages::RoomCode;
+use core::{board::Board, messages::RoomCode, player::Hand};
 use eframe::egui;
+use hashbrown::HashMap;
 
-use crate::active_game::ActiveGame;
+use crate::{
+    active_game::ActiveGame,
+    lil_bits::{BoardUI, EditorUI},
+};
 
 use super::GameClient;
 use core::{
@@ -14,7 +18,7 @@ pub enum GameStatus {
     None(RoomCode),
     PendingJoin(RoomCode),
     PendingCreate,
-    PendingStart(RoomCode, Vec<String>),
+    PendingStart(RoomCode, Vec<String>, Board),
     Active(ActiveGame),
     Concluded(ActiveGame, u64),
 }
@@ -65,13 +69,16 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         GameStatus::PendingCreate => {
             ui.label("Waiting for a new game to be created . . .");
         }
-        GameStatus::PendingStart(game_id, players) => {
-            // TODO: Make this state exist
+        GameStatus::PendingStart(game_id, players, board) => {
             ui.label(format!("Playing in game {game_id}"));
             ui.label(format!("In lobby: {}", players.join(", ")));
             ui.label("Waiting for the game to start . . .");
             if ui.button("Start game").clicked() {
                 tx_player.send(PlayerMessage::StartGame).unwrap();
+            }
+            // TODO: Make a different board ui for the level editor
+            if let Some(msg) = EditorUI::new(board).render(true, ui, theme) {
+                tx_player.send(msg).unwrap();
             }
         }
         GameStatus::Active(game) => {
@@ -92,11 +99,11 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
     while let Ok(msg) = rx_game.try_recv() {
         match msg {
-            GameMessage::JoinedLobby(id, players) => {
-                *game_status = GameStatus::PendingStart(id.to_uppercase(), players)
+            GameMessage::JoinedLobby(id, players, board) => {
+                *game_status = GameStatus::PendingStart(id.to_uppercase(), players, board)
             }
-            GameMessage::LobbyUpdate(id, players) => {
-                *game_status = GameStatus::PendingStart(id.to_uppercase(), players)
+            GameMessage::LobbyUpdate(id, players, board) => {
+                *game_status = GameStatus::PendingStart(id.to_uppercase(), players, board)
             }
             GameMessage::StartedGame(GameStateMessage {
                 room_code,

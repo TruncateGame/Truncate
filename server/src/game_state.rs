@@ -1,5 +1,5 @@
 use core::{
-    board::Coordinate,
+    board::{Board, Coordinate},
     game::Game,
     messages::{GameMessage, GamePlayerMessage, GameStateMessage},
     moves::Move,
@@ -65,6 +65,10 @@ impl GameState {
         self.game.add_player(player.name.clone());
         self.players.push(player);
         Ok(())
+    }
+
+    pub fn edit_board(&mut self, board: Board) {
+        self.game.board = board;
     }
 
     pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
