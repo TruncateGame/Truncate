@@ -8,6 +8,8 @@ use core::{
 };
 use std::net::SocketAddr;
 
+use crate::definitions::Definitions;
+
 fn filter_changes_for_player(changes: &Vec<Change>, player: usize) -> Vec<Change> {
     changes
         .iter()
@@ -22,6 +24,31 @@ fn filter_changes_for_player(changes: &Vec<Change>, player: usize) -> Vec<Change
         })
         .cloned()
         .collect::<Vec<_>>()
+}
+
+async fn hydrate_change_definitions(definitions: &Definitions, changes: &mut Vec<Change>) {
+    for battle in changes.iter_mut().filter_map(|change| match change {
+        Change::Battle(battle) => Some(battle),
+        _ => None,
+    }) {
+        println!("Evaluating battle {battle:#?}");
+        for word in &mut battle
+            .attackers
+            .iter_mut()
+            .filter(|w| w.valid == Some(true))
+        {
+            println!("Hydrating word {word:#?}");
+            word.definition = definitions.get_word(&word.word).await;
+        }
+        for word in &mut battle
+            .defenders
+            .iter_mut()
+            .filter(|w| w.valid == Some(true))
+        {
+            println!("Hydrating word {word:#?}");
+            word.definition = definitions.get_word(&word.word).await;
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -116,7 +143,7 @@ impl GameState {
         messages
     }
 
-    pub fn play(
+    pub async fn play(
         &mut self,
         player: SocketAddr,
         position: Coordinate,
@@ -136,6 +163,9 @@ impl GameState {
                 position,
             }) {
                 Ok((changes, Some(winner))) => {
+                    // TODO: Provide a way for the player to request a definition for a specific word,
+                    // rather than requesting them all every time.
+                    // hydrate_change_definitions(&Definitions::new(), &mut changes).await;
                     for (number, player) in self.players.iter().enumerate() {
                         messages.push((
                             player.clone(),
@@ -166,6 +196,9 @@ impl GameState {
                     return messages;
                 }
                 Ok((changes, None)) => {
+                    // TODO: Provide a way for the player to request a definition for a specific word,
+                    // rather than requesting them all every time.
+                    // hydrate_change_definitions(&Definitions::new(), &mut changes).await;
                     // TODO: Tidy
                     let mut hands = (0..self.players.len()).map(|player| {
                         self.game

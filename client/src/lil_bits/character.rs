@@ -19,7 +19,6 @@ pub struct CharacterUI {
     ghost: bool,
     truncated: bool,
     defeated: bool,
-    size: f32,
 }
 
 impl CharacterUI {
@@ -32,7 +31,6 @@ impl CharacterUI {
             ghost: false,
             truncated: false,
             defeated: false,
-            size: 30.0,
         }
     }
 
@@ -81,13 +79,19 @@ impl CharacterUI {
 
     pub fn render(self, ui: &mut egui::Ui, rect: egui::Rect, theme: &Theme) {
         let color = self.char_color(theme);
-        self.render_with_color(ui, rect, color);
+        self.render_with_color(ui, rect, theme, color);
     }
 
-    pub fn render_with_color(self, ui: &mut egui::Ui, rect: egui::Rect, color: Color32) {
+    pub fn render_with_color(
+        self,
+        ui: &mut egui::Ui,
+        rect: egui::Rect,
+        theme: &Theme,
+        color: Color32,
+    ) {
         let galley = ui.painter().layout_no_wrap(
             self.letter.to_string(),
-            egui::FontId::new(self.size, egui::FontFamily::Name("Tile".into())),
+            egui::FontId::new(theme.letter_size, egui::FontFamily::Name("Tile".into())),
             color,
         );
 
@@ -95,13 +99,19 @@ impl CharacterUI {
             CharacterOrient::North => (
                 0.0,
                 rect.left_top(),
-                egui::Vec2::new((rect.width() - galley.size().x) * 0.5, self.size * -0.2),
+                egui::Vec2::new(
+                    (rect.width() - galley.size().x) * 0.5,
+                    theme.letter_size * -0.2,
+                ),
             ),
             CharacterOrient::East => todo!("Render Sideways characters"),
             CharacterOrient::South => (
                 f32::consts::PI,
                 rect.right_bottom(),
-                egui::Vec2::new((rect.width() - galley.size().x) * -0.5, self.size * 0.2),
+                egui::Vec2::new(
+                    (rect.width() - galley.size().x) * -0.5,
+                    theme.letter_size * 0.2,
+                ),
             ),
             CharacterOrient::West => todo!("Render Sideways characters"),
         };

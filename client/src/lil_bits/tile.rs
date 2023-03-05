@@ -100,31 +100,32 @@ impl TileUI {
                     ui.allocate_exact_size(egui::vec2(tile_size, tile_size), egui::Sense::click());
                 if response.hovered() {
                     if !self.ghost {
-                        rect = rect.translate(egui::vec2(0.0, -2.0));
+                        rect = rect.translate(egui::vec2(0.0, theme.tile_margin * -0.5));
                     }
                     ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
                 }
 
                 let mut raised_rect = rect.clone();
-                raised_rect.set_height(tile_size - 4.0);
+                raised_rect.set_height(tile_size - theme.tile_margin);
 
                 if ui.is_rect_visible(rect) {
                     if self.ghost {
                         ui.painter().rect_stroke(
                             rect,
-                            10.0,
+                            theme.rounding,
                             Stroke::new(1.0, self.edge_color(theme)),
                         );
                         ui.painter().rect_stroke(
                             raised_rect,
-                            10.0,
+                            theme.rounding,
                             Stroke::new(1.0, self.tile_color(response.hovered(), theme)),
                         );
                     } else {
-                        ui.painter().rect_filled(rect, 10.0, self.edge_color(theme));
+                        ui.painter()
+                            .rect_filled(rect, theme.rounding, self.edge_color(theme));
                         ui.painter().rect_filled(
                             raised_rect,
-                            10.0,
+                            theme.rounding,
                             self.tile_color(response.hovered(), theme),
                         );
                     }
@@ -154,8 +155,11 @@ impl TileUI {
                     };
 
                     if let Some(outline) = outline {
-                        ui.painter()
-                            .rect_stroke(rect.expand(2.0), 13.0, Stroke::new(4.0, outline))
+                        ui.painter().rect_stroke(
+                            rect.expand(theme.tile_margin * 0.5),
+                            theme.rounding * 1.3,
+                            Stroke::new(theme.tile_margin, outline),
+                        )
                     }
                 }
 

@@ -1,13 +1,16 @@
+use core::board::Board;
+
+use eframe::egui::{self, Margin};
 use epaint::{hex_color, Color32};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InteractTheme {
     pub base: Color32,
     pub dark: Color32,
     pub light: Color32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Theme {
     pub friend: InteractTheme,
     pub enemy: InteractTheme,
@@ -19,7 +22,9 @@ pub struct Theme {
     pub modification: Color32,
     pub defeated: Color32,
     pub grid_size: f32,
+    pub letter_size: f32,
     pub tile_margin: f32,
+    pub rounding: f32,
 }
 
 impl Default for Theme {
@@ -47,7 +52,34 @@ impl Default for Theme {
             modification: hex_color!("#9055A2"),
             defeated: hex_color!("#944D5E"),
             grid_size: 50.0,
+            letter_size: 30.0,
             tile_margin: 4.0,
+            rounding: 10.0,
         }
+    }
+}
+
+impl Theme {
+    pub fn rescale(&self, avail_space: &egui::Rect, board: &Board) -> (Margin, Self) {
+        let mut ideal_grid = avail_space.width() / (board.width() + 2) as f32;
+        let y_space = avail_space.height() / (board.height() + 2) as f32;
+        if y_space < ideal_grid {
+            ideal_grid = y_space;
+        }
+
+        let scale = ideal_grid / self.grid_size;
+
+        let width = (board.width() + 2) as f32 * self.grid_size * scale;
+
+        (
+            Margin::symmetric((avail_space.width() - width) / 2.0, self.grid_size),
+            Self {
+                grid_size: self.grid_size * scale,
+                letter_size: self.letter_size * scale,
+                tile_margin: self.tile_margin * scale,
+                rounding: self.rounding * scale,
+                ..self.clone()
+            },
+        )
     }
 }

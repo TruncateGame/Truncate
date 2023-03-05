@@ -52,6 +52,7 @@ impl EditorSquareUI {
                 CharacterUI::new('#', CharacterOrient::North).render_with_color(
                     ui,
                     rect.shrink(theme.tile_margin),
+                    theme,
                     theme.selection,
                 );
                 if response.hovered() {
@@ -67,6 +68,7 @@ impl EditorSquareUI {
                 CharacterUI::new(action, CharacterOrient::North).render_with_color(
                     ui,
                     rect.shrink(theme.tile_margin),
+                    theme,
                     color,
                 );
             }
@@ -119,11 +121,15 @@ impl EditorBarUI {
         let response = ui.interact(rect, ui.id().with(&self.edge), Sense::click());
 
         if response.hovered() {
-            ui.painter()
-                .rect_filled(rect.shrink(theme.tile_margin), 10.0, theme.outlines);
+            ui.painter().rect_filled(
+                rect.shrink(theme.tile_margin),
+                theme.rounding,
+                theme.outlines,
+            );
             CharacterUI::new('+', CharacterOrient::North).render_with_color(
                 ui,
                 rect.shrink(theme.tile_margin),
+                theme,
                 theme.addition,
             );
         }

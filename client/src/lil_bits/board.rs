@@ -5,7 +5,7 @@ use core::{
     reporting::BoardChange,
 };
 
-use eframe::egui;
+use eframe::egui::{self, Margin};
 use hashbrown::HashMap;
 
 use crate::theming::Theme;
@@ -44,130 +44,135 @@ impl<'a> BoardUI<'a> {
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Option<Square>>)>>| {
-            let mut render_row =
-                |rownum, row: Box<dyn Iterator<Item = (usize, &Option<Square>)>>| {
-                    ui.horizontal(|ui| {
-                        for (colnum, square) in row {
-                            let coord = Coordinate::new(colnum, rownum);
-                            let is_root = self.board.roots.contains(&coord);
-                            let is_selected = Some(coord) == board_selected_tile;
-                            let tile_player = |p: &usize| {
-                                if *p as u64 == player {
-                                    TilePlayer::Own
+        let (margin, theme) = theme.rescale(&ui.available_rect_before_wrap(), self.board);
+        let outer_frame = egui::Frame::none().inner_margin(margin);
+
+        outer_frame.show(ui, |ui| {
+            let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Option<Square>>)>>| {
+                let mut render_row =
+                    |rownum, row: Box<dyn Iterator<Item = (usize, &Option<Square>)>>| {
+                        ui.horizontal(|ui| {
+                            for (colnum, square) in row {
+                                let coord = Coordinate::new(colnum, rownum);
+                                let is_root = self.board.roots.contains(&coord);
+                                let is_selected = Some(coord) == board_selected_tile;
+                                let tile_player = |p: &usize| {
+                                    if *p as u64 == player {
+                                        TilePlayer::Own
+                                    } else {
+                                        TilePlayer::Enemy
+                                    }
+                                };
+
+                                let mut tile = if let Some(Square::Occupied(player, char)) = square {
+                                    Some(TileUI::new(*char, tile_player(player)).selected(is_selected))
                                 } else {
-                                    TilePlayer::Enemy
-                                }
-                            };
+                                    None
+                                };
 
-                            let mut tile = if let Some(Square::Occupied(player, char)) = square {
-                                Some(TileUI::new(*char, tile_player(player)).selected(is_selected))
-                            } else {
-                                None
-                            };
-
-                            if let Some(change) = board_changes.get(&coord) {
-                                use core::reporting::BoardChangeAction;
-                                tile = match (&change.action, tile) {
-                                    (BoardChangeAction::Added, Some(tile)) => Some(tile.added(true)),
-                                    (BoardChangeAction::Swapped, Some(tile)) => Some(tile.modified(true)),
-                                    (BoardChangeAction::Defeated, None) => 
-                                        match change.detail.square {
-                                            Square::Empty => None,
-                                            Square::Occupied(player, char) => Some((player, char)),
+                                if let Some(change) = board_changes.get(&coord) {
+                                    use core::reporting::BoardChangeAction;
+                                    tile = match (&change.action, tile) {
+                                        (BoardChangeAction::Added, Some(tile)) => Some(tile.added(true)),
+                                        (BoardChangeAction::Swapped, Some(tile)) => Some(tile.modified(true)),
+                                        (BoardChangeAction::Defeated, None) => 
+                                            match change.detail.square {
+                                                Square::Empty => None,
+                                                Square::Occupied(player, char) => Some((player, char)),
+                                            }
+                                            .map(
+                                                |(player, char)| {
+                                                    TileUI::new(char, tile_player(&player))
+                                                        .selected(is_selected)
+                                                        .defeated(true)
+                                                },
+                                            ),
+                                        (BoardChangeAction::Truncated, None) => 
+                                            match change.detail.square {
+                                                Square::Empty => None,
+                                                Square::Occupied(player, char) => Some((player, char)),
+                                            }
+                                            .map(
+                                                |(player, char)| {
+                                                    TileUI::new(char, tile_player(&player))
+                                                        .selected(is_selected)
+                                                        .truncated(true)
+                                                },
+                                            ),
+                                        _ => {
+                                            eprintln!("Board message received that seems incompatible with the board");
+                                            eprintln!("{change}");
+                                            eprintln!("{}", self.board);
+                                            None
                                         }
-                                        .map(
-                                            |(player, char)| {
-                                                TileUI::new(char, tile_player(&player))
-                                                    .selected(is_selected)
-                                                    .defeated(true)
-                                            },
-                                        ),
-                                    (BoardChangeAction::Truncated, None) => 
-                                        match change.detail.square {
-                                            Square::Empty => None,
-                                            Square::Occupied(player, char) => Some((player, char)),
-                                        }
-                                        .map(
-                                            |(player, char)| {
-                                                TileUI::new(char, tile_player(&player))
-                                                    .selected(is_selected)
-                                                    .truncated(true)
-                                            },
-                                        ),
-                                    _ => {
-                                        eprintln!("Board message received that seems incompatible with the board");
-                                        eprintln!("{change}");
-                                        eprintln!("{}", self.board);
-                                        None
                                     }
                                 }
-                            }
 
-                            let mut overlay = None;
-                            if let Some(placing_tile) = hand_selected_tile {
-                                if matches!(square, Some(Square::Empty)) {
-                                    overlay = Some(*hand.get(placing_tile).unwrap());
-                                }
-                            } else if let Some(placing_tile) = board_selected_tile { // TODO: De-nest
-                                if placing_tile != coord {
-                                    if let Some(Square::Occupied(p, _)) = square {
-                                        if p == &(player as usize) {
-                                            if let Ok(Square::Occupied(_, char)) = self.board.get(placing_tile) {
-                                                overlay = Some(char);
+                                let mut overlay = None;
+                                if let Some(placing_tile) = hand_selected_tile {
+                                    if matches!(square, Some(Square::Empty)) {
+                                        overlay = Some(*hand.get(placing_tile).unwrap());
+                                    }
+                                } else if let Some(placing_tile) = board_selected_tile { // TODO: De-nest
+                                    if placing_tile != coord {
+                                        if let Some(Square::Occupied(p, _)) = square {
+                                            if p == &(player as usize) {
+                                                if let Ok(Square::Occupied(_, char)) = self.board.get(placing_tile) {
+                                                    overlay = Some(char);
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
-                            // TODO: Devise a way to show this tile in the place of the board_selected_tile
+                                // TODO: Devise a way to show this tile in the place of the board_selected_tile
 
-                            let mut tile_clicked = false;
-                            if (SquareUI::new()
-                                .enabled(square.is_some())
-                                .empty(matches!(square, Some(Square::Empty)))
-                                .root(is_root)
-                                .selected(is_selected)
-                                .overlay(overlay)
-                                .render(ui, theme, |ui, theme| {
-                                    if let Some(tile) = tile {
-                                        tile_clicked = tile.render(ui, theme).clicked();
+                                let mut tile_clicked = false;
+                                if (SquareUI::new()
+                                    .enabled(square.is_some())
+                                    .empty(matches!(square, Some(Square::Empty)))
+                                    .root(is_root)
+                                    .selected(is_selected)
+                                    .overlay(overlay)
+                                    .render(ui, &theme, |ui, theme| {
+                                        if let Some(tile) = tile {
+                                            tile_clicked = tile.render(ui, theme).clicked();
+                                        }
+                                    })
+                                    .clicked()
+                                    || tile_clicked)
+                                    && square.is_some()
+                                {
+                                    if let Some(tile) = hand_selected_tile {
+                                        msg =
+                                            Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
+                                        next_selection = Some(None);
+                                    } else if is_selected {
+                                        next_selection = Some(None);
+                                    } else if let Some(selected_coord) = board_selected_tile {
+                                        msg = Some(PlayerMessage::Swap(coord, selected_coord));
+                                        next_selection = Some(None);
+                                    } else {
+                                        next_selection = Some(Some(coord));
                                     }
-                                })
-                                .clicked()
-                                || tile_clicked)
-                                && square.is_some()
-                            {
-                                if let Some(tile) = hand_selected_tile {
-                                    msg =
-                                        Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
-                                    next_selection = Some(None);
-                                } else if is_selected {
-                                    next_selection = Some(None);
-                                } else if let Some(selected_coord) = board_selected_tile {
-                                    msg = Some(PlayerMessage::Swap(coord, selected_coord));
-                                    next_selection = Some(None);
-                                } else {
-                                    next_selection = Some(Some(coord));
-                                }
-                            };
-                        }
-                    });
-                };
+                                };
+                            }
+                        });
+                    };
 
-            for (rownum, row) in rows {
-                if invert {
-                    render_row(rownum, Box::new(row.iter().enumerate().rev()));
-                } else {
-                    render_row(rownum, Box::new(row.iter().enumerate()));
+                for (rownum, row) in rows {
+                    if invert {
+                        render_row(rownum, Box::new(row.iter().enumerate().rev()));
+                    } else {
+                        render_row(rownum, Box::new(row.iter().enumerate()));
+                    }
                 }
+            };
+            if invert {
+                render(Box::new(self.board.squares.iter().enumerate().rev()));
+            } else {
+                render(Box::new(self.board.squares.iter().enumerate()));
             }
-        };
-        if invert {
-            render(Box::new(self.board.squares.iter().enumerate().rev()));
-        } else {
-            render(Box::new(self.board.squares.iter().enumerate()));
-        }
+        });
         (next_selection, msg)
     }
 }

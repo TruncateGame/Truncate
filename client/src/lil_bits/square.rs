@@ -69,9 +69,11 @@ impl SquareUI {
         if ui.is_rect_visible(rect) {
             if self.enabled {
                 if self.empty && self.selected {
-                    ui.painter().rect_filled(rect, 4.0, theme.selection);
+                    ui.painter()
+                        .rect_filled(rect, theme.rounding, theme.selection);
                 } else {
-                    ui.painter().rect_filled(rect, 4.0, theme.background);
+                    ui.painter()
+                        .rect_filled(rect, theme.rounding, theme.background);
                 }
 
                 ui.painter()
@@ -88,6 +90,7 @@ impl SquareUI {
                 CharacterUI::new('#', CharacterOrient::North).render_with_color(
                     ui,
                     rect.shrink(theme.tile_margin),
+                    theme,
                     theme.selection,
                 );
             }
@@ -106,8 +109,11 @@ impl SquareUI {
                         theme,
                     );
                 } else if self.empty {
-                    ui.painter()
-                        .rect_filled(rect.shrink(4.0), 4.0, theme.outlines);
+                    ui.painter().rect_filled(
+                        rect.shrink(theme.tile_margin),
+                        theme.rounding,
+                        theme.outlines,
+                    );
                 }
             }
         }

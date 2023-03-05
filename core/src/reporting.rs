@@ -69,6 +69,7 @@ impl fmt::Display for HandChange {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BattleWord {
     pub word: String,
+    pub definition: Option<String>,
     pub valid: Option<bool>,
 }
 

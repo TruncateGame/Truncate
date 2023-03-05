@@ -104,6 +104,7 @@ impl Judge {
                     let valid = self.valid(w);
                     BattleWord {
                         valid: Some(valid.is_some()),
+                        definition: None,
                         word: valid.unwrap_or_else(|| w.to_string()),
                     }
                 })
@@ -112,6 +113,7 @@ impl Judge {
                 .iter()
                 .map(|w| BattleWord {
                     word: w.to_string(),
+                    definition: None,
                     valid: None,
                 })
                 .collect(),
@@ -314,10 +316,12 @@ mod tests {
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "BAG".into(),
+                    definition: None,
                     valid: Some(true)
                 }],
                 defenders: vec![BattleWord {
                     word: "XYZ".into(),
+                    definition: None,
                     valid: Some(false)
                 }],
                 outcome: Outcome::AttackerWins(vec![0])
@@ -328,10 +332,12 @@ mod tests {
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "R*G".into(),
+                    definition: None,
                     valid: Some(false)
                 }],
                 defenders: vec![BattleWord {
                     word: "XYZ".into(),
+                    definition: None,
                     valid: None
                 }],
                 outcome: Outcome::DefenderWins
@@ -343,10 +349,12 @@ mod tests {
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "ARTS".into(),
+                    definition: None,
                     valid: Some(true)
                 }],
                 defenders: vec![BattleWord {
                     word: "JALL*".into(),
+                    definition: None,
                     valid: Some(false)
                 }],
                 outcome: Outcome::AttackerWins(vec![0])
@@ -357,10 +365,12 @@ mod tests {
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "BAG".into(),
+                    definition: None,
                     valid: Some(true)
                 }],
                 defenders: vec![BattleWord {
                     word: "JOLLY".into(),
+                    definition: None,
                     valid: Some(true)
                 }],
                 outcome: Outcome::DefenderWins
