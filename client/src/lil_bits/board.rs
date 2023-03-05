@@ -44,7 +44,14 @@ impl<'a> BoardUI<'a> {
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        let (margin, theme) = theme.rescale(&ui.available_rect_before_wrap(), self.board);
+        let mut game_area = ui.available_rect_before_wrap();
+        game_area.set_bottom(game_area.bottom() - theme.grid_size * 4.0);
+
+        let (margin, theme) = theme.rescale(
+            &game_area, 
+            self.board.width(),
+            self.board.height(),
+        );
         let outer_frame = egui::Frame::none().inner_margin(margin);
 
         outer_frame.show(ui, |ui| {

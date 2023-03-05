@@ -37,8 +37,12 @@ impl<'a> EditorUI<'a> {
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        let (margin, theme) = theme.rescale(&ui.available_rect_before_wrap(), self.board);
-        let outer_frame = egui::Frame::none().inner_margin(margin);
+        let (_, theme) = theme.rescale(
+            &ui.available_rect_before_wrap(),
+            self.board.width(),
+            self.board.height(),
+        );
+        let outer_frame = egui::Frame::none().inner_margin(Margin::symmetric(0.0, theme.grid_size));
 
         let editor_rect = outer_frame
             .show(ui, |ui| {
@@ -78,7 +82,6 @@ impl<'a> EditorUI<'a> {
                                             }
                                             (Some(EditorDrag::MovingRoot(root)), _) => {
                                                 if is_root.is_none() {
-                                                    *square = Some(Square::Empty);
                                                     self.board.roots[root] = coord;
                                                     edited = true;
                                                 }

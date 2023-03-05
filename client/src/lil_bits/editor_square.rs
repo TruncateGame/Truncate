@@ -41,11 +41,11 @@ impl EditorSquareUI {
 
         if ui.is_rect_visible(rect) {
             if self.enabled {
-                ui.painter().rect_filled(rect, 0.0, theme.addition);
+                ui.painter().rect_filled(rect, 0.0, theme.text.light);
                 ui.painter()
                     .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
             } else {
-                ui.painter().rect_filled(rect, 0.0, theme.text.base);
+                ui.painter().rect_filled(rect, 0.0, theme.text.dark);
             }
 
             if self.root {

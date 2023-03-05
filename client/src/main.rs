@@ -5,6 +5,7 @@ mod lil_bits;
 mod theming;
 
 use eframe::egui;
+use epaint::hex_color;
 use theming::Theme;
 use tokio::runtime::Builder;
 use tokio::sync::mpsc;
@@ -52,6 +53,11 @@ impl GameClient {
 impl eframe::App for GameClient {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| game::render(self, ui));
+        let mut visuals = egui::Visuals::dark();
+        visuals.window_fill = hex_color!("#141414");
+        visuals.panel_fill = hex_color!("#141414");
+        ctx.set_visuals(visuals);
+
         ctx.request_repaint();
     }
 }

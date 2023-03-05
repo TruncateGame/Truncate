@@ -27,25 +27,32 @@ impl<'a> HandUI<'a> {
         let mut next_selection = None;
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
-        ui.horizontal(|ui| {
-            for (i, char) in self.hand.iter().enumerate() {
-                SquareUI::new().render(ui, theme, |ui, theme| {
-                    if TileUI::new(*char, TilePlayer::Own)
-                        .selected(Some(i) == selected_tile)
-                        .render(ui, theme)
-                        .clicked()
-                    {
-                        if let Some(selected) = selected_tile {
-                            next_selection = Some(None);
-                            if selected != i {
-                                rearrange = Some((selected, i));
+        let (margin, theme) = theme.rescale(&ui.available_rect_before_wrap(), self.hand.len(), 1);
+        let outer_frame = egui::Frame::none().inner_margin(margin);
+
+        outer_frame.show(ui, |ui| {
+            ui.horizontal(|ui| {
+                for (i, char) in self.hand.iter().enumerate() {
+                    SquareUI::new()
+                        .border(false)
+                        .render(ui, &theme, |ui, theme| {
+                            if TileUI::new(*char, TilePlayer::Own)
+                                .selected(Some(i) == selected_tile)
+                                .render(ui, theme)
+                                .clicked()
+                            {
+                                if let Some(selected) = selected_tile {
+                                    next_selection = Some(None);
+                                    if selected != i {
+                                        rearrange = Some((selected, i));
+                                    }
+                                } else {
+                                    next_selection = Some(Some(i));
+                                }
                             }
-                        } else {
-                            next_selection = Some(Some(i));
-                        }
-                    }
-                });
-            }
+                        });
+                }
+            });
         });
 
         if let Some((from, to)) = rearrange {

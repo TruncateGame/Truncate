@@ -46,7 +46,7 @@ impl Default for Theme {
                 light: hex_color!("#6B6B6B"),
             },
             selection: hex_color!("#D78D1D"),
-            background: hex_color!("#1E1E1E"),
+            background: hex_color!("#202020"),
             outlines: hex_color!("#9B9B9B"),
             addition: hex_color!("#9CC69B"),
             modification: hex_color!("#9055A2"),
@@ -60,16 +60,21 @@ impl Default for Theme {
 }
 
 impl Theme {
-    pub fn rescale(&self, avail_space: &egui::Rect, board: &Board) -> (Margin, Self) {
-        let mut ideal_grid = avail_space.width() / (board.width() + 2) as f32;
-        let y_space = avail_space.height() / (board.height() + 2) as f32;
+    pub fn rescale(
+        &self,
+        avail_space: &egui::Rect,
+        board_width: usize,
+        board_height: usize,
+    ) -> (Margin, Self) {
+        let mut ideal_grid = avail_space.width() / (board_width + 2) as f32;
+        let y_space = avail_space.height() / (board_height + 2) as f32;
         if y_space < ideal_grid {
             ideal_grid = y_space;
         }
 
         let scale = ideal_grid / self.grid_size;
 
-        let width = (board.width() + 2) as f32 * self.grid_size * scale;
+        let width = (board_width) as f32 * (self.grid_size * scale);
 
         (
             Margin::symmetric((avail_space.width() - width) / 2.0, self.grid_size),

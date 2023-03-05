@@ -10,6 +10,7 @@ use crate::theming::Theme;
 use super::{character::CharacterOrient, tile::TilePlayer, CharacterUI, TileUI};
 
 pub struct SquareUI {
+    border: bool,
     enabled: bool,
     empty: bool,
     selected: bool,
@@ -20,12 +21,18 @@ pub struct SquareUI {
 impl SquareUI {
     pub fn new() -> Self {
         Self {
+            border: true,
             enabled: true,
             empty: false,
             selected: false,
             root: false,
             overlay: None,
         }
+    }
+
+    pub fn border(mut self, border: bool) -> Self {
+        self.border = border;
+        self
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -64,7 +71,11 @@ impl SquareUI {
             egui::Sense::hover(),
         );
         let interact_rect = rect.shrink(theme.tile_margin);
-        let mut response = ui.interact(rect, response.id.with("interact"), egui::Sense::click());
+        let mut response = ui.interact(
+            interact_rect,
+            response.id.with("interact"),
+            egui::Sense::click(),
+        );
 
         if ui.is_rect_visible(rect) {
             if self.enabled {
@@ -76,8 +87,10 @@ impl SquareUI {
                         .rect_filled(rect, theme.rounding, theme.background);
                 }
 
-                ui.painter()
-                    .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
+                if self.border {
+                    ui.painter()
+                        .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
+                }
             }
 
             let is_hovered = ui.rect_contains_pointer(interact_rect);
