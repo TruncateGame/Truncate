@@ -439,7 +439,16 @@ impl Default for Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.render_squares(|sq| sq.to_string(), |_, s| s))
+        write!(
+            f,
+            "{}\nRoots: {}",
+            self.render_squares(|sq| sq.to_string(), |_, s| s),
+            self.roots
+                .iter()
+                .map(|r| format!("{r}"))
+                .collect::<Vec<_>>()
+                .join(" / ")
+        )
     }
 }
 

@@ -13,6 +13,7 @@ use super::{character::CharacterOrient, CharacterUI, EditorBarEdge, EditorBarUI,
 enum EditorDrag {
     Enabling,
     Disabling,
+    MovingRoot(usize),
 }
 
 pub struct EditorUI<'a> {
@@ -42,8 +43,12 @@ impl<'a> EditorUI<'a> {
                 for (rownum, row) in self.board.squares.iter_mut().enumerate() {
                     ui.horizontal(|ui| {
                         for (colnum, square) in row.iter_mut().enumerate() {
+                            let coord = Coordinate::new(colnum, rownum);
+                            let is_root = self.board.roots.iter().position(|r| r == &coord);
+
                             let response = EditorSquareUI::new()
                                 .enabled(square.is_some())
+                                .root(is_root.is_some())
                                 .render(ui, theme);
 
                             if ui.rect_contains_pointer(response.rect) {
@@ -66,6 +71,13 @@ impl<'a> EditorUI<'a> {
                                         *square = None;
                                         edited = true;
                                     }
+                                    (Some(EditorDrag::MovingRoot(root)), _) => {
+                                        if is_root.is_none() {
+                                            *square = Some(Square::Empty);
+                                            self.board.roots[root] = coord;
+                                            edited = true;
+                                        }
+                                    }
                                     _ => {}
                                 }
                             }
@@ -73,7 +85,9 @@ impl<'a> EditorUI<'a> {
                                 ui.ctx().memory_mut(|mem| {
                                     mem.data.insert_temp(
                                         Id::null(),
-                                        if square.is_some() {
+                                        if let Some(root) = is_root {
+                                            EditorDrag::MovingRoot(root)
+                                        } else if square.is_some() {
                                             EditorDrag::Disabling
                                         } else {
                                             EditorDrag::Enabling
@@ -107,6 +121,9 @@ impl<'a> EditorUI<'a> {
             .clicked()
         {
             self.board.squares.insert(0, vec![None; self.board.width()]);
+            for root in &mut self.board.roots {
+                root.y += 1;
+            }
             edited = true;
         }
 
@@ -134,6 +151,9 @@ impl<'a> EditorUI<'a> {
         {
             for row in &mut self.board.squares {
                 row.insert(0, None);
+            }
+            for root in &mut self.board.roots {
+                root.x += 1;
             }
             edited = true;
         }

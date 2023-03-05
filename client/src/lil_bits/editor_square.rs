@@ -7,15 +7,24 @@ use super::{character::CharacterOrient, CharacterUI};
 
 pub struct EditorSquareUI {
     enabled: bool,
+    root: bool,
 }
 
 impl EditorSquareUI {
     pub fn new() -> Self {
-        Self { enabled: false }
+        Self {
+            enabled: false,
+            root: false,
+        }
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+        self
+    }
+
+    pub fn root(mut self, root: bool) -> Self {
+        self.root = root;
         self
     }
 
@@ -39,7 +48,16 @@ impl EditorSquareUI {
                 ui.painter().rect_filled(rect, 0.0, theme.text.base);
             }
 
-            if response.hovered() {
+            if self.root {
+                CharacterUI::new('#', CharacterOrient::North).render_with_color(
+                    ui,
+                    rect.shrink(theme.tile_margin),
+                    theme.selection,
+                );
+                if response.hovered() {
+                    ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Move);
+                };
+            } else if response.hovered() {
                 let action = if self.enabled { '-' } else { '+' };
                 let color = if self.enabled {
                     theme.background
@@ -48,12 +66,11 @@ impl EditorSquareUI {
                 };
                 CharacterUI::new(action, CharacterOrient::North).render_with_color(
                     ui,
-                    rect.shrink(4.0),
+                    rect.shrink(theme.tile_margin),
                     color,
                 );
             }
         }
-
         response
     }
 }

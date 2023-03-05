@@ -13,6 +13,7 @@ pub struct SquareUI {
     enabled: bool,
     empty: bool,
     selected: bool,
+    root: bool,
     overlay: Option<char>,
 }
 
@@ -22,6 +23,7 @@ impl SquareUI {
             enabled: true,
             empty: false,
             selected: false,
+            root: false,
             overlay: None,
         }
     }
@@ -38,6 +40,11 @@ impl SquareUI {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    pub fn root(mut self, root: bool) -> Self {
+        self.root = root;
         self
     }
 
@@ -75,6 +82,15 @@ impl SquareUI {
 
             let show_overlay = is_hovered && self.overlay.is_some();
             let show_contents = !self.empty || !is_hovered;
+
+            // TODO: Show/hide this so it doesn't clash with things like dead/truncated tiles
+            if self.root && !is_hovered {
+                CharacterUI::new('#', CharacterOrient::North).render_with_color(
+                    ui,
+                    rect.shrink(theme.tile_margin),
+                    theme.selection,
+                );
+            }
 
             if show_contents && !show_overlay {
                 contents(

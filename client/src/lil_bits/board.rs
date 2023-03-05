@@ -50,6 +50,7 @@ impl<'a> BoardUI<'a> {
                     ui.horizontal(|ui| {
                         for (colnum, square) in row {
                             let coord = Coordinate::new(colnum, rownum);
+                            let is_root = self.board.roots.contains(&coord);
                             let is_selected = Some(coord) == board_selected_tile;
                             let tile_player = |p: &usize| {
                                 if *p as u64 == player {
@@ -125,6 +126,7 @@ impl<'a> BoardUI<'a> {
                             if (SquareUI::new()
                                 .enabled(square.is_some())
                                 .empty(matches!(square, Some(Square::Empty)))
+                                .root(is_root)
                                 .selected(is_selected)
                                 .overlay(overlay)
                                 .render(ui, theme, |ui, theme| {
