@@ -18,6 +18,7 @@ fn filter_changes_for_player(changes: &Vec<Change>, player: usize) -> Vec<Change
                 added: _,
             }) => *changed_player == player,
             Change::Board(_) => true,
+            Change::Battle(_) => true,
         })
         .cloned()
         .collect::<Vec<_>>()

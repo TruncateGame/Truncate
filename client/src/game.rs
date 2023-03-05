@@ -144,15 +144,15 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                         game.board_changes.clear();
                         for board_change in changes.iter().filter_map(|c| match c {
                             Change::Board(change) => Some(change),
-                            Change::Hand(_) => None,
+                            _ => None,
                         }) {
                             game.board_changes
                                 .insert(board_change.detail.coordinate, board_change.clone());
                         }
 
                         for hand_change in changes.iter().filter_map(|c| match c {
-                            Change::Board(_) => None,
                             Change::Hand(change) => Some(change),
+                            _ => None,
                         }) {
                             for removed in &hand_change.removed {
                                 game.hand.remove(
@@ -165,6 +165,13 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                             let reduced_length = game.hand.len();
                             game.hand.0.extend(&hand_change.added);
                             game.new_hand_tiles = (reduced_length..game.hand.len()).collect();
+                        }
+
+                        for battle in changes.into_iter().filter_map(|c| match c {
+                            Change::Battle(battle) => Some(battle),
+                            _ => None,
+                        }) {
+                            game.battles.push(battle);
                         }
 
                         // TODO: Verify that our modified hand matches the actual hand in GameStateMessage
@@ -195,10 +202,16 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                     game.board_changes.clear();
                     for board_change in changes.iter().filter_map(|c| match c {
                         Change::Board(change) => Some(change),
-                        Change::Hand(_) => None,
+                        _ => None,
                     }) {
                         game.board_changes
                             .insert(board_change.detail.coordinate, board_change.clone());
+                    }
+                    for battle in changes.into_iter().filter_map(|c| match c {
+                        Change::Battle(battle) => Some(battle),
+                        _ => None,
+                    }) {
+                        game.battles.push(battle);
                     }
                     *game_status = GameStatus::Concluded(game.clone(), winner);
                 }

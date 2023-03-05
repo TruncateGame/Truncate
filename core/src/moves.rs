@@ -85,41 +85,44 @@ impl Board {
         let defending_words = self
             .word_strings(&defenders)
             .expect("Words were just found and should be valid");
-        match judge.battle(attacking_words, defending_words) {
-            Outcome::NoBattle => {}
-            Outcome::DefenderWins => {
-                let squares = attackers.into_iter().flat_map(|word| word.into_iter());
-                changes.extend(squares.flat_map(|square| {
-                    if let Ok(Square::Occupied(_, letter)) = self.get(square) {
-                        bag.return_tile(letter);
-                    }
-                    self.clear(square).map(|detail| {
-                        Change::Board(BoardChange {
-                            detail,
-                            action: BoardChangeAction::Defeated,
+
+        if let Some(battle) = judge.battle(attacking_words, defending_words) {
+            match battle.outcome.clone() {
+                Outcome::DefenderWins => {
+                    let squares = attackers.into_iter().flat_map(|word| word.into_iter());
+                    changes.extend(squares.flat_map(|square| {
+                        if let Ok(Square::Occupied(_, letter)) = self.get(square) {
+                            bag.return_tile(letter);
+                        }
+                        self.clear(square).map(|detail| {
+                            Change::Board(BoardChange {
+                                detail,
+                                action: BoardChangeAction::Defeated,
+                            })
                         })
-                    })
-                }));
-            }
-            Outcome::AttackerWins(losers) => {
-                let squares = losers.into_iter().flat_map(|defender_index| {
-                    let defender = defenders
-                        .get(defender_index)
-                        .expect("Losers should only contain valid squares");
-                    defender.into_iter()
-                });
-                changes.extend(squares.flat_map(|square| {
-                    if let Ok(Square::Occupied(_, letter)) = self.get(*square) {
-                        bag.return_tile(letter);
-                    }
-                    self.clear(*square).map(|detail| {
-                        Change::Board(BoardChange {
-                            detail,
-                            action: BoardChangeAction::Defeated,
+                    }));
+                }
+                Outcome::AttackerWins(losers) => {
+                    let squares = losers.into_iter().flat_map(|defender_index| {
+                        let defender = defenders
+                            .get(defender_index)
+                            .expect("Losers should only contain valid squares");
+                        defender.into_iter()
+                    });
+                    changes.extend(squares.flat_map(|square| {
+                        if let Ok(Square::Occupied(_, letter)) = self.get(*square) {
+                            bag.return_tile(letter);
+                        }
+                        self.clear(*square).map(|detail| {
+                            Change::Board(BoardChange {
+                                detail,
+                                action: BoardChangeAction::Defeated,
+                            })
                         })
-                    })
-                }));
+                    }));
+                }
             }
+            changes.push(Change::Battle(battle));
         }
 
         changes.extend(self.truncate(bag).into_iter());

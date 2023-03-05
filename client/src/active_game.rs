@@ -2,11 +2,11 @@ use core::{
     board::{Board, Coordinate},
     messages::{GamePlayerMessage, PlayerMessage, RoomCode},
     player::Hand,
-    reporting::BoardChange,
+    reporting::{BattleReport, BoardChange},
 };
 
 use eframe::egui;
-use epaint::{Color32, Stroke};
+use epaint::{vec2, Color32, Stroke};
 use hashbrown::HashMap;
 use time::OffsetDateTime;
 
@@ -29,6 +29,7 @@ pub struct ActiveGame {
     pub error_msg: Option<String>,
     pub board_changes: HashMap<Coordinate, BoardChange>,
     pub new_hand_tiles: Vec<usize>,
+    pub battles: Vec<BattleReport>,
 }
 
 impl ActiveGame {
@@ -53,6 +54,7 @@ impl ActiveGame {
             error_msg: None,
             board_changes: HashMap::new(),
             new_hand_tiles: vec![],
+            battles: vec![],
         }
     }
 
@@ -148,6 +150,15 @@ impl ActiveGame {
         {
             self.selected_tile_in_hand = new_selection;
             self.selected_square_on_board = None;
+        }
+
+        if self.battles.is_empty() {
+            ui.label("No battles yet.");
+        } else {
+            for battle in &self.battles {
+                ui.label(format!("{battle}"));
+                ui.separator();
+            }
         }
 
         board_result.1

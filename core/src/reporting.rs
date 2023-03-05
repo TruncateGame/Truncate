@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::board::{Coordinate, Square};
+use crate::{
+    board::{Coordinate, Square},
+    judge::Outcome,
+};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum BoardChangeAction {
@@ -64,9 +67,58 @@ impl fmt::Display for HandChange {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BattleWord {
+    pub word: String,
+    pub valid: Option<bool>,
+}
+
+impl fmt::Display for BattleWord {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} ({})",
+            self.word,
+            match self.valid {
+                Some(true) => "Valid",
+                Some(false) => "Invalid",
+                None => "Unknown",
+            }
+        )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BattleReport {
+    pub attackers: Vec<BattleWord>,
+    pub defenders: Vec<BattleWord>,
+    pub outcome: Outcome,
+}
+
+impl fmt::Display for BattleReport {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Battle Report\nAttackers: {}\nDefenders: {}\nOutcome: {}",
+            self.attackers
+                .iter()
+                .map(|w| format!("{w}"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.defenders
+                .iter()
+                .map(|w| format!("{w}"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.outcome
+        )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Change {
     Board(BoardChange),
     Hand(HandChange),
+    Battle(BattleReport),
 }
 
 impl fmt::Display for Change {
@@ -74,6 +126,7 @@ impl fmt::Display for Change {
         match self {
             Change::Board(c) => write!(f, "{c}"),
             Change::Hand(c) => write!(f, "{c}"),
+            Change::Battle(c) => write!(f, "{c}"),
         }
     }
 }
