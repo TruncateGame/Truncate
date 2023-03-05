@@ -548,27 +548,39 @@ pub mod tests {
     fn makes_default_boards() {
         assert_eq!(
             Board::new(3, 1).to_string(),
-            ["  _  ", "_ _ _", "  _  "].join("\n")
+            ["  _  ", "_ _ _", "  _  ", "Roots: (1, 0) / (1, 2)"].join("\n")
         );
 
         assert_eq!(
             Board::new(3, 2).to_string(),
-            ["  _  ", "_ _ _", "_ _ _", "  _  "].join("\n")
+            ["  _  ", "_ _ _", "_ _ _", "  _  ", "Roots: (1, 0) / (1, 3)"].join("\n")
         );
 
         assert_eq!(
             Board::new(2, 1).to_string(),
-            ["_  ", "_ _", "  _"].join("\n")
+            ["_  ", "_ _", "  _", "Roots: (0, 0) / (1, 2)"].join("\n")
         );
 
         assert_eq!(
             Board::new(5, 1).to_string(),
-            ["    _    ", "_ _ _ _ _", "    _    "].join("\n")
+            [
+                "    _    ",
+                "_ _ _ _ _",
+                "    _    ",
+                "Roots: (2, 0) / (2, 2)"
+            ]
+            .join("\n")
         );
 
         assert_eq!(
             Board::new(6, 1).to_string(),
-            ["    _      ", "_ _ _ _ _ _", "      _    "].join("\n")
+            [
+                "    _      ",
+                "_ _ _ _ _ _",
+                "      _    ",
+                "Roots: (2, 0) / (3, 2)"
+            ]
+            .join("\n")
         );
     }
 
@@ -603,6 +615,7 @@ pub mod tests {
                     "_ W O R _",
                     "_ _ S _ _",
                     "_ _ _ _ _",
+                    "Roots: (2, 2)",
                 ]
                 .join("\n"),
                 Coordinate::new(2, 2),
@@ -623,7 +636,7 @@ pub mod tests {
                 Coordinate::new(2, 1),
             ),
             (
-                ["_ R _", "W O R", "_ S _"].join("\n"),
+                ["_ R _", "W O R", "_ S _", "Roots: (1, 0)"].join("\n"),
                 Coordinate::new(1, 0),
             ),
         );
@@ -642,7 +655,14 @@ pub mod tests {
                 Coordinate::new(0, 0),
             ),
             (
-                ["_ _ _   _", "_ _ R   _", "         ", "_ _ S   _"].join("\n"),
+                [
+                    "_ _ _   _",
+                    "_ _ R   _",
+                    "         ",
+                    "_ _ S   _",
+                    "Roots: (0, 0)",
+                ]
+                .join("\n"),
                 Coordinate::new(0, 0),
             ),
         );
@@ -1154,7 +1174,11 @@ pub mod tests {
         let boards = [Board::default(), Board::new(34, 28)];
         for b in boards {
             assert_eq!(
-                from_string(b.to_string(), b.roots.clone(), b.orientations.clone()),
+                from_string(
+                    b.to_string().split("\nRoots").next().unwrap().to_string(),
+                    b.roots.clone(),
+                    b.orientations.clone()
+                ),
                 Ok(b)
             );
         }
@@ -1169,6 +1193,10 @@ pub mod tests {
             let s1 = s.clone();
             assert_eq!(
                 from_string(s, vec![Coordinate { x: 0, y: 0 }], vec![Direction::South])
+                    .unwrap()
+                    .to_string()
+                    .split("\nRoots")
+                    .next()
                     .unwrap()
                     .to_string(),
                 s1
