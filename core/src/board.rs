@@ -47,7 +47,7 @@ impl Direction {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Board {
     pub squares: Vec<Vec<Option<Square>>>,
-    roots: Vec<Coordinate>,
+    pub roots: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
                                   // TODO: Move orientations off the Board and have them tagged against specific players
 }
@@ -81,13 +81,13 @@ impl Board {
 
     /// Trims edges containing only empty squares
     pub fn trim(&mut self) {
-        let trim_front = self
+        let trim_top = self
             .squares
             .iter()
             .position(|row| row.iter().any(|s| s.is_some()))
             .unwrap_or_default();
 
-        let trim_back = self
+        let trim_bottom = self
             .squares
             .iter()
             .rev()
@@ -103,10 +103,15 @@ impl Board {
             .position(|i| self.squares.iter().any(|row| row[i].is_some()))
             .unwrap_or_default();
 
-        for _ in 0..trim_front {
+        for root in &mut self.roots {
+            root.x = root.x.saturating_sub(trim_left);
+            root.y = root.y.saturating_sub(trim_top);
+        }
+
+        for _ in 0..trim_top {
             self.squares.remove(0);
         }
-        for _ in 0..trim_back {
+        for _ in 0..trim_bottom {
             self.squares.remove(self.height() - 1);
         }
         for row in &mut self.squares {
@@ -560,63 +565,77 @@ pub mod tests {
 
     #[test]
     fn trim_board() {
-        fn assert_board_trim(before: String, after: String) {
-            let mut b = from_string(
-                before,
-                vec![Coordinate { x: 0, y: 0 }],
-                vec![Direction::South],
-            )
-            .unwrap();
+        fn assert_board_trim(before: (String, Coordinate), after: (String, Coordinate)) {
+            let mut b = from_string(before.0, vec![before.1], vec![Direction::South]).unwrap();
 
             b.trim();
 
-            assert_eq!(b.to_string(), after);
+            assert_eq!(b.to_string(), after.0);
+            assert_eq!(b.roots[0], after.1);
         }
 
         // Nothing to trim
         assert_board_trim(
-            [
-                "_ _ _ _ _",
-                "_ _ R _ _",
-                "_ W O R _",
-                "_ _ S _ _",
-                "_ _ _ _ _",
-            ]
-            .join("\n"),
-            [
-                "_ _ _ _ _",
-                "_ _ R _ _",
-                "_ W O R _",
-                "_ _ S _ _",
-                "_ _ _ _ _",
-            ]
-            .join("\n"),
+            (
+                [
+                    "_ _ _ _ _",
+                    "_ _ R _ _",
+                    "_ W O R _",
+                    "_ _ S _ _",
+                    "_ _ _ _ _",
+                ]
+                .join("\n"),
+                Coordinate::new(2, 2),
+            ),
+            (
+                [
+                    "_ _ _ _ _",
+                    "_ _ R _ _",
+                    "_ W O R _",
+                    "_ _ S _ _",
+                    "_ _ _ _ _",
+                ]
+                .join("\n"),
+                Coordinate::new(2, 2),
+            ),
         );
 
         // Edges to trim
         assert_board_trim(
-            [
-                "         ",
-                "  _ R _  ",
-                "  W O R  ",
-                "  _ S _  ",
-                "         ",
-            ]
-            .join("\n"),
-            ["_ R _", "W O R", "_ S _"].join("\n"),
+            (
+                [
+                    "         ",
+                    "  _ R _  ",
+                    "  W O R  ",
+                    "  _ S _  ",
+                    "         ",
+                ]
+                .join("\n"),
+                Coordinate::new(2, 1),
+            ),
+            (
+                ["_ R _", "W O R", "_ S _"].join("\n"),
+                Coordinate::new(1, 0),
+            ),
         );
 
         // Don't trim inners
         assert_board_trim(
-            [
-                "_ _ _   _",
-                "_ _ R   _",
-                "         ",
-                "_ _ S   _",
-                "         ",
-            ]
-            .join("\n"),
-            ["_ _ _   _", "_ _ R   _", "         ", "_ _ S   _"].join("\n"),
+            (
+                [
+                    "_ _ _   _",
+                    "_ _ R   _",
+                    "         ",
+                    "_ _ S   _",
+                    "         ",
+                ]
+                .join("\n"),
+                Coordinate::new(0, 0),
+            ),
+            (
+                ["_ _ _   _", "_ _ R   _", "         ", "_ _ S   _"].join("\n"),
+                Coordinate::new(0, 0),
+            ),
         );
     }
 
