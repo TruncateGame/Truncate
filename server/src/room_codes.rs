@@ -13,7 +13,10 @@ impl RoomCodes {
         // TODO: Tidy the available room codes,
         // store as separate dict list rather than calculating from the judge DICT
         Self {
-            available_codes: core::judge::DICT.lines().filter(|l| l.len() < 6).collect(),
+            available_codes: core::judge::WORDNIK
+                .lines()
+                .filter(|l| l.len() < 6)
+                .collect(),
             active_games: game_map,
         }
     }

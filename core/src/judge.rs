@@ -13,8 +13,9 @@ pub struct Judge {
 }
 
 // TODO: Allow dictionary to be swapped out.
-pub static DICT: &str = include_str!("../dictionary.txt");
-pub static CSWDICT: &str = include_str!("../csw19.txt");
+// pub static DICT: &str = include_str!("../dictionary.txt");
+// pub static CSWDICT: &str = include_str!("../csw19.txt");
+pub static WORDNIK: &str = include_str!("../wordnik_wordlist.txt");
 
 impl Default for Judge {
     fn default() -> Self {
@@ -24,17 +25,15 @@ impl Default for Judge {
         //     dictionary.insert(line.to_lowercase());
         // }
 
-        let mut lines = CSWDICT.lines();
+        // let mut lines = CSWDICT.lines();
+        // lines.next(); // Skip copyright
+
+        let mut lines = WORDNIK.lines();
         lines.next(); // Skip copyright
 
         // TODO: Store definitions somewhere to return to the client
         for line in lines {
-            dictionary.insert(
-                line.split_once(' ')
-                    .expect("Word had no definition")
-                    .0
-                    .to_lowercase(),
-            );
+            dictionary.insert(line.to_string());
         }
         Self { dictionary }
     }
