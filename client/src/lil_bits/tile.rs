@@ -99,7 +99,9 @@ impl TileUI {
                 let (mut rect, response) =
                     ui.allocate_exact_size(egui::vec2(tile_size, tile_size), egui::Sense::click());
                 if response.hovered() {
-                    rect = rect.translate(egui::vec2(0.0, -2.0));
+                    if !self.ghost {
+                        rect = rect.translate(egui::vec2(0.0, -2.0));
+                    }
                     ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
                 }
 
@@ -107,12 +109,25 @@ impl TileUI {
                 raised_rect.set_height(tile_size - 4.0);
 
                 if ui.is_rect_visible(rect) {
-                    ui.painter().rect_filled(rect, 10.0, self.edge_color(theme));
-                    ui.painter().rect_filled(
-                        raised_rect,
-                        10.0,
-                        self.tile_color(response.hovered(), theme),
-                    );
+                    if self.ghost {
+                        ui.painter().rect_stroke(
+                            rect,
+                            10.0,
+                            Stroke::new(1.0, self.edge_color(theme)),
+                        );
+                        ui.painter().rect_stroke(
+                            raised_rect,
+                            10.0,
+                            Stroke::new(1.0, self.tile_color(response.hovered(), theme)),
+                        );
+                    } else {
+                        ui.painter().rect_filled(rect, 10.0, self.edge_color(theme));
+                        ui.painter().rect_filled(
+                            raised_rect,
+                            10.0,
+                            self.tile_color(response.hovered(), theme),
+                        );
+                    }
 
                     CharacterUI::new(
                         self.letter,
@@ -123,8 +138,9 @@ impl TileUI {
                     )
                     .hovered(response.hovered())
                     .selected(self.selected)
-                    .ghost(self.ghost || self.truncated)
+                    .ghost(self.ghost)
                     .defeated(self.defeated)
+                    .truncated(self.truncated)
                     .render(ui, raised_rect, theme);
 
                     let outline = if self.selected {

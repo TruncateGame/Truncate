@@ -17,6 +17,7 @@ pub struct CharacterUI {
     hovered: bool,
     selected: bool,
     ghost: bool,
+    truncated: bool,
     defeated: bool,
     size: f32,
 }
@@ -29,6 +30,7 @@ impl CharacterUI {
             hovered: false,
             selected: false,
             ghost: false,
+            truncated: false,
             defeated: false,
             size: 30.0,
         }
@@ -49,6 +51,11 @@ impl CharacterUI {
         self
     }
 
+    pub fn truncated(mut self, truncated: bool) -> Self {
+        self.truncated = truncated;
+        self
+    }
+
     pub fn defeated(mut self, defeated: bool) -> Self {
         self.defeated = defeated;
         self
@@ -57,13 +64,15 @@ impl CharacterUI {
 
 impl CharacterUI {
     fn char_color(&self, theme: &Theme) -> Color32 {
-        if self.hovered {
+        if self.ghost {
+            theme.friend.dark
+        } else if self.hovered {
             theme.text.dark
         } else if self.selected {
             theme.text.dark
         } else if self.defeated {
             theme.defeated
-        } else if self.ghost {
+        } else if self.truncated {
             theme.text.light
         } else {
             theme.text.base

@@ -59,9 +59,13 @@ impl<'a> EditorUI<'a> {
 
                                 match (drag_action, &square) {
                                     (Some(EditorDrag::Enabling), None) => {
-                                        *square = Some(Square::Empty)
+                                        *square = Some(Square::Empty);
+                                        edited = true;
                                     }
-                                    (Some(EditorDrag::Disabling), Some(_)) => *square = None,
+                                    (Some(EditorDrag::Disabling), Some(_)) => {
+                                        *square = None;
+                                        edited = true;
+                                    }
                                     _ => {}
                                 }
                             }

@@ -108,7 +108,18 @@ impl<'a> BoardUI<'a> {
                                 if matches!(square, Some(Square::Empty)) {
                                     overlay = Some(*hand.get(placing_tile).unwrap());
                                 }
+                            } else if let Some(placing_tile) = board_selected_tile { // TODO: De-nest
+                                if placing_tile != coord {
+                                    if let Some(Square::Occupied(p, _)) = square {
+                                        if p == &(player as usize) {
+                                            if let Ok(Square::Occupied(_, char)) = self.board.get(placing_tile) {
+                                                overlay = Some(char);
+                                            }
+                                        }
+                                    }
+                                }
                             }
+                            // TODO: Devise a way to show this tile in the place of the board_selected_tile
 
                             let mut tile_clicked = false;
                             if (SquareUI::new()

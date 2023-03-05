@@ -3,10 +3,11 @@ use eframe::{
     emath::Align,
 };
 use epaint::Stroke;
+use tungstenite::http::response;
 
 use crate::theming::Theme;
 
-use super::{character::CharacterOrient, CharacterUI};
+use super::{character::CharacterOrient, tile::TilePlayer, CharacterUI, TileUI};
 
 pub struct SquareUI {
     enabled: bool,
@@ -51,10 +52,12 @@ impl SquareUI {
         theme: &Theme,
         contents: impl FnOnce(&mut egui::Ui, &Theme),
     ) -> egui::Response {
-        let (rect, mut response) = ui.allocate_exact_size(
+        let (rect, response) = ui.allocate_exact_size(
             egui::vec2(theme.grid_size, theme.grid_size),
-            egui::Sense::click(),
+            egui::Sense::hover(),
         );
+        let interact_rect = rect.shrink(theme.tile_margin);
+        let mut response = ui.interact(rect, response.id.with("interact"), egui::Sense::click());
 
         if ui.is_rect_visible(rect) {
             if self.enabled {
@@ -68,34 +71,27 @@ impl SquareUI {
                     .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
             }
 
-            // TODO: The inner components here capture the hover event,
-            // which clashes. Need some way to render the innards without
-            // interactivity.
-            if !self.empty || !response.hovered() {
+            let is_hovered = ui.rect_contains_pointer(interact_rect);
+
+            let show_overlay = is_hovered && self.overlay.is_some();
+            let show_contents = !self.empty || !is_hovered;
+
+            if show_contents && !show_overlay {
                 contents(
                     &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
                     theme,
                 );
             }
 
-            // This is maybe a kludge to resolve the above comment.
-            // If we're in the "empty" state, we detect our interactivity
-            // after drawing the inners, so that this top layer
-            // catches the senses.
-            if self.empty {
-                response = ui.allocate_rect(rect, egui::Sense::click());
-
-                if response.hovered() {
-                    if let Some(overlay) = self.overlay {
-                        ui.painter()
-                            .rect_filled(rect.shrink(4.0), 4.0, theme.text.dark);
-                        CharacterUI::new(overlay, CharacterOrient::North)
-                            .ghost(true)
-                            .render(ui, rect.shrink(4.0), theme);
-                    } else {
-                        ui.painter()
-                            .rect_filled(rect.shrink(4.0), 4.0, theme.outlines);
-                    }
+            if is_hovered {
+                if let Some(overlay) = self.overlay {
+                    response = TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
+                        &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
+                        theme,
+                    );
+                } else if self.empty {
+                    ui.painter()
+                        .rect_filled(rect.shrink(4.0), 4.0, theme.outlines);
                 }
             }
         }

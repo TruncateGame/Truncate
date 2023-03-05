@@ -1,7 +1,4 @@
-use eframe::{
-    egui::{self, Layout, Sense},
-    emath::Align,
-};
+use eframe::egui::{self, Sense};
 use epaint::Stroke;
 
 use crate::theming::Theme;
@@ -23,9 +20,14 @@ impl EditorSquareUI {
     }
 
     pub fn render(&self, ui: &mut egui::Ui, theme: &Theme) -> egui::Response {
-        let (rect, mut response) = ui.allocate_exact_size(
+        let (rect, response) = ui.allocate_exact_size(
             egui::vec2(theme.grid_size, theme.grid_size),
             egui::Sense::click(),
+        );
+        let response = ui.interact(
+            rect.shrink(theme.tile_margin),
+            response.id.with("editor_tile"),
+            egui::Sense::click_and_drag(),
         );
 
         if ui.is_rect_visible(rect) {
