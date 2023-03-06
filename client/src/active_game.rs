@@ -96,7 +96,10 @@ impl ActiveGame {
             .iter()
             .find(|p| p.index != self.player_number as usize)
         {
-            TimerUI::new(opponent, false).render(ui, theme);
+            TimerUI::new(opponent)
+                .friend(false)
+                .active(opponent.index == self.next_player_number as usize)
+                .render(ui, theme);
         }
 
         let board_result = BoardUI::new(&self.board).render(
@@ -122,14 +125,16 @@ impl ActiveGame {
             self.selected_square_on_board = None;
         }
 
-        TimerUI::new(
-            self.players
-                .iter()
-                .find(|p| p.index == self.player_number as usize)
-                .expect("Self should exist"),
-            true,
-        )
-        .render(ui, theme);
+        if let Some(player) = self
+            .players
+            .iter()
+            .find(|p| p.index == self.player_number as usize)
+        {
+            TimerUI::new(player)
+                .friend(true)
+                .active(player.index == self.next_player_number as usize)
+                .render(ui, theme);
+        }
 
         if self.battles.is_empty() {
             ui.label("No battles yet.");

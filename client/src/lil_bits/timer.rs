@@ -11,32 +11,50 @@ use crate::theming::Theme;
 
 pub struct TimerUI<'a> {
     player: &'a GamePlayerMessage,
-    friend: bool,
     time: i64,
+    friend: bool,
+    active: bool,
 }
 
 impl<'a> TimerUI<'a> {
-    pub fn new(player: &'a GamePlayerMessage, friend: bool) -> Self {
+    pub fn new(player: &'a GamePlayerMessage) -> Self {
         Self {
             player,
-            friend,
             time: 0,
+            friend: true,
+            active: true,
         }
+    }
+
+    pub fn friend(mut self, friend: bool) -> Self {
+        self.friend = friend;
+        self
+    }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
     }
 }
 
 impl<'a> TimerUI<'a> {
     fn get_name_color(&self, theme: &Theme) -> Color32 {
-        match self.friend {
-            true => theme.friend.dark,
-            false => theme.enemy.dark,
+        if !self.active {
+            theme.outlines
+        } else if self.friend {
+            theme.friend.dark
+        } else {
+            theme.enemy.dark
         }
     }
 
     fn get_time_color(&self, theme: &Theme) -> Color32 {
-        match self.friend {
-            true => theme.friend.dark,
-            false => theme.enemy.dark,
+        if !self.active {
+            theme.outlines
+        } else if self.friend {
+            theme.friend.dark
+        } else {
+            theme.enemy.dark
         }
     }
 
