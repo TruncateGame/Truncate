@@ -39,6 +39,7 @@ impl fmt::Display for PlayerMessage {
 pub struct GamePlayerMessage {
     pub name: String,
     pub index: usize,
+    pub allotted_time: Duration,
     pub time_remaining: Duration,
     pub turn_starts_at: Option<OffsetDateTime>,
 }

@@ -91,7 +91,10 @@ impl CharacterUI {
     ) {
         let galley = ui.painter().layout_no_wrap(
             self.letter.to_string(),
-            egui::FontId::new(theme.letter_size, egui::FontFamily::Name("Tile".into())),
+            egui::FontId::new(
+                theme.letter_size,
+                egui::FontFamily::Name("Truncate-Heavy".into()),
+            ),
             color,
         );
 

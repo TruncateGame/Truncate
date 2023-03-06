@@ -11,7 +11,7 @@ use hashbrown::HashMap;
 use time::OffsetDateTime;
 
 use crate::{
-    lil_bits::{BoardUI, HandUI},
+    lil_bits::{BoardUI, HandUI, TimerUI},
     theming::Theme,
 };
 
@@ -61,44 +61,6 @@ impl ActiveGame {
     pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) -> Option<PlayerMessage> {
         ui.label(format!("Playing in game {}", self.room_code));
 
-        for player in &self.players {
-            ui.horizontal(|ui| {
-                match player.turn_starts_at {
-                    Some(next_turn) => {
-                        let elapsed = OffsetDateTime::now_utc() - next_turn;
-                        if elapsed.is_positive() {
-                            ui.label(format!(
-                                "Player: {} has {:?}s remaining.",
-                                player.name,
-                                (player.time_remaining - elapsed).whole_seconds()
-                            ));
-                            ui.label(format!(
-                                "Their turn started {:?}s ago",
-                                elapsed.whole_seconds()
-                            ));
-                        } else {
-                            ui.label(format!(
-                                "Player: {} has {:?}s remaining.",
-                                player.name,
-                                player.time_remaining.whole_seconds()
-                            ));
-                            ui.label(format!(
-                                "Their turn starts in {:?}s",
-                                elapsed.whole_seconds() * -1
-                            ));
-                        }
-                    }
-                    None => {
-                        ui.label(format!(
-                            "Player: {} has {:?}s remaining.",
-                            player.name,
-                            player.time_remaining.whole_seconds()
-                        ));
-                    }
-                };
-            });
-        }
-
         ui.separator();
 
         let frame = egui::Frame::none().inner_margin(egui::Margin::same(6.0));
@@ -129,6 +91,14 @@ impl ActiveGame {
             ui.label("");
         }
 
+        if let Some(opponent) = self
+            .players
+            .iter()
+            .find(|p| p.index != self.player_number as usize)
+        {
+            TimerUI::new(opponent, false).render(ui, theme);
+        }
+
         let board_result = BoardUI::new(&self.board).render(
             self.selected_tile_in_hand,
             self.selected_square_on_board,
@@ -151,6 +121,15 @@ impl ActiveGame {
             self.selected_tile_in_hand = new_selection;
             self.selected_square_on_board = None;
         }
+
+        TimerUI::new(
+            self.players
+                .iter()
+                .find(|p| p.index == self.player_number as usize)
+                .expect("Self should exist"),
+            true,
+        )
+        .render(ui, theme);
 
         if self.battles.is_empty() {
             ui.label("No battles yet.");

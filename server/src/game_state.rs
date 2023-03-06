@@ -127,6 +127,7 @@ impl GameState {
                         .map(|p| GamePlayerMessage {
                             name: p.name.clone(),
                             index: p.index,
+                            allotted_time: p.allotted_time,
                             time_remaining: p.time_remaining,
                             turn_starts_at: p.turn_starts_at,
                         })
@@ -179,6 +180,7 @@ impl GameState {
                                         .map(|p| GamePlayerMessage {
                                             name: p.name.clone(),
                                             index: p.index,
+                                            allotted_time: p.allotted_time,
                                             time_remaining: p.time_remaining,
                                             turn_starts_at: p.turn_starts_at,
                                         })
@@ -219,6 +221,7 @@ impl GameState {
                                     .map(|p| GamePlayerMessage {
                                         name: p.name.clone(),
                                         index: p.index,
+                                        allotted_time: p.allotted_time,
                                         time_remaining: p.time_remaining,
                                         turn_starts_at: p.turn_starts_at,
                                     })
@@ -293,6 +296,7 @@ impl GameState {
                                     .map(|p| GamePlayerMessage {
                                         name: p.name.clone(),
                                         index: p.index,
+                                        allotted_time: p.allotted_time,
                                         time_remaining: p.time_remaining,
                                         turn_starts_at: p.turn_starts_at,
                                     })

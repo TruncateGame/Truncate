@@ -30,13 +30,23 @@ impl GameClient {
         tx_player: UnboundedSender<PlayerMessage>,
     ) -> Self {
         let mut fonts = egui::FontDefinitions::default();
+
         fonts.font_data.insert(
             "Heebo-Medium".into(),
             egui::FontData::from_static(include_bytes!("../font/Heebo-Medium.ttf")),
         );
         fonts.families.insert(
-            egui::FontFamily::Name("Tile".into()),
+            egui::FontFamily::Name("Truncate-Heavy".into()),
             vec!["Heebo-Medium".into()],
+        );
+
+        fonts.font_data.insert(
+            "Heebo-Regular".into(),
+            egui::FontData::from_static(include_bytes!("../font/Heebo-Regular.ttf")),
+        );
+        fonts.families.insert(
+            egui::FontFamily::Name("Truncate-Regular".into()),
+            vec!["Heebo-Regular".into()],
         );
         cc.egui_ctx.set_fonts(fonts);
 
