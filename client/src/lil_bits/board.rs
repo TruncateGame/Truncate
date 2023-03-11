@@ -6,6 +6,7 @@ use core::{
 };
 
 use eframe::egui::{self, Margin};
+use epaint::hex_color;
 use hashbrown::HashMap;
 
 use crate::theming::Theme;
@@ -44,8 +45,7 @@ impl<'a> BoardUI<'a> {
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        let mut game_area = ui.available_rect_before_wrap();
-        game_area.set_bottom(game_area.bottom() - theme.grid_size * 4.0);
+        let game_area = ui.available_rect_before_wrap();
 
         let (margin, theme) = theme.rescale(
             &game_area, 

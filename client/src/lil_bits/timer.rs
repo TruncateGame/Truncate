@@ -1,17 +1,18 @@
 use core::{messages::GamePlayerMessage, player::Hand};
+use time::Duration;
 
 use eframe::{
     egui::{self, widget_text::WidgetTextGalley, Layout, Margin, Sense},
     emath::Align,
 };
-use epaint::{hex_color, vec2, Color32, Vec2};
+use epaint::{hex_color, vec2, Color32, Stroke, Vec2};
 use time::OffsetDateTime;
 
 use crate::theming::Theme;
 
 pub struct TimerUI<'a> {
     player: &'a GamePlayerMessage,
-    time: i64,
+    time: Duration,
     friend: bool,
     active: bool,
 }
@@ -20,7 +21,7 @@ impl<'a> TimerUI<'a> {
     pub fn new(player: &'a GamePlayerMessage) -> Self {
         Self {
             player,
-            time: 0,
+            time: Duration::default(),
             friend: true,
             active: true,
         }
@@ -63,17 +64,20 @@ impl<'a> TimerUI<'a> {
             Some(next_turn) => {
                 let elapsed = OffsetDateTime::now_utc() - next_turn;
                 if elapsed.is_positive() {
-                    self.time = (self.player.time_remaining - elapsed).whole_seconds();
-                    format!("{:?}s remaining", self.time)
+                    self.time = self.player.time_remaining - elapsed;
+                    format!("{:?}s remaining", self.time.whole_seconds())
                 } else {
-                    self.time = self.player.time_remaining.whole_seconds();
+                    self.time = self.player.time_remaining;
                     let starts_in = elapsed.whole_seconds() * -1;
-                    format!("{:?}s remaining. Turn in {starts_in:?}s", self.time)
+                    format!(
+                        "{:?}s remaining. Turn in {starts_in:?}s",
+                        self.time.whole_seconds()
+                    )
                 }
             }
             None => {
-                self.time = self.player.time_remaining.whole_seconds();
-                format!("{:?}s remaining", self.time)
+                self.time = self.player.time_remaining;
+                format!("{:?}s remaining", self.time.whole_seconds())
             }
         }
     }
@@ -97,8 +101,7 @@ impl<'a> TimerUI<'a> {
     pub fn render(mut self, ui: &mut egui::Ui, theme: &Theme) {
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        let frame = egui::Frame::none()
-            .inner_margin(Margin::symmetric(theme.grid_size, theme.grid_size / 2.0));
+        let frame = egui::Frame::none().inner_margin(Margin::symmetric(theme.grid_size, 0.0));
 
         frame.show(ui, |ui| {
             let time_string = self.calculate_time();
@@ -131,7 +134,45 @@ impl<'a> TimerUI<'a> {
             pos.y += name_size.y - time_size.y;
             galley.paint_with_color_override(ui.painter(), pos, self.get_time_color(theme));
 
-            // TODO: Add timer bar as per designs
+            // Paint timer background
+            let mut time_bar = timer_ui_rect.clone();
+            time_bar.set_top(time_bar.bottom() - theme.letter_size / 2.0);
+            ui.painter()
+                .rect_filled(time_bar, theme.rounding / 2.0, theme.text.dark);
+
+            // Paint time remaining
+            let time_proportion = (self.time / self.player.allotted_time) as f32;
+            time_bar.set_right(time_bar.left() + time_proportion * timer_ui_rect.width());
+            ui.painter()
+                .rect_filled(time_bar, theme.rounding / 2.0, self.get_time_color(theme));
+
+            // If in an active turn, paint the point the turn started at
+            if self.player.time_remaining != self.time {
+                let time_proportion =
+                    (self.player.time_remaining / self.player.allotted_time) as f32;
+                time_bar.set_right(time_bar.left() + time_proportion * timer_ui_rect.width());
+
+                ui.painter().rect_stroke(
+                    time_bar,
+                    theme.rounding / 2.0,
+                    Stroke::new(1.0, self.get_time_color(theme)),
+                );
+            }
+
+            let time_division_count = self.player.allotted_time.whole_minutes();
+            let time_division_width = timer_ui_rect.width() / time_division_count as f32;
+
+            let mut time_division_line = [time_bar.left_top(), time_bar.left_bottom()];
+            time_division_line[0].y += time_bar.height() * 0.15;
+            time_division_line[1].y -= time_bar.height() * 0.15;
+
+            for _ in 1..time_division_count {
+                time_division_line[0].x += time_division_width;
+                time_division_line[1].x += time_division_width;
+
+                ui.painter()
+                    .line_segment(time_division_line, Stroke::new(1.0, theme.text.base));
+            }
         });
     }
 }

@@ -5,7 +5,10 @@ use core::{
     reporting::{BattleReport, BoardChange},
 };
 
-use eframe::egui;
+use eframe::{
+    egui::{self, Layout},
+    emath::Align,
+};
 use epaint::{vec2, Color32, Stroke};
 use hashbrown::HashMap;
 use time::OffsetDateTime;
@@ -63,28 +66,6 @@ impl ActiveGame {
 
         ui.separator();
 
-        let frame = egui::Frame::none().inner_margin(egui::Margin::same(6.0));
-        let resp = frame.show(ui, |ui| {
-            if self.player_number == self.next_player_number {
-                ui.label("It is your turn! :)");
-            } else {
-                ui.label("It is not your turn :(");
-            }
-        });
-
-        ui.painter().rect_stroke(
-            resp.response.rect,
-            2.0,
-            Stroke::new(
-                2.0,
-                if self.player_number == self.next_player_number {
-                    Color32::LIGHT_GREEN
-                } else {
-                    Color32::LIGHT_RED
-                },
-            ),
-        );
-
         if let Some(error) = &self.error_msg {
             ui.label(error);
         } else {
@@ -102,49 +83,59 @@ impl ActiveGame {
                 .render(ui, theme);
         }
 
-        let board_result = BoardUI::new(&self.board).render(
-            self.selected_tile_in_hand,
-            self.selected_square_on_board,
-            &self.hand,
-            &self.board_changes,
-            self.player_number,
-            self.player_number == 0,
-            ui,
-            theme,
-        );
+        let mut remaining_area = ui.available_size();
+        remaining_area.y -= theme.grid_size;
 
-        if let (Some(new_selection), _) = board_result {
-            self.selected_square_on_board = new_selection;
-            self.selected_tile_in_hand = None;
-        }
-
-        if let Some(new_selection) =
-            HandUI::new(&mut self.hand).render(self.selected_tile_in_hand, ui, theme)
-        {
-            self.selected_tile_in_hand = new_selection;
-            self.selected_square_on_board = None;
-        }
-
-        if let Some(player) = self
-            .players
-            .iter()
-            .find(|p| p.index == self.player_number as usize)
-        {
-            TimerUI::new(player)
-                .friend(true)
-                .active(player.index == self.next_player_number as usize)
-                .render(ui, theme);
-        }
-
-        if self.battles.is_empty() {
-            ui.label("No battles yet.");
-        } else {
-            for battle in &self.battles {
-                ui.label(format!("{battle}"));
-                ui.separator();
+        ui.allocate_ui_with_layout(remaining_area, Layout::bottom_up(Align::LEFT), |ui| {
+            if let Some(player) = self
+                .players
+                .iter()
+                .find(|p| p.index == self.player_number as usize)
+            {
+                TimerUI::new(player)
+                    .friend(true)
+                    .active(player.index == self.next_player_number as usize)
+                    .render(ui, theme);
             }
-        }
+            if let Some(new_selection) =
+                HandUI::new(&mut self.hand).render(self.selected_tile_in_hand, ui, theme)
+            {
+                self.selected_tile_in_hand = new_selection;
+                self.selected_square_on_board = None;
+            }
 
-        board_result.1
+            ui.allocate_ui_with_layout(ui.available_size(), Layout::top_down(Align::LEFT), |ui| {
+                let board_result = BoardUI::new(&self.board).render(
+                    self.selected_tile_in_hand,
+                    self.selected_square_on_board,
+                    &self.hand,
+                    &self.board_changes,
+                    self.player_number,
+                    self.player_number == 0,
+                    ui,
+                    theme,
+                );
+
+                if let (Some(new_selection), _) = board_result {
+                    self.selected_square_on_board = new_selection;
+                    self.selected_tile_in_hand = None;
+                }
+
+                board_result.1
+            })
+            .inner
+        })
+        .inner
+
+        // if self.battles.is_empty() {
+        //     ui.label("No battles yet.");
+        // } else {
+        //     for battle in &self.battles {
+        //         ui.label(format!("{battle}"));
+        //         ui.separator();
+        //     }
+        // }
+
+        // board_result.1
     }
 }
