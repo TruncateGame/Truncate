@@ -15,6 +15,7 @@ pub struct CharacterUI {
     letter: char,
     orientation: CharacterOrient,
     hovered: bool,
+    active: bool,
     selected: bool,
     ghost: bool,
     truncated: bool,
@@ -27,6 +28,7 @@ impl CharacterUI {
             letter,
             orientation,
             hovered: false,
+            active: true,
             selected: false,
             ghost: false,
             truncated: false,
@@ -41,6 +43,11 @@ impl CharacterUI {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
         self
     }
 
@@ -64,9 +71,9 @@ impl CharacterUI {
     fn char_color(&self, theme: &Theme) -> Color32 {
         if self.ghost {
             theme.friend.dark
-        } else if self.hovered {
-            theme.text.dark
-        } else if self.selected {
+        } else if !self.active {
+            theme.outlines
+        } else if self.hovered || self.selected {
             theme.text.dark
         } else if self.defeated {
             theme.defeated

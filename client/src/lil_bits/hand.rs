@@ -8,11 +8,17 @@ use super::{tile::TilePlayer, SquareUI, TileUI};
 
 pub struct HandUI<'a> {
     hand: &'a mut Hand,
+    active: bool,
 }
 
 impl<'a> HandUI<'a> {
     pub fn new(hand: &'a mut Hand) -> Self {
-        Self { hand }
+        Self { hand, active: true }
+    }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
     }
 }
 
@@ -34,9 +40,10 @@ impl<'a> HandUI<'a> {
             ui.horizontal(|ui| {
                 for (i, char) in self.hand.iter().enumerate() {
                     SquareUI::new()
-                        .border(false)
+                        .decorated(false)
                         .render(ui, &theme, |ui, theme| {
                             if TileUI::new(*char, TilePlayer::Own)
+                                .active(self.active)
                                 .selected(Some(i) == selected_tile)
                                 .render(ui, theme)
                                 .clicked()

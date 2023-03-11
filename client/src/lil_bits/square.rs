@@ -10,7 +10,7 @@ use crate::theming::Theme;
 use super::{character::CharacterOrient, tile::TilePlayer, CharacterUI, TileUI};
 
 pub struct SquareUI {
-    border: bool,
+    decorated: bool,
     enabled: bool,
     empty: bool,
     selected: bool,
@@ -21,7 +21,7 @@ pub struct SquareUI {
 impl SquareUI {
     pub fn new() -> Self {
         Self {
-            border: true,
+            decorated: true,
             enabled: true,
             empty: false,
             selected: false,
@@ -30,8 +30,8 @@ impl SquareUI {
         }
     }
 
-    pub fn border(mut self, border: bool) -> Self {
-        self.border = border;
+    pub fn decorated(mut self, decorated: bool) -> Self {
+        self.decorated = decorated;
         self
     }
 
@@ -82,12 +82,11 @@ impl SquareUI {
                 if self.empty && self.selected {
                     ui.painter()
                         .rect_filled(rect, theme.rounding, theme.selection);
-                } else {
-                    ui.painter()
-                        .rect_filled(rect, theme.rounding, theme.background);
                 }
 
-                if self.border {
+                if self.decorated {
+                    ui.painter()
+                        .rect_filled(rect, theme.rounding, theme.background);
                     ui.painter()
                         .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
                 }

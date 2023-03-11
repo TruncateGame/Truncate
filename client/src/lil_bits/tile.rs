@@ -14,6 +14,7 @@ pub struct TileUI {
     letter: char,
     player: TilePlayer,
     selected: bool,
+    active: bool,
     ghost: bool,
     added: bool,
     modified: bool,
@@ -27,6 +28,7 @@ impl TileUI {
             letter,
             player,
             selected: false,
+            active: true,
             ghost: false,
             added: false,
             modified: false,
@@ -37,6 +39,11 @@ impl TileUI {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
         self
     }
 
@@ -68,7 +75,7 @@ impl TileUI {
 
 impl TileUI {
     fn edge_color(&self, theme: &Theme) -> Color32 {
-        if self.defeated || self.truncated {
+        if self.defeated || self.truncated || !self.active {
             theme.text.dark
         } else {
             match self.player {
@@ -79,7 +86,7 @@ impl TileUI {
     }
 
     fn tile_color(&self, hovered: bool, theme: &Theme) -> Color32 {
-        if self.defeated || self.truncated {
+        if self.defeated || self.truncated || !self.active {
             theme.text.base
         } else {
             match (&self.player, hovered) {
@@ -139,6 +146,7 @@ impl TileUI {
                     )
                     .hovered(response.hovered())
                     .selected(self.selected)
+                    .active(self.active)
                     .ghost(self.ghost)
                     .defeated(self.defeated)
                     .truncated(self.truncated)
