@@ -1,5 +1,6 @@
 mod active_game;
 mod comms;
+mod debug;
 mod game;
 mod lil_bits;
 mod theming;
@@ -21,6 +22,7 @@ pub struct GameClient {
     game_status: GameStatus,
     rx_game: UnboundedReceiver<GameMessage>,
     tx_player: UnboundedSender<PlayerMessage>,
+    frame_history: debug::FrameHistory,
 }
 
 impl GameClient {
@@ -56,13 +58,21 @@ impl GameClient {
             game_status: GameStatus::None("".into()),
             rx_game,
             tx_player,
+            frame_history: Default::default(),
         }
     }
 }
 
 impl eframe::App for GameClient {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| game::render(self, ui));
+        self.frame_history
+            .on_new_frame(ctx.input(|i| i.time), _frame.info().cpu_usage);
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            // Show debug timings in-app
+            // self.frame_history.ui(ui);
+            game::render(self, ui)
+        });
         let mut visuals = egui::Visuals::dark();
         visuals.window_fill = hex_color!("#141414");
         visuals.panel_fill = hex_color!("#141414");

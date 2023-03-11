@@ -30,6 +30,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         game_status,
         rx_game,
         tx_player,
+        frame_history: _,
     } = client;
 
     if matches!(game_status, GameStatus::None(_)) {
