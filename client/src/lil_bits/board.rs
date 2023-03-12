@@ -32,6 +32,7 @@ impl<'a> BoardUI<'a> {
     pub fn render(
         self,
         hand_selected_tile: Option<usize>,
+        hand_released_tile: Option<usize>,
         board_selected_tile: Option<Coordinate>,
         hand: &Hand,
         board_changes: &HashMap<Coordinate, BoardChange>,
@@ -134,7 +135,7 @@ impl<'a> BoardUI<'a> {
                                 // TODO: Devise a way to show this tile in the place of the board_selected_tile
 
                                 let mut tile_clicked = false;
-                                if (SquareUI::new()
+                                let square_response = SquareUI::new()
                                     .enabled(square.is_some())
                                     .empty(matches!(square, Some(Square::Empty)))
                                     .root(is_root)
@@ -144,24 +145,28 @@ impl<'a> BoardUI<'a> {
                                         if let Some(tile) = tile {
                                             tile_clicked = tile.render(ui, theme).clicked();
                                         }
-                                    })
-                                    .clicked()
-                                    || tile_clicked)
-                                    && square.is_some()
-                                {
-                                    if let Some(tile) = hand_selected_tile {
-                                        msg =
-                                            Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
-                                        next_selection = Some(None);
-                                    } else if is_selected {
-                                        next_selection = Some(None);
-                                    } else if let Some(selected_coord) = board_selected_tile {
-                                        msg = Some(PlayerMessage::Swap(coord, selected_coord));
-                                        next_selection = Some(None);
-                                    } else {
-                                        next_selection = Some(Some(coord));
+                                    });
+                                if square.is_some() {
+                                    if square_response.clicked() || tile_clicked {
+                                        if let Some(tile) = hand_selected_tile {
+                                            msg =
+                                                Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
+                                            next_selection = Some(None);
+                                        } else if is_selected {
+                                            next_selection = Some(None);
+                                        } else if let Some(selected_coord) = board_selected_tile {
+                                            msg = Some(PlayerMessage::Swap(coord, selected_coord));
+                                            next_selection = Some(None);
+                                        } else {
+                                            next_selection = Some(Some(coord));
+                                        }
+                                    } else if let Some(tile) = hand_released_tile {
+                                        if square_response.hovered() {
+                                            msg = Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
+                                            next_selection = Some(None);
+                                        }
                                     }
-                                };
+                                }
                             }
                         });
                     };

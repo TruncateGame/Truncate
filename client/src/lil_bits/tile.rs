@@ -1,4 +1,4 @@
-use eframe::egui::{self, Margin};
+use eframe::egui::{self, Id, Margin};
 use epaint::{Color32, Stroke};
 
 use crate::theming::Theme;
@@ -15,11 +15,13 @@ pub struct TileUI {
     player: TilePlayer,
     selected: bool,
     active: bool,
+    hovered: bool,
     ghost: bool,
     added: bool,
     modified: bool,
     defeated: bool,
     truncated: bool,
+    id: Option<Id>,
 }
 
 impl TileUI {
@@ -29,11 +31,13 @@ impl TileUI {
             player,
             selected: false,
             active: true,
+            hovered: false,
             ghost: false,
             added: false,
             modified: false,
             defeated: false,
             truncated: false,
+            id: None,
         }
     }
 
@@ -44,6 +48,11 @@ impl TileUI {
 
     pub fn active(mut self, active: bool) -> Self {
         self.active = active;
+        self
+    }
+
+    pub fn hovered(mut self, hovered: bool) -> Self {
+        self.hovered = hovered;
         self
     }
 
@@ -69,6 +78,11 @@ impl TileUI {
 
     pub fn truncated(mut self, truncated: bool) -> Self {
         self.truncated = truncated;
+        self
+    }
+
+    pub fn id(mut self, id: Id) -> Self {
+        self.id = Some(id);
         self
     }
 }
@@ -103,8 +117,15 @@ impl TileUI {
         frame
             .show(ui, |ui| {
                 let tile_size = theme.grid_size - theme.tile_margin * 2.0;
-                let (mut rect, response) =
+                let (mut rect, mut response) =
                     ui.allocate_exact_size(egui::vec2(tile_size, tile_size), egui::Sense::click());
+
+                if let Some(id) = self.id {
+                    response = ui.interact(rect, id, egui::Sense::click_and_drag());
+                }
+
+                let tile_hovered = self.hovered || response.hovered();
+
                 if response.hovered() {
                     if !self.ghost {
                         rect = rect.translate(egui::vec2(0.0, theme.tile_margin * -0.5));
@@ -125,7 +146,7 @@ impl TileUI {
                         ui.painter().rect_stroke(
                             raised_rect,
                             theme.rounding,
-                            Stroke::new(1.0, self.tile_color(response.hovered(), theme)),
+                            Stroke::new(1.0, self.tile_color(tile_hovered, theme)),
                         );
                     } else {
                         ui.painter()
@@ -133,7 +154,7 @@ impl TileUI {
                         ui.painter().rect_filled(
                             raised_rect,
                             theme.rounding,
-                            self.tile_color(response.hovered(), theme),
+                            self.tile_color(tile_hovered, theme),
                         );
                     }
 

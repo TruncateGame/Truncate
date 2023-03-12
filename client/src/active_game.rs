@@ -97,10 +97,12 @@ impl ActiveGame {
                     .active(player.index == self.next_player_number as usize)
                     .render(ui, theme);
             }
-            if let Some(new_selection) = HandUI::new(&mut self.hand)
+
+            let (new_selection, released_tile) = HandUI::new(&mut self.hand)
                 .active(self.player_number == self.next_player_number)
-                .render(self.selected_tile_in_hand, ui, theme)
-            {
+                .render(self.selected_tile_in_hand, ui, theme);
+
+            if let Some(new_selection) = new_selection {
                 self.selected_tile_in_hand = new_selection;
                 self.selected_square_on_board = None;
             }
@@ -108,6 +110,7 @@ impl ActiveGame {
             ui.allocate_ui_with_layout(ui.available_size(), Layout::top_down(Align::LEFT), |ui| {
                 let board_result = BoardUI::new(&self.board).render(
                     self.selected_tile_in_hand,
+                    released_tile,
                     self.selected_square_on_board,
                     &self.hand,
                     &self.board_changes,
