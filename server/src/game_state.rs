@@ -1,30 +1,14 @@
 use core::{
-    board::{Board, Coordinate},
+    board::{Board, Coordinate, Square},
     game::Game,
     messages::{GameMessage, GamePlayerMessage, GameStateMessage},
     moves::Move,
     player::Hand,
-    reporting::{Change, HandChange},
+    reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, HandChange},
 };
 use std::net::SocketAddr;
 
 use crate::definitions::Definitions;
-
-fn filter_changes_for_player(changes: &Vec<Change>, player: usize) -> Vec<Change> {
-    changes
-        .iter()
-        .filter(|change| match change {
-            Change::Hand(HandChange {
-                player: changed_player,
-                removed: _,
-                added: _,
-            }) => *changed_player == player,
-            Change::Board(_) => true,
-            Change::Battle(_) => true,
-        })
-        .cloned()
-        .collect::<Vec<_>>()
-}
 
 async fn hydrate_change_definitions(definitions: &Definitions, changes: &mut Vec<Change>) {
     for battle in changes.iter_mut().filter_map(|change| match change {
@@ -57,10 +41,17 @@ pub struct Player {
     pub socket: Option<SocketAddr>,
 }
 
+// TODO: Move this elsewhere, and make it a struct of rules
+pub enum GameMode {
+    Standard,
+    FogOfWar,
+}
+
 pub struct GameState {
     pub game_id: String,
     pub players: Vec<Player>,
     pub game: Game,
+    pub game_mode: GameMode,
 }
 
 impl GameState {
@@ -82,6 +73,7 @@ impl GameState {
             game_id,
             players: vec![],
             game,
+            game_mode: GameMode::Standard,
         }
     }
 
@@ -97,6 +89,60 @@ impl GameState {
 
     pub fn edit_board(&mut self, board: Board) {
         self.game.board = board;
+    }
+
+    fn get_board_for_player(&self, player_index: usize) -> Board {
+        let root = self
+            .game
+            .board
+            .roots
+            .get(player_index)
+            .expect("Player should have a root square");
+        match self.game_mode {
+            GameMode::Standard => self.game.board.clone(),
+            GameMode::FogOfWar => self.game.board.fog_of_war(*root),
+        }
+    }
+
+    fn filter_changes_for_player(
+        &self,
+        changes: &Vec<Change>,
+        player: usize,
+        visible_board: &Board,
+    ) -> Vec<Change> {
+        changes
+            .iter()
+            .filter(|change| match change {
+                Change::Hand(HandChange {
+                    player: changed_player,
+                    removed: _,
+                    added: _,
+                }) => *changed_player == player,
+                Change::Board(BoardChange {
+                    detail:
+                        BoardChangeDetail {
+                            coordinate,
+                            square: _,
+                        },
+                    action,
+                }) => {
+                    if action == &BoardChangeAction::Defeated
+                        || action == &BoardChangeAction::Truncated
+                    {
+                        return true;
+                    }
+                    match self.game_mode {
+                        GameMode::Standard => true,
+                        GameMode::FogOfWar => match visible_board.get(*coordinate) {
+                            Ok(Square::Occupied(_, _)) => true,
+                            _ => false,
+                        },
+                    }
+                }
+                Change::Battle(_) => true,
+            })
+            .cloned()
+            .collect::<Vec<_>>()
     }
 
     pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
@@ -134,7 +180,7 @@ impl GameState {
                         .collect(),
                     player_number: number as u64,
                     next_player_number: self.game.next() as u64,
-                    board: self.game.board.clone(),
+                    board: self.get_board_for_player(number),
                     hand: hands.next().unwrap(),
                     changes: vec![],
                 }),
@@ -168,6 +214,10 @@ impl GameState {
                     // rather than requesting them all every time.
                     // hydrate_change_definitions(&Definitions::new(), &mut changes).await;
                     for (number, player) in self.players.iter().enumerate() {
+                        let player_board = self.get_board_for_player(number);
+                        let player_changes =
+                            self.filter_changes_for_player(&changes, number, &player_board);
+
                         messages.push((
                             player.clone(),
                             GameMessage::GameEnd(
@@ -187,9 +237,9 @@ impl GameState {
                                         .collect(),
                                     player_number: number as u64,
                                     next_player_number: self.game.next() as u64,
-                                    board: self.game.board.clone(),
+                                    board: player_board,
                                     hand: Hand(vec![]),
-                                    changes: filter_changes_for_player(&changes, number),
+                                    changes: player_changes,
                                 },
                                 winner as u64,
                             ),
@@ -210,6 +260,10 @@ impl GameState {
                             .clone()
                     });
                     for (number, player) in self.players.iter().enumerate() {
+                        let player_board = self.get_board_for_player(number);
+                        let player_changes =
+                            self.filter_changes_for_player(&changes, number, &player_board);
+
                         messages.push((
                             player.clone(),
                             GameMessage::GameUpdate(GameStateMessage {
@@ -228,9 +282,9 @@ impl GameState {
                                     .collect(),
                                 player_number: number as u64,
                                 next_player_number: self.game.next() as u64,
-                                board: self.game.board.clone(),
+                                board: player_board,
                                 hand: hands.next().unwrap(),
-                                changes: filter_changes_for_player(&changes, number),
+                                changes: player_changes,
                             }),
                         ));
                     }
@@ -285,6 +339,10 @@ impl GameState {
                             .clone()
                     });
                     for (number, player) in self.players.iter().enumerate() {
+                        let player_board = self.get_board_for_player(number);
+                        let player_changes =
+                            self.filter_changes_for_player(&changes, number, &player_board);
+
                         messages.push((
                             player.clone(),
                             GameMessage::GameUpdate(GameStateMessage {
@@ -303,9 +361,9 @@ impl GameState {
                                     .collect(),
                                 player_number: number as u64,
                                 next_player_number: self.game.next() as u64,
-                                board: self.game.board.clone(),
+                                board: player_board,
                                 hand: hands.next().unwrap(),
-                                changes: filter_changes_for_player(&changes, number),
+                                changes: player_changes,
                             }),
                         ));
                     }

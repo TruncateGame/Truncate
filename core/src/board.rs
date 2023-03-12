@@ -388,6 +388,54 @@ impl Board {
         self.squares.len()
     }
 
+    pub fn fog_of_war(&self, root: Coordinate) -> Self {
+        let mut visible_coords: HashSet<Coordinate> = HashSet::new();
+
+        let root_player = if let Ok(Square::Occupied(root_player, _)) = self.get(root) {
+            Some(root_player)
+        } else {
+            None
+        };
+
+        if let Some(root_player) = root_player {
+            let player_coords = self.depth_first_search(root);
+            for (coord, square) in player_coords.iter().flat_map(|c| {
+                // TODO: Enumerate squares a given manhattan distance away, as this double counts
+                self.neighbouring_squares(*c)
+                    .iter()
+                    .flat_map(|(c, _)| self.neighbouring_squares(*c))
+                    .collect::<Vec<_>>()
+            }) {
+                match square {
+                    Square::Occupied(player, _) if player != root_player => {
+                        visible_coords.extend(self.get_words(coord).iter().flatten());
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let mut new_board = self.clone();
+
+        let rows = self.height();
+        let cols = self.width();
+        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
+
+        for (x, y) in squares {
+            let c = Coordinate { x, y };
+            if !visible_coords.contains(&c) {
+                match new_board.get(c) {
+                    Ok(Square::Occupied(player, _)) if Some(player) != root_player => {
+                        new_board.clear(c);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        new_board
+    }
+
     // Get the row just beside the edge
     pub fn get_near_edge(&self, side: Direction) -> Vec<Coordinate> {
         match side {
@@ -1279,5 +1327,40 @@ pub mod tests {
         for square in player_2 {
             assert_eq!(complex_tree.get(square), Ok(Square::Occupied(1, 'B')));
         }
+    }
+
+    #[test]
+    fn apply_fog_of_war() {
+        let board = from_string(
+            [
+                "    A    ",
+                "A A A A A",
+                "A _ _ A _",
+                "A _ _ _ _",
+                "A A _ B _",
+                "A _ B B _",
+                "    B    ",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 6 }],
+            vec![Direction::North; 2],
+        )
+        .unwrap();
+
+        let foggy = board.fog_of_war(Coordinate { x: 2, y: 6 });
+        assert_eq!(
+            foggy.to_string(),
+            [
+                "    _    ",
+                "A _ _ A _",
+                "A _ _ A _",
+                "A _ _ _ _",
+                "A A _ B _",
+                "A _ B B _",
+                "    B    ",
+                "Roots: (2, 0) / (2, 6)",
+            ]
+            .join("\n")
+        );
     }
 }
