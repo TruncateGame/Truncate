@@ -107,7 +107,7 @@ impl<'a> TimerUI<'a> {
             let time_string = self.calculate_time();
 
             let (timer_ui_rect, response) = ui.allocate_exact_size(
-                vec2(ui.available_width(), theme.letter_size * 2.5),
+                vec2(ui.available_width(), theme.letter_size * 2.0),
                 Sense::hover(),
             );
             let (name_size, galley) = self.get_galley(
@@ -134,17 +134,19 @@ impl<'a> TimerUI<'a> {
             pos.y += name_size.y - time_size.y;
             galley.paint_with_color_override(ui.painter(), pos, self.get_time_color(theme));
 
+            let timer_rounding = theme.rounding / 4.0;
+
             // Paint timer background
             let mut time_bar = timer_ui_rect.clone();
             time_bar.set_top(time_bar.bottom() - theme.letter_size / 2.0);
             ui.painter()
-                .rect_filled(time_bar, theme.rounding / 2.0, theme.text.dark);
+                .rect_filled(time_bar, timer_rounding, theme.text.dark);
 
             // Paint time remaining
             let time_proportion = (self.time / self.player.allotted_time) as f32;
             time_bar.set_right(time_bar.left() + time_proportion * timer_ui_rect.width());
             ui.painter()
-                .rect_filled(time_bar, theme.rounding / 2.0, self.get_time_color(theme));
+                .rect_filled(time_bar, timer_rounding, self.get_time_color(theme));
 
             // If in an active turn, paint the point the turn started at
             if self.player.time_remaining != self.time {
@@ -154,7 +156,7 @@ impl<'a> TimerUI<'a> {
 
                 ui.painter().rect_stroke(
                     time_bar,
-                    theme.rounding / 2.0,
+                    timer_rounding,
                     Stroke::new(1.0, self.get_time_color(theme)),
                 );
             }
