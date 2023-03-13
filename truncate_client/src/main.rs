@@ -2,6 +2,7 @@ mod active_game;
 mod comms;
 mod debug;
 mod game;
+mod game_client;
 mod lil_bits;
 mod theming;
 
@@ -10,77 +11,9 @@ use epaint::hex_color;
 use theming::Theme;
 use tokio::runtime::Builder;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use game::GameStatus;
 use truncate_core::messages::{GameMessage, PlayerMessage};
-
-#[derive(Debug)]
-pub struct GameClient {
-    name: String,
-    theme: Theme,
-    game_status: GameStatus,
-    rx_game: UnboundedReceiver<GameMessage>,
-    tx_player: UnboundedSender<PlayerMessage>,
-    frame_history: debug::FrameHistory,
-}
-
-impl GameClient {
-    fn new(
-        cc: &eframe::CreationContext<'_>,
-        rx_game: UnboundedReceiver<GameMessage>,
-        tx_player: UnboundedSender<PlayerMessage>,
-    ) -> Self {
-        let mut fonts = egui::FontDefinitions::default();
-
-        fonts.font_data.insert(
-            "Heebo-Medium".into(),
-            egui::FontData::from_static(include_bytes!("../font/Heebo-Medium.ttf")),
-        );
-        fonts.families.insert(
-            egui::FontFamily::Name("Truncate-Heavy".into()),
-            vec!["Heebo-Medium".into()],
-        );
-
-        fonts.font_data.insert(
-            "Heebo-Regular".into(),
-            egui::FontData::from_static(include_bytes!("../font/Heebo-Regular.ttf")),
-        );
-        fonts.families.insert(
-            egui::FontFamily::Name("Truncate-Regular".into()),
-            vec!["Heebo-Regular".into()],
-        );
-        cc.egui_ctx.set_fonts(fonts);
-
-        Self {
-            name: "Mystery Player".into(),
-            theme: Theme::default(),
-            game_status: GameStatus::None("".into()),
-            rx_game,
-            tx_player,
-            frame_history: Default::default(),
-        }
-    }
-}
-
-impl eframe::App for GameClient {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.frame_history
-            .on_new_frame(ctx.input(|i| i.time), _frame.info().cpu_usage);
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // Show debug timings in-app
-            // self.frame_history.ui(ui);
-            game::render(self, ui)
-        });
-        let mut visuals = egui::Visuals::dark();
-        visuals.window_fill = hex_color!("#141414");
-        visuals.panel_fill = hex_color!("#141414");
-        ctx.set_visuals(visuals);
-
-        ctx.request_repaint();
-    }
-}
+use game_client::GameClient;
 
 fn main() {
     let connect_addr = std::env::args()
