@@ -1,4 +1,16 @@
+#[cfg(target_arch = "wasm32")]
 use std::sync::mpsc::{Receiver, Sender};
+#[cfg(target_arch = "wasm32")]
+type R = Receiver<GameMessage>;
+#[cfg(target_arch = "wasm32")]
+type S = Sender<PlayerMessage>;
+
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+#[cfg(not(target_arch = "wasm32"))]
+type R = UnboundedReceiver<GameMessage>;
+#[cfg(not(target_arch = "wasm32"))]
+type S = UnboundedSender<PlayerMessage>;
 
 use super::debug;
 use super::theming::Theme;
@@ -12,17 +24,13 @@ pub struct GameClient {
     pub name: String,
     pub theme: Theme,
     pub game_status: game::GameStatus,
-    pub rx_game: Receiver<GameMessage>,
-    pub tx_player: Sender<PlayerMessage>,
+    pub rx_game: R,
+    pub tx_player: S,
     pub frame_history: debug::FrameHistory,
 }
 
 impl GameClient {
-    pub fn new(
-        cc: &eframe::CreationContext<'_>,
-        rx_game: Receiver<GameMessage>,
-        tx_player: Sender<PlayerMessage>,
-    ) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, rx_game: R, tx_player: S) -> Self {
         let mut fonts = egui::FontDefinitions::default();
 
         fonts.font_data.insert(

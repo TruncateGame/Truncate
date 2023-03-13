@@ -7,12 +7,9 @@ mod lil_bits;
 mod theming;
 
 use eframe::egui;
-use epaint::hex_color;
-use theming::Theme;
 use tokio::runtime::Builder;
 use tokio::sync::mpsc;
 
-use truncate_core::messages::{GameMessage, PlayerMessage};
 use game_client::GameClient;
 
 fn main() {
