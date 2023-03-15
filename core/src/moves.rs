@@ -122,22 +122,23 @@ impl Board {
                         })
                     }));
 
-                    // explode adjacent letters
-                    changes.extend(Direction::iter().flat_map(|direction| {
-                        let square = position.add(*direction);
-                        if let Ok(Square::Occupied(owner, letter)) = self.get(square) {
-                            if owner != player {
-                                bag.return_tile(letter);
-                                return self.clear(square).map(|detail| {
-                                    Change::Board(BoardChange {
-                                        detail,
-                                        action: BoardChangeAction::Exploded,
-                                    })
-                                });
+                    // explode adjacent letters belonging to opponents
+                    changes.extend(self.neighbouring_squares(position).iter().flat_map(
+                        |neighbour| {
+                            if let (coordinate, Square::Occupied(owner, letter)) = neighbour {
+                                if *owner != player {
+                                    bag.return_tile(*letter);
+                                    return self.clear(*coordinate).map(|detail| {
+                                        Change::Board(BoardChange {
+                                            detail,
+                                            action: BoardChangeAction::Exploded,
+                                        })
+                                    });
+                                }
                             }
-                        }
-                        None
-                    }));
+                            None
+                        },
+                    ));
                 }
             }
             changes.push(Change::Battle(battle));
