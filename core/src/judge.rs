@@ -168,7 +168,7 @@ impl Judge {
 
         // Otherwise the attacker wins
         battle_report.outcome = Outcome::AttackerWins(weak_defenders);
-        return Some(battle_report);
+        Some(battle_report)
     }
 
     /// Returns the string that was matched if word was a wildcard
