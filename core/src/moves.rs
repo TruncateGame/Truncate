@@ -2,6 +2,7 @@ use super::board::{Board, Coordinate, Square};
 use super::judge::{Judge, Outcome};
 use super::reporting::{BoardChange, BoardChangeAction};
 use crate::bag::TileBag;
+use crate::board::Direction;
 use crate::error::GamePlayError;
 use crate::player::Player;
 use crate::reporting::Change;
@@ -120,6 +121,24 @@ impl Board {
                             })
                         })
                     }));
+
+                    // explode adjacent letters belonging to opponents
+                    changes.extend(self.neighbouring_squares(position).iter().flat_map(
+                        |neighbour| {
+                            if let (coordinate, Square::Occupied(owner, letter)) = neighbour {
+                                if *owner != player {
+                                    bag.return_tile(*letter);
+                                    return self.clear(*coordinate).map(|detail| {
+                                        Change::Board(BoardChange {
+                                            detail,
+                                            action: BoardChangeAction::Exploded,
+                                        })
+                                    });
+                                }
+                            }
+                            None
+                        },
+                    ));
                 }
             }
             changes.push(Change::Battle(battle));
@@ -669,6 +688,55 @@ mod tests {
                 "_ A _ _ _",
                 "_ _ I _ _",
                 "_ _ G _ _",
+                "Roots: (2, 0) / (2, 5)",
+            ]
+            .join("\n"),
+        );
+    }
+
+    #[test]
+    fn resolve_explosion() {
+        let mut b = BoardUtils::from_string(
+            [
+                "_ _ S _ _",
+                "_ _ T _ _",
+                "_ _ R _ _",
+                "_ B _ X _",
+                "_ I _ X _",
+                "_ G X X _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 5 }],
+            vec![Direction::North, Direction::South],
+        )
+        .unwrap();
+        let mut bag = TileUtils::trivial_bag();
+        let mut players = vec![
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
+        ];
+
+        b.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 2, y: 3 },
+            },
+            &mut players,
+            &mut bag,
+            &short_dict(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            b.to_string(),
+            [
+                "_ _ S _ _",
+                "_ _ T _ _",
+                "_ _ R _ _",
+                "_ _ A _ _",
+                "_ I _ _ _",
+                "_ G X _ _",
                 "Roots: (2, 0) / (2, 5)",
             ]
             .join("\n"),

@@ -12,6 +12,7 @@ pub enum BoardChangeAction {
     Swapped,
     Defeated,
     Truncated,
+    Exploded,
 }
 
 impl fmt::Display for BoardChangeAction {
@@ -21,6 +22,7 @@ impl fmt::Display for BoardChangeAction {
             BoardChangeAction::Swapped => write!(f, "Swapped"),
             BoardChangeAction::Defeated => write!(f, "Defeated"),
             BoardChangeAction::Truncated => write!(f, "Truncated"),
+            BoardChangeAction::Exploded => write!(f, "Exploded"),
         }
     }
 }

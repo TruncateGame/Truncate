@@ -511,7 +511,7 @@ impl Coordinate {
         Self { x, y }
     }
 
-    fn add(self, direction: Direction) -> Coordinate {
+    pub fn add(self, direction: Direction) -> Coordinate {
         match direction {
             Direction::North => Coordinate {
                 x: self.x,
