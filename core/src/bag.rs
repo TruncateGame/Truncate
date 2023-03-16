@@ -1,10 +1,11 @@
-use rand::Rng;
+use oorandom::Rand32;
 use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug)]
 pub struct TileBag {
     bag: Vec<char>,
-    rng: rand::rngs::ThreadRng,
+    rng: Rand32,
     letter_distribution: [usize; 26],
 }
 
@@ -12,7 +13,13 @@ impl TileBag {
     pub fn new(letter_distribution: [usize; 26]) -> Self {
         let mut tile_bag = TileBag {
             bag: Vec::new(),
-            rng: rand::thread_rng(),
+            rng: Rand32::new(
+                // TODO: Use some other RNG to get a seed for the game
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Time went backwards")
+                    .as_secs(),
+            ),
             letter_distribution,
         };
         tile_bag.fill();
@@ -23,8 +30,8 @@ impl TileBag {
         if self.bag.is_empty() {
             self.fill();
         }
-        let index = self.rng.gen_range(0..self.bag.len());
-        self.bag.swap_remove(index)
+        let index = self.rng.rand_range(0..self.bag.len() as u32);
+        self.bag.swap_remove(index as usize)
     }
 
     // TODO: this doesn't stop us from returning tiles that weren't originally in the bag

@@ -18,12 +18,13 @@ jobs:
         shell: bash
     strategy:
       matrix:
+        workspace: [core, client, server]
         include:
           - build: linux
             os: ubuntu-latest
             rust: beta
             target: x86_64-unknown-linux-musl
-            cross: false
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -41,8 +42,14 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.rust }}
 
       - name: Install Rust
-        run: |
-          rustup install ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ matrix.rust }}
+            target: ${{ matrix.target }}
+            override: true
+            default: true
+            components: rustfmt, clippy
 
       - name: Test
+        working-directory: ./${{ matrix.workspace }}
         run: cargo test

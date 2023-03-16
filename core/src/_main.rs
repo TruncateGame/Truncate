@@ -2,16 +2,18 @@ mod bag;
 mod board;
 mod error;
 mod game;
-mod hand;
 mod judge;
 mod moves;
+mod player;
+mod reporting;
 
 use board::Coordinate;
 use game::Game;
 use moves::Move;
 use std::io;
 
-// TODO: this whole file is absolute garbage, clean it up
+// ~~TODO: this whole file is absolute garbage, clean it up~~
+// TODO: Delete this file once re-implemented since core is no longer a bin
 
 fn main() {
     clear();
@@ -124,15 +126,15 @@ fn render_board(game: &Game) {
 }
 
 fn render_hand(game: &Game) {
-    println!(
-        "{}",
-        game.hands
-            .get_hand(game.next())
-            .iter()
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>()
-            .join(" ")
-    );
+    // println!(
+    //     "{}",
+    //     game.hands
+    //         .get_hand(game.next())
+    //         .iter()
+    //         .map(|c| c.to_string())
+    //         .collect::<Vec<String>>()
+    //         .join(" ")
+    // );
 }
 
 fn swap(game: &mut Game) -> Option<usize> {
@@ -147,7 +149,7 @@ fn swap(game: &mut Game) -> Option<usize> {
             Err(e) => {
                 println!("{}", e)
             }
-            Ok(winner) => return winner,
+            Ok(winner) => return winner.1,
         }
     }
 }
@@ -172,7 +174,7 @@ fn place(game: &mut Game) -> Option<usize> {
             Err(e) => {
                 println!("{}", e)
             }
-            Ok(winner) => return winner,
+            Ok(winner) => return winner.1,
         }
     }
 }

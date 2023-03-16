@@ -1,7 +1,7 @@
 use super::board::Coordinate;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Clone, Error, Debug, PartialEq)]
 pub enum GamePlayError {
     #[error("Invalid position ({:?}, {:?})", position.x, position.y)]
     InvalidPosition { position: Coordinate },
@@ -26,6 +26,6 @@ pub enum GamePlayError {
     #[error("Must place tile on square that neighbours one of your already placed tiles, or on your root")]
     NonAdjacentPlace,
 
-    #[error("Player {:?} doesn't have a '{tile:?}' tile")]
+    #[error("Player {player:?} doesn't have a '{tile:?}' tile")]
     PlayerDoesNotHaveTile { player: usize, tile: char },
 }
