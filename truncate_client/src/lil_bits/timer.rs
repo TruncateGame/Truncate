@@ -59,7 +59,19 @@ impl<'a> TimerUI<'a> {
     fn calculate_time(&mut self) -> String {
         match self.player.turn_starts_at {
             Some(next_turn) => {
-                let elapsed = OffsetDateTime::now_utc() - next_turn;
+                // We have to go through the instant crate as
+                // most std time functions are not implemented
+                // in Rust's wasm targets.
+                // instant::SystemTime::now() conditionally uses
+                // a js function on wasm targets, and otherwise aliases
+                // to the std SystemTime type.
+                let secs = instant::SystemTime::now()
+                    .duration_since(instant::SystemTime::UNIX_EPOCH)
+                    .expect("We are living in the future");
+
+                let now = OffsetDateTime::from_unix_timestamp(secs.as_secs() as i64)
+                    .expect("Should be a valid timestamp");
+                let elapsed = now - next_turn;
                 if elapsed.is_positive() {
                     self.time = self.player.time_remaining - elapsed;
                     format!("{:?}s remaining", self.time.whole_seconds())

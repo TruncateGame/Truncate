@@ -4,8 +4,8 @@ mod game;
 mod game_client;
 mod lil_bits;
 mod theming;
-
-use std::sync::mpsc;
+#[cfg(target_arch = "wasm32")]
+mod web_comms;
 
 use game_client::GameClient;
 
@@ -13,6 +13,8 @@ use game_client::GameClient;
 use eframe::wasm_bindgen::{self, prelude::*};
 #[cfg(target_arch = "wasm32")]
 use eframe::web::AppRunnerRef;
+#[cfg(target_arch = "wasm32")]
+use futures::channel::mpsc;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
@@ -51,8 +53,14 @@ pub fn init_wasm_hooks() {
 pub async fn start_separate(canvas_id: &str) -> Result<WebHandle, wasm_bindgen::JsValue> {
     let web_options = eframe::WebOptions::default();
 
-    let (tx_game, rx_game) = mpsc::channel();
-    let (tx_player, rx_player) = mpsc::channel();
+    let (tx_game, rx_game) = mpsc::channel(2048);
+    let (tx_player, rx_player) = mpsc::channel(2048);
+
+    wasm_bindgen_futures::spawn_local(web_comms::connect(
+        "ws://127.0.0.1:8080".to_string(),
+        tx_game,
+        rx_player,
+    ));
 
     eframe::start_web(
         canvas_id,

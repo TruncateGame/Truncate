@@ -1,5 +1,5 @@
 #[cfg(target_arch = "wasm32")]
-use std::sync::mpsc::{Receiver, Sender};
+use futures::channel::mpsc::{Receiver, Sender};
 #[cfg(target_arch = "wasm32")]
 type R = Receiver<GameMessage>;
 #[cfg(target_arch = "wasm32")]

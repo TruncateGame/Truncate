@@ -1,9 +1,9 @@
 mod active_game;
-mod comms;
 mod debug;
 mod game;
 mod game_client;
 mod lil_bits;
+mod native_comms;
 mod theming;
 
 use eframe::egui;
@@ -26,7 +26,7 @@ fn main() {
     let (tx_game, rx_game) = mpsc::unbounded_channel();
     let (tx_player, rx_player) = mpsc::unbounded_channel();
 
-    tokio_runtime.spawn(comms::connect(connect_addr, tx_game, rx_player));
+    tokio_runtime.spawn(native_comms::connect(connect_addr, tx_game, rx_player));
 
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(500.0, 1000.0)),
