@@ -3,10 +3,9 @@ set -eu
 script_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd "$script_path/.."
 
-CRATE_NAME="client"
+CRATE_NAME="truncate_client"
 FEATURES=""
 
-OPEN=false
 OPTIMIZE=false
 
 # This is required to enable the web_sys clipboard API which eframe web uses
@@ -51,16 +50,3 @@ if [[ "${OPTIMIZE}" = true ]]; then
 fi
 
 echo "Finished docs/${CRATE_NAME}_bg.wasm"
-
-if [[ "${OPEN}" == true ]]; then
-  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    # Linux, ex: Fedora
-    xdg-open http://localhost:8888/index.html
-  elif [[ "$OSTYPE" == "msys" ]]; then
-    # Windows
-    start http://localhost:8888/index.html
-  else
-    # Darwin/MacOS, or something else
-    open http://localhost:8888/index.html
-  fi
-fi
