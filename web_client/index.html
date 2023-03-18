@@ -131,9 +131,15 @@
 
         function on_wasm_loaded() {
             console.debug("wasm loaded. starting app…");
+            const server = new URLSearchParams(window.location.search).get("server") ?? "";
+            if (server) {
+                console.debug(`Connecting to the server ${server}`);
+            } else {
+                console.debug("Connecting to the default server");
+            }
 
             // This call installs a bunch of callbacks and then returns:
-            const handle = wasm_bindgen.start("the_canvas_id");
+            const handle = wasm_bindgen.start("the_canvas_id", server);
 
             // call `handle.stop_web()` to stop
             // uncomment to quick result

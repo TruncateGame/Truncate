@@ -50,14 +50,23 @@ pub fn init_wasm_hooks() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn start_separate(canvas_id: &str) -> Result<WebHandle, wasm_bindgen::JsValue> {
+pub async fn start_separate(
+    canvas_id: &str,
+    server_url: &str,
+) -> Result<WebHandle, wasm_bindgen::JsValue> {
     let web_options = eframe::WebOptions::default();
 
     let (tx_game, rx_game) = mpsc::channel(2048);
     let (tx_player, rx_player) = mpsc::channel(2048);
 
+    let connect_url = if server_url.is_empty() {
+        "ws://127.0.0.1:8080"
+    } else {
+        server_url
+    };
+
     wasm_bindgen_futures::spawn_local(web_comms::connect(
-        "ws://127.0.0.1:8080".to_string(),
+        connect_url.to_string(),
         tx_game,
         rx_player,
     ));
@@ -77,7 +86,7 @@ pub async fn start_separate(canvas_id: &str) -> Result<WebHandle, wasm_bindgen::
 /// You can add more callbacks like this if you want to call in to your code.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn start(canvas_id: &str) -> Result<WebHandle, wasm_bindgen::JsValue> {
+pub async fn start(canvas_id: &str, server_url: &str) -> Result<WebHandle, wasm_bindgen::JsValue> {
     init_wasm_hooks();
-    start_separate(canvas_id).await
+    start_separate(canvas_id, server_url).await
 }
