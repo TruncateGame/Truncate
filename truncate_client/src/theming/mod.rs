@@ -1,5 +1,3 @@
-use core::board::Board;
-
 use eframe::egui::{self, Margin};
 use epaint::{hex_color, Color32};
 

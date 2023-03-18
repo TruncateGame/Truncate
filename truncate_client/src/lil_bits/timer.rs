@@ -1,11 +1,8 @@
-use core::{messages::GamePlayerMessage, player::Hand};
 use time::Duration;
+use truncate_core::messages::GamePlayerMessage;
 
-use eframe::{
-    egui::{self, widget_text::WidgetTextGalley, Layout, Margin, Sense},
-    emath::Align,
-};
-use epaint::{hex_color, vec2, Color32, Stroke, Vec2};
+use eframe::egui::{self, widget_text::WidgetTextGalley, Margin, Sense};
+use epaint::{vec2, Color32, Stroke, Vec2};
 use time::OffsetDateTime;
 
 use crate::theming::Theme;
@@ -59,7 +56,7 @@ impl<'a> TimerUI<'a> {
         }
     }
 
-    fn calculate_time(&mut self) -> (String) {
+    fn calculate_time(&mut self) -> String {
         match self.player.turn_starts_at {
             Some(next_turn) => {
                 let elapsed = OffsetDateTime::now_utc() - next_turn;
@@ -106,7 +103,7 @@ impl<'a> TimerUI<'a> {
         frame.show(ui, |ui| {
             let time_string = self.calculate_time();
 
-            let (timer_ui_rect, response) = ui.allocate_exact_size(
+            let (timer_ui_rect, _response) = ui.allocate_exact_size(
                 vec2(ui.available_width(), theme.letter_size * 2.0),
                 Sense::hover(),
             );

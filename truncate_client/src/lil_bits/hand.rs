@@ -1,4 +1,4 @@
-use core::player::Hand;
+use truncate_core::player::Hand;
 
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
 use epaint::Vec2;

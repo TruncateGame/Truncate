@@ -1,12 +1,11 @@
-use core::{
+use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
     player::Hand,
     reporting::BoardChange,
 };
 
-use eframe::egui::{self, Margin};
-use epaint::hex_color;
+use eframe::egui;
 use hashbrown::HashMap;
 
 use crate::theming::Theme;
@@ -79,7 +78,7 @@ impl<'a> BoardUI<'a> {
                                 };
 
                                 if let Some(change) = board_changes.get(&coord) {
-                                    use core::reporting::BoardChangeAction;
+                                    use truncate_core::reporting::BoardChangeAction;
                                     tile = match (&change.action, tile) {
                                         (BoardChangeAction::Added, Some(tile)) => Some(tile.added(true)),
                                         (BoardChangeAction::Swapped, Some(tile)) => Some(tile.modified(true)),

@@ -1,4 +1,4 @@
-use core::{
+use truncate_core::{
     board::{Board, Coordinate},
     messages::{GamePlayerMessage, PlayerMessage, RoomCode},
     player::Hand,
@@ -9,9 +9,7 @@ use eframe::{
     egui::{self, Layout},
     emath::Align,
 };
-use epaint::{vec2, Color32, Stroke};
 use hashbrown::HashMap;
-use time::OffsetDateTime;
 
 use crate::{
     lil_bits::{BoardUI, HandUI, TimerUI},

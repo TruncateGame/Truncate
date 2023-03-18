@@ -1,14 +1,10 @@
-use core::{board::Board, messages::RoomCode, player::Hand};
 use eframe::egui;
-use hashbrown::HashMap;
+use truncate_core::{board::Board, messages::RoomCode};
 
-use crate::{
-    active_game::ActiveGame,
-    lil_bits::{BoardUI, EditorUI},
-};
+use crate::{active_game::ActiveGame, lil_bits::EditorUI};
 
 use super::GameClient;
-use core::{
+use truncate_core::{
     messages::{GameMessage, GameStateMessage, PlayerMessage},
     reporting::Change,
 };

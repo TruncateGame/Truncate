@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::reporting::{BattleReport, BattleWord, Change};
+use crate::reporting::{BattleReport, BattleWord};
 
 use super::board::{Board, Square};
 use std::{

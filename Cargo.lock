@@ -469,24 +469,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "client"
-version = "0.1.0"
-dependencies = [
- "color-hex",
- "core",
- "eframe",
- "epaint",
- "futures-util",
- "hashbrown 0.13.2",
- "serde_json",
- "time",
- "tokio",
- "tokio-stream",
- "tokio-tungstenite",
- "tungstenite",
-]
-
-[[package]]
 name = "clipboard-win"
 version = "4.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -520,20 +502,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c278839b831783b70278b14df4d45e1beb1aad306c07bb796637de9a0e323e8e"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clearscreen",
- "oorandom",
- "serde",
- "strum",
- "strum_macros",
- "thiserror",
- "time",
 ]
 
 [[package]]
@@ -2116,23 +2084,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "server"
-version = "0.1.0"
-dependencies = [
- "core",
- "dashmap",
- "futures-channel",
- "futures-util",
- "rand",
- "reqwest",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tokio-tungstenite",
- "tungstenite",
-]
-
-[[package]]
 name = "sha1"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2513,6 +2464,55 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24eb03ba0eab1fd845050058ce5e616558e8f8d8fca633e6b163fe25c797213a"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "truncate_client"
+version = "0.1.0"
+dependencies = [
+ "color-hex",
+ "eframe",
+ "epaint",
+ "futures-util",
+ "hashbrown 0.13.2",
+ "serde_json",
+ "time",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite",
+ "truncate_core",
+ "tungstenite",
+]
+
+[[package]]
+name = "truncate_core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clearscreen",
+ "oorandom",
+ "serde",
+ "strum",
+ "strum_macros",
+ "thiserror",
+ "time",
+]
+
+[[package]]
+name = "truncate_server"
+version = "0.1.0"
+dependencies = [
+ "dashmap",
+ "futures-channel",
+ "futures-util",
+ "rand",
+ "reqwest",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite",
+ "truncate_core",
+ "tungstenite",
 ]
 
 [[package]]

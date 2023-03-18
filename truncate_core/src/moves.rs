@@ -2,7 +2,6 @@ use super::board::{Board, Coordinate, Square};
 use super::judge::{Judge, Outcome};
 use super::reporting::{BoardChange, BoardChangeAction};
 use crate::bag::TileBag;
-use crate::board::Direction;
 use crate::error::GamePlayError;
 use crate::player::Player;
 use crate::reporting::Change;
