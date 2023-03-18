@@ -1,1 +1,3 @@
 /target
+web_client/truncate_client_bg.wasm
+web_client/truncate_client.js
