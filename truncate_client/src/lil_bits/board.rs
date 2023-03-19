@@ -47,10 +47,11 @@ impl<'a> BoardUI<'a> {
 
         let game_area = ui.available_rect_before_wrap();
 
-        let (margin, theme) = theme.rescale(
+        let (margin, theme) = theme.calc_rescale(
             &game_area, 
             self.board.width(),
             self.board.height(),
+            0.4..2.0
         );
         let outer_frame = egui::Frame::none().inner_margin(margin);
 

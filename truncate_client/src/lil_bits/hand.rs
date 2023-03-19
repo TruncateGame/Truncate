@@ -35,7 +35,13 @@ impl<'a> HandUI<'a> {
         let mut released_drag = None;
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
-        let (margin, theme) = theme.rescale(&ui.available_rect_before_wrap(), self.hand.len(), 1);
+        let (margin, mut theme) = theme.calc_rescale(
+            &ui.available_rect_before_wrap(),
+            self.hand.len(),
+            1,
+            0.5..1.3,
+        );
+
         let outer_frame = egui::Frame::none().inner_margin(margin);
 
         outer_frame.show(ui, |ui| {
