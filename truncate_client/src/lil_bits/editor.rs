@@ -1,13 +1,13 @@
-use core::{
+use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
 };
 
-use eframe::egui::{self, Id, Margin, Sense};
+use eframe::egui::{self, Id, Margin};
 
 use crate::theming::Theme;
 
-use super::{character::CharacterOrient, CharacterUI, EditorBarEdge, EditorBarUI, EditorSquareUI};
+use super::{EditorBarEdge, EditorBarUI, EditorSquareUI};
 
 #[derive(Clone)]
 enum EditorDrag {

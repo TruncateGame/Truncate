@@ -3,7 +3,6 @@ use eframe::{
     emath::Align,
 };
 use epaint::Stroke;
-use tungstenite::http::response;
 
 use crate::theming::Theme;
 

@@ -13,9 +13,9 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tungstenite::protocol::Message;
 
 use crate::game_state::Player;
-use core::messages::{GameMessage, PlayerMessage};
 use game_state::GameState;
 use room_codes::RoomCodes;
+use truncate_core::messages::{GameMessage, PlayerMessage};
 
 type PeerMap = Arc<DashMap<SocketAddr, UnboundedSender<GameMessage>>>;
 type GameMap = Arc<DashMap<String, GameState>>;

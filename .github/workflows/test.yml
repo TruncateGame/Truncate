@@ -18,7 +18,7 @@ jobs:
         shell: bash
     strategy:
       matrix:
-        workspace: [core, client, server]
+        workspace: [truncate_core, truncate_client, truncate_server]
         include:
           - build: linux
             os: ubuntu-latest

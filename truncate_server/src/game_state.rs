@@ -1,4 +1,5 @@
-use core::{
+use std::net::SocketAddr;
+use truncate_core::{
     board::{Board, Coordinate, Square},
     game::Game,
     messages::{GameMessage, GamePlayerMessage, GameStateMessage},
@@ -6,7 +7,6 @@ use core::{
     player::Hand,
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, HandChange},
 };
-use std::net::SocketAddr;
 
 use crate::definitions::Definitions;
 

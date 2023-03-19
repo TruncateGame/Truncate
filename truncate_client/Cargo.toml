@@ -1,5 +1,5 @@
 [package]
-name = "server"
+name = "truncate_client"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,13 +10,14 @@ tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 tokio-tungstenite = "0.18"
 tungstenite = { version = "0.18", default-features = false }
-futures-channel = "0.3"
+eframe = "0.21"
+epaint = { version = "0.21", features = ["color-hex"] }
+color-hex = "0.2.0"
 futures-util = { version = "0.3", default-features = false, features = [
     "sink",
     "std",
 ] }
-dashmap = "5.0"
 serde_json = "1"
-rand = "0.8.5"
-"core" = { path = "../core" }
-reqwest = { version = "0.11", features = ["json"] }
+truncate_core = { path = "../truncate_core" }
+hashbrown = "0.13"
+time = { version = "0.3", features = ["serde"] }

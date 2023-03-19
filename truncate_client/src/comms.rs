@@ -3,7 +3,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
-use core::messages::{GameMessage, PlayerMessage};
+use truncate_core::messages::{GameMessage, PlayerMessage};
 
 pub async fn connect(
     connect_addr: String,

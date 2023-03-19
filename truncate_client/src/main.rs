@@ -12,8 +12,8 @@ use tokio::runtime::Builder;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use core::messages::{GameMessage, PlayerMessage};
 use game::GameStatus;
+use truncate_core::messages::{GameMessage, PlayerMessage};
 
 #[derive(Debug)]
 pub struct GameClient {
