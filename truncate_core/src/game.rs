@@ -1,6 +1,7 @@
 use time::{Duration, OffsetDateTime};
 
 use crate::bag::TileBag;
+use crate::rules::GameRules;
 
 use super::board::Board;
 use super::judge::Judge;
@@ -10,6 +11,7 @@ use super::reporting::Change;
 
 #[derive(Default)]
 pub struct Game {
+    pub rules: GameRules,
     pub players: Vec<Player>,
     pub board: Board, // TODO: should these actually be public?
     pub bag: TileBag,
@@ -23,6 +25,7 @@ pub struct Game {
 impl Game {
     pub fn new(width: usize, height: usize) -> Self {
         Self {
+            rules: GameRules::default(),
             players: Vec::with_capacity(2),
             board: Board::new(width, height),
             bag: TileBag::default(),

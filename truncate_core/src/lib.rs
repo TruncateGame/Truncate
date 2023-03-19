@@ -7,3 +7,4 @@ pub mod messages;
 pub mod moves;
 pub mod player;
 pub mod reporting;
+pub mod rules;
