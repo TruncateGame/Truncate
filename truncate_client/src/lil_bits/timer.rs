@@ -9,15 +9,17 @@ use crate::theming::Theme;
 
 pub struct TimerUI<'a> {
     player: &'a GamePlayerMessage,
+    current_time: instant::Duration,
     time: Duration,
     friend: bool,
     active: bool,
 }
 
 impl<'a> TimerUI<'a> {
-    pub fn new(player: &'a GamePlayerMessage) -> Self {
+    pub fn new(player: &'a GamePlayerMessage, current_time: instant::Duration) -> Self {
         Self {
             player,
+            current_time,
             time: Duration::default(),
             friend: true,
             active: true,
@@ -59,17 +61,7 @@ impl<'a> TimerUI<'a> {
     fn calculate_time(&mut self) -> String {
         match self.player.turn_starts_at {
             Some(next_turn) => {
-                // We have to go through the instant crate as
-                // most std time functions are not implemented
-                // in Rust's wasm targets.
-                // instant::SystemTime::now() conditionally uses
-                // a js function on wasm targets, and otherwise aliases
-                // to the std SystemTime type.
-                let secs = instant::SystemTime::now()
-                    .duration_since(instant::SystemTime::UNIX_EPOCH)
-                    .expect("We are living in the future");
-
-                let now = OffsetDateTime::from_unix_timestamp(secs.as_secs() as i64)
+                let now = OffsetDateTime::from_unix_timestamp(self.current_time.as_secs() as i64)
                     .expect("Should be a valid timestamp");
                 let elapsed = now - next_turn;
                 if elapsed.is_positive() {

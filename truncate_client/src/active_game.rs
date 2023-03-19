@@ -1,3 +1,4 @@
+use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
     messages::{GamePlayerMessage, PlayerMessage, RoomCode},
@@ -18,6 +19,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct ActiveGame {
+    pub current_time: Duration,
     pub room_code: RoomCode,
     pub players: Vec<GamePlayerMessage>,
     pub player_number: u64,
@@ -42,7 +44,11 @@ impl ActiveGame {
         board: Board,
         hand: Hand,
     ) -> Self {
+        let current_time = instant::SystemTime::now()
+            .duration_since(instant::SystemTime::UNIX_EPOCH)
+            .expect("We are living in the future");
         Self {
+            current_time,
             room_code,
             players,
             player_number,
@@ -60,6 +66,16 @@ impl ActiveGame {
     }
 
     pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) -> Option<PlayerMessage> {
+        // We have to go through the instant crate as
+        // most std time functions are not implemented
+        // in Rust's wasm targets.
+        // instant::SystemTime::now() conditionally uses
+        // a js function on wasm targets, and otherwise aliases
+        // to the std SystemTime type.
+        self.current_time = instant::SystemTime::now()
+            .duration_since(instant::SystemTime::UNIX_EPOCH)
+            .expect("We are living in the future");
+
         ui.label(format!("Playing in game {}", self.room_code));
 
         ui.separator();
@@ -75,7 +91,7 @@ impl ActiveGame {
             .iter()
             .find(|p| p.index != self.player_number as usize)
         {
-            TimerUI::new(opponent)
+            TimerUI::new(opponent, self.current_time)
                 .friend(false)
                 .active(opponent.index == self.next_player_number as usize)
                 .render(ui, theme);
@@ -90,7 +106,7 @@ impl ActiveGame {
                 .iter()
                 .find(|p| p.index == self.player_number as usize)
             {
-                TimerUI::new(player)
+                TimerUI::new(player, self.current_time)
                     .friend(true)
                     .active(player.index == self.next_player_number as usize)
                     .render(ui, theme);
