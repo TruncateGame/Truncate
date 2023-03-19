@@ -2,7 +2,7 @@ use eframe::{
     egui::{self, Layout},
     emath::Align,
 };
-use epaint::Stroke;
+use epaint::{Rect, Stroke};
 
 use crate::theming::Theme;
 
@@ -64,7 +64,7 @@ impl SquareUI {
         ui: &mut egui::Ui,
         theme: &Theme,
         contents: impl FnOnce(&mut egui::Ui, &Theme),
-    ) -> egui::Response {
+    ) -> (egui::Response, Rect) {
         let (rect, response) = ui.allocate_exact_size(
             egui::vec2(theme.grid_size, theme.grid_size),
             egui::Sense::hover(),
@@ -119,7 +119,7 @@ impl SquareUI {
                         &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
                         theme,
                     );
-                } else if self.empty {
+                } else if self.empty && !ui.ctx().memory(|mem| mem.is_anything_being_dragged()) {
                     ui.painter().rect_filled(
                         rect.shrink(theme.tile_margin),
                         theme.rounding,
@@ -129,6 +129,6 @@ impl SquareUI {
             }
         }
 
-        response
+        (response, rect)
     }
 }

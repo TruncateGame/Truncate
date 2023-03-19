@@ -8,7 +8,7 @@ use truncate_core::{
 use eframe::egui;
 use hashbrown::HashMap;
 
-use crate::theming::Theme;
+use crate::{theming::Theme, active_game::HoveredRegion};
 
 use super::{
     tile::{TilePlayer},
@@ -39,9 +39,10 @@ impl<'a> BoardUI<'a> {
         invert: bool, // TODO: Transpose to any rotation
         ui: &mut egui::Ui,
         theme: &Theme,
-    ) -> (Option<Option<Coordinate>>, Option<PlayerMessage>) {
+    ) -> (Option<Option<Coordinate>>, Option<PlayerMessage>, Option<HoveredRegion>) {
         let mut msg = None;
         let mut next_selection = None;
+        let mut hovered_square = None;
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
@@ -135,7 +136,7 @@ impl<'a> BoardUI<'a> {
                                 // TODO: Devise a way to show this tile in the place of the board_selected_tile
 
                                 let mut tile_clicked = false;
-                                let square_response = SquareUI::new()
+                                let (square_response, outer_rect) = SquareUI::new()
                                     .enabled(square.is_some())
                                     .empty(matches!(square, Some(Square::Empty)))
                                     .root(is_root)
@@ -147,6 +148,12 @@ impl<'a> BoardUI<'a> {
                                         }
                                     });
                                 if square.is_some() {
+                                    if ui.rect_contains_pointer(outer_rect) {
+                                        hovered_square = Some(HoveredRegion{
+                                            rect: outer_rect,
+                                            engaged: ui.rect_contains_pointer(square_response.rect),
+                                        });
+                                    }
                                     if square_response.clicked() || tile_clicked {
                                         if let Some(tile) = hand_selected_tile {
                                             msg =
@@ -185,6 +192,6 @@ impl<'a> BoardUI<'a> {
                 render(Box::new(self.board.squares.iter().enumerate()));
             }
         });
-        (next_selection, msg)
+        (next_selection, msg, hovered_square)
     }
 }

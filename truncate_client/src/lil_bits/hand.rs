@@ -3,7 +3,7 @@ use truncate_core::player::Hand;
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
 use epaint::Vec2;
 
-use crate::theming::Theme;
+use crate::{active_game::HoveredRegion, theming::Theme};
 
 use super::{tile::TilePlayer, SquareUI, TileUI};
 
@@ -29,6 +29,7 @@ impl<'a> HandUI<'a> {
         selected_tile: Option<usize>,
         ui: &mut egui::Ui,
         theme: &Theme,
+        board_tile_hovered: &Option<HoveredRegion>,
     ) -> (Option<Option<usize>>, Option<usize>) {
         let mut rearrange = None;
         let mut next_selection = None;
@@ -77,15 +78,35 @@ impl<'a> HandUI<'a> {
                                     LayerId::new(Order::Tooltip, tile_id.with("floating"));
                                 let response = ui
                                     .with_layer_id(layer_id, |ui| {
+                                        let hover_scale = if let Some(region) = board_tile_hovered {
+                                            region.rect.width() / theme.grid_size
+                                        } else {
+                                            1.0
+                                        };
                                         TileUI::new(*char, TilePlayer::Own)
                                             .active(self.active)
                                             .selected(false)
                                             .hovered(true)
-                                            .render(ui, theme);
+                                            .ghost(board_tile_hovered.is_some())
+                                            .render(ui, &theme.rescale(hover_scale));
                                     })
                                     .response;
 
-                                if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                                let snap_to_rect = board_tile_hovered
+                                    .as_ref()
+                                    .map(|region| {
+                                        if region.engaged {
+                                            Some(region.rect)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .flatten();
+
+                                if let Some(snap_rect) = snap_to_rect {
+                                    let delta = snap_rect.center() - response.rect.center();
+                                    ui.ctx().translate_layer(layer_id, delta);
+                                } else if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                                     let delta = pointer_pos - response.rect.center();
                                     let original_delta: Vec2 = ui.memory_mut(|mem| {
                                         mem.data.get_temp(tile_id).unwrap_or_default()

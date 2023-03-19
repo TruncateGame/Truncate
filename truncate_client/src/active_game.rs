@@ -1,3 +1,4 @@
+use epaint::{Pos2, Rect};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
@@ -17,7 +18,14 @@ use crate::{
     theming::Theme,
 };
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct HoveredRegion {
+    pub rect: Rect,
+    pub engaged: bool,
+}
+
 #[derive(Debug, Clone)]
+// TODO: Split this state struct up
 pub struct ActiveGame {
     pub current_time: Duration,
     pub room_code: RoomCode,
@@ -28,6 +36,7 @@ pub struct ActiveGame {
     pub hand: Hand,
     pub selected_tile_in_hand: Option<usize>,
     pub selected_square_on_board: Option<Coordinate>,
+    pub hovered_tile_on_board: Option<HoveredRegion>,
     pub playing_tile: Option<char>,
     pub error_msg: Option<String>,
     pub board_changes: HashMap<Coordinate, BoardChange>,
@@ -57,6 +66,7 @@ impl ActiveGame {
             hand,
             selected_tile_in_hand: None,
             selected_square_on_board: None,
+            hovered_tile_on_board: None,
             playing_tile: None,
             error_msg: None,
             board_changes: HashMap::new(),
@@ -114,7 +124,12 @@ impl ActiveGame {
 
             let (new_selection, released_tile) = HandUI::new(&mut self.hand)
                 .active(self.player_number == self.next_player_number)
-                .render(self.selected_tile_in_hand, ui, theme);
+                .render(
+                    self.selected_tile_in_hand,
+                    ui,
+                    theme,
+                    &self.hovered_tile_on_board,
+                );
 
             if let Some(new_selection) = new_selection {
                 self.selected_tile_in_hand = new_selection;
@@ -134,9 +149,14 @@ impl ActiveGame {
                     theme,
                 );
 
-                if let (Some(new_selection), _) = board_result {
+                if let (Some(new_selection), _, _) = board_result {
                     self.selected_square_on_board = new_selection;
                     self.selected_tile_in_hand = None;
+                }
+
+                // Update to store the latest size of the tiles on the board.
+                if board_result.2 != self.hovered_tile_on_board {
+                    self.hovered_tile_on_board = board_result.2;
                 }
 
                 board_result.1
