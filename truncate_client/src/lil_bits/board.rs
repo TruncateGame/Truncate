@@ -151,7 +151,6 @@ impl<'a> BoardUI<'a> {
                                     if ui.rect_contains_pointer(outer_rect) {
                                         hovered_square = Some(HoveredRegion{
                                             rect: outer_rect,
-                                            engaged: ui.rect_contains_pointer(square_response.rect),
                                         });
                                     }
                                     if square_response.clicked() || tile_clicked {
@@ -168,7 +167,7 @@ impl<'a> BoardUI<'a> {
                                             next_selection = Some(Some(coord));
                                         }
                                     } else if let Some(tile) = hand_released_tile {
-                                        if square_response.hovered() {
+                                        if ui.rect_contains_pointer(outer_rect) {
                                             msg = Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
                                             next_selection = Some(None);
                                         }

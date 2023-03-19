@@ -21,7 +21,6 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct HoveredRegion {
     pub rect: Rect,
-    pub engaged: bool,
 }
 
 #[derive(Debug, Clone)]

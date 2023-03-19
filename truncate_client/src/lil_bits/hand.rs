@@ -1,7 +1,7 @@
 use truncate_core::player::Hand;
 
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
-use epaint::Vec2;
+use epaint::{vec2, Vec2};
 
 use crate::{active_game::HoveredRegion, theming::Theme};
 
@@ -83,36 +83,48 @@ impl<'a> HandUI<'a> {
                                         } else {
                                             1.0
                                         };
+                                        let bouncy_scale = ui.ctx().animate_value_with_time(
+                                            layer_id.id,
+                                            hover_scale,
+                                            theme.animation_time,
+                                        );
                                         TileUI::new(*char, TilePlayer::Own)
                                             .active(self.active)
                                             .selected(false)
                                             .hovered(true)
                                             .ghost(board_tile_hovered.is_some())
-                                            .render(ui, &theme.rescale(hover_scale));
+                                            .render(ui, &theme.rescale(bouncy_scale));
                                     })
                                     .response;
 
-                                let snap_to_rect = board_tile_hovered
-                                    .as_ref()
-                                    .map(|region| {
-                                        if region.engaged {
-                                            Some(region.rect)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .flatten();
+                                let snap_to_rect =
+                                    board_tile_hovered.as_ref().map(|region| region.rect);
 
-                                if let Some(snap_rect) = snap_to_rect {
-                                    let delta = snap_rect.center() - response.rect.center();
-                                    ui.ctx().translate_layer(layer_id, delta);
+                                let delta = if let Some(snap_rect) = snap_to_rect {
+                                    snap_rect.center() - response.rect.center()
                                 } else if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                                     let delta = pointer_pos - response.rect.center();
                                     let original_delta: Vec2 = ui.memory_mut(|mem| {
                                         mem.data.get_temp(tile_id).unwrap_or_default()
                                     });
-                                    ui.ctx().translate_layer(layer_id, delta - original_delta);
-                                }
+                                    delta - original_delta
+                                } else {
+                                    vec2(0.0, 0.0)
+                                };
+
+                                let animated_delta = vec2(
+                                    ui.ctx().animate_value_with_time(
+                                        layer_id.id.with("delta_x"),
+                                        delta.x,
+                                        theme.animation_time,
+                                    ),
+                                    ui.ctx().animate_value_with_time(
+                                        layer_id.id.with("delta_y"),
+                                        delta.y,
+                                        theme.animation_time,
+                                    ),
+                                );
+                                ui.ctx().translate_layer(layer_id, animated_delta);
 
                                 ui.ctx()
                                     .output_mut(|out| out.cursor_icon = CursorIcon::Grabbing);

@@ -25,6 +25,7 @@ pub struct Theme {
     pub letter_size: f32,
     pub tile_margin: f32,
     pub rounding: f32,
+    pub animation_time: f32,
 }
 
 impl Default for Theme {
@@ -55,6 +56,7 @@ impl Default for Theme {
             letter_size: 30.0,
             tile_margin: 4.0,
             rounding: 10.0,
+            animation_time: 0.05,
         }
     }
 }
