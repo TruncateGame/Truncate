@@ -138,6 +138,8 @@ impl TileUI {
 
                 if ui.is_rect_visible(rect) {
                     if self.ghost {
+                        ui.painter()
+                            .rect_filled(rect, theme.rounding, theme.background);
                         ui.painter().rect_stroke(
                             rect,
                             theme.rounding,
