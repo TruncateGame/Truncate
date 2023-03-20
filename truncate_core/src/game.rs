@@ -1,6 +1,10 @@
 use time::{Duration, OffsetDateTime};
 
 use crate::bag::TileBag;
+use crate::board::{Coordinate, Square};
+use crate::error::GamePlayError;
+use crate::judge::Outcome;
+use crate::reporting::{BoardChange, BoardChangeAction};
 use crate::rules::GameRules;
 
 use super::board::Board;
@@ -18,8 +22,8 @@ pub struct Game {
     pub judge: Judge,
     pub recent_changes: Vec<Change>,
     pub started_at: Option<OffsetDateTime>,
-    next_player: usize,
-    winner: Option<usize>,
+    pub next_player: usize,
+    pub winner: Option<usize>,
 }
 
 impl Game {
@@ -58,7 +62,7 @@ impl Game {
         self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
     }
 
-    pub fn play_move(&mut self, next_move: Move) -> Result<(Vec<Change>, Option<usize>), String> {
+    pub fn play_turn(&mut self, next_move: Move) -> Result<(Vec<Change>, Option<usize>), String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
         }
@@ -78,17 +82,13 @@ impl Game {
             return Err("Player's turn has not yet started".into());
         }
 
-        self.recent_changes =
-            match self
-                .board
-                .make_move(next_move, &mut self.players, &mut self.bag, &self.judge)
-            {
-                Ok(changes) => changes,
-                Err(msg) => {
-                    println!("{}", msg);
-                    return Err(format!("Couldn't make move: {msg}")); // TODO: propogate error post polonius
-                }
-            };
+        self.recent_changes = match self.make_move(next_move) {
+            Ok(changes) => changes,
+            Err(msg) => {
+                println!("{}", msg);
+                return Err(format!("Couldn't make move: {msg}")); // TODO: propogate error post polonius
+            }
+        };
 
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
@@ -126,6 +126,122 @@ impl Game {
         self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
 
         Ok((self.recent_changes.clone(), None))
+    }
+
+    pub fn make_move(&mut self, game_move: Move) -> Result<Vec<Change>, GamePlayError> {
+        let mut changes = vec![];
+
+        match game_move {
+            Move::Place {
+                player,
+                tile,
+                position,
+            } => {
+                if let Square::Occupied(..) = self.board.get(position)? {
+                    return Err(GamePlayError::OccupiedPlace);
+                }
+
+                if position != self.board.get_root(player)?
+                    && !self
+                        .board
+                        .neighbouring_squares(position)
+                        .iter()
+                        .any(|&(_, square)| match square {
+                            Square::Occupied(p, _) => p == player,
+                            _ => false,
+                        })
+                {
+                    return Err(GamePlayError::NonAdjacentPlace);
+                }
+
+                changes.push(self.players[player].use_tile(tile, &mut self.bag)?);
+                changes.push(Change::Board(BoardChange {
+                    detail: self.board.set(position, player, tile)?,
+                    action: BoardChangeAction::Added,
+                }));
+                self.resolve_attack(player, position, &mut changes);
+                Ok(changes)
+            }
+            Move::Swap { player, positions } => self.board.swap(player, positions),
+        }
+    }
+
+    // If any attacking word is invalid, or all defending words are valid and stronger than the longest attacking words
+    //   - All attacking words die
+    //   - Attacking tiles are truncated
+    // Otherwise
+    //   - Weak and invalid defending words die
+    //   - Any remaining defending letters adjacent to the attacking tile die
+    //   - Defending tiles are truncated
+    fn resolve_attack(&mut self, player: usize, position: Coordinate, changes: &mut Vec<Change>) {
+        let (attackers, defenders) = self.board.collect_combanants(player, position);
+        let attacking_words = self
+            .board
+            .word_strings(&attackers)
+            .expect("Words were just found and should be valid");
+        let defending_words = self
+            .board
+            .word_strings(&defenders)
+            .expect("Words were just found and should be valid");
+
+        if let Some(battle) = self.judge.battle(attacking_words, defending_words) {
+            match battle.outcome.clone() {
+                Outcome::DefenderWins => {
+                    let squares = attackers.into_iter().flat_map(|word| word.into_iter());
+                    changes.extend(squares.flat_map(|square| {
+                        if let Ok(Square::Occupied(_, letter)) = self.board.get(square) {
+                            self.bag.return_tile(letter);
+                        }
+                        self.board.clear(square).map(|detail| {
+                            Change::Board(BoardChange {
+                                detail,
+                                action: BoardChangeAction::Defeated,
+                            })
+                        })
+                    }));
+                }
+                Outcome::AttackerWins(losers) => {
+                    let squares = losers.into_iter().flat_map(|defender_index| {
+                        let defender = defenders
+                            .get(defender_index)
+                            .expect("Losers should only contain valid squares");
+                        defender.into_iter()
+                    });
+                    changes.extend(squares.flat_map(|square| {
+                        if let Ok(Square::Occupied(_, letter)) = self.board.get(*square) {
+                            self.bag.return_tile(letter);
+                        }
+                        self.board.clear(*square).map(|detail| {
+                            Change::Board(BoardChange {
+                                detail,
+                                action: BoardChangeAction::Defeated,
+                            })
+                        })
+                    }));
+
+                    // explode adjacent letters belonging to opponents
+                    changes.extend(self.board.neighbouring_squares(position).iter().flat_map(
+                        |neighbour| {
+                            if let (coordinate, Square::Occupied(owner, letter)) = neighbour {
+                                if *owner != player {
+                                    self.bag.return_tile(*letter);
+                                    return self.board.clear(*coordinate).map(|detail| {
+                                        Change::Board(BoardChange {
+                                            detail,
+                                            action: BoardChangeAction::Exploded,
+                                        })
+                                    });
+                                }
+                            }
+                            None
+                        },
+                    ));
+                }
+            }
+            changes.push(Change::Battle(battle));
+        }
+
+        changes.extend(self.board.truncate(&mut self.bag).into_iter());
     }
 
     pub fn next(&self) -> usize {

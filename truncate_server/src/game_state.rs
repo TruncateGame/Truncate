@@ -186,7 +186,7 @@ impl GameState {
             .enumerate()
             .find(|(_, p)| p.socket == Some(player))
         {
-            match self.game.play_move(Move::Place {
+            match self.game.play_turn(Move::Place {
                 player: player_index,
                 tile,
                 position,
@@ -304,7 +304,7 @@ impl GameState {
             .enumerate()
             .find(|(_, p)| p.socket == Some(player))
         {
-            match self.game.play_move(Move::Swap {
+            match self.game.play_turn(Move::Swap {
                 player: player_index,
                 positions: [from, to],
             }) {

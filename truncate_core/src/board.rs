@@ -343,6 +343,25 @@ impl Board {
         }
     }
 
+    pub fn collect_combanants(
+        &self,
+        player: usize,
+        position: Coordinate,
+    ) -> (Vec<Vec<Coordinate>>, Vec<Vec<Coordinate>>) {
+        let attackers = self.get_words(position);
+        // Any neighbouring square belonging to another player is attacked. The words containing those squares are the defenders.
+        let defenders = self
+            .neighbouring_squares(position)
+            .iter()
+            .filter(|(_, square)| match square {
+                Square::Occupied(adjacent_player, _) => player != *adjacent_player,
+                _ => false,
+            })
+            .flat_map(|(position, _)| self.get_words(*position))
+            .collect();
+        (attackers, defenders)
+    }
+
     pub fn word_strings(
         &self,
         coordinates: &Vec<Vec<Coordinate>>,
