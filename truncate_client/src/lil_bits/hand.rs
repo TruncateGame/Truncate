@@ -1,3 +1,4 @@
+use instant::Duration;
 use truncate_core::player::Hand;
 
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
@@ -30,6 +31,7 @@ impl<'a> HandUI<'a> {
         ui: &mut egui::Ui,
         theme: &Theme,
         board_tile_hovered: &Option<HoveredRegion>,
+        current_time: Duration,
     ) -> (Option<Option<usize>>, Option<usize>) {
         let mut rearrange = None;
         let mut next_selection = None;
@@ -66,6 +68,7 @@ impl<'a> HandUI<'a> {
                                     let delta = pointer_pos - tile_response.rect.center();
                                     ui.memory_mut(|mem| {
                                         mem.data.insert_temp(tile_id, delta);
+                                        mem.data.insert_temp(tile_id, current_time);
                                     });
                                 }
                                 next_selection = Some(None);
@@ -74,8 +77,13 @@ impl<'a> HandUI<'a> {
                             }
 
                             if is_being_dragged {
-                                let layer_id =
-                                    LayerId::new(Order::Tooltip, tile_id.with("floating"));
+                                let drag_id: Duration = ui
+                                    .memory_mut(|mem| mem.data.get_temp(tile_id))
+                                    .unwrap_or_default();
+                                let layer_id = LayerId::new(
+                                    Order::Tooltip,
+                                    tile_id.with("floating").with(drag_id),
+                                );
                                 let response = ui
                                     .with_layer_id(layer_id, |ui| {
                                         let hover_scale = if let Some(region) = board_tile_hovered {

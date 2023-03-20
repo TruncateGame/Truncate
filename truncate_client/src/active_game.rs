@@ -128,6 +128,7 @@ impl ActiveGame {
                     ui,
                     theme,
                     &self.hovered_tile_on_board,
+                    self.current_time,
                 );
 
             if let Some(new_selection) = new_selection {
