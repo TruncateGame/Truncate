@@ -6,6 +6,7 @@ use truncate_core::{
     moves::Move,
     player::Hand,
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, HandChange},
+    rules::Visibility,
 };
 
 use crate::definitions::Definitions;
@@ -41,39 +42,20 @@ pub struct Player {
     pub socket: Option<SocketAddr>,
 }
 
-// TODO: Move this elsewhere, and make it a struct of rules
-pub enum GameMode {
-    Standard,
-    FogOfWar,
-}
-
 pub struct GameState {
     pub game_id: String,
     pub players: Vec<Player>,
     pub game: Game,
-    pub game_mode: GameMode,
 }
 
 impl GameState {
     pub fn new(game_id: String) -> Self {
         let game = Game::new(9, 9);
-        // let mut game = Game::new(13, 13);
-
-        // game.board.squares[7][6] = None;
-
-        // game.board.squares[7][8] = None;
-        // game.board.squares[7][10] = None;
-        // game.board.squares[7][12] = None;
-
-        // game.board.squares[7][4] = None;
-        // game.board.squares[7][2] = None;
-        // game.board.squares[7][0] = None;
 
         Self {
             game_id,
             players: vec![],
             game,
-            game_mode: GameMode::Standard,
         }
     }
 
@@ -98,9 +80,9 @@ impl GameState {
             .roots
             .get(player_index)
             .expect("Player should have a root square");
-        match self.game_mode {
-            GameMode::Standard => self.game.board.clone(),
-            GameMode::FogOfWar => self.game.board.fog_of_war(*root),
+        match self.game.rules.visibility {
+            Visibility::Standard => self.game.board.clone(),
+            Visibility::FogOfWar => self.game.board.fog_of_war(*root),
         }
     }
 
@@ -131,9 +113,9 @@ impl GameState {
                     {
                         return true;
                     }
-                    match self.game_mode {
-                        GameMode::Standard => true,
-                        GameMode::FogOfWar => match visible_board.get(*coordinate) {
+                    match self.game.rules.visibility {
+                        Visibility::Standard => true,
+                        Visibility::FogOfWar => match visible_board.get(*coordinate) {
                             Ok(Square::Occupied(_, _)) => true,
                             _ => false,
                         },
@@ -204,7 +186,7 @@ impl GameState {
             .enumerate()
             .find(|(_, p)| p.socket == Some(player))
         {
-            match self.game.play_move(Move::Place {
+            match self.game.play_turn(Move::Place {
                 player: player_index,
                 tile,
                 position,
@@ -322,7 +304,7 @@ impl GameState {
             .enumerate()
             .find(|(_, p)| p.socket == Some(player))
         {
-            match self.game.play_move(Move::Swap {
+            match self.game.play_turn(Move::Swap {
                 player: player_index,
                 positions: [from, to],
             }) {
