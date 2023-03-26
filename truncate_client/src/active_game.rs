@@ -84,96 +84,119 @@ impl ActiveGame {
         self.current_time = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("We are living in the future");
+        let mut player_message = None;
 
-        ui.label(format!("Playing in game {}", self.room_code));
+        ui.allocate_ui_with_layout(
+            ui.available_size(),
+            Layout::right_to_left(Align::TOP),
+            |ui| {
+                let mut sidebar_area = ui.available_size();
+                sidebar_area.x -= sidebar_area.x * 0.7;
 
-        ui.separator();
+                ui.allocate_ui_with_layout(sidebar_area, Layout::top_down(Align::TOP), |ui| {
+                    ui.label(format!("Playing in game {}", self.room_code));
 
-        if let Some(error) = &self.error_msg {
-            ui.label(error);
-        } else {
-            ui.label("");
-        }
+                    ui.separator();
 
-        if let Some(opponent) = self
-            .players
-            .iter()
-            .find(|p| p.index != self.player_number as usize)
-        {
-            TimerUI::new(opponent, self.current_time)
-                .friend(false)
-                .active(opponent.index == self.next_player_number as usize)
-                .render(ui, theme);
-        }
+                    if let Some(error) = &self.error_msg {
+                        ui.label(error);
+                        ui.separator();
+                    }
 
-        let mut remaining_area = ui.available_size();
-        remaining_area.y -= theme.grid_size;
+                    if self.battles.is_empty() {
+                        ui.label("No battles yet.");
+                    } else {
+                        for battle in self.battles.iter().rev() {
+                            ui.label(format!("{battle}"));
+                            ui.separator();
+                        }
+                    }
+                });
 
-        ui.allocate_ui_with_layout(remaining_area, Layout::bottom_up(Align::LEFT), |ui| {
-            if let Some(player) = self
-                .players
-                .iter()
-                .find(|p| p.index == self.player_number as usize)
-            {
-                TimerUI::new(player, self.current_time)
-                    .friend(true)
-                    .active(player.index == self.next_player_number as usize)
-                    .render(ui, theme);
-            }
+                ui.allocate_ui_with_layout(
+                    ui.available_size(),
+                    Layout::top_down(Align::TOP),
+                    |ui| {
+                        if let Some(opponent) = self
+                            .players
+                            .iter()
+                            .find(|p| p.index != self.player_number as usize)
+                        {
+                            TimerUI::new(opponent, self.current_time)
+                                .friend(false)
+                                .active(opponent.index == self.next_player_number as usize)
+                                .render(ui, theme);
+                        }
 
-            let (new_selection, released_tile) = HandUI::new(&mut self.hand)
-                .active(self.player_number == self.next_player_number)
-                .render(
-                    self.selected_tile_in_hand,
-                    ui,
-                    theme,
-                    &self.hovered_tile_on_board,
-                    self.current_time,
-                );
+                        let mut remaining_area = ui.available_size();
+                        remaining_area.y -= theme.grid_size;
 
-            if let Some(new_selection) = new_selection {
-                self.selected_tile_in_hand = new_selection;
-                self.selected_square_on_board = None;
-            }
+                        ui.allocate_ui_with_layout(
+                            remaining_area,
+                            Layout::bottom_up(Align::LEFT),
+                            |ui| {
+                                if let Some(player) = self
+                                    .players
+                                    .iter()
+                                    .find(|p| p.index == self.player_number as usize)
+                                {
+                                    TimerUI::new(player, self.current_time)
+                                        .friend(true)
+                                        .active(player.index == self.next_player_number as usize)
+                                        .render(ui, theme);
+                                }
 
-            ui.allocate_ui_with_layout(ui.available_size(), Layout::top_down(Align::LEFT), |ui| {
-                let board_result = BoardUI::new(&self.board).render(
-                    self.selected_tile_in_hand,
-                    released_tile,
-                    self.selected_square_on_board,
-                    &self.hand,
-                    &self.board_changes,
-                    self.player_number,
-                    self.player_number == 0,
-                    ui,
-                    theme,
-                );
+                                let (new_selection, released_tile) = HandUI::new(&mut self.hand)
+                                    .active(self.player_number == self.next_player_number)
+                                    .render(
+                                        self.selected_tile_in_hand,
+                                        ui,
+                                        theme,
+                                        &self.hovered_tile_on_board,
+                                        self.current_time,
+                                    );
 
-                if let (Some(new_selection), _, _) = board_result {
-                    self.selected_square_on_board = new_selection;
-                    self.selected_tile_in_hand = None;
-                }
+                                if let Some(new_selection) = new_selection {
+                                    self.selected_tile_in_hand = new_selection;
+                                    self.selected_square_on_board = None;
+                                }
 
-                // Update to store the latest size of the tiles on the board.
-                if board_result.2 != self.hovered_tile_on_board {
-                    self.hovered_tile_on_board = board_result.2;
-                }
+                                ui.allocate_ui_with_layout(
+                                    ui.available_size(),
+                                    Layout::top_down(Align::LEFT),
+                                    |ui| {
+                                        let board_result = BoardUI::new(&self.board).render(
+                                            self.selected_tile_in_hand,
+                                            released_tile,
+                                            self.selected_square_on_board,
+                                            &self.hand,
+                                            &self.board_changes,
+                                            self.player_number,
+                                            self.player_number == 0,
+                                            ui,
+                                            theme,
+                                        );
 
-                board_result.1
-            })
-            .inner
-        })
-        .inner
+                                        if let (Some(new_selection), _, _) = board_result {
+                                            self.selected_square_on_board = new_selection;
+                                            self.selected_tile_in_hand = None;
+                                        }
 
-        // if self.battles.is_empty() {
-        //     ui.label("No battles yet.");
-        // } else {
-        //     for battle in &self.battles {
-        //         ui.label(format!("{battle}"));
-        //         ui.separator();
-        //     }
-        // }
+                                        // Update to store the latest size of the tiles on the board.
+                                        if board_result.2 != self.hovered_tile_on_board {
+                                            self.hovered_tile_on_board = board_result.2;
+                                        }
 
-        // board_result.1
+                                        player_message = board_result.1;
+                                    },
+                                )
+                            },
+                        );
+                    },
+                )
+            },
+        );
+
+        player_message
     }
 }
