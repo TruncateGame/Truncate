@@ -241,7 +241,13 @@ impl Game {
             changes.push(Change::Battle(battle));
         }
 
-        changes.extend(self.board.truncate(&mut self.bag).into_iter());
+        match self.rules.truncation {
+            rules::Truncation::Root => {
+                changes.extend(self.board.truncate(&mut self.bag).into_iter())
+            }
+            rules::Truncation::Larger => unimplemented!(),
+            rules::Truncation::None => {}
+        }
     }
 
     pub fn next(&self) -> usize {
