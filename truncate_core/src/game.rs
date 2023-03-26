@@ -42,12 +42,19 @@ impl Game {
     }
 
     pub fn add_player(&mut self, name: String) {
+        let time_allowance = match self.rules.timing {
+            rules::Timing::PerPlayer {
+                time_allowance,
+                overtime_rule: _,
+            } => time_allowance,
+            _ => unimplemented!(),
+        };
         self.players.push(Player::new(
             name,
             self.players.len(),
             7,
             &mut self.bag,
-            Duration::new(600, 0), // TODO: un-hardcode the duration of turns
+            Duration::new(time_allowance as i64, 0), // TODO: un-hardcode the duration of turns
         ));
     }
 
