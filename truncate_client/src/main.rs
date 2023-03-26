@@ -7,8 +7,8 @@ mod native_comms;
 mod theming;
 
 use eframe::egui;
+use futures::channel::mpsc;
 use tokio::runtime::Builder;
-use tokio::sync::mpsc;
 
 use game_client::GameClient;
 
@@ -23,8 +23,8 @@ fn main() {
         .build()
         .unwrap();
 
-    let (tx_game, rx_game) = mpsc::unbounded_channel();
-    let (tx_player, rx_player) = mpsc::unbounded_channel();
+    let (tx_game, rx_game) = mpsc::channel(2048);
+    let (tx_player, rx_player) = mpsc::channel(2048);
 
     tokio_runtime.spawn(native_comms::connect(connect_addr, tx_game, rx_player));
 
