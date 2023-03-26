@@ -9,7 +9,6 @@ edition = "2021"
 oorandom = "11"
 strum = "0.24"
 strum_macros = "0.24"
-clearscreen = "1.0.10"
 anyhow = "1.0"
 thiserror = "1.0"
 serde = { version = "1", features = ["derive"] }

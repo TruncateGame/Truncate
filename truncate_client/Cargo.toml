@@ -3,14 +3,12 @@ name = "truncate_client"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-tokio-stream = "0.1"
-tokio-tungstenite = "0.18"
-tungstenite = { version = "0.18", default-features = false }
-eframe = "0.21"
+eframe = "0.21.3"
 epaint = { version = "0.21", features = ["color-hex"] }
 color-hex = "0.2.0"
 futures-util = { version = "0.3", default-features = false, features = [
@@ -21,3 +19,18 @@ serde_json = "1"
 truncate_core = { path = "../truncate_core" }
 hashbrown = "0.13"
 time = { version = "0.3", features = ["serde"] }
+instant = "0.1"
+futures = "0.3"
+
+# native:
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.18"
+tungstenite = { version = "0.18", default-features = false }
+
+# web:
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+ws_stream_wasm = "0.7"
+console_error_panic_hook = "0.1.6"
+tracing-wasm = "0.2"
+wasm-bindgen-futures = "0.4"

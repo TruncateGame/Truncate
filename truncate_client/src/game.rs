@@ -29,6 +29,15 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         frame_history: _,
     } = client;
 
+    let mut send = |msg| {
+        tx_player.try_send(msg).unwrap();
+    };
+
+    let mut recv = || match rx_game.try_next() {
+        Ok(Some(msg)) => Ok(msg),
+        _ => Err(()),
+    };
+
     if matches!(game_status, GameStatus::None(_)) {
         ui.horizontal(|ui| {
             ui.label("Name: ");
@@ -45,17 +54,13 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         GameStatus::None(room_code) => {
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
-                tx_player
-                    .send(PlayerMessage::NewGame(name.clone()))
-                    .unwrap();
+                send(PlayerMessage::NewGame(name.clone()));
                 new_game_status = Some(GameStatus::PendingCreate);
             }
             ui.horizontal(|ui| {
                 ui.text_edit_singleline(room_code);
                 if ui.button("Join Game").clicked() {
-                    tx_player
-                        .send(PlayerMessage::JoinGame(room_code.clone(), name.clone()))
-                        .unwrap();
+                    send(PlayerMessage::JoinGame(room_code.clone(), name.clone()));
                     new_game_status = Some(GameStatus::PendingJoin(room_code.clone()));
                 }
             });
@@ -71,16 +76,16 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             ui.label(format!("In lobby: {}", players.join(", ")));
             ui.label("Waiting for the game to start . . .");
             if ui.button("Start game").clicked() {
-                tx_player.send(PlayerMessage::StartGame).unwrap();
+                send(PlayerMessage::StartGame);
             }
             // TODO: Make a different board ui for the level editor
             if let Some(msg) = EditorUI::new(board).render(true, ui, theme) {
-                tx_player.send(msg).unwrap();
+                send(msg);
             }
         }
         GameStatus::Active(game) => {
             if let Some(msg) = game.render(ui, theme) {
-                tx_player.send(msg).unwrap();
+                send(msg);
             }
         }
         GameStatus::Concluded(game, winner) => {
@@ -94,7 +99,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         *game_status = new_game_status;
     }
 
-    while let Ok(msg) = rx_game.try_recv() {
+    while let Ok(msg) = recv() {
         match msg {
             GameMessage::JoinedLobby(id, players, board) => {
                 *game_status = GameStatus::PendingStart(id.to_uppercase(), players, board)

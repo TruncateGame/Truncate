@@ -1,14 +1,14 @@
+use futures::channel::mpsc::{Receiver, Sender};
+use futures::SinkExt;
 use futures_util::{future, pin_mut, StreamExt};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 use truncate_core::messages::{GameMessage, PlayerMessage};
 
 pub async fn connect(
     connect_addr: String,
-    tx_game: UnboundedSender<GameMessage>,
-    rx_player: UnboundedReceiver<PlayerMessage>,
+    tx_game: Sender<GameMessage>,
+    rx_player: Receiver<PlayerMessage>,
 ) {
     println!("Connecting to {connect_addr}");
 
@@ -26,13 +26,15 @@ pub async fn connect(
                     .expect("Was not valid JSON");
             println!("Received {parsed_msg}");
             tx_game
+                .clone()
                 .send(parsed_msg)
+                .await
                 .expect("Message should have been able to go into the unbounded channel");
         })
     };
 
     let player_messages = {
-        UnboundedReceiverStream::new(rx_player)
+        rx_player
             .map(|msg| {
                 println!("Sending {msg}");
                 Ok(Message::Text(serde_json::to_string(&msg).unwrap()))
