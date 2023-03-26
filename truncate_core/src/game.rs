@@ -52,7 +52,7 @@ impl Game {
         self.players.push(Player::new(
             name,
             self.players.len(),
-            7,
+            self.rules.hand_size,
             &mut self.bag,
             Duration::new(time_allowance as i64, 0), // TODO: un-hardcode the duration of turns
         ));
