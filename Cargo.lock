@@ -2627,7 +2627,6 @@ dependencies = [
  "serde_json",
  "time",
  "tokio",
- "tokio-stream",
  "tokio-tungstenite",
  "tracing-wasm",
  "truncate_core",

@@ -1,16 +1,6 @@
-#[cfg(target_arch = "wasm32")]
 use futures::channel::mpsc::{Receiver, Sender};
-#[cfg(target_arch = "wasm32")]
 type R = Receiver<GameMessage>;
-#[cfg(target_arch = "wasm32")]
 type S = Sender<PlayerMessage>;
-
-#[cfg(not(target_arch = "wasm32"))]
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-#[cfg(not(target_arch = "wasm32"))]
-type R = UnboundedReceiver<GameMessage>;
-#[cfg(not(target_arch = "wasm32"))]
-type S = UnboundedSender<PlayerMessage>;
 
 use super::debug;
 use super::theming::Theme;

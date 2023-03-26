@@ -29,29 +29,14 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         frame_history: _,
     } = client;
 
-    // TODO: The next four blocks are due to the fact that we're
-    // using futures::channel::mpsc on wasm, and tokio::sync::mpsc
-    // on native. We should probably look at simply _always_ using
-    // futures::channel::mpsc so that we don't have to do all of this.
-
-    #[cfg(target_arch = "wasm32")]
     let mut send = |msg| {
         tx_player.try_send(msg).unwrap();
     };
 
-    #[cfg(target_arch = "wasm32")]
     let mut recv = || match rx_game.try_next() {
         Ok(Some(msg)) => Ok(msg),
         _ => Err(()),
     };
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let send = |msg| {
-        tx_player.send(msg).unwrap();
-    };
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let mut recv = || rx_game.try_recv();
 
     if matches!(game_status, GameStatus::None(_)) {
         ui.horizontal(|ui| {
