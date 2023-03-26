@@ -28,16 +28,17 @@ pub struct Game {
 
 impl Game {
     pub fn new(width: usize, height: usize) -> Self {
+        let rules = GameRules::default();
         Self {
-            rules: GameRules::default(),
             players: Vec::with_capacity(2),
             board: Board::new(width, height),
-            bag: TileBag::default(),
+            bag: TileBag::new(&rules.tile_distribution),
             judge: Judge::default(),
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
             winner: None,
+            rules,
         }
     }
 
