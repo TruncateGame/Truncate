@@ -192,7 +192,10 @@ impl Game {
             .word_strings(&defenders)
             .expect("Words were just found and should be valid");
 
-        if let Some(battle) = self.judge.battle(attacking_words, defending_words) {
+        if let Some(battle) =
+            self.judge
+                .battle(attacking_words, defending_words, &self.rules.battle_rules)
+        {
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
                     let squares = attackers.into_iter().flat_map(|word| word.into_iter());
