@@ -108,6 +108,18 @@ impl<'a> BoardUI<'a> {
                                                         .truncated(true)
                                                 },
                                             ),
+                                        (BoardChangeAction::Exploded, None) =>
+                                            match change.detail.square {
+                                                Square::Empty => None,
+                                                Square::Occupied(player, char) => Some((player, char)),
+                                            }
+                                            .map(
+                                                |(player, char)| {
+                                                    TileUI::new(char, tile_player(&player))
+                                                        .selected(is_selected)
+                                                        .defeated(true)
+                                                },
+                                            ),
                                         _ => {
                                             eprintln!("Board message received that seems incompatible with the board");
                                             eprintln!("{change}");
