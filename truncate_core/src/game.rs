@@ -4,8 +4,8 @@ use crate::bag::TileBag;
 use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
 use crate::judge::Outcome;
-use crate::reporting::{BoardChange, BoardChangeAction};
-use crate::rules::GameRules;
+use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, HandChange};
+use crate::rules::{self, GameRules};
 
 use super::board::Board;
 use super::judge::Judge;
@@ -62,7 +62,7 @@ impl Game {
         self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
     }
 
-    pub fn play_turn(&mut self, next_move: Move) -> Result<(Vec<Change>, Option<usize>), String> {
+    pub fn play_turn(&mut self, next_move: Move) -> Result<Option<usize>, String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
         }
@@ -92,7 +92,7 @@ impl Game {
 
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
-            return Ok((self.recent_changes.clone(), Some(winner)));
+            return Ok(Some(winner));
         }
 
         self.next_player = (self.next_player + 1) % self.board.get_orientations().len(); // TODO: remove this hacky way to get the number of players
@@ -125,7 +125,7 @@ impl Game {
         self.players[player].turn_starts_at = None;
         self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
 
-        Ok((self.recent_changes.clone(), None))
+        Ok(None)
     }
 
     pub fn make_move(&mut self, game_move: Move) -> Result<Vec<Change>, GamePlayError> {
@@ -246,5 +246,18 @@ impl Game {
 
     pub fn next(&self) -> usize {
         self.next_player
+    }
+
+    pub fn filter_game_to_player(&self, player_index: usize) -> (Board, Vec<Change>) {
+        let visible_board = self
+            .board
+            .filter_to_player(player_index, &self.rules.visibility);
+        let visible_changes = reporting::filter_to_player(
+            &self.recent_changes,
+            &visible_board,
+            player_index,
+            &self.rules.visibility,
+        );
+        (visible_board, visible_changes)
     }
 }

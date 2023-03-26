@@ -8,6 +8,7 @@ use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
 use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::reporting::Change;
+use crate::rules;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -52,6 +53,11 @@ pub struct Board {
                                   // TODO: Move orientations off the Board and have them tagged against specific players
 }
 
+// TODO: provide a way to validate the board
+//  - the empty squares are fully connected
+//  - there are at least 2 roots
+//  - the roots are at empty squares
+
 impl Board {
     pub fn new(width: usize, height: usize) -> Self {
         // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
@@ -77,6 +83,18 @@ impl Board {
             roots,
             orientations: vec![Direction::North, Direction::South],
         }
+    }
+
+    pub fn get_orientations(&self) -> &Vec<Direction> {
+        &self.orientations
+    }
+
+    pub fn width(&self) -> usize {
+        self.squares[0].len()
+    }
+
+    pub fn height(&self) -> usize {
+        self.squares.len()
     }
 
     /// Trims edges containing only empty squares
@@ -124,11 +142,6 @@ impl Board {
         }
     }
 
-    // TODO: generic board constructor that accepts a grid of squares with arbitrary values, as long as:
-    //  - the empty squares are fully connected
-    //  - there are at least 2 roots
-    //  - the roots are at empty squares
-
     pub fn get(&self, position: Coordinate) -> Result<Square, GamePlayError> {
         match self
             .squares
@@ -168,6 +181,40 @@ impl Board {
         }
     }
 
+    pub fn swap(
+        &mut self,
+        player: usize,
+        positions: [Coordinate; 2],
+    ) -> Result<Vec<Change>, GamePlayError> {
+        if positions[0] == positions[1] {
+            return Err(GamePlayError::SelfSwap);
+        }
+
+        let mut tiles = ['&'; 2];
+        for (i, pos) in positions.iter().enumerate() {
+            match self.get(*pos)? {
+                Square::Empty => return Err(GamePlayError::UnoccupiedSwap),
+                Square::Occupied(owner, tile) => {
+                    if owner != player {
+                        return Err(GamePlayError::UnownedSwap);
+                    }
+                    tiles[i] = tile;
+                }
+            };
+        }
+
+        Ok(vec![
+            Change::Board(BoardChange {
+                detail: self.set(positions[0], player, tiles[1])?,
+                action: BoardChangeAction::Swapped,
+            }),
+            Change::Board(BoardChange {
+                detail: self.set(positions[1], player, tiles[0])?,
+                action: BoardChangeAction::Swapped,
+            }),
+        ])
+    }
+
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
     pub fn clear(&mut self, position: Coordinate) -> Option<BoardChangeDetail> {
         if let Some(Some(square)) = self
@@ -187,6 +234,21 @@ impl Board {
         None
     }
 
+    pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
+        Direction::iter()
+            .filter_map(|delta| {
+                let neighbour_coordinate = position.add(*delta);
+                if let Ok(square) = self.get(neighbour_coordinate) {
+                    Some((neighbour_coordinate, square))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+
+impl Board {
     pub fn truncate(&mut self, bag: &mut TileBag) -> Vec<Change> {
         let mut attatched = HashSet::new();
         for root in self.roots.iter() {
@@ -224,19 +286,6 @@ impl Board {
         }
     }
 
-    pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
-        Direction::iter()
-            .filter_map(|delta| {
-                let neighbour_coordinate = position.add(*delta);
-                if let Ok(square) = self.get(neighbour_coordinate) {
-                    Some((neighbour_coordinate, square))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
     // TODO: return iterator or rename since it doesn't matter that this is depth first when we return a HashSet
     fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
         let mut visited = HashSet::new();
@@ -256,40 +305,6 @@ impl Board {
 
         dfs(self, position, &mut visited);
         visited
-    }
-
-    pub fn swap(
-        &mut self,
-        player: usize,
-        positions: [Coordinate; 2],
-    ) -> Result<Vec<Change>, GamePlayError> {
-        if positions[0] == positions[1] {
-            return Err(GamePlayError::SelfSwap);
-        }
-
-        let mut tiles = ['&'; 2];
-        for (i, pos) in positions.iter().enumerate() {
-            match self.get(*pos)? {
-                Square::Empty => return Err(GamePlayError::UnoccupiedSwap),
-                Square::Occupied(owner, tile) => {
-                    if owner != player {
-                        return Err(GamePlayError::UnownedSwap);
-                    }
-                    tiles[i] = tile;
-                }
-            };
-        }
-
-        Ok(vec![
-            Change::Board(BoardChange {
-                detail: self.set(positions[0], player, tiles[1])?,
-                action: BoardChangeAction::Swapped,
-            }),
-            Change::Board(BoardChange {
-                detail: self.set(positions[1], player, tiles[0])?,
-                action: BoardChangeAction::Swapped,
-            }),
-        ])
     }
 
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
@@ -395,16 +410,25 @@ impl Board {
         }
     }
 
-    pub fn get_orientations(&self) -> &Vec<Direction> {
-        &self.orientations
-    }
-
-    pub fn width(&self) -> usize {
-        self.squares[0].len()
-    }
-
-    pub fn height(&self) -> usize {
-        self.squares.len()
+    // Get the row just beside the edge
+    // TODO: Consider deleting once explicit win squares are implemented
+    pub fn get_near_edge(&self, side: Direction) -> Vec<Coordinate> {
+        match side {
+            Direction::North => (0..self.width()).map(|x| Coordinate { x, y: 1 }).collect(),
+            Direction::South => (0..self.width())
+                .map(|x| Coordinate {
+                    x,
+                    y: (self.height() - 2),
+                })
+                .collect(),
+            Direction::East => (0..self.width())
+                .map(|y| Coordinate {
+                    x: (self.width() - 2),
+                    y,
+                })
+                .collect(),
+            Direction::West => (0..self.width()).map(|y| Coordinate { x: 1, y }).collect(),
+        }
     }
 
     pub fn fog_of_war(&self, root: Coordinate) -> Self {
@@ -455,46 +479,19 @@ impl Board {
         new_board
     }
 
-    // Get the row just beside the edge
-    pub fn get_near_edge(&self, side: Direction) -> Vec<Coordinate> {
-        match side {
-            Direction::North => (0..self.width()).map(|x| Coordinate { x, y: 1 }).collect(),
-            Direction::South => (0..self.width())
-                .map(|x| Coordinate {
-                    x,
-                    y: (self.height() - 2),
-                })
-                .collect(),
-            Direction::East => (0..self.width())
-                .map(|y| Coordinate {
-                    x: (self.width() - 2),
-                    y,
-                })
-                .collect(),
-            Direction::West => (0..self.width()).map(|y| Coordinate { x: 1, y }).collect(),
-        }
-    }
-
-    pub fn render_squares<F: Fn(&Square) -> String, G: Fn(usize, String) -> String>(
+    pub(crate) fn filter_to_player(
         &self,
-        square_renderer: F,
-        line_transform: G,
-    ) -> String {
-        self.squares
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|opt| match opt {
-                        Some(sq) => square_renderer(sq),
-                        None => " ".to_string(),
-                    })
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            })
-            .enumerate()
-            .map(|(line_number, line)| line_transform(line_number, line))
-            .collect::<Vec<String>>()
-            .join("\n")
+        player_index: usize,
+        visibility: &rules::Visibility,
+    ) -> Self {
+        let root = self
+            .roots
+            .get(player_index)
+            .expect("Player should have a root square");
+        match visibility {
+            rules::Visibility::Standard => self.clone(),
+            rules::Visibility::FogOfWar => self.fog_of_war(*root),
+        }
     }
 }
 
@@ -509,7 +506,21 @@ impl fmt::Display for Board {
         write!(
             f,
             "{}\nRoots: {}",
-            self.render_squares(|sq| sq.to_string(), |_, s| s),
+            self.squares
+                .iter()
+                .map(|row| {
+                    row.iter()
+                        .map(|opt| match opt {
+                            Some(sq) => sq.to_string(),
+                            None => " ".to_string(),
+                        })
+                        .collect::<Vec<String>>()
+                        .join(" ")
+                })
+                .enumerate()
+                .map(|(line_number, line)| line)
+                .collect::<Vec<String>>()
+                .join("\n"),
             self.roots
                 .iter()
                 .map(|r| format!("{r}"))
