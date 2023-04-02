@@ -170,7 +170,9 @@ impl Game {
                 self.resolve_attack(player, position, &mut changes);
                 Ok(changes)
             }
-            Move::Swap { player, positions } => self.board.swap(player, positions),
+            Move::Swap { player, positions } => {
+                self.board.swap(player, positions, &self.rules.swapping)
+            }
         }
     }
 

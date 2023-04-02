@@ -185,9 +185,26 @@ impl Board {
         &mut self,
         player: usize,
         positions: [Coordinate; 2],
+        swap_rules: &rules::Swapping,
     ) -> Result<Vec<Change>, GamePlayError> {
         if positions[0] == positions[1] {
             return Err(GamePlayError::SelfSwap);
+        }
+
+        match swap_rules {
+            rules::Swapping::Contiguous => {
+                if self
+                    .depth_first_search(positions[0])
+                    .get(&positions[1])
+                    .is_none()
+                {
+                    return Err(GamePlayError::DisjointSwap);
+                }
+            }
+            rules::Swapping::Universal => { /* All swaps are allowed */ }
+            rules::Swapping::None => {
+                return Err(GamePlayError::NoSwapping);
+            }
         }
 
         let mut tiles = ['&'; 2];
@@ -992,7 +1009,7 @@ pub mod tests {
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'a')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(
-            b.swap(0, [c0_1, c1_1]),
+            b.swap(0, [c0_1, c1_1], &rules::Swapping::Contiguous),
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
@@ -1012,9 +1029,72 @@ pub mod tests {
         );
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'a')));
-        assert_eq!(b.swap(0, [c0_1, c0_1]), Err(GamePlayError::SelfSwap));
-        assert_eq!(b.swap(0, [c0_1, c2_1]), Err(GamePlayError::UnownedSwap));
-        assert_eq!(b.swap(1, [c0_1, c1_1]), Err(GamePlayError::UnownedSwap));
+        assert_eq!(
+            b.swap(0, [c0_1, c0_1], &rules::Swapping::Contiguous),
+            Err(GamePlayError::SelfSwap)
+        );
+        assert_eq!(
+            b.swap(0, [c0_1, c2_1], &rules::Swapping::Contiguous),
+            Err(GamePlayError::DisjointSwap)
+        );
+        assert_eq!(
+            b.swap(0, [c0_1, c2_1], &rules::Swapping::Universal),
+            Err(GamePlayError::UnownedSwap)
+        );
+        assert_eq!(
+            b.swap(1, [c0_1, c1_1], &rules::Swapping::Contiguous),
+            Err(GamePlayError::UnownedSwap)
+        );
+    }
+
+    #[test]
+    fn disjoint_swapping() {
+        let mut b = from_string(
+            [
+                "_ _ C _ _",
+                "_ _ R _ _",
+                "_ _ _ _ _",
+                "_ _ S _ _",
+                "_ _ S _ _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 0, y: 0 }],
+            vec![Direction::South],
+        )
+        .unwrap();
+
+        let pos1 = Coordinate { x: 2, y: 1 };
+        let pos2 = Coordinate { x: 2, y: 3 };
+
+        assert_eq!(
+            b.swap(0, [pos1, pos2], &rules::Swapping::None),
+            Err(GamePlayError::NoSwapping)
+        );
+
+        assert_eq!(
+            b.swap(0, [pos1, pos2], &rules::Swapping::Contiguous),
+            Err(GamePlayError::DisjointSwap)
+        );
+
+        assert_eq!(
+            b.swap(0, [pos1, pos2], &rules::Swapping::Universal),
+            Ok(vec![
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
+                        square: Square::Occupied(0, 'S'),
+                        coordinate: pos1,
+                    },
+                    action: BoardChangeAction::Swapped
+                }),
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
+                        square: Square::Occupied(0, 'R'),
+                        coordinate: pos2,
+                    },
+                    action: BoardChangeAction::Swapped
+                })
+            ])
+        );
     }
 
     #[test]
