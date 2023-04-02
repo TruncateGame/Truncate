@@ -1,8 +1,8 @@
 // TODO: Maximum consecutive swaps / stalemate rule
 
 pub enum WinCondition {
-    Destination,
-    Elimination,
+    Destination, // TODO: Implement
+    Elimination, // TODO: Implement
 }
 
 pub enum Visibility {
@@ -12,28 +12,30 @@ pub enum Visibility {
 
 pub enum Truncation {
     Root,
-    Larger,
+    Larger, // TODO: Implement
     None,
 }
 
 pub enum OvertimeRule {
-    FreeWildcard { period: usize },
-    RemoveTiles { period: usize, phase_time: usize },
-    Elimination,
+    FreeWildcard { period: usize },                   // TODO: Implement
+    RemoveTiles { period: usize, phase_time: usize }, // TODO: Implement
+    Elimination,                                      // TODO: Implement
 }
 
 pub enum Timing {
     PerPlayer {
         time_allowance: usize,
-        overtime_rule: OvertimeRule,
+        overtime_rule: OvertimeRule, // TODO: Implement
     },
     PerTurn {
+        // TODO: Implement
         time_allowance: usize,
     },
     Periodic {
+        // TODO: Implement
         turn_delay: usize,
     },
-    None,
+    None, // TODO: Implement
 }
 
 pub enum TileDistribution {
@@ -41,8 +43,8 @@ pub enum TileDistribution {
 }
 
 pub enum TileBagBehaviour {
-    Standard,
-    Infinite,
+    Standard, // TODO: Implement
+    Infinite, // TODO: Implement
 }
 
 pub struct BattleRules {
