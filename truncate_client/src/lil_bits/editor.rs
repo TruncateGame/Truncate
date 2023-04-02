@@ -37,10 +37,11 @@ impl<'a> EditorUI<'a> {
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        let (_, theme) = theme.rescale(
+        let (_, theme) = theme.calc_rescale(
             &ui.available_rect_before_wrap(),
             self.board.width(),
             self.board.height(),
+            0.3..2.0,
         );
         let outer_frame = egui::Frame::none().inner_margin(Margin::symmetric(0.0, theme.grid_size));
 

@@ -1,9 +1,10 @@
+use instant::Duration;
 use truncate_core::player::Hand;
 
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
-use epaint::Vec2;
+use epaint::{vec2, Vec2};
 
-use crate::theming::Theme;
+use crate::{active_game::HoveredRegion, theming::Theme};
 
 use super::{tile::TilePlayer, SquareUI, TileUI};
 
@@ -29,13 +30,21 @@ impl<'a> HandUI<'a> {
         selected_tile: Option<usize>,
         ui: &mut egui::Ui,
         theme: &Theme,
+        board_tile_hovered: &Option<HoveredRegion>,
+        current_time: Duration,
     ) -> (Option<Option<usize>>, Option<usize>) {
         let mut rearrange = None;
         let mut next_selection = None;
         let mut released_drag = None;
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
-        let (margin, theme) = theme.rescale(&ui.available_rect_before_wrap(), self.hand.len(), 1);
+        let (margin, mut theme) = theme.calc_rescale(
+            &ui.available_rect_before_wrap(),
+            self.hand.len(),
+            1,
+            0.5..1.3,
+        );
+
         let outer_frame = egui::Frame::none().inner_margin(margin);
 
         outer_frame.show(ui, |ui| {
@@ -59,6 +68,7 @@ impl<'a> HandUI<'a> {
                                     let delta = pointer_pos - tile_response.rect.center();
                                     ui.memory_mut(|mem| {
                                         mem.data.insert_temp(tile_id, delta);
+                                        mem.data.insert_temp(tile_id, current_time);
                                     });
                                 }
                                 next_selection = Some(None);
@@ -67,25 +77,62 @@ impl<'a> HandUI<'a> {
                             }
 
                             if is_being_dragged {
-                                let layer_id =
-                                    LayerId::new(Order::Tooltip, tile_id.with("floating"));
+                                let drag_id: Duration = ui
+                                    .memory_mut(|mem| mem.data.get_temp(tile_id))
+                                    .unwrap_or_default();
+                                let layer_id = LayerId::new(
+                                    Order::Tooltip,
+                                    tile_id.with("floating").with(drag_id),
+                                );
                                 let response = ui
                                     .with_layer_id(layer_id, |ui| {
+                                        let hover_scale = if let Some(region) = board_tile_hovered {
+                                            region.rect.width() / theme.grid_size
+                                        } else {
+                                            1.0
+                                        };
+                                        let bouncy_scale = ui.ctx().animate_value_with_time(
+                                            layer_id.id,
+                                            hover_scale,
+                                            theme.animation_time,
+                                        );
                                         TileUI::new(*char, TilePlayer::Own)
                                             .active(self.active)
                                             .selected(false)
                                             .hovered(true)
-                                            .render(ui, theme);
+                                            .ghost(board_tile_hovered.is_some())
+                                            .render(ui, &theme.rescale(bouncy_scale));
                                     })
                                     .response;
 
-                                if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                                let snap_to_rect =
+                                    board_tile_hovered.as_ref().map(|region| region.rect);
+
+                                let delta = if let Some(snap_rect) = snap_to_rect {
+                                    snap_rect.center() - response.rect.center()
+                                } else if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                                     let delta = pointer_pos - response.rect.center();
                                     let original_delta: Vec2 = ui.memory_mut(|mem| {
                                         mem.data.get_temp(tile_id).unwrap_or_default()
                                     });
-                                    ui.ctx().translate_layer(layer_id, delta - original_delta);
-                                }
+                                    delta - original_delta
+                                } else {
+                                    vec2(0.0, 0.0)
+                                };
+
+                                let animated_delta = vec2(
+                                    ui.ctx().animate_value_with_time(
+                                        layer_id.id.with("delta_x"),
+                                        delta.x,
+                                        theme.animation_time,
+                                    ),
+                                    ui.ctx().animate_value_with_time(
+                                        layer_id.id.with("delta_y"),
+                                        delta.y,
+                                        theme.animation_time,
+                                    ),
+                                );
+                                ui.ctx().translate_layer(layer_id, animated_delta);
 
                                 ui.ctx()
                                     .output_mut(|out| out.cursor_icon = CursorIcon::Grabbing);
