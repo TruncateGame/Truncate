@@ -14,7 +14,7 @@ use eframe::wasm_bindgen::{self, prelude::*};
 #[cfg(target_arch = "wasm32")]
 use eframe::web::AppRunnerRef;
 #[cfg(target_arch = "wasm32")]
-use futures::channel::mpsc;
+use futures::channel::{mpsc, oneshot};
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
@@ -58,6 +58,7 @@ pub async fn start_separate(
 
     let (tx_game, rx_game) = mpsc::channel(2048);
     let (tx_player, rx_player) = mpsc::channel(2048);
+    let (tx_context, rx_context) = oneshot::channel();
 
     let connect_url = if server_url.is_empty() {
         "ws://127.0.0.1:8080"
@@ -69,12 +70,16 @@ pub async fn start_separate(
         connect_url.to_string(),
         tx_game,
         rx_player,
+        rx_context,
     ));
 
     eframe::start_web(
         canvas_id,
         web_options,
-        Box::new(|cc| Box::new(GameClient::new(cc, rx_game, tx_player))),
+        Box::new(|cc| {
+            tx_context.send(cc.egui_ctx.clone()).unwrap();
+            Box::new(GameClient::new(cc, rx_game, tx_player))
+        }),
     )
     .await
     .map(|handle| WebHandle { handle })

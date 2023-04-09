@@ -67,7 +67,5 @@ impl eframe::App for GameClient {
         visuals.window_fill = hex_color!("#141414");
         visuals.panel_fill = hex_color!("#141414");
         ctx.set_visuals(visuals);
-
-        ctx.request_repaint();
     }
 }

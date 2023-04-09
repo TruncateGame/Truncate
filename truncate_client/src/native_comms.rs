@@ -1,4 +1,5 @@
-use futures::channel::mpsc::{Receiver, Sender};
+use eframe::egui::Context;
+use futures::channel::{mpsc, oneshot};
 use futures::SinkExt;
 use futures_util::{future, pin_mut, StreamExt};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
@@ -7,15 +8,22 @@ use truncate_core::messages::{GameMessage, PlayerMessage};
 
 pub async fn connect(
     connect_addr: String,
-    tx_game: Sender<GameMessage>,
-    rx_player: Receiver<PlayerMessage>,
+    tx_game: mpsc::Sender<GameMessage>,
+    rx_player: mpsc::Receiver<PlayerMessage>,
+    rx_context: oneshot::Receiver<Context>,
 ) {
+    let mut context: Option<Context> = None;
+
     println!("Connecting to {connect_addr}");
 
     let (ws_stream, _) = connect_async(connect_addr)
         .await
         .expect("Failed to connect");
     println!("WebSocket handshake has been successfully completed");
+
+    if let Ok(ctx) = rx_context.await {
+        context = Some(ctx);
+    }
 
     let (outgoing, incoming) = ws_stream.split();
 
@@ -30,6 +38,9 @@ pub async fn connect(
                 .send(parsed_msg)
                 .await
                 .expect("Message should have been able to go into the unbounded channel");
+            if let Some(context) = context.as_ref() {
+                context.request_repaint();
+            }
         })
     };
 
