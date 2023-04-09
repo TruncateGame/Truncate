@@ -74,7 +74,12 @@ impl ActiveGame {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) -> Option<PlayerMessage> {
+    pub fn render(
+        &mut self,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        winner: Option<usize>,
+    ) -> Option<PlayerMessage> {
         // We have to go through the instant crate as
         // most std time functions are not implemented
         // in Rust's wasm targets.
@@ -125,6 +130,7 @@ impl ActiveGame {
                             TimerUI::new(opponent, self.current_time)
                                 .friend(false)
                                 .active(opponent.index == self.next_player_number as usize)
+                                .winner(winner.clone())
                                 .render(ui, theme);
                         }
 
@@ -143,6 +149,7 @@ impl ActiveGame {
                                     TimerUI::new(player, self.current_time)
                                         .friend(true)
                                         .active(player.index == self.next_player_number as usize)
+                                        .winner(winner.clone())
                                         .render(ui, theme);
                                 }
 

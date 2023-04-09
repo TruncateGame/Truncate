@@ -504,7 +504,13 @@ impl Board {
         &self,
         player_index: usize,
         visibility: &rules::Visibility,
+        winner: &Option<usize>,
     ) -> Self {
+        // All visibility is restored when the game ends
+        if winner.is_some() {
+            return self.clone();
+        }
+
         match visibility {
             rules::Visibility::Standard => self.clone(),
             rules::Visibility::FogOfWar => self.fog_of_war(player_index),

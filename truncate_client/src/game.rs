@@ -84,13 +84,12 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             }
         }
         GameStatus::Active(game) => {
-            if let Some(msg) = game.render(ui, theme) {
+            if let Some(msg) = game.render(ui, theme, None) {
                 send(msg);
             }
         }
         GameStatus::Concluded(game, winner) => {
-            ui.label(format!("Game {} has concluded", game.room_code));
-            ui.label(format!("Player {winner} won"));
+            game.render(ui, theme, Some(*winner as usize));
             // render_board(game, ui);
             // TODO: Reset state and play again
         }

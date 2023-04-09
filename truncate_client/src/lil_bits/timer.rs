@@ -13,6 +13,7 @@ pub struct TimerUI<'a> {
     time: Duration,
     friend: bool,
     active: bool,
+    winner: Option<usize>,
 }
 
 impl<'a> TimerUI<'a> {
@@ -23,6 +24,7 @@ impl<'a> TimerUI<'a> {
             time: Duration::default(),
             friend: true,
             active: true,
+            winner: None,
         }
     }
 
@@ -35,11 +37,18 @@ impl<'a> TimerUI<'a> {
         self.active = active;
         self
     }
+
+    pub fn winner(mut self, winner: Option<usize>) -> Self {
+        self.winner = winner;
+        self
+    }
 }
 
 impl<'a> TimerUI<'a> {
     fn get_name_color(&self, theme: &Theme) -> Color32 {
-        if !self.active {
+        if self.winner == Some(self.player.index) {
+            theme.selection
+        } else if !self.active {
             theme.outlines
         } else if self.friend {
             theme.friend.dark
@@ -49,7 +58,9 @@ impl<'a> TimerUI<'a> {
     }
 
     fn get_time_color(&self, theme: &Theme) -> Color32 {
-        if !self.active {
+        if self.winner == Some(self.player.index) {
+            theme.selection
+        } else if !self.active {
             theme.outlines
         } else if self.friend {
             theme.friend.dark
@@ -59,6 +70,16 @@ impl<'a> TimerUI<'a> {
     }
 
     fn calculate_time(&mut self) -> String {
+        match self.winner {
+            Some(player) if player == self.player.index => {
+                return "Winner".into();
+            }
+            Some(_) => {
+                return "".into();
+            }
+            _ => {}
+        };
+
         match self.player.turn_starts_at {
             Some(next_turn) => {
                 let now = OffsetDateTime::from_unix_timestamp(self.current_time.as_secs() as i64)

@@ -140,7 +140,13 @@ pub(crate) fn filter_to_player(
     visible_board: &Board,
     player_index: usize,
     visibility: &rules::Visibility,
+    winner: &Option<usize>,
 ) -> Vec<Change> {
+    // All visibility is restored when the game ends
+    if winner.is_some() {
+        return changes.clone();
+    }
+
     changes
         .iter()
         .filter(|change| match change {

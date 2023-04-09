@@ -268,14 +268,15 @@ impl Game {
     }
 
     pub fn filter_game_to_player(&self, player_index: usize) -> (Board, Vec<Change>) {
-        let visible_board = self
-            .board
-            .filter_to_player(player_index, &self.rules.visibility);
+        let visible_board =
+            self.board
+                .filter_to_player(player_index, &self.rules.visibility, &self.winner);
         let visible_changes = reporting::filter_to_player(
             &self.recent_changes,
             &visible_board,
             player_index,
             &self.rules.visibility,
+            &self.winner,
         );
         (visible_board, visible_changes)
     }
