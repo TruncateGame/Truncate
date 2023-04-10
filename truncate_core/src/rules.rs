@@ -74,12 +74,12 @@ impl Default for GameRules {
         Self {
             win_condition: WinCondition::Destination,
             visibility: Visibility::Standard,
-            truncation: Truncation::Root,
+            truncation: Truncation::None,
             timing: Timing::PerPlayer {
                 time_allowance: 600,
                 overtime_rule: OvertimeRule::FreeWildcard { period: 60 },
             },
-            hand_size: 7,
+            hand_size: 3,
             tile_distribution: TileDistribution::Standard,
             tile_bag_behaviour: TileBagBehaviour::Standard,
             battle_rules: BattleRules { length_delta: 2 },
