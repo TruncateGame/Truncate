@@ -4,8 +4,8 @@ use crate::bag::TileBag;
 use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
 use crate::judge::Outcome;
-use crate::reporting::{BoardChange, BoardChangeAction};
-use crate::rules::GameRules;
+use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, HandChange};
+use crate::rules::{self, GameRules};
 
 use super::board::Board;
 use super::judge::Judge;
@@ -28,26 +28,34 @@ pub struct Game {
 
 impl Game {
     pub fn new(width: usize, height: usize) -> Self {
+        let rules = GameRules::default();
         Self {
-            rules: GameRules::default(),
             players: Vec::with_capacity(2),
             board: Board::new(width, height),
-            bag: TileBag::default(),
+            bag: TileBag::new(&rules.tile_distribution),
             judge: Judge::default(),
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
             winner: None,
+            rules,
         }
     }
 
     pub fn add_player(&mut self, name: String) {
+        let time_allowance = match self.rules.timing {
+            rules::Timing::PerPlayer {
+                time_allowance,
+                overtime_rule: _,
+            } => time_allowance,
+            _ => unimplemented!(),
+        };
         self.players.push(Player::new(
             name,
             self.players.len(),
-            7,
+            self.rules.hand_size,
             &mut self.bag,
-            Duration::new(600, 0), // TODO: un-hardcode the duration of turns
+            Duration::new(time_allowance as i64, 0), // TODO: un-hardcode the duration of turns
         ));
     }
 
@@ -62,7 +70,7 @@ impl Game {
         self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
     }
 
-    pub fn play_turn(&mut self, next_move: Move) -> Result<(Vec<Change>, Option<usize>), String> {
+    pub fn play_turn(&mut self, next_move: Move) -> Result<Option<usize>, String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
         }
@@ -92,7 +100,7 @@ impl Game {
 
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
-            return Ok((self.recent_changes.clone(), Some(winner)));
+            return Ok(Some(winner));
         }
 
         self.next_player = (self.next_player + 1) % self.board.get_orientations().len(); // TODO: remove this hacky way to get the number of players
@@ -125,7 +133,7 @@ impl Game {
         self.players[player].turn_starts_at = None;
         self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
 
-        Ok((self.recent_changes.clone(), None))
+        Ok(None)
     }
 
     pub fn make_move(&mut self, game_move: Move) -> Result<Vec<Change>, GamePlayError> {
@@ -162,7 +170,9 @@ impl Game {
                 self.resolve_attack(player, position, &mut changes);
                 Ok(changes)
             }
-            Move::Swap { player, positions } => self.board.swap(player, positions),
+            Move::Swap { player, positions } => {
+                self.board.swap(player, positions, &self.rules.swapping)
+            }
         }
     }
 
@@ -184,7 +194,10 @@ impl Game {
             .word_strings(&defenders)
             .expect("Words were just found and should be valid");
 
-        if let Some(battle) = self.judge.battle(attacking_words, defending_words) {
+        if let Some(battle) =
+            self.judge
+                .battle(attacking_words, defending_words, &self.rules.battle_rules)
+        {
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
                     let squares = attackers.into_iter().flat_map(|word| word.into_iter());
@@ -241,10 +254,30 @@ impl Game {
             changes.push(Change::Battle(battle));
         }
 
-        changes.extend(self.board.truncate(&mut self.bag).into_iter());
+        match self.rules.truncation {
+            rules::Truncation::Root => {
+                changes.extend(self.board.truncate(&mut self.bag).into_iter())
+            }
+            rules::Truncation::Larger => unimplemented!(),
+            rules::Truncation::None => {}
+        }
     }
 
     pub fn next(&self) -> usize {
         self.next_player
+    }
+
+    pub fn filter_game_to_player(&self, player_index: usize) -> (Board, Vec<Change>) {
+        let visible_board =
+            self.board
+                .filter_to_player(player_index, &self.rules.visibility, &self.winner);
+        let visible_changes = reporting::filter_to_player(
+            &self.recent_changes,
+            &visible_board,
+            player_index,
+            &self.rules.visibility,
+            &self.winner,
+        );
+        (visible_board, visible_changes)
     }
 }

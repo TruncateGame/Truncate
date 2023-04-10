@@ -1,5 +1,6 @@
+use eframe::egui::Context;
 use eframe::web_sys;
-use futures::channel::mpsc::{Receiver, Sender};
+use futures::channel::{mpsc, oneshot};
 use futures::SinkExt;
 use futures_util::{future, pin_mut, StreamExt};
 use truncate_core::messages::{GameMessage, PlayerMessage};
@@ -7,10 +8,13 @@ use ws_stream_wasm::{WsMessage, WsMeta};
 
 pub async fn connect(
     connect_addr: String,
-    tx_game: Sender<GameMessage>,
-    rx_player: Receiver<PlayerMessage>,
+    tx_game: mpsc::Sender<GameMessage>,
+    rx_player: mpsc::Receiver<PlayerMessage>,
+    rx_context: oneshot::Receiver<Context>,
 ) {
     use web_sys::console;
+
+    let mut context: Option<Context> = None;
 
     console::log_1(&format!("Connecting to {connect_addr}").into());
 
@@ -19,6 +23,10 @@ pub async fn connect(
         .expect("assume the connection succeeds");
 
     console::log_1(&"Connected".into());
+
+    if let Ok(ctx) = rx_context.await {
+        context = Some(ctx);
+    }
 
     let (outgoing, incoming) = wsio.split();
 
@@ -37,6 +45,9 @@ pub async fn connect(
                 .send(parsed_msg)
                 .await
                 .expect("Message should have been able to go into the channel");
+            if let Some(context) = context.as_ref() {
+                context.request_repaint();
+            }
         })
     };
 

@@ -1,0 +1,30 @@
+# fly.toml file generated for truncate-client on 2023-04-10T20:16:37+12:00
+
+# prod:     -a truncate-client
+# staging:  -a truncate-outpost
+
+kill_signal = "SIGINT"
+kill_timeout = 5
+primary_region = "syd"
+processes = []
+
+[build]
+dockerfile = "Dockerfile.client"
+
+[[services]]
+internal_port = 80
+processes = ["app"]
+protocol = "tcp"
+[services.concurrency]
+hard_limit = 25
+soft_limit = 20
+type = "connections"
+
+[[services.ports]]
+force_https = true
+handlers = ["http"]
+port = 80
+
+[[services.ports]]
+handlers = ["tls", "http"]
+port = 443

@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 use crate::{
-    board::{Coordinate, Square},
+    board::{Board, Coordinate, Square},
     judge::Outcome,
+    rules,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -132,4 +133,50 @@ impl fmt::Display for Change {
             Change::Battle(c) => write!(f, "{c}"),
         }
     }
+}
+
+pub(crate) fn filter_to_player(
+    changes: &Vec<Change>,
+    visible_board: &Board,
+    player_index: usize,
+    visibility: &rules::Visibility,
+    winner: &Option<usize>,
+) -> Vec<Change> {
+    // All visibility is restored when the game ends
+    if winner.is_some() {
+        return changes.clone();
+    }
+
+    changes
+        .iter()
+        .filter(|change| match change {
+            Change::Hand(HandChange {
+                player: changed_player,
+                removed: _,
+                added: _,
+            }) => *changed_player == player_index,
+            Change::Board(BoardChange {
+                detail:
+                    BoardChangeDetail {
+                        coordinate,
+                        square: _,
+                    },
+                action,
+            }) => {
+                if action == &BoardChangeAction::Defeated || action == &BoardChangeAction::Truncated
+                {
+                    return true;
+                }
+                match visibility {
+                    rules::Visibility::Standard => true,
+                    rules::Visibility::FogOfWar => match visible_board.get(*coordinate) {
+                        Ok(Square::Occupied(_, _)) => true,
+                        _ => false,
+                    },
+                }
+            }
+            Change::Battle(_) => true,
+        })
+        .cloned()
+        .collect::<Vec<_>>()
 }

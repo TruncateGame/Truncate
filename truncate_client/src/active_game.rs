@@ -8,7 +8,7 @@ use truncate_core::{
 };
 
 use eframe::{
-    egui::{self, Layout},
+    egui::{self, Layout, ScrollArea},
     emath::Align,
 };
 use hashbrown::HashMap;
@@ -74,7 +74,12 @@ impl ActiveGame {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) -> Option<PlayerMessage> {
+    pub fn render(
+        &mut self,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        winner: Option<usize>,
+    ) -> Option<PlayerMessage> {
         // We have to go through the instant crate as
         // most std time functions are not implemented
         // in Rust's wasm targets.
@@ -94,23 +99,25 @@ impl ActiveGame {
                 sidebar_area.x -= sidebar_area.x * 0.7;
 
                 ui.allocate_ui_with_layout(sidebar_area, Layout::top_down(Align::TOP), |ui| {
-                    ui.label(format!("Playing in game {}", self.room_code));
+                    ScrollArea::new([false, true]).show(ui, |ui| {
+                        ui.label(format!("Playing in game {}", self.room_code));
 
-                    ui.separator();
-
-                    if let Some(error) = &self.error_msg {
-                        ui.label(error);
                         ui.separator();
-                    }
 
-                    if self.battles.is_empty() {
-                        ui.label("No battles yet.");
-                    } else {
-                        for battle in self.battles.iter().rev() {
-                            ui.label(format!("{battle}"));
+                        if let Some(error) = &self.error_msg {
+                            ui.label(error);
                             ui.separator();
                         }
-                    }
+
+                        if self.battles.is_empty() {
+                            ui.label("No battles yet.");
+                        } else {
+                            for battle in self.battles.iter().rev() {
+                                ui.label(format!("{battle}"));
+                                ui.separator();
+                            }
+                        }
+                    });
                 });
 
                 ui.allocate_ui_with_layout(
@@ -125,6 +132,7 @@ impl ActiveGame {
                             TimerUI::new(opponent, self.current_time)
                                 .friend(false)
                                 .active(opponent.index == self.next_player_number as usize)
+                                .winner(winner.clone())
                                 .render(ui, theme);
                         }
 
@@ -143,6 +151,7 @@ impl ActiveGame {
                                     TimerUI::new(player, self.current_time)
                                         .friend(true)
                                         .active(player.index == self.next_player_number as usize)
+                                        .winner(winner.clone())
                                         .render(ui, theme);
                                 }
 

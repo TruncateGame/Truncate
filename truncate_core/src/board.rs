@@ -8,6 +8,7 @@ use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
 use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::reporting::Change;
+use crate::rules;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -52,6 +53,11 @@ pub struct Board {
                                   // TODO: Move orientations off the Board and have them tagged against specific players
 }
 
+// TODO: provide a way to validate the board
+//  - the empty squares are fully connected
+//  - there are at least 2 roots
+//  - the roots are at empty squares
+
 impl Board {
     pub fn new(width: usize, height: usize) -> Self {
         // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
@@ -77,6 +83,18 @@ impl Board {
             roots,
             orientations: vec![Direction::North, Direction::South],
         }
+    }
+
+    pub fn get_orientations(&self) -> &Vec<Direction> {
+        &self.orientations
+    }
+
+    pub fn width(&self) -> usize {
+        self.squares[0].len()
+    }
+
+    pub fn height(&self) -> usize {
+        self.squares.len()
     }
 
     /// Trims edges containing only empty squares
@@ -124,11 +142,6 @@ impl Board {
         }
     }
 
-    // TODO: generic board constructor that accepts a grid of squares with arbitrary values, as long as:
-    //  - the empty squares are fully connected
-    //  - there are at least 2 roots
-    //  - the roots are at empty squares
-
     pub fn get(&self, position: Coordinate) -> Result<Square, GamePlayError> {
         match self
             .squares
@@ -168,6 +181,57 @@ impl Board {
         }
     }
 
+    pub fn swap(
+        &mut self,
+        player: usize,
+        positions: [Coordinate; 2],
+        swap_rules: &rules::Swapping,
+    ) -> Result<Vec<Change>, GamePlayError> {
+        if positions[0] == positions[1] {
+            return Err(GamePlayError::SelfSwap);
+        }
+
+        match swap_rules {
+            rules::Swapping::Contiguous => {
+                if self
+                    .depth_first_search(positions[0])
+                    .get(&positions[1])
+                    .is_none()
+                {
+                    return Err(GamePlayError::DisjointSwap);
+                }
+            }
+            rules::Swapping::Universal => { /* All swaps are allowed */ }
+            rules::Swapping::None => {
+                return Err(GamePlayError::NoSwapping);
+            }
+        }
+
+        let mut tiles = ['&'; 2];
+        for (i, pos) in positions.iter().enumerate() {
+            match self.get(*pos)? {
+                Square::Empty => return Err(GamePlayError::UnoccupiedSwap),
+                Square::Occupied(owner, tile) => {
+                    if owner != player {
+                        return Err(GamePlayError::UnownedSwap);
+                    }
+                    tiles[i] = tile;
+                }
+            };
+        }
+
+        Ok(vec![
+            Change::Board(BoardChange {
+                detail: self.set(positions[0], player, tiles[1])?,
+                action: BoardChangeAction::Swapped,
+            }),
+            Change::Board(BoardChange {
+                detail: self.set(positions[1], player, tiles[0])?,
+                action: BoardChangeAction::Swapped,
+            }),
+        ])
+    }
+
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
     pub fn clear(&mut self, position: Coordinate) -> Option<BoardChangeDetail> {
         if let Some(Some(square)) = self
@@ -187,6 +251,21 @@ impl Board {
         None
     }
 
+    pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
+        Direction::iter()
+            .filter_map(|delta| {
+                let neighbour_coordinate = position.add(*delta);
+                if let Ok(square) = self.get(neighbour_coordinate) {
+                    Some((neighbour_coordinate, square))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+
+impl Board {
     pub fn truncate(&mut self, bag: &mut TileBag) -> Vec<Change> {
         let mut attatched = HashSet::new();
         for root in self.roots.iter() {
@@ -224,19 +303,6 @@ impl Board {
         }
     }
 
-    pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
-        Direction::iter()
-            .filter_map(|delta| {
-                let neighbour_coordinate = position.add(*delta);
-                if let Ok(square) = self.get(neighbour_coordinate) {
-                    Some((neighbour_coordinate, square))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
     // TODO: return iterator or rename since it doesn't matter that this is depth first when we return a HashSet
     fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
         let mut visited = HashSet::new();
@@ -256,40 +322,6 @@ impl Board {
 
         dfs(self, position, &mut visited);
         visited
-    }
-
-    pub fn swap(
-        &mut self,
-        player: usize,
-        positions: [Coordinate; 2],
-    ) -> Result<Vec<Change>, GamePlayError> {
-        if positions[0] == positions[1] {
-            return Err(GamePlayError::SelfSwap);
-        }
-
-        let mut tiles = ['&'; 2];
-        for (i, pos) in positions.iter().enumerate() {
-            match self.get(*pos)? {
-                Square::Empty => return Err(GamePlayError::UnoccupiedSwap),
-                Square::Occupied(owner, tile) => {
-                    if owner != player {
-                        return Err(GamePlayError::UnownedSwap);
-                    }
-                    tiles[i] = tile;
-                }
-            };
-        }
-
-        Ok(vec![
-            Change::Board(BoardChange {
-                detail: self.set(positions[0], player, tiles[1])?,
-                action: BoardChangeAction::Swapped,
-            }),
-            Change::Board(BoardChange {
-                detail: self.set(positions[1], player, tiles[0])?,
-                action: BoardChangeAction::Swapped,
-            }),
-        ])
     }
 
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
@@ -395,67 +427,8 @@ impl Board {
         }
     }
 
-    pub fn get_orientations(&self) -> &Vec<Direction> {
-        &self.orientations
-    }
-
-    pub fn width(&self) -> usize {
-        self.squares[0].len()
-    }
-
-    pub fn height(&self) -> usize {
-        self.squares.len()
-    }
-
-    pub fn fog_of_war(&self, root: Coordinate) -> Self {
-        let mut visible_coords: HashSet<Coordinate> = HashSet::new();
-
-        let root_player = if let Ok(Square::Occupied(root_player, _)) = self.get(root) {
-            Some(root_player)
-        } else {
-            None
-        };
-
-        if let Some(root_player) = root_player {
-            let player_coords = self.depth_first_search(root);
-            for (coord, square) in player_coords.iter().flat_map(|c| {
-                // TODO: Enumerate squares a given manhattan distance away, as this double counts
-                self.neighbouring_squares(*c)
-                    .iter()
-                    .flat_map(|(c, _)| self.neighbouring_squares(*c))
-                    .collect::<Vec<_>>()
-            }) {
-                match square {
-                    Square::Occupied(player, _) if player != root_player => {
-                        visible_coords.extend(self.get_words(coord).iter().flatten());
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        let mut new_board = self.clone();
-
-        let rows = self.height();
-        let cols = self.width();
-        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
-
-        for (x, y) in squares {
-            let c = Coordinate { x, y };
-            if !visible_coords.contains(&c) {
-                match new_board.get(c) {
-                    Ok(Square::Occupied(player, _)) if Some(player) != root_player => {
-                        new_board.clear(c);
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        new_board
-    }
-
     // Get the row just beside the edge
+    // TODO: Consider deleting once explicit win squares are implemented
     pub fn get_near_edge(&self, side: Direction) -> Vec<Coordinate> {
         match side {
             Direction::North => (0..self.width()).map(|x| Coordinate { x, y: 1 }).collect(),
@@ -475,26 +448,73 @@ impl Board {
         }
     }
 
-    pub fn render_squares<F: Fn(&Square) -> String, G: Fn(usize, String) -> String>(
+    pub fn fog_of_war(&self, player_index: usize) -> Self {
+        let mut visible_coords: HashSet<Coordinate> = HashSet::new();
+
+        let rows = self.height();
+        let cols = self.width();
+        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
+
+        for (coord, square) in
+            squares.map(|(x, y)| (Coordinate { x, y }, self.get(Coordinate { x, y })))
+        {
+            match square {
+                Ok(Square::Occupied(player, _)) if player == player_index => {
+                    // TODO: Enumerate squares a given manhattan distance away, as this double counts
+                    for (coord, square) in self
+                        .neighbouring_squares(coord)
+                        .iter()
+                        .flat_map(|(c, _)| self.neighbouring_squares(*c))
+                        .collect::<Vec<_>>()
+                    {
+                        match square {
+                            Square::Occupied(player, _) if player != player_index => {
+                                visible_coords.extend(self.get_words(coord).iter().flatten());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut new_board = self.clone();
+
+        let rows = self.height();
+        let cols = self.width();
+        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
+
+        for (x, y) in squares {
+            let c = Coordinate { x, y };
+            if !visible_coords.contains(&c) {
+                match new_board.get(c) {
+                    Ok(Square::Occupied(player, _)) if player != player_index => {
+                        new_board.clear(c);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        new_board
+    }
+
+    pub(crate) fn filter_to_player(
         &self,
-        square_renderer: F,
-        line_transform: G,
-    ) -> String {
-        self.squares
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|opt| match opt {
-                        Some(sq) => square_renderer(sq),
-                        None => " ".to_string(),
-                    })
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            })
-            .enumerate()
-            .map(|(line_number, line)| line_transform(line_number, line))
-            .collect::<Vec<String>>()
-            .join("\n")
+        player_index: usize,
+        visibility: &rules::Visibility,
+        winner: &Option<usize>,
+    ) -> Self {
+        // All visibility is restored when the game ends
+        if winner.is_some() {
+            return self.clone();
+        }
+
+        match visibility {
+            rules::Visibility::Standard => self.clone(),
+            rules::Visibility::FogOfWar => self.fog_of_war(player_index),
+        }
     }
 }
 
@@ -509,7 +529,21 @@ impl fmt::Display for Board {
         write!(
             f,
             "{}\nRoots: {}",
-            self.render_squares(|sq| sq.to_string(), |_, s| s),
+            self.squares
+                .iter()
+                .map(|row| {
+                    row.iter()
+                        .map(|opt| match opt {
+                            Some(sq) => sq.to_string(),
+                            None => " ".to_string(),
+                        })
+                        .collect::<Vec<String>>()
+                        .join(" ")
+                })
+                .enumerate()
+                .map(|(_line_number, line)| line)
+                .collect::<Vec<String>>()
+                .join("\n"),
             self.roots
                 .iter()
                 .map(|r| format!("{r}"))
@@ -981,7 +1015,7 @@ pub mod tests {
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'a')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(
-            b.swap(0, [c0_1, c1_1]),
+            b.swap(0, [c0_1, c1_1], &rules::Swapping::Contiguous),
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
@@ -1001,9 +1035,72 @@ pub mod tests {
         );
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'a')));
-        assert_eq!(b.swap(0, [c0_1, c0_1]), Err(GamePlayError::SelfSwap));
-        assert_eq!(b.swap(0, [c0_1, c2_1]), Err(GamePlayError::UnownedSwap));
-        assert_eq!(b.swap(1, [c0_1, c1_1]), Err(GamePlayError::UnownedSwap));
+        assert_eq!(
+            b.swap(0, [c0_1, c0_1], &rules::Swapping::Contiguous),
+            Err(GamePlayError::SelfSwap)
+        );
+        assert_eq!(
+            b.swap(0, [c0_1, c2_1], &rules::Swapping::Contiguous),
+            Err(GamePlayError::DisjointSwap)
+        );
+        assert_eq!(
+            b.swap(0, [c0_1, c2_1], &rules::Swapping::Universal),
+            Err(GamePlayError::UnownedSwap)
+        );
+        assert_eq!(
+            b.swap(1, [c0_1, c1_1], &rules::Swapping::Contiguous),
+            Err(GamePlayError::UnownedSwap)
+        );
+    }
+
+    #[test]
+    fn disjoint_swapping() {
+        let mut b = from_string(
+            [
+                "_ _ C _ _",
+                "_ _ R _ _",
+                "_ _ _ _ _",
+                "_ _ S _ _",
+                "_ _ S _ _",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 0, y: 0 }],
+            vec![Direction::South],
+        )
+        .unwrap();
+
+        let pos1 = Coordinate { x: 2, y: 1 };
+        let pos2 = Coordinate { x: 2, y: 3 };
+
+        assert_eq!(
+            b.swap(0, [pos1, pos2], &rules::Swapping::None),
+            Err(GamePlayError::NoSwapping)
+        );
+
+        assert_eq!(
+            b.swap(0, [pos1, pos2], &rules::Swapping::Contiguous),
+            Err(GamePlayError::DisjointSwap)
+        );
+
+        assert_eq!(
+            b.swap(0, [pos1, pos2], &rules::Swapping::Universal),
+            Ok(vec![
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
+                        square: Square::Occupied(0, 'S'),
+                        coordinate: pos1,
+                    },
+                    action: BoardChangeAction::Swapped
+                }),
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
+                        square: Square::Occupied(0, 'R'),
+                        coordinate: pos2,
+                    },
+                    action: BoardChangeAction::Swapped
+                })
+            ])
+        );
     }
 
     #[test]
@@ -1366,7 +1463,7 @@ pub mod tests {
         )
         .unwrap();
 
-        let foggy = board.fog_of_war(Coordinate { x: 2, y: 6 });
+        let foggy = board.fog_of_war(1);
         assert_eq!(
             foggy.to_string(),
             [
@@ -1377,6 +1474,41 @@ pub mod tests {
                 "A A _ B _",
                 "A _ B B _",
                 "    B    ",
+                "Roots: (2, 0) / (2, 6)",
+            ]
+            .join("\n")
+        );
+    }
+
+    #[test]
+    fn apply_disjoint_fog_of_war() {
+        let board = from_string(
+            [
+                "    A    ",
+                "A A A _ A",
+                "A _ _ A _",
+                "A _ _ _ _",
+                "_ B _ B _",
+                "_ B B B _",
+                "    B    ",
+            ]
+            .join("\n"),
+            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 6 }],
+            vec![Direction::North; 2],
+        )
+        .unwrap();
+
+        let foggy = board.fog_of_war(0);
+        assert_eq!(
+            foggy.to_string(),
+            [
+                "    A    ",
+                "A A A _ A",
+                "A _ _ A _",
+                "A _ _ _ _",
+                "_ B _ B _",
+                "_ B _ B _",
+                "    _    ",
                 "Roots: (2, 0) / (2, 6)",
             ]
             .join("\n")

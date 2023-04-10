@@ -1,5 +1,5 @@
 use eframe::egui;
-use truncate_core::{board::Board, messages::RoomCode};
+use truncate_core::{board::Board, messages::RoomCode, messages::Token};
 
 use crate::{active_game::ActiveGame, lil_bits::EditorUI};
 
@@ -11,7 +11,7 @@ use truncate_core::{
 
 #[derive(Debug)]
 pub enum GameStatus {
-    None(RoomCode),
+    None(RoomCode, Option<Token>),
     PendingJoin(RoomCode),
     PendingCreate,
     PendingStart(RoomCode, Vec<String>, Board),
@@ -38,7 +38,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         _ => Err(()),
     };
 
-    if matches!(game_status, GameStatus::None(_)) {
+    if matches!(game_status, GameStatus::None(_, _)) {
         ui.horizontal(|ui| {
             ui.label("Name: ");
             ui.text_edit_singleline(name);
@@ -51,7 +51,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
     let mut new_game_status = None;
     match game_status {
-        GameStatus::None(room_code) => {
+        GameStatus::None(room_code, token) => {
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
                 send(PlayerMessage::NewGame(name.clone()));
@@ -64,6 +64,13 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                     new_game_status = Some(GameStatus::PendingJoin(room_code.clone()));
                 }
             });
+            if let Some(existing_token) = token {
+                ui.label("Existing game found, would you like to rejoin?");
+                if ui.button("Rejoin").clicked() {
+                    send(PlayerMessage::RejoinGame(existing_token.to_string()));
+                    new_game_status = Some(GameStatus::PendingJoin("...".into()));
+                }
+            }
         }
         GameStatus::PendingJoin(room_code) => {
             ui.label(format!("Waiting to join room {room_code}"));
@@ -84,13 +91,12 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
             }
         }
         GameStatus::Active(game) => {
-            if let Some(msg) = game.render(ui, theme) {
+            if let Some(msg) = game.render(ui, theme, None) {
                 send(msg);
             }
         }
         GameStatus::Concluded(game, winner) => {
-            ui.label(format!("Game {} has concluded", game.room_code));
-            ui.label(format!("Player {winner} won"));
+            game.render(ui, theme, Some(*winner as usize));
             // render_board(game, ui);
             // TODO: Reset state and play again
         }
@@ -101,7 +107,16 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
     while let Ok(msg) = recv() {
         match msg {
-            GameMessage::JoinedLobby(id, players, board) => {
+            GameMessage::JoinedLobby(id, players, board, token) => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let local_storage =
+                        web_sys::window().unwrap().local_storage().unwrap().unwrap();
+                    local_storage
+                        .set_item("truncate_active_token", &token)
+                        .unwrap();
+                }
+
                 *game_status = GameStatus::PendingStart(id.to_uppercase(), players, board)
             }
             GameMessage::LobbyUpdate(id, players, board) => {
@@ -197,6 +212,13 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 winner,
             ) => match game_status {
                 GameStatus::Active(game) => {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        let local_storage =
+                            web_sys::window().unwrap().local_storage().unwrap().unwrap();
+                        local_storage.remove_item("truncate_active_token").unwrap();
+                    }
+
                     // assert_eq!(game.room_code, id);
                     // assert_eq!(game.player_number, num);
                     game.players = players;
@@ -227,6 +249,9 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 }
                 _ => todo!("Game error hit an unknown state"),
             },
+            GameMessage::GenericError(err) => {
+                todo!("Handle generic errors")
+            }
         }
     }
 }

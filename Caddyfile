@@ -1,0 +1,4 @@
+http:// {
+  root * web_client
+  file_server
+}

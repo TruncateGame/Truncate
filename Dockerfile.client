@@ -1,0 +1,46 @@
+FROM rust:latest as build
+
+RUN apt-get update && apt-get install -y \
+    libssl-dev \
+    pkg-config \
+    build-essential \
+    cmake \
+    curl \
+    git \
+    binaryen \
+    jq
+
+RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+RUN cargo install -f wasm-bindgen-cli
+RUN rustup target add wasm32-unknown-unknown
+
+RUN mkdir /app
+WORKDIR /app
+
+ADD truncate_server /app/truncate_server
+ADD truncate_client /app/truncate_client
+ADD truncate_core /app/truncate_core
+ADD Cargo.* /app
+
+ADD web_client /app/web_client
+ADD .backstage /app/.backstage
+RUN chmod +x .backstage/build-web-client.sh
+RUN .backstage/build-web-client.sh
+
+# Thin Docker image for runtime
+
+FROM debian:buster-slim
+
+RUN apt-get update && apt-get install -y curl debian-keyring debian-archive-keyring apt-transport-https \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
+    && apt update \
+    && apt install caddy
+
+RUN mkdir /app
+WORKDIR /app
+
+ADD Caddyfile /app
+COPY --from=build /app/web_client /app/web_client
+
+CMD caddy run

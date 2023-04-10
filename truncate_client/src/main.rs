@@ -7,7 +7,7 @@ mod native_comms;
 mod theming;
 
 use eframe::egui;
-use futures::channel::mpsc;
+use futures::channel::{mpsc, oneshot};
 use tokio::runtime::Builder;
 
 use game_client::GameClient;
@@ -15,18 +15,23 @@ use game_client::GameClient;
 fn main() {
     let connect_addr = std::env::args()
         .nth(1)
-        .unwrap_or_else(|| "ws://127.0.0.1:8080".into());
+        .unwrap_or_else(|| "wss://citadel.truncate.town".into());
+
+    let (tx_game, rx_game) = mpsc::channel(2048);
+    let (tx_player, rx_player) = mpsc::channel(2048);
+    let (tx_context, rx_context) = oneshot::channel();
 
     let tokio_runtime = Builder::new_multi_thread()
         .worker_threads(1)
         .enable_all()
         .build()
         .unwrap();
-
-    let (tx_game, rx_game) = mpsc::channel(2048);
-    let (tx_player, rx_player) = mpsc::channel(2048);
-
-    tokio_runtime.spawn(native_comms::connect(connect_addr, tx_game, rx_player));
+    tokio_runtime.spawn(native_comms::connect(
+        connect_addr,
+        tx_game,
+        rx_player,
+        rx_context,
+    ));
 
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(500.0, 1000.0)),
@@ -35,7 +40,10 @@ fn main() {
     eframe::run_native(
         "Truncate",
         options,
-        Box::new(|cc| Box::new(GameClient::new(cc, rx_game, tx_player))),
+        Box::new(move |cc| {
+            tx_context.send(cc.egui_ctx.clone()).unwrap();
+            Box::new(GameClient::new(cc, rx_game, tx_player))
+        }),
     )
     .unwrap();
 }

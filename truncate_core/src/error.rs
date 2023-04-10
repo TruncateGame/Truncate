@@ -20,6 +20,10 @@ pub enum GamePlayError {
     UnoccupiedSwap,
     #[error("Player must own the squares they swap")]
     UnownedSwap,
+    #[error("Player cannot swap tiles from disconnected groups")]
+    DisjointSwap,
+    #[error("Swapping is disabled")]
+    NoSwapping,
 
     #[error("Cannot place a tile in an occupied square")]
     OccupiedPlace,

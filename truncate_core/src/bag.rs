@@ -2,6 +2,8 @@ use oorandom::Rand32;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::rules;
+
 #[derive(Debug)]
 pub struct TileBag {
     bag: Vec<char>,
@@ -10,7 +12,16 @@ pub struct TileBag {
 }
 
 impl TileBag {
-    pub fn new(letter_distribution: [usize; 26]) -> Self {
+    pub fn new(tile_distribution: &rules::TileDistribution) -> Self {
+        match tile_distribution {
+            rules::TileDistribution::Standard => Self::custom([
+                // banagrams letter distribution
+                13, 3, 3, 6, 18, 3, 4, 3, 12, 2, 2, 5, 3, 8, 11, 3, 2, 9, 6, 9, 6, 3, 3, 2, 3, 2,
+            ]),
+        }
+    }
+
+    pub fn custom(letter_distribution: [usize; 26]) -> Self {
         let mut tile_bag = TileBag {
             bag: Vec::new(),
             rng: Rand32::new(
@@ -51,10 +62,7 @@ impl TileBag {
 
 impl Default for TileBag {
     fn default() -> Self {
-        Self::new([
-            // banagrams letter distribution
-            13, 3, 3, 6, 18, 3, 4, 3, 12, 2, 2, 5, 3, 8, 11, 3, 2, 9, 6, 9, 6, 3, 3, 2, 3, 2,
-        ])
+        Self::new(&rules::TileDistribution::Standard)
     }
 }
 
@@ -87,12 +95,12 @@ pub mod tests {
         let mut dist = [0; 26];
         dist[0] = 1; // There is 1 A and
         dist[1] = 1; // 1 B in the bag
-        TileBag::new(dist)
+        TileBag::custom(dist)
     }
 
     pub fn trivial_bag() -> TileBag {
         let mut dist = [0; 26];
         dist[0] = 1;
-        TileBag::new(dist)
+        TileBag::custom(dist)
     }
 }
