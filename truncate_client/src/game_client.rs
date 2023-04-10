@@ -54,6 +54,11 @@ impl GameClient {
             }
         }
 
+        let mut visuals = egui::Visuals::dark();
+        visuals.window_fill = hex_color!("#141414");
+        visuals.panel_fill = hex_color!("#141414");
+        cc.egui_ctx.set_visuals(visuals);
+
         Self {
             name: "Mystery Player".into(),
             theme: Theme::default(),
@@ -75,9 +80,7 @@ impl eframe::App for GameClient {
             // self.frame_history.ui(ui);
             game::render(self, ui)
         });
-        let mut visuals = egui::Visuals::dark();
-        visuals.window_fill = hex_color!("#141414");
-        visuals.panel_fill = hex_color!("#141414");
-        ctx.set_visuals(visuals);
+
+        ctx.request_repaint_after(std::time::Duration::from_millis(250));
     }
 }
