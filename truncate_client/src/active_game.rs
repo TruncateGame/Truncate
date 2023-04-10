@@ -8,7 +8,7 @@ use truncate_core::{
 };
 
 use eframe::{
-    egui::{self, Layout},
+    egui::{self, Layout, ScrollArea},
     emath::Align,
 };
 use hashbrown::HashMap;
@@ -99,23 +99,25 @@ impl ActiveGame {
                 sidebar_area.x -= sidebar_area.x * 0.7;
 
                 ui.allocate_ui_with_layout(sidebar_area, Layout::top_down(Align::TOP), |ui| {
-                    ui.label(format!("Playing in game {}", self.room_code));
+                    ScrollArea::new([false, true]).show(ui, |ui| {
+                        ui.label(format!("Playing in game {}", self.room_code));
 
-                    ui.separator();
-
-                    if let Some(error) = &self.error_msg {
-                        ui.label(error);
                         ui.separator();
-                    }
 
-                    if self.battles.is_empty() {
-                        ui.label("No battles yet.");
-                    } else {
-                        for battle in self.battles.iter().rev() {
-                            ui.label(format!("{battle}"));
+                        if let Some(error) = &self.error_msg {
+                            ui.label(error);
                             ui.separator();
                         }
-                    }
+
+                        if self.battles.is_empty() {
+                            ui.label("No battles yet.");
+                        } else {
+                            for battle in self.battles.iter().rev() {
+                                ui.label(format!("{battle}"));
+                                ui.separator();
+                            }
+                        }
+                    });
                 });
 
                 ui.allocate_ui_with_layout(
