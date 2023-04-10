@@ -42,10 +42,22 @@ impl GameClient {
         );
         cc.egui_ctx.set_fonts(fonts);
 
+        let mut game_status = game::GameStatus::None("".into(), None);
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+            if let Some(existing_game_token) =
+                local_storage.get_item("truncate_active_token").unwrap()
+            {
+                game_status = game::GameStatus::None("".into(), Some(existing_game_token));
+            }
+        }
+
         Self {
             name: "Mystery Player".into(),
             theme: Theme::default(),
-            game_status: game::GameStatus::None("".into()),
+            game_status,
             rx_game,
             tx_player,
             frame_history: Default::default(),

@@ -6,13 +6,14 @@ use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
 use dashmap::DashMap;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
+use jwt_simple::prelude::*;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tungstenite::protocol::Message;
 
-use crate::game_state::Player;
+use crate::game_state::{Player, PlayerClaims};
 use game_state::GameState;
 use room_codes::RoomCodes;
 use truncate_core::messages::{GameMessage, PlayerMessage};
@@ -27,6 +28,7 @@ async fn handle_player_msg(
     addr: SocketAddr,
     maps: Maps,
     code_provider: RoomCodes,
+    jwt_key: HS256Key,
 ) -> Result<(), tungstenite::Error> {
     let (peer_map, game_map, active_map) = maps;
     let player_tx = peer_map.get(&addr).expect("TODO: Refactor");
@@ -59,8 +61,24 @@ async fn handle_player_msg(
             game_map.insert(new_game_id.clone(), game);
             active_map.insert(addr, new_game_id.clone());
 
+            let claims = Claims::with_custom_claims(
+                PlayerClaims {
+                    player_index: 0,
+                    room_code: new_game_id.clone(),
+                },
+                Duration::from_days(7), // TODO: Determine game expiration time
+            );
+            let token = jwt_key
+                .authenticate(claims)
+                .expect("Claims should be serializable");
+
             player_tx
-                .send(GameMessage::JoinedLobby(new_game_id, vec![name], board))
+                .send(GameMessage::JoinedLobby(
+                    new_game_id,
+                    vec![name],
+                    board,
+                    token,
+                ))
                 .unwrap();
         }
         JoinGame(room_code, player_name) => {
@@ -68,23 +86,27 @@ async fn handle_player_msg(
             if let Some(mut existing_game) = game_map.get_mut(&code) {
                 active_map.insert(addr, code.clone());
 
-                if existing_game
-                    .add_player(Player {
-                        name: player_name,
-                        socket: Some(addr.clone()),
-                    })
-                    .is_ok()
-                {
-                    let player_list: Vec<_> = existing_game
-                        .players
-                        .iter()
-                        .map(|p| p.name.clone())
-                        .collect();
+                if let Ok(player_index) = existing_game.add_player(Player {
+                    name: player_name,
+                    socket: Some(addr.clone()),
+                }) {
+                    let claims = Claims::with_custom_claims(
+                        PlayerClaims {
+                            player_index,
+                            room_code: room_code.clone(),
+                        },
+                        Duration::from_days(7), // TODO: Determine game expiration time
+                    );
+                    let token = jwt_key
+                        .authenticate(claims)
+                        .expect("Claims should be serializable");
+
                     player_tx
                         .send(GameMessage::JoinedLobby(
                             code.clone(),
-                            player_list.clone(),
+                            existing_game.player_list(),
                             existing_game.game.board.clone(),
+                            token,
                         ))
                         .unwrap();
 
@@ -94,16 +116,80 @@ async fn handle_player_msg(
 
                         peer.send(GameMessage::LobbyUpdate(
                             code.clone(),
-                            player_list.clone(),
+                            existing_game.player_list(),
                             existing_game.game.board.clone(),
                         ))
                         .unwrap();
                     }
                 } else {
-                    todo!("Handle error when adding player to a room");
+                    // TODO: Render a better error here
+                    player_tx
+                        .send(GameMessage::GenericError(format!(
+                            "Unable to join room {}",
+                            code.to_ascii_uppercase()
+                        )))
+                        .unwrap();
                 }
             } else {
-                todo!("Handle error when a room doesn't exist");
+                player_tx
+                    .send(GameMessage::GenericError(format!(
+                        "Room {} does not exist",
+                        code.to_ascii_uppercase()
+                    )))
+                    .unwrap();
+            }
+        }
+        RejoinGame(token) => {
+            let Ok(claims) = jwt_key.verify_token::<PlayerClaims>(&token, None) else {
+                player_tx
+                    .send(GameMessage::GenericError("Invalid Token".into()))
+                    .unwrap();
+                return Ok(());
+            };
+            let PlayerClaims {
+                player_index,
+                room_code,
+            } = claims.custom;
+
+            let code = room_code.to_ascii_lowercase();
+            if let Some(mut existing_game) = game_map.get_mut(&code) {
+                println!("Trying to reconnect player {player_index} to room {code}");
+                match existing_game.reconnect_player(addr.clone(), player_index) {
+                    Ok(_) => {
+                        active_map.insert(addr, code.clone());
+
+                        if existing_game.game.started_at.is_some() {
+                            player_tx
+                                .send(GameMessage::StartedGame(
+                                    existing_game.game_msg(player_index),
+                                ))
+                                .unwrap();
+                        } else {
+                            player_tx
+                                .send(GameMessage::JoinedLobby(
+                                    code.clone(),
+                                    existing_game.player_list(),
+                                    existing_game.game.board.clone(),
+                                    token,
+                                ))
+                                .unwrap();
+                        }
+                    }
+                    Err(_) => {
+                        player_tx
+                            .send(GameMessage::GenericError(
+                                "Error rejoining existing game".into(),
+                            ))
+                            .unwrap();
+                    }
+                }
+            } else {
+                player_tx
+                    .send(GameMessage::GenericError(format!(
+                        "Room {} no longer exists",
+                        code.to_ascii_uppercase()
+                    )))
+                    .unwrap();
             }
         }
         EditBoard(board) => {
@@ -175,6 +261,7 @@ async fn handle_connection(
     raw_stream: TcpStream,
     addr: SocketAddr,
     code_provider: RoomCodes,
+    jwt_key: HS256Key,
 ) {
     println!("Incoming TCP connection from: {}", addr);
 
@@ -191,8 +278,15 @@ async fn handle_connection(
 
     // TODO: try_for_each from TryStreamExt is quite nice,
     // look to bring that trait to the other stream places
-    let handle_player_msg = incoming
-        .try_for_each(|msg| handle_player_msg(msg, addr, maps.clone(), code_provider.clone()));
+    let handle_player_msg = incoming.try_for_each(|msg| {
+        handle_player_msg(
+            msg,
+            addr,
+            maps.clone(),
+            code_provider.clone(),
+            jwt_key.clone(),
+        )
+    });
 
     let messages_to_player = {
         UnboundedReceiverStream::new(player_rx)
@@ -222,6 +316,8 @@ async fn main() -> Result<(), IoError> {
         ActiveGameMap::new(DashMap::new()),
     );
 
+    let jwt_key = HS256Key::generate();
+
     let code_provider = RoomCodes::new(maps.1.clone());
 
     let try_socket = TcpListener::bind(&addr).await;
@@ -236,6 +332,7 @@ async fn main() -> Result<(), IoError> {
             // TODO: This is a very expensive clone,
             // refactor RoomCodes to be an Arc/Mutex shindig
             code_provider.clone(),
+            jwt_key.clone(),
         ));
     }
 

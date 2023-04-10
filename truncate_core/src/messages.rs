@@ -11,11 +11,13 @@ use crate::{
 
 pub type RoomCode = String;
 pub type PlayerNumber = u64;
+pub type Token = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PlayerMessage {
     NewGame(String),
     JoinGame(RoomCode, String),
+    RejoinGame(Token),
     EditBoard(Board),
     StartGame,
     Place(Coordinate, char),
@@ -27,6 +29,9 @@ impl fmt::Display for PlayerMessage {
         match self {
             PlayerMessage::NewGame(name) => write!(f, "Create a new game as player {}", name),
             PlayerMessage::JoinGame(room, name) => write!(f, "Join game {room} as player {}", name),
+            PlayerMessage::RejoinGame(token) => {
+                write!(f, "Player wants to rejoin a game using the token {}", token)
+            }
             PlayerMessage::EditBoard(board) => write!(f, "Set board to {board}"),
             PlayerMessage::StartGame => write!(f, "Start the game"),
             PlayerMessage::Place(coord, tile) => write!(f, "Place {} at {}", tile, coord),
@@ -74,18 +79,19 @@ impl fmt::Display for GameStateMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
-    JoinedLobby(RoomCode, Vec<String>, Board),
+    JoinedLobby(RoomCode, Vec<String>, Board, Token),
     LobbyUpdate(RoomCode, Vec<String>, Board),
     StartedGame(GameStateMessage),
     GameUpdate(GameStateMessage),
     GameEnd(GameStateMessage, PlayerNumber),
     GameError(RoomCode, PlayerNumber, String),
+    GenericError(String),
 }
 
 impl fmt::Display for GameMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            GameMessage::JoinedLobby(room, players, board) => write!(
+            GameMessage::JoinedLobby(room, players, board, _token) => write!(
                 f,
                 "Joined lobby {} with players {}. Board is:\n{}",
                 room,
@@ -105,6 +111,7 @@ impl fmt::Display for GameMessage {
                 write!(f, "Conclusion of game, winner was {}:\n{}", winner, game)
             }
             GameMessage::GameError(_, _, msg) => write!(f, "Error in game: {}", msg),
+            GameMessage::GenericError(msg) => write!(f, "Generic error: {}", msg),
         }
     }
 }
