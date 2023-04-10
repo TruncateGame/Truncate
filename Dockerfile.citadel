@@ -16,4 +16,8 @@ ADD truncate_core /app/truncate_core
 
 RUN cd truncate_server && cargo build --release
 
-CMD truncate_server/target/release/truncate_server
+# Thin Docker image for runtime
+
+FROM debian:buster-slim
+COPY --from=build /app/truncate_server/target/release/truncate_server /usr/local/bin/
+CMD truncate_server
