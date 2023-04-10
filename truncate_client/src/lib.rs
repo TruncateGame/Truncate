@@ -61,7 +61,7 @@ pub async fn start_separate(
     let (tx_context, rx_context) = oneshot::channel();
 
     let connect_url = if server_url.is_empty() {
-        "ws://127.0.0.1:8080"
+        "wss://citadel.truncate.town"
     } else {
         server_url
     };

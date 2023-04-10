@@ -1,0 +1,30 @@
+# fly.toml file generated for truncate-citadel on 2023-04-10T21:00:49+12:00
+
+# prod:     -a truncate-citadel
+# staging:  -a truncate-coup
+
+kill_signal = "SIGINT"
+kill_timeout = 5
+primary_region = "syd"
+processes = []
+
+[build]
+dockerfile = "Dockerfile.citadel"
+
+[[services]]
+internal_port = 8080
+processes = ["app"]
+protocol = "tcp"
+[services.concurrency]
+hard_limit = 25
+soft_limit = 20
+type = "connections"
+
+[[services.ports]]
+force_https = true
+handlers = ["http"]
+port = 80
+
+[[services.ports]]
+handlers = ["tls", "http"]
+port = 443

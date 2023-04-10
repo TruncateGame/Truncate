@@ -15,7 +15,7 @@ use game_client::GameClient;
 fn main() {
     let connect_addr = std::env::args()
         .nth(1)
-        .unwrap_or_else(|| "ws://127.0.0.1:8080".into());
+        .unwrap_or_else(|| "wss://citadel.truncate.town".into());
 
     let (tx_game, rx_game) = mpsc::channel(2048);
     let (tx_player, rx_player) = mpsc::channel(2048);
