@@ -156,7 +156,7 @@ impl Judge {
             })
             .expect("already checked length");
 
-        let attacker_wins_outright = attackers.iter().any(|word| word.as_ref().contains('!'));
+        let attacker_wins_outright = attackers.iter().any(|word| word.as_ref().contains('¤'));
         if attacker_wins_outright {
             battle_report.outcome = Outcome::AttackerWins(vec![]);
             return Some(battle_report);
@@ -185,7 +185,7 @@ impl Judge {
 
     /// Returns the string that was matched if word was a wildcard
     fn valid<S: AsRef<str>>(&self, word: S) -> Option<String> {
-        if word.as_ref().contains('!') {
+        if word.as_ref().contains('¤') {
             return Some(word.as_ref().to_string().to_uppercase());
         }
         if word.as_ref().contains('*') {

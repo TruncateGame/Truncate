@@ -125,7 +125,7 @@ impl Game {
                 }
                 for _ in 0..apply_penalties {
                     println!("Player {} gets a free tile", other_player.name);
-                    self.recent_changes.push(other_player.add_special_tile('!'));
+                    self.recent_changes.push(other_player.add_special_tile('¤'));
                 }
             }
         }
@@ -273,7 +273,7 @@ impl Game {
                     ));
 
                     match self.board.get(position) {
-                        Ok(Square::Occupied(_, tile)) if tile == '!' => {
+                        Ok(Square::Occupied(_, tile)) if tile == '¤' => {
                             changes.push(
                                 self.board
                                     .clear(position)
