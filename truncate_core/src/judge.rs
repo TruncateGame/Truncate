@@ -156,6 +156,12 @@ impl Judge {
             })
             .expect("already checked length");
 
+        let attacker_wins_outright = attackers.iter().any(|word| word.as_ref().contains('!'));
+        if attacker_wins_outright {
+            battle_report.outcome = Outcome::AttackerWins(vec![]);
+            return Some(battle_report);
+        }
+
         let weak_defenders: Vec<usize> = battle_report
             .defenders // Indices of the weak defenders
             .iter()
@@ -179,6 +185,9 @@ impl Judge {
 
     /// Returns the string that was matched if word was a wildcard
     fn valid<S: AsRef<str>>(&self, word: S) -> Option<String> {
+        if word.as_ref().contains('!') {
+            return Some(word.as_ref().to_string().to_uppercase());
+        }
         if word.as_ref().contains('*') {
             // Try all letters in the first wildcard spot
             // TODO: find a fun way to optimize this to not be 26^wildcard_count (regex?)
