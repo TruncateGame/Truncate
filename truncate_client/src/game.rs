@@ -107,6 +107,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
     while let Ok(msg) = recv() {
         match msg {
+            GameMessage::Ping => {}
             GameMessage::JoinedLobby(id, players, board, token) => {
                 #[cfg(target_arch = "wasm32")]
                 {

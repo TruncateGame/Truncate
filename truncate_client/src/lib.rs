@@ -69,6 +69,7 @@ pub async fn start_separate(
     wasm_bindgen_futures::spawn_local(web_comms::connect(
         connect_url.to_string(),
         tx_game,
+        tx_player.clone(),
         rx_player,
         rx_context,
     ));

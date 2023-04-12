@@ -15,6 +15,7 @@ pub type Token = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PlayerMessage {
+    Ping,
     NewGame(String),
     JoinGame(RoomCode, String),
     RejoinGame(Token),
@@ -27,6 +28,7 @@ pub enum PlayerMessage {
 impl fmt::Display for PlayerMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            PlayerMessage::Ping => write!(f, "Player ping"),
             PlayerMessage::NewGame(name) => write!(f, "Create a new game as player {}", name),
             PlayerMessage::JoinGame(room, name) => write!(f, "Join game {room} as player {}", name),
             PlayerMessage::RejoinGame(token) => {
@@ -79,6 +81,7 @@ impl fmt::Display for GameStateMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
+    Ping,
     JoinedLobby(RoomCode, Vec<String>, Board, Token),
     LobbyUpdate(RoomCode, Vec<String>, Board),
     StartedGame(GameStateMessage),
@@ -91,6 +94,7 @@ pub enum GameMessage {
 impl fmt::Display for GameMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            GameMessage::Ping => write!(f, "Game ping"),
             GameMessage::JoinedLobby(room, players, board, _token) => write!(
                 f,
                 "Joined lobby {} with players {}. Board is:\n{}",

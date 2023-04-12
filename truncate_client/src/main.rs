@@ -29,6 +29,7 @@ fn main() {
     tokio_runtime.spawn(native_comms::connect(
         connect_addr,
         tx_game,
+        tx_player.clone(),
         rx_player,
         rx_context,
     ));
