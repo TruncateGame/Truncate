@@ -182,6 +182,7 @@ impl ActiveGame {
                                             &self.board_changes,
                                             self.player_number,
                                             self.player_number == 0,
+                                            winner.clone(),
                                             ui,
                                             theme,
                                         );

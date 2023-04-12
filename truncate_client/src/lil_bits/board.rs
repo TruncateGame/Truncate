@@ -37,6 +37,7 @@ impl<'a> BoardUI<'a> {
         board_changes: &HashMap<Coordinate, BoardChange>,
         player: u64,
         invert: bool, // TODO: Transpose to any rotation
+        winner: Option<usize>,
         ui: &mut egui::Ui,
         theme: &Theme,
     ) -> (Option<Option<Coordinate>>, Option<PlayerMessage>, Option<HoveredRegion>) {
@@ -73,8 +74,9 @@ impl<'a> BoardUI<'a> {
                                     }
                                 };
 
+                                let is_winner = winner == Some(player as usize);
                                 let mut tile = if let Some(Square::Occupied(player, char)) = square {
-                                    Some(TileUI::new(*char, tile_player(player)).selected(is_selected))
+                                    Some(TileUI::new(*char, tile_player(player)).selected(is_selected).won(is_winner))
                                 } else {
                                     None
                                 };
