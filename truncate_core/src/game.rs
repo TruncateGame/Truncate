@@ -200,6 +200,17 @@ impl Game {
         {
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
+                    changes.extend(defenders.iter().flatten().map(|coordinate| {
+                        let square = self.board.get(*coordinate).expect("Tile just attacked");
+                        Change::Board(BoardChange {
+                            detail: BoardChangeDetail {
+                                square,
+                                coordinate: *coordinate,
+                            },
+                            action: BoardChangeAction::Victorious,
+                        })
+                    }));
+
                     let squares = attackers.into_iter().flat_map(|word| word.into_iter());
                     changes.extend(squares.flat_map(|square| {
                         if let Ok(Square::Occupied(_, letter)) = self.board.get(square) {
@@ -214,6 +225,17 @@ impl Game {
                     }));
                 }
                 Outcome::AttackerWins(losers) => {
+                    changes.extend(attackers.iter().flatten().map(|coordinate| {
+                        let square = self.board.get(*coordinate).expect("Tile just attacked");
+                        Change::Board(BoardChange {
+                            detail: BoardChangeDetail {
+                                square,
+                                coordinate: *coordinate,
+                            },
+                            action: BoardChangeAction::Victorious,
+                        })
+                    }));
+
                     let squares = losers.into_iter().flat_map(|defender_index| {
                         let defender = defenders
                             .get(defender_index)

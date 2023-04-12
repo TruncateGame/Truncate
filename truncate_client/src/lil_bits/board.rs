@@ -74,8 +74,8 @@ impl<'a> BoardUI<'a> {
                                     }
                                 };
 
-                                let is_winner = winner == Some(player as usize);
                                 let mut tile = if let Some(Square::Occupied(player, char)) = square {
+                                    let is_winner = winner == Some(*player);
                                     Some(TileUI::new(*char, tile_player(player)).selected(is_selected).won(is_winner))
                                 } else {
                                     None
@@ -120,6 +120,19 @@ impl<'a> BoardUI<'a> {
                                                     TileUI::new(char, tile_player(&player))
                                                         .selected(is_selected)
                                                         .defeated(true)
+                                                },
+                                            ),
+                                        (BoardChangeAction::Victorious, Some(tile)) => Some(tile.won(true)),
+                                        (BoardChangeAction::Victorious, None) =>
+                                            match change.detail.square {
+                                                Square::Empty => None,
+                                                Square::Occupied(player, char) => Some((player, char)),
+                                            }
+                                            .map(
+                                                |(player, char)| {
+                                                    TileUI::new(char, tile_player(&player))
+                                                        .selected(is_selected)
+                                                        .won(true)
                                                 },
                                             ),
                                         _ => {
