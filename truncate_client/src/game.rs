@@ -38,6 +38,14 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         _ => Err(()),
     };
 
+    ui.horizontal(|ui| {
+        if let Some(commit) = option_env!("TR_COMMIT") {
+            ui.label(format!("Running on commit {commit}"));
+        } else {
+            ui.label(format!("No tagged commit."));
+        }
+    });
+
     if matches!(game_status, GameStatus::None(_, _)) {
         ui.horizontal(|ui| {
             ui.label("Name: ");
