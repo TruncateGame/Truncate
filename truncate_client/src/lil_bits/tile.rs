@@ -21,6 +21,7 @@ pub struct TileUI {
     modified: bool,
     defeated: bool,
     truncated: bool,
+    won: bool,
     id: Option<Id>,
 }
 
@@ -37,6 +38,7 @@ impl TileUI {
             modified: false,
             defeated: false,
             truncated: false,
+            won: false,
             id: None,
         }
     }
@@ -81,6 +83,11 @@ impl TileUI {
         self
     }
 
+    pub fn won(mut self, won: bool) -> Self {
+        self.won = won;
+        self
+    }
+
     pub fn id(mut self, id: Id) -> Self {
         self.id = Some(id);
         self
@@ -89,7 +96,9 @@ impl TileUI {
 
 impl TileUI {
     fn edge_color(&self, theme: &Theme) -> Color32 {
-        if self.defeated || self.truncated || !self.active {
+        if self.won {
+            theme.selection_dark
+        } else if self.defeated || self.truncated || !self.active {
             theme.text.dark
         } else {
             match self.player {
@@ -100,7 +109,9 @@ impl TileUI {
     }
 
     fn tile_color(&self, hovered: bool, theme: &Theme) -> Color32 {
-        if self.defeated || self.truncated || !self.active {
+        if self.won {
+            theme.selection
+        } else if self.defeated || self.truncated || !self.active {
             theme.text.base
         } else {
             match (&self.player, hovered) {

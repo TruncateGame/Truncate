@@ -9,6 +9,7 @@ use ws_stream_wasm::{WsMessage, WsMeta};
 pub async fn connect(
     connect_addr: String,
     tx_game: mpsc::Sender<GameMessage>,
+    tx_player: mpsc::Sender<PlayerMessage>,
     rx_player: mpsc::Receiver<PlayerMessage>,
     rx_context: oneshot::Receiver<Context>,
 ) {
@@ -32,14 +33,17 @@ pub async fn connect(
 
     let game_messages = {
         incoming.for_each(|msg| async {
-            console::log_1(&"Parsing a message".into());
-
             let parsed_msg: GameMessage = match msg {
                 WsMessage::Text(msg) => serde_json::from_str(&msg).expect("Was not valid JSON"),
                 WsMessage::Binary(msg) => serde_json::from_slice(&msg).expect("Was not valid JSON"),
             };
 
-            console::log_1(&format!("Received {parsed_msg}").into());
+            if matches!(parsed_msg, GameMessage::Ping) {
+                _ = tx_player.clone().send(PlayerMessage::Ping).await;
+            } else {
+                console::log_1(&format!("Received {parsed_msg}").into());
+            }
+
             tx_game
                 .clone()
                 .send(parsed_msg)
@@ -54,7 +58,9 @@ pub async fn connect(
     let player_messages = {
         rx_player
             .map(|msg| {
-                console::log_1(&format!("Sending {msg}").into());
+                if !matches!(msg, PlayerMessage::Ping) {
+                    console::log_1(&format!("Sending {msg}").into());
+                }
                 Ok(WsMessage::Text(
                     serde_json::to_string(&msg.clone()).unwrap(),
                 ))

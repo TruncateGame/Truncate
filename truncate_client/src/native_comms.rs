@@ -9,6 +9,7 @@ use truncate_core::messages::{GameMessage, PlayerMessage};
 pub async fn connect(
     connect_addr: String,
     tx_game: mpsc::Sender<GameMessage>,
+    tx_player: mpsc::Sender<PlayerMessage>,
     rx_player: mpsc::Receiver<PlayerMessage>,
     rx_context: oneshot::Receiver<Context>,
 ) {
@@ -32,7 +33,13 @@ pub async fn connect(
             let parsed_msg: GameMessage =
                 serde_json::from_str(msg.unwrap().to_text().expect("Was not valid UTF-8"))
                     .expect("Was not valid JSON");
-            println!("Received {parsed_msg}");
+
+            if matches!(parsed_msg, GameMessage::Ping) {
+                _ = tx_player.clone().send(PlayerMessage::Ping).await;
+            } else {
+                println!("Received {parsed_msg}");
+            }
+
             tx_game
                 .clone()
                 .send(parsed_msg)
@@ -47,7 +54,9 @@ pub async fn connect(
     let player_messages = {
         rx_player
             .map(|msg| {
-                println!("Sending {msg}");
+                if !matches!(msg, PlayerMessage::Ping) {
+                    println!("Sending {msg}");
+                }
                 Ok(Message::Text(serde_json::to_string(&msg).unwrap()))
             })
             .forward(outgoing)

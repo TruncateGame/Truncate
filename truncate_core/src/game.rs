@@ -125,7 +125,7 @@ impl Game {
                 }
                 for _ in 0..apply_penalties {
                     println!("Player {} gets a free tile", other_player.name);
-                    self.recent_changes.push(other_player.add_special_tile('*'));
+                    self.recent_changes.push(other_player.add_special_tile('¤'));
                 }
             }
         }
@@ -200,6 +200,17 @@ impl Game {
         {
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
+                    changes.extend(defenders.iter().flatten().map(|coordinate| {
+                        let square = self.board.get(*coordinate).expect("Tile just attacked");
+                        Change::Board(BoardChange {
+                            detail: BoardChangeDetail {
+                                square,
+                                coordinate: *coordinate,
+                            },
+                            action: BoardChangeAction::Victorious,
+                        })
+                    }));
+
                     let squares = attackers.into_iter().flat_map(|word| word.into_iter());
                     changes.extend(squares.flat_map(|square| {
                         if let Ok(Square::Occupied(_, letter)) = self.board.get(square) {
@@ -214,6 +225,17 @@ impl Game {
                     }));
                 }
                 Outcome::AttackerWins(losers) => {
+                    changes.extend(attackers.iter().flatten().map(|coordinate| {
+                        let square = self.board.get(*coordinate).expect("Tile just attacked");
+                        Change::Board(BoardChange {
+                            detail: BoardChangeDetail {
+                                square,
+                                coordinate: *coordinate,
+                            },
+                            action: BoardChangeAction::Victorious,
+                        })
+                    }));
+
                     let squares = losers.into_iter().flat_map(|defender_index| {
                         let defender = defenders
                             .get(defender_index)
@@ -249,6 +271,23 @@ impl Game {
                             None
                         },
                     ));
+
+                    match self.board.get(position) {
+                        Ok(Square::Occupied(_, tile)) if tile == '¤' => {
+                            changes.push(
+                                self.board
+                                    .clear(position)
+                                    .map(|detail| {
+                                        Change::Board(BoardChange {
+                                            detail,
+                                            action: BoardChangeAction::Exploded,
+                                        })
+                                    })
+                                    .expect("Tile exists and should be removable"),
+                            );
+                        }
+                        _ => {}
+                    }
                 }
             }
             changes.push(Change::Battle(battle));

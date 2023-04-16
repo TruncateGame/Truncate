@@ -11,6 +11,7 @@ use crate::{
 pub enum BoardChangeAction {
     Added,
     Swapped,
+    Victorious,
     Defeated,
     Truncated,
     Exploded,
@@ -21,6 +22,7 @@ impl fmt::Display for BoardChangeAction {
         match self {
             BoardChangeAction::Added => write!(f, "Added"),
             BoardChangeAction::Swapped => write!(f, "Swapped"),
+            BoardChangeAction::Victorious => write!(f, "Victorious"),
             BoardChangeAction::Defeated => write!(f, "Defeated"),
             BoardChangeAction::Truncated => write!(f, "Truncated"),
             BoardChangeAction::Exploded => write!(f, "Exploded"),
@@ -163,7 +165,10 @@ pub(crate) fn filter_to_player(
                     },
                 action,
             }) => {
-                if action == &BoardChangeAction::Defeated || action == &BoardChangeAction::Truncated
+                if action == &BoardChangeAction::Victorious
+                    || action == &BoardChangeAction::Defeated
+                    || action == &BoardChangeAction::Truncated
+                    || action == &BoardChangeAction::Exploded
                 {
                     return true;
                 }

@@ -33,11 +33,11 @@ async fn handle_player_msg(
     let (peer_map, game_map, active_map) = maps;
     let player_tx = peer_map.get(&addr).expect("TODO: Refactor");
 
-    println!("Received a message from {addr}");
-
     let parsed_msg: PlayerMessage =
         serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
-    println!("Message: {}", parsed_msg);
+    if !matches!(parsed_msg, PlayerMessage::Ping) {
+        println!("Received a message from {addr}: {}", parsed_msg);
+    }
 
     let get_current_game = |addr| {
         active_map
@@ -48,6 +48,7 @@ async fn handle_player_msg(
 
     use PlayerMessage::*;
     match parsed_msg {
+        Ping => { /* TODO: Track pings and notify the game when players disconnect */ }
         NewGame(name) => {
             let new_game_id = code_provider.get_free_code();
             let mut game = GameState::new(new_game_id.clone());
@@ -291,7 +292,9 @@ async fn handle_connection(
     let messages_to_player = {
         UnboundedReceiverStream::new(player_rx)
             .map(|msg| {
-                println!("Sending message: {msg}");
+                if !matches!(msg, GameMessage::Ping) {
+                    println!("Sending message: {msg}");
+                }
                 Ok(Message::Text(serde_json::to_string(&msg).unwrap()))
             })
             .forward(outgoing)
@@ -302,6 +305,21 @@ async fn handle_connection(
 
     println!("{} disconnected", &addr);
     maps.0.remove(&addr);
+}
+
+async fn ping_peers(peers: PeerMap) {
+    loop {
+        // Ping all clients every five seconds
+        tokio::time::sleep(Duration::from_secs(5).into()).await;
+        for peer in peers.iter() {
+            match peer.send(GameMessage::Ping) {
+                Ok(()) => println!("Pinged {}", peer.key()),
+                Err(_) => {
+                    println!("Failed to ping {}", peer.key());
+                }
+            }
+        }
+    }
 }
 
 #[tokio::main]
@@ -323,6 +341,8 @@ async fn main() -> Result<(), IoError> {
     let try_socket = TcpListener::bind(&addr).await;
     let listener = try_socket.expect("Failed to bind");
     println!("Listening on: {}", addr);
+
+    tokio::spawn(ping_peers(maps.0.clone()));
 
     while let Ok((stream, addr)) = listener.accept().await {
         tokio::spawn(handle_connection(
