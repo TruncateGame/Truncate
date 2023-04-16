@@ -2,7 +2,7 @@ use eframe::egui;
 use epaint::{Color32, TextShape};
 use std::f32;
 
-use crate::theming::Theme;
+use crate::theming::*;
 
 pub enum CharacterOrient {
     North,
@@ -70,17 +70,17 @@ impl CharacterUI {
 impl CharacterUI {
     fn char_color(&self, theme: &Theme) -> Color32 {
         if self.ghost {
-            theme.friend.dark
+            theme.friend.darken()
         } else if !self.active {
             theme.outlines
         } else if self.hovered || self.selected {
-            theme.text.dark
+            theme.text.darken()
         } else if self.defeated {
             theme.defeated
         } else if self.truncated {
-            theme.text.light
+            theme.text.lighten()
         } else {
-            theme.text.base
+            theme.text
         }
     }
 

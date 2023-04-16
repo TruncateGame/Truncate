@@ -1,7 +1,7 @@
 use eframe::egui::{self, Id, Margin};
-use epaint::{Color32, Stroke};
+use epaint::{Color32, Hsva, Stroke};
 
-use crate::theming::Theme;
+use crate::theming::{Darken, Lighten, Theme};
 
 use super::{character::CharacterOrient, CharacterUI};
 
@@ -95,30 +95,21 @@ impl TileUI {
 }
 
 impl TileUI {
-    fn edge_color(&self, theme: &Theme) -> Color32 {
-        if self.won {
-            theme.selection_dark
-        } else if self.defeated || self.truncated || !self.active {
-            theme.text.dark
-        } else {
-            match self.player {
-                TilePlayer::Own => theme.friend.dark,
-                TilePlayer::Enemy => theme.enemy.dark,
-            }
-        }
+    fn edge_color(&self, hovered: bool, theme: &Theme) -> Color32 {
+        self.tile_color(hovered, theme).darken()
     }
 
     fn tile_color(&self, hovered: bool, theme: &Theme) -> Color32 {
         if self.won {
             theme.selection
         } else if self.defeated || self.truncated || !self.active {
-            theme.text.base
+            theme.text
         } else {
             match (&self.player, hovered) {
-                (TilePlayer::Own, false) => theme.friend.base,
-                (TilePlayer::Own, true) => theme.friend.light,
-                (TilePlayer::Enemy, false) => theme.enemy.base,
-                (TilePlayer::Enemy, true) => theme.enemy.light,
+                (TilePlayer::Own, false) => theme.friend,
+                (TilePlayer::Own, true) => theme.friend.lighten(),
+                (TilePlayer::Enemy, false) => theme.enemy,
+                (TilePlayer::Enemy, true) => theme.enemy.lighten(),
             }
         }
     }
@@ -154,7 +145,7 @@ impl TileUI {
                         ui.painter().rect_stroke(
                             rect,
                             theme.rounding,
-                            Stroke::new(1.0, self.edge_color(theme)),
+                            Stroke::new(1.0, self.edge_color(tile_hovered, theme)),
                         );
                         ui.painter().rect_stroke(
                             raised_rect,
@@ -162,8 +153,11 @@ impl TileUI {
                             Stroke::new(1.0, self.tile_color(tile_hovered, theme)),
                         );
                     } else {
-                        ui.painter()
-                            .rect_filled(rect, theme.rounding, self.edge_color(theme));
+                        ui.painter().rect_filled(
+                            rect,
+                            theme.rounding,
+                            self.edge_color(tile_hovered, theme),
+                        );
                         ui.painter().rect_filled(
                             raised_rect,
                             theme.rounding,

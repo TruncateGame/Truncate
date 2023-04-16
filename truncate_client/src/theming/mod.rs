@@ -1,22 +1,14 @@
 use std::ops::Range;
 
 use eframe::egui::{self, Margin};
-use epaint::{hex_color, Color32};
-
-#[derive(Debug, Clone)]
-pub struct InteractTheme {
-    pub base: Color32,
-    pub dark: Color32,
-    pub light: Color32,
-}
+use epaint::{hex_color, Color32, Hsva};
 
 #[derive(Debug, Clone)]
 pub struct Theme {
-    pub friend: InteractTheme,
-    pub enemy: InteractTheme,
-    pub text: InteractTheme,
+    pub friend: Color32,
+    pub enemy: Color32,
+    pub text: Color32,
     pub selection: Color32,
-    pub selection_dark: Color32,
     pub background: Color32,
     pub outlines: Color32,
     pub addition: Color32,
@@ -32,23 +24,10 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            friend: InteractTheme {
-                base: hex_color!("#E1E6F4"),
-                dark: hex_color!("#C3CEEA"),
-                light: hex_color!("#FFFFFF"),
-            },
-            enemy: InteractTheme {
-                base: hex_color!("#F7BDB6"),
-                dark: hex_color!("#F39B91"),
-                light: hex_color!("#FBDEDA"),
-            },
-            text: InteractTheme {
-                base: hex_color!("#333333"),
-                dark: hex_color!("#1E1E1E"),
-                light: hex_color!("#6B6B6B"),
-            },
+            friend: hex_color!("#C3CEEA"),
+            enemy: hex_color!("#F7BDB6"),
+            text: hex_color!("#333333"),
             selection: hex_color!("#D78D1D"),
-            selection_dark: hex_color!("#A4680D"),
             background: hex_color!("#202020"),
             outlines: hex_color!("#9B9B9B"),
             addition: hex_color!("#9CC69B"),
@@ -96,5 +75,32 @@ impl Theme {
             rounding: self.rounding * scale,
             ..self.clone()
         }
+    }
+}
+
+pub trait Darken {
+    fn darken(&self) -> Self;
+}
+
+impl Darken for Color32 {
+    fn darken(&self) -> Self {
+        let mut color = Hsva::from(*self);
+        color.v *= 0.5;
+        color.into()
+    }
+}
+
+pub trait Lighten {
+    fn lighten(&self) -> Self;
+}
+
+impl Lighten for Color32 {
+    fn lighten(&self) -> Self {
+        let mut color = Hsva::from(*self);
+        color.v *= 2.0;
+        if color.v > 1.0 {
+            color.v = 1.0;
+        }
+        color.into()
     }
 }

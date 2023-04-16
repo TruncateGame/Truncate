@@ -1,7 +1,7 @@
 use eframe::egui::{self, Sense};
 use epaint::Stroke;
 
-use crate::theming::Theme;
+use crate::theming::{Darken, Lighten, Theme};
 
 use super::{character::CharacterOrient, CharacterUI};
 
@@ -41,11 +41,11 @@ impl EditorSquareUI {
 
         if ui.is_rect_visible(rect) {
             if self.enabled {
-                ui.painter().rect_filled(rect, 0.0, theme.text.light);
+                ui.painter().rect_filled(rect, 0.0, theme.text.lighten());
                 ui.painter()
                     .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
             } else {
-                ui.painter().rect_filled(rect, 0.0, theme.text.dark);
+                ui.painter().rect_filled(rect, 0.0, theme.text.darken());
             }
 
             if self.root {

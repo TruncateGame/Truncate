@@ -5,7 +5,7 @@ use eframe::egui::{self, widget_text::WidgetTextGalley, Margin, Sense};
 use epaint::{vec2, Color32, Stroke, Vec2};
 use time::OffsetDateTime;
 
-use crate::theming::Theme;
+use crate::theming::{Darken, Theme};
 
 pub struct TimerUI<'a> {
     player: &'a GamePlayerMessage,
@@ -51,9 +51,9 @@ impl<'a> TimerUI<'a> {
         } else if !self.active {
             theme.outlines
         } else if self.friend {
-            theme.friend.dark
+            theme.friend.darken()
         } else {
-            theme.enemy.dark
+            theme.enemy.darken()
         }
     }
 
@@ -63,9 +63,9 @@ impl<'a> TimerUI<'a> {
         } else if !self.active {
             theme.outlines
         } else if self.friend {
-            theme.friend.dark
+            theme.friend.darken()
         } else {
-            theme.enemy.dark
+            theme.enemy.darken()
         }
     }
 
@@ -162,7 +162,7 @@ impl<'a> TimerUI<'a> {
             let mut time_bar = timer_ui_rect.clone();
             time_bar.set_top(time_bar.bottom() - theme.letter_size / 2.0);
             ui.painter()
-                .rect_filled(time_bar, timer_rounding, theme.text.dark);
+                .rect_filled(time_bar, timer_rounding, theme.text.darken());
 
             // Paint time remaining
             let time_proportion = (self.time / self.player.allotted_time) as f32;
@@ -195,7 +195,7 @@ impl<'a> TimerUI<'a> {
                 time_division_line[1].x += time_division_width;
 
                 ui.painter()
-                    .line_segment(time_division_line, Stroke::new(1.0, theme.text.base));
+                    .line_segment(time_division_line, Stroke::new(1.0, theme.text));
             }
         });
     }
