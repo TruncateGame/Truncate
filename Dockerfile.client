@@ -19,6 +19,8 @@ WORKDIR /app
 
 ARG TR_COMMIT
 ENV TR_COMMIT=$TR_COMMIT
+ARG TR_MSG
+ENV TR_MSG=$TR_MSG
 
 ADD truncate_server /app/truncate_server
 ADD truncate_client /app/truncate_client

@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use eframe::egui;
 use truncate_core::{board::Board, messages::RoomCode, messages::Token};
 
@@ -39,21 +41,26 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
     };
 
     ui.horizontal(|ui| {
-        if let Some(commit) = option_env!("TR_COMMIT") {
-            ui.label(format!("Running on commit {commit}"));
+        if let (Some(commit_msg), Some(commit_hash)) =
+            (option_env!("TR_MSG"), option_env!("TR_COMMIT"))
+        {
+            ui.hyperlink_to(
+                format!("Running \"{commit_msg}\""),
+                format!("https://github.com/TruncateGame/Truncate/commit/{commit_hash}"),
+            );
         } else {
             ui.label(format!("No tagged commit."));
         }
-    });
 
-    if matches!(game_status, GameStatus::None(_, _)) {
-        ui.horizontal(|ui| {
-            ui.label("Name: ");
-            ui.text_edit_singleline(name);
-        });
-    } else {
-        ui.label(format!("Playing as {name}"));
-    }
+        if matches!(game_status, GameStatus::None(_, _)) {
+            ui.horizontal(|ui| {
+                ui.label("Name: ");
+                ui.text_edit_singleline(name);
+            });
+        } else {
+            ui.label(format!("Playing as {name}"));
+        }
+    });
 
     ui.separator();
 
