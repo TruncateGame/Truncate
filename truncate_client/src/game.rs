@@ -176,6 +176,20 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                         game.board = board;
                         game.next_player_number = next_player_number;
 
+                        #[cfg(target_arch = "wasm32")]
+                        if game.next_player_number == game.player_number {
+                            use eframe::wasm_bindgen::JsCast;
+
+                            let window = web_sys::window().expect("window should exist in browser");
+                            let document =
+                                window.document().expect("documnt should exist in window");
+                            if let Some(element) = document.query_selector("#tr_move").unwrap() {
+                                if let Ok(audio) = element.dyn_into::<web_sys::HtmlAudioElement>() {
+                                    audio.play().expect("Audio should be playable");
+                                }
+                            }
+                        }
+
                         game.board_changes.clear();
                         for board_change in changes.iter().filter_map(|c| match c {
                             Change::Board(change) => Some(change),

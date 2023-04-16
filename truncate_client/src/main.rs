@@ -8,6 +8,7 @@ mod theming;
 
 use eframe::egui;
 use futures::channel::{mpsc, oneshot};
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::runtime::Builder;
 
 use game_client::GameClient;
