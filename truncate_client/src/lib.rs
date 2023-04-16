@@ -93,6 +93,19 @@ pub async fn start_separate(
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn start(canvas_id: &str, server_url: &str) -> Result<WebHandle, wasm_bindgen::JsValue> {
+    use web_sys::console;
+
     init_wasm_hooks();
+
+    if let (Some(commit_msg), Some(commit_hash)) = (option_env!("TR_MSG"), option_env!("TR_COMMIT"))
+    {
+        console::log_1(&format!("Running \"{commit_msg}\"").into());
+        console::log_1(
+            &format!("https://github.com/TruncateGame/Truncate/commit/{commit_hash}").into(),
+        );
+    } else {
+        console::log_1(&format!("No tagged git commit for current release.").into());
+    }
+
     start_separate(canvas_id, server_url).await
 }

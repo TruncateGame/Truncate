@@ -41,15 +41,17 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
     };
 
     ui.horizontal(|ui| {
-        if let (Some(commit_msg), Some(commit_hash)) =
-            (option_env!("TR_MSG"), option_env!("TR_COMMIT"))
-        {
-            ui.hyperlink_to(
-                format!("Running \"{commit_msg}\""),
-                format!("https://github.com/TruncateGame/Truncate/commit/{commit_hash}"),
-            );
-        } else {
-            ui.label(format!("No tagged commit."));
+        if option_env!("TR_PROD").is_none() {
+            if let (Some(commit_msg), Some(commit_hash)) =
+                (option_env!("TR_MSG"), option_env!("TR_COMMIT"))
+            {
+                ui.hyperlink_to(
+                    format!("Running \"{commit_msg}\""),
+                    format!("https://github.com/TruncateGame/Truncate/commit/{commit_hash}"),
+                );
+            } else {
+                ui.label(format!("No tagged commit."));
+            }
         }
 
         if matches!(game_status, GameStatus::None(_, _)) {
