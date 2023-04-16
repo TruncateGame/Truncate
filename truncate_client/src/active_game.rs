@@ -14,7 +14,7 @@ use eframe::{
 use hashbrown::HashMap;
 
 use crate::{
-    lil_bits::{BoardUI, HandUI, TimerUI},
+    lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
     theming::Theme,
 };
 
@@ -109,13 +109,9 @@ impl ActiveGame {
                             ui.separator();
                         }
 
-                        if self.battles.is_empty() {
-                            ui.label("No battles yet.");
-                        } else {
-                            for battle in self.battles.iter().rev() {
-                                ui.label(format!("{battle}"));
-                                ui.separator();
-                            }
+                        for battle in self.battles.iter() {
+                            BattleUI::new(battle).render(ui, theme);
+                            ui.separator();
                         }
                     });
                 });

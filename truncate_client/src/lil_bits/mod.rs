@@ -1,3 +1,4 @@
+mod battle;
 mod board;
 mod character;
 mod editor;
@@ -7,6 +8,7 @@ mod square;
 mod tile;
 mod timer;
 
+pub use battle::BattleUI;
 pub use board::BoardUI;
 pub use character::CharacterUI;
 pub use editor::EditorUI;
