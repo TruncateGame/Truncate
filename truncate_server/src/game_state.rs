@@ -6,35 +6,35 @@ use truncate_core::{
     messages::{GameMessage, GamePlayerMessage, GameStateMessage},
     moves::Move,
     player::Hand,
-    reporting::Change,
+    reporting::{BattleWord, Change},
 };
 
-use crate::definitions::Definitions;
+use crate::WordMap;
 
-async fn hydrate_change_definitions(definitions: &Definitions, changes: &mut Vec<Change>) {
-    for battle in changes.iter_mut().filter_map(|change| match change {
-        Change::Battle(battle) => Some(battle),
-        _ => None,
-    }) {
-        println!("Evaluating battle {battle:#?}");
-        for word in &mut battle
-            .attackers
-            .iter_mut()
-            .filter(|w| w.valid == Some(true))
-        {
-            println!("Hydrating word {word:#?}");
-            word.definition = definitions.get_word(&word.word).await;
-        }
-        for word in &mut battle
-            .defenders
-            .iter_mut()
-            .filter(|w| w.valid == Some(true))
-        {
-            println!("Hydrating word {word:#?}");
-            word.definition = definitions.get_word(&word.word).await;
-        }
-    }
-}
+// async fn hydrate_change_definitions(definitions: &Definitions, changes: &mut Vec<Change>) {
+//     for battle in changes.iter_mut().filter_map(|change| match change {
+//         Change::Battle(battle) => Some(battle),
+//         _ => None,
+//     }) {
+//         println!("Evaluating battle {battle:#?}");
+//         for word in &mut battle
+//             .attackers
+//             .iter_mut()
+//             .filter(|w| w.valid == Some(true))
+//         {
+//             println!("Hydrating word {word:#?}");
+//             word.definition = definitions.get_word(&word.word).await;
+//         }
+//         for word in &mut battle
+//             .defenders
+//             .iter_mut()
+//             .filter(|w| w.valid == Some(true))
+//         {
+//             println!("Hydrating word {word:#?}");
+//             word.definition = definitions.get_word(&word.word).await;
+//         }
+//     }
+// }
 
 #[derive(Debug)]
 pub struct Player {
@@ -96,8 +96,33 @@ impl GameState {
         self.game.board = board;
     }
 
-    pub fn game_msg(&self, player_index: usize) -> GameStateMessage {
-        let (board, changes) = self.game.filter_game_to_player(player_index);
+    pub fn game_msg(&self, player_index: usize, word_map: Option<&WordMap>) -> GameStateMessage {
+        let (board, mut changes) = self.game.filter_game_to_player(player_index);
+
+        if let Some(definitions) = word_map {
+            let hydrate = |battle_words: &mut Vec<BattleWord>| {
+                for word in battle_words.iter_mut().filter(|w| w.valid == Some(true)) {
+                    if let Some(dict_entry) = definitions.get(&word.word.to_lowercase()) {
+                        if let Some(definition) = dict_entry
+                            .meanings
+                            .as_ref()
+                            .map(|m| m.first().cloned())
+                            .flatten()
+                        {
+                            word.definition = Some(definition.def);
+                        }
+                    }
+                }
+            };
+
+            for battle in changes.iter_mut().filter_map(|change| match change {
+                Change::Battle(battle) => Some(battle),
+                _ => None,
+            }) {
+                hydrate(&mut battle.attackers);
+                hydrate(&mut battle.defenders);
+            }
+        }
 
         let hand = self
             .game
@@ -139,7 +164,7 @@ impl GameState {
         for (player_index, player) in self.players.iter().enumerate() {
             messages.push((
                 player.clone(),
-                GameMessage::StartedGame(self.game_msg(player_index)),
+                GameMessage::StartedGame(self.game_msg(player_index, None)),
             ));
         }
 
@@ -151,6 +176,7 @@ impl GameState {
         player: SocketAddr,
         position: Coordinate,
         tile: char,
+        words: &WordMap,
     ) -> Vec<(&Player, GameMessage)> {
         let mut messages = Vec::with_capacity(self.players.len());
 
@@ -166,29 +192,22 @@ impl GameState {
                 position,
             }) {
                 Ok(Some(winner)) => {
-                    // TODO: Provide a way for the player to request a definition for a specific word,
-                    // rather than requesting them all every time.
-                    // hydrate_change_definitions(&Definitions::new(), &mut changes).await;
                     for (player_index, player) in self.players.iter().enumerate() {
-                        let (board, changes) = self.game.filter_game_to_player(player_index);
-
                         messages.push((
                             player.clone(),
-                            GameMessage::GameEnd(self.game_msg(player_index), winner as u64),
+                            GameMessage::GameEnd(
+                                self.game_msg(player_index, Some(words)),
+                                winner as u64,
+                            ),
                         ));
                     }
                     return messages;
                 }
                 Ok(None) => {
-                    // TODO: Provide a way for the player to request a definition for a specific word,
-                    // rather than requesting them all every time.
-                    // hydrate_change_definitions(&Definitions::new(), &mut changes).await;
                     for (player_index, player) in self.players.iter().enumerate() {
-                        let (board, changes) = self.game.filter_game_to_player(player_index);
-
                         messages.push((
                             player.clone(),
-                            GameMessage::GameUpdate(self.game_msg(player_index)),
+                            GameMessage::GameUpdate(self.game_msg(player_index, Some(words))),
                         ));
                     }
                     return messages;
@@ -246,7 +265,7 @@ impl GameState {
 
                         messages.push((
                             player.clone(),
-                            GameMessage::GameUpdate(self.game_msg(player_index)),
+                            GameMessage::GameUpdate(self.game_msg(player_index, None)),
                         ));
                     }
 

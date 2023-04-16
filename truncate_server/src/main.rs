@@ -5,6 +5,7 @@ mod room_codes;
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
 use dashmap::DashMap;
+use definitions::Word;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
 use jwt_simple::prelude::*;
 use tokio::net::{TcpListener, TcpStream};
@@ -13,6 +14,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tungstenite::protocol::Message;
 
+use crate::definitions::definitions;
 use crate::game_state::{Player, PlayerClaims};
 use game_state::GameState;
 use room_codes::RoomCodes;
@@ -21,7 +23,8 @@ use truncate_core::messages::{GameMessage, PlayerMessage};
 type PeerMap = Arc<DashMap<SocketAddr, UnboundedSender<GameMessage>>>;
 type GameMap = Arc<DashMap<String, GameState>>;
 type ActiveGameMap = Arc<DashMap<SocketAddr, String>>;
-type Maps = (PeerMap, GameMap, ActiveGameMap);
+type WordMap = Arc<DashMap<String, Word>>;
+type Maps = (PeerMap, GameMap, ActiveGameMap, WordMap);
 
 async fn handle_player_msg(
     msg: Message,
@@ -30,7 +33,7 @@ async fn handle_player_msg(
     code_provider: RoomCodes,
     jwt_key: HS256Key,
 ) -> Result<(), tungstenite::Error> {
-    let (peer_map, game_map, active_map) = maps;
+    let (peer_map, game_map, active_map, word_map) = maps;
     let player_tx = peer_map.get(&addr).expect("TODO: Refactor");
 
     let parsed_msg: PlayerMessage =
@@ -162,7 +165,7 @@ async fn handle_player_msg(
                         if existing_game.game.started_at.is_some() {
                             player_tx
                                 .send(GameMessage::StartedGame(
-                                    existing_game.game_msg(player_index),
+                                    existing_game.game_msg(player_index, None),
                                 ))
                                 .unwrap();
                         } else {
@@ -228,7 +231,7 @@ async fn handle_player_msg(
         }
         Place(position, tile) => {
             if let Some(mut game_state) = get_current_game(addr) {
-                for (player, message) in game_state.play(addr, position, tile).await {
+                for (player, message) in game_state.play(addr, position, tile, &word_map).await {
                     let Some(socket) = player.socket else { todo!("Handle disconnected player") };
                     let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
 
@@ -324,6 +327,8 @@ async fn ping_peers(peers: PeerMap) {
 
 #[tokio::main]
 async fn main() -> Result<(), IoError> {
+    println!("Starting up...");
+
     let addr = env::args()
         .nth(1)
         .unwrap_or_else(|| "0.0.0.0:8080".to_string());
@@ -332,6 +337,7 @@ async fn main() -> Result<(), IoError> {
         PeerMap::new(DashMap::new()),
         GameMap::new(DashMap::new()),
         ActiveGameMap::new(DashMap::new()),
+        WordMap::new(definitions()),
     );
 
     let jwt_key = HS256Key::generate();
