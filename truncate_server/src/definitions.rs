@@ -42,6 +42,4 @@ pub fn read_defs(words: WordMap) {
     } else {
         println!("Loaded definitions for {} words", words.len());
     }
-
-    println!("{:#?}", words.get("age").unwrap().value());
 }
