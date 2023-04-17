@@ -2568,6 +2568,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-jsonlines"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4684abdec99c1de7e507a3516c82385ff74d54c385973846b079bfd9f5920d35"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "serde-xml-rs"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3135,12 +3145,14 @@ name = "truncate_server"
 version = "0.1.0"
 dependencies = [
  "dashmap",
+ "flate2",
  "futures-channel",
  "futures-util",
  "jwt-simple",
  "rand",
  "reqwest",
  "serde",
+ "serde-jsonlines",
  "serde_json",
  "tokio",
  "tokio-stream",

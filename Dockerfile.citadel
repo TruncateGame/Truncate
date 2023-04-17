@@ -24,5 +24,12 @@ RUN cd truncate_server && cargo build --release
 # Thin Docker image for runtime
 
 FROM debian:buster-slim
+
 COPY --from=build /app/truncate_server/target/release/truncate_server /usr/local/bin/
+
+RUN mkdir /truncate
+WORKDIR /truncate
+
+ADD word_definitions/defs.json.gz truncate/defs.json.gz
+
 CMD truncate_server

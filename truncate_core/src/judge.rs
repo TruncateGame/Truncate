@@ -51,7 +51,7 @@ impl Default for Judge {
         let mut lines = WORDNIK.lines();
         lines.next(); // Skip copyright
 
-        // TODO: Store definitions somewhere to return to the client
+        // TODO: Store meaningss somewhere to return to the client
         for line in lines {
             dictionary.insert(line.to_string());
         }
@@ -108,7 +108,7 @@ impl Judge {
                     let valid = self.valid(w);
                     BattleWord {
                         valid: Some(valid.is_some()),
-                        definition: None,
+                        meanings: None,
                         word: valid.unwrap_or_else(|| w.to_string()),
                     }
                 })
@@ -117,7 +117,7 @@ impl Judge {
                 .iter()
                 .map(|w| BattleWord {
                     word: w.to_string(),
-                    definition: None,
+                    meanings: None,
                     valid: None,
                 })
                 .collect(),
@@ -371,12 +371,12 @@ mod tests {
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "BAG".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(true)
                 }],
                 defenders: vec![BattleWord {
                     word: "XYZ".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(false)
                 }],
                 outcome: Outcome::AttackerWins(vec![0])
@@ -387,12 +387,12 @@ mod tests {
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "R*G".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(false)
                 }],
                 defenders: vec![BattleWord {
                     word: "XYZ".into(),
-                    definition: None,
+                    meanings: None,
                     valid: None
                 }],
                 outcome: Outcome::DefenderWins
@@ -404,12 +404,12 @@ mod tests {
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "ARTS".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(true)
                 }],
                 defenders: vec![BattleWord {
                     word: "JALL*".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(false)
                 }],
                 outcome: Outcome::AttackerWins(vec![0])
@@ -420,12 +420,12 @@ mod tests {
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "BAG".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(true)
                 }],
                 defenders: vec![BattleWord {
                     word: "JOLLY".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(true)
                 }],
                 outcome: Outcome::DefenderWins

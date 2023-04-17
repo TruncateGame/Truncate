@@ -4,7 +4,7 @@ use crate::bag::TileBag;
 use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
 use crate::judge::Outcome;
-use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, HandChange};
+use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail};
 use crate::rules::{self, GameRules};
 
 use super::board::Board;

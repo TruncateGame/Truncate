@@ -5,36 +5,10 @@ use truncate_core::{
     game::Game,
     messages::{GameMessage, GamePlayerMessage, GameStateMessage},
     moves::Move,
-    player::Hand,
     reporting::{BattleWord, Change},
 };
 
 use crate::WordMap;
-
-// async fn hydrate_change_definitions(definitions: &Definitions, changes: &mut Vec<Change>) {
-//     for battle in changes.iter_mut().filter_map(|change| match change {
-//         Change::Battle(battle) => Some(battle),
-//         _ => None,
-//     }) {
-//         println!("Evaluating battle {battle:#?}");
-//         for word in &mut battle
-//             .attackers
-//             .iter_mut()
-//             .filter(|w| w.valid == Some(true))
-//         {
-//             println!("Hydrating word {word:#?}");
-//             word.definition = definitions.get_word(&word.word).await;
-//         }
-//         for word in &mut battle
-//             .defenders
-//             .iter_mut()
-//             .filter(|w| w.valid == Some(true))
-//         {
-//             println!("Hydrating word {word:#?}");
-//             word.definition = definitions.get_word(&word.word).await;
-//         }
-//     }
-// }
 
 #[derive(Debug)]
 pub struct Player {
@@ -102,15 +76,8 @@ impl GameState {
         if let Some(definitions) = word_map {
             let hydrate = |battle_words: &mut Vec<BattleWord>| {
                 for word in battle_words.iter_mut().filter(|w| w.valid == Some(true)) {
-                    if let Some(dict_entry) = definitions.get(&word.word.to_lowercase()) {
-                        if let Some(definition) = dict_entry
-                            .meanings
-                            .as_ref()
-                            .map(|m| m.first().cloned())
-                            .flatten()
-                        {
-                            word.definition = Some(definition.def);
-                        }
+                    if let Some(meanings) = definitions.get(&word.word.to_lowercase()) {
+                        word.meanings = Some(meanings.clone());
                     }
                 }
             };
@@ -252,17 +219,7 @@ impl GameState {
                     unreachable!("Cannot win by swapping")
                 }
                 Ok(None) => {
-                    // TODO: Tidy
-                    let mut hands = (0..self.players.len()).map(|player| {
-                        self.game
-                            .get_player(player)
-                            .expect("Player was not dealt a hand")
-                            .hand
-                            .clone()
-                    });
                     for (player_index, player) in self.players.iter().enumerate() {
-                        let (board, changes) = self.game.filter_game_to_player(player_index);
-
                         messages.push((
                             player.clone(),
                             GameMessage::GameUpdate(self.game_msg(player_index, None)),

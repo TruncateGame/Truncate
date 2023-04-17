@@ -5,16 +5,16 @@ mod room_codes;
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
 use dashmap::DashMap;
-use definitions::Word;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
 use jwt_simple::prelude::*;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use truncate_core::reporting::WordMeaning;
 use tungstenite::protocol::Message;
 
-use crate::definitions::definitions;
+use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
 use game_state::GameState;
 use room_codes::RoomCodes;
@@ -23,7 +23,7 @@ use truncate_core::messages::{GameMessage, PlayerMessage};
 type PeerMap = Arc<DashMap<SocketAddr, UnboundedSender<GameMessage>>>;
 type GameMap = Arc<DashMap<String, GameState>>;
 type ActiveGameMap = Arc<DashMap<SocketAddr, String>>;
-type WordMap = Arc<DashMap<String, Word>>;
+type WordMap = Arc<DashMap<String, Vec<WordMeaning>>>;
 type Maps = (PeerMap, GameMap, ActiveGameMap, WordMap);
 
 async fn handle_player_msg(
@@ -337,8 +337,13 @@ async fn main() -> Result<(), IoError> {
         PeerMap::new(DashMap::new()),
         GameMap::new(DashMap::new()),
         ActiveGameMap::new(DashMap::new()),
-        WordMap::new(definitions()),
+        WordMap::new(DashMap::new()),
     );
+
+    let populate_words = maps.3.clone();
+    std::thread::spawn(move || {
+        read_defs(populate_words);
+    });
 
     let jwt_key = HS256Key::generate();
 

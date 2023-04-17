@@ -72,9 +72,15 @@ impl fmt::Display for HandChange {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WordMeaning {
+    pub pos: String,
+    pub defs: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BattleWord {
     pub word: String,
-    pub definition: Option<String>,
+    pub meanings: Option<Vec<WordMeaning>>,
     pub valid: Option<bool>,
 }
 

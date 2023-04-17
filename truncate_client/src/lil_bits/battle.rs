@@ -33,13 +33,24 @@ fn render_word(battle_word: &BattleWord, ui: &mut egui::Ui, theme: &Theme) {
     let (rect, resp) = ui.allocate_at_least(galley.size(), Sense::hover());
     ui.painter().galley(rect.min, galley);
 
-    resp.on_hover_ui(|ui| {
-        ui.label(match (battle_word.valid, &battle_word.definition) {
-            (None, _) => "Word did not need to be checked as the attack was invalid",
-            (Some(true), None) => "Valid word with no definition found",
-            (Some(true), Some(definition)) => definition,
-            (Some(false), _) => "Invalid word",
-        });
+    resp.on_hover_ui(|ui| match (battle_word.valid, &battle_word.meanings) {
+        (None, _) => {
+            ui.label("Word did not need to be checked as the attack was invalid");
+        }
+        (Some(true), None) => {
+            ui.label("Valid word with no definition found");
+        }
+        (Some(true), Some(meanings)) => {
+            for meaning in meanings {
+                ui.label(format!("{}:", meaning.pos));
+                for def in &meaning.defs {
+                    ui.label(format!("  • {def}"));
+                }
+            }
+        }
+        (Some(false), _) => {
+            ui.label("Invalid word");
+        }
     });
 }
 
