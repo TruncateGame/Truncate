@@ -314,13 +314,18 @@ async fn ping_peers(peers: PeerMap) {
     loop {
         // Ping all clients every five seconds
         tokio::time::sleep(Duration::from_secs(5).into()).await;
+        let mut bad_peers = vec![];
         for peer in peers.iter() {
             match peer.send(GameMessage::Ping) {
-                Ok(()) => println!("Pinged {}", peer.key()),
+                Ok(()) => {}
                 Err(_) => {
                     println!("Failed to ping {}", peer.key());
+                    bad_peers.push(peer.key().clone());
                 }
             }
+        }
+        for bad_peer in bad_peers {
+            peers.remove(&bad_peer);
         }
     }
 }
