@@ -28,8 +28,6 @@ FROM debian:buster-slim
 COPY --from=build /app/truncate_server/target/release/truncate_server /usr/local/bin/
 
 RUN mkdir /truncate
-WORKDIR /truncate
-
-ADD word_definitions/defs.json.gz truncate/defs.json.gz
+ADD word_definitions/defs.json.gz /truncate/defs.json.gz
 
 CMD truncate_server

@@ -8,12 +8,15 @@ use crate::WordMap;
 pub fn read_defs(words: WordMap) {
     println!("Loading word definitions...");
 
-    let defs_file = option_env!("TR_DEFS_FILE").unwrap_or_else(|| "defs.json.gz");
+    let defs_file = option_env!("TR_DEFS_FILE").unwrap_or_else(|| "/truncate/defs.json.gz");
 
-    let Ok(defs_file) = File::open(defs_file) else {
-        eprintln!("❌ Failed to load word defs");
-        eprintln!("❌ Run with TR_DEFS_FILE env var pointing to defs");
-        return;
+    let defs_file = match File::open(defs_file) {
+        Ok(file) => file,
+        Err(e) => {
+            eprintln!("❌ Failed to load word defs: {e}");
+            eprintln!("❌ Run with TR_DEFS_FILE env var pointing to defs");
+            return;
+        }
     };
 
     let d = GzDecoder::new(defs_file);
