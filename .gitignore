@@ -1,3 +1,6 @@
 /target
 web_client/truncate_client_bg.wasm
 web_client/truncate_client.js
+kaikki*
+node_modules
+word_definitions/package-lock.json

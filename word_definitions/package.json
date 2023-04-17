@@ -1,0 +1,11 @@
+{
+  "name": "word-definitions",
+  "private": true,
+  "scripts": {
+    "start": "rm -f defs.json.gz && node build.js && gzip defs.json"
+  },
+  "license": "CC-BY-SA",
+  "dependencies": {
+    "jsonlines": "^0.1.1"
+  }
+}
