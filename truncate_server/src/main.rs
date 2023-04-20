@@ -5,13 +5,13 @@ mod room_codes;
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
 use dashmap::DashMap;
+use definitions::WordDB;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
 use jwt_simple::prelude::*;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use truncate_core::reporting::WordMeaning;
 use tungstenite::protocol::Message;
 
 use crate::definitions::read_defs;
@@ -23,8 +23,7 @@ use truncate_core::messages::{GameMessage, PlayerMessage};
 type PeerMap = Arc<DashMap<SocketAddr, UnboundedSender<GameMessage>>>;
 type GameMap = Arc<DashMap<String, GameState>>;
 type ActiveGameMap = Arc<DashMap<SocketAddr, String>>;
-type WordMap = Arc<DashMap<String, Vec<WordMeaning>>>;
-type Maps = (PeerMap, GameMap, ActiveGameMap, WordMap);
+type Maps = (PeerMap, GameMap, ActiveGameMap, Arc<Mutex<WordDB>>);
 
 async fn handle_player_msg(
     msg: Message,
@@ -165,7 +164,7 @@ async fn handle_player_msg(
                         if existing_game.game.started_at.is_some() {
                             player_tx
                                 .send(GameMessage::StartedGame(
-                                    existing_game.game_msg(player_index, None),
+                                    existing_game.game_msg(player_index, None).await,
                                 ))
                                 .unwrap();
                         } else {
@@ -219,7 +218,7 @@ async fn handle_player_msg(
         }
         StartGame => {
             if let Some(mut game_state) = get_current_game(addr) {
-                for (player, message) in game_state.start() {
+                for (player, message) in game_state.start().await {
                     let Some(socket) = player.socket else { todo!("Handle disconnected player") };
                     let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
 
@@ -231,7 +230,7 @@ async fn handle_player_msg(
         }
         Place(position, tile) => {
             if let Some(mut game_state) = get_current_game(addr) {
-                for (player, message) in game_state.play(addr, position, tile, &word_map).await {
+                for (player, message) in game_state.play(addr, position, tile, word_map).await {
                     let Some(socket) = player.socket else { todo!("Handle disconnected player") };
                     let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
 
@@ -244,7 +243,7 @@ async fn handle_player_msg(
         }
         Swap(from, to) => {
             if let Some(mut game_state) = get_current_game(addr) {
-                for (player, message) in game_state.swap(addr, from, to) {
+                for (player, message) in game_state.swap(addr, from, to).await {
                     let Some(socket) = player.socket else { todo!("Handle disconnected player") };
                     let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
 
@@ -342,13 +341,8 @@ async fn main() -> Result<(), IoError> {
         PeerMap::new(DashMap::new()),
         GameMap::new(DashMap::new()),
         ActiveGameMap::new(DashMap::new()),
-        WordMap::new(DashMap::new()),
+        Arc::new(Mutex::new(read_defs())),
     );
-
-    let populate_words = maps.3.clone();
-    std::thread::spawn(move || {
-        read_defs(populate_words);
-    });
 
     let jwt_key = HS256Key::generate();
 

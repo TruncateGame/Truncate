@@ -1,45 +1,35 @@
-use dashmap::DashMap;
-use flate2::read::GzDecoder;
-use serde_jsonlines::JsonLinesReader;
-use std::{fs::File, io::BufReader};
+use rusqlite::Connection;
+use truncate_core::reporting::WordMeaning;
 
-use crate::WordMap;
+pub struct WordDB {
+    pub conn: Connection,
+}
 
-pub fn read_defs(words: WordMap) {
+impl WordDB {
+    pub fn get_word(&mut self, word: &str) -> Option<Vec<WordMeaning>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT definitions FROM words WHERE word = ?")
+            .unwrap();
+
+        let def_str: Option<String> = stmt
+            .query(&[word])
+            .unwrap()
+            .next()
+            .unwrap()
+            .map(|row| row.get_unwrap("definitions"));
+
+        def_str
+            .map(|def: String| serde_json::from_str(&def).ok())
+            .flatten()
+    }
+}
+
+pub fn read_defs() -> WordDB {
     println!("Loading word definitions...");
 
-    let defs_file = option_env!("TR_DEFS_FILE").unwrap_or_else(|| "/truncate/defs.json.gz");
+    let defs_file = option_env!("TR_DEFS_FILE").unwrap_or_else(|| "/truncate/defs.db");
+    let conn = Connection::open(defs_file).unwrap();
 
-    let defs_file = match File::open(defs_file) {
-        Ok(file) => file,
-        Err(e) => {
-            eprintln!("❌ Failed to load word defs: {e}");
-            eprintln!("❌ Run with TR_DEFS_FILE env var pointing to defs");
-            return;
-        }
-    };
-
-    let d = GzDecoder::new(defs_file);
-    let j = JsonLinesReader::new(BufReader::new(d));
-
-    let mut errored = false;
-    for res in j.read_all().into_iter() {
-        match res {
-            Ok((word, data)) => {
-                words.insert(word, data);
-            }
-            Err(e) => {
-                if !errored {
-                    eprintln!("❌ Failed to parse word data: {e}");
-                    errored = true;
-                }
-            }
-        }
-    }
-
-    if words.is_empty() {
-        eprintln!("❌ Error: No words loaded, likely bad dict.");
-    } else {
-        println!("Loaded definitions for {} words", words.len());
-    }
+    WordDB { conn }
 }

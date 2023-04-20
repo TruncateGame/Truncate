@@ -1,14 +1,15 @@
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
+use tokio::sync::Mutex;
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
     messages::{GameMessage, GamePlayerMessage, GameStateMessage},
     moves::Move,
-    reporting::{BattleWord, Change},
+    reporting::Change,
 };
 
-use crate::WordMap;
+use crate::definitions::WordDB;
 
 #[derive(Debug)]
 pub struct Player {
@@ -70,24 +71,41 @@ impl GameState {
         self.game.board = board;
     }
 
-    pub fn game_msg(&self, player_index: usize, word_map: Option<&WordMap>) -> GameStateMessage {
+    pub async fn game_msg(
+        &self,
+        player_index: usize,
+        word_map: Option<Arc<Mutex<WordDB>>>,
+    ) -> GameStateMessage {
         let (board, mut changes) = self.game.filter_game_to_player(player_index);
 
         if let Some(definitions) = word_map {
-            let hydrate = |battle_words: &mut Vec<BattleWord>| {
-                for word in battle_words.iter_mut().filter(|w| w.valid == Some(true)) {
-                    if let Some(meanings) = definitions.get(&word.word.to_lowercase()) {
-                        word.meanings = Some(meanings.clone());
-                    }
-                }
-            };
-
             for battle in changes.iter_mut().filter_map(|change| match change {
                 Change::Battle(battle) => Some(battle),
                 _ => None,
             }) {
-                hydrate(&mut battle.attackers);
-                hydrate(&mut battle.defenders);
+                for word in &mut battle
+                    .attackers
+                    .iter_mut()
+                    .filter(|w| w.valid == Some(true))
+                {
+                    if let Some(meanings) =
+                        definitions.lock().await.get_word(&word.word.to_lowercase())
+                    {
+                        word.meanings = Some(meanings.clone());
+                    }
+                }
+
+                for word in &mut battle
+                    .defenders
+                    .iter_mut()
+                    .filter(|w| w.valid == Some(true))
+                {
+                    if let Some(meanings) =
+                        definitions.lock().await.get_word(&word.word.to_lowercase())
+                    {
+                        word.meanings = Some(meanings.clone());
+                    }
+                }
             }
         }
 
@@ -120,7 +138,7 @@ impl GameState {
         }
     }
 
-    pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
+    pub async fn start(&mut self) -> Vec<(&Player, GameMessage)> {
         // TODO: Check correct # of players
         self.game.board.trim();
         self.game.start();
@@ -131,7 +149,7 @@ impl GameState {
         for (player_index, player) in self.players.iter().enumerate() {
             messages.push((
                 player.clone(),
-                GameMessage::StartedGame(self.game_msg(player_index, None)),
+                GameMessage::StartedGame(self.game_msg(player_index, None).await),
             ));
         }
 
@@ -143,7 +161,7 @@ impl GameState {
         player: SocketAddr,
         position: Coordinate,
         tile: char,
-        words: &WordMap,
+        words: Arc<Mutex<WordDB>>,
     ) -> Vec<(&Player, GameMessage)> {
         let mut messages = Vec::with_capacity(self.players.len());
 
@@ -163,7 +181,7 @@ impl GameState {
                         messages.push((
                             player.clone(),
                             GameMessage::GameEnd(
-                                self.game_msg(player_index, Some(words)),
+                                self.game_msg(player_index, Some(words.clone())).await,
                                 winner as u64,
                             ),
                         ));
@@ -174,7 +192,9 @@ impl GameState {
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player.clone(),
-                            GameMessage::GameUpdate(self.game_msg(player_index, Some(words))),
+                            GameMessage::GameUpdate(
+                                self.game_msg(player_index, Some(words.clone())).await,
+                            ),
                         ));
                     }
                     return messages;
@@ -197,7 +217,7 @@ impl GameState {
 
     // TODO: Combine method with play and pass in a `Move` type
     // (need to solve the player lookup first)
-    pub fn swap(
+    pub async fn swap(
         &mut self,
         player: SocketAddr,
         from: Coordinate,
@@ -222,7 +242,7 @@ impl GameState {
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player.clone(),
-                            GameMessage::GameUpdate(self.game_msg(player_index, None)),
+                            GameMessage::GameUpdate(self.game_msg(player_index, None).await),
                         ));
                     }
 
