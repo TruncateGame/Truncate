@@ -78,7 +78,8 @@ impl GameState {
     ) -> GameStateMessage {
         let (board, mut changes) = self.game.filter_game_to_player(player_index);
 
-        if let Some(definitions) = word_map {
+        if let Some(definitions_db) = word_map {
+            let definitions = definitions_db.lock().await;
             for battle in changes.iter_mut().filter_map(|change| match change {
                 Change::Battle(battle) => Some(battle),
                 _ => None,
@@ -88,9 +89,7 @@ impl GameState {
                     .iter_mut()
                     .filter(|w| w.valid == Some(true))
                 {
-                    if let Some(meanings) =
-                        definitions.lock().await.get_word(&word.word.to_lowercase())
-                    {
+                    if let Some(meanings) = definitions.get_word(&word.word.to_lowercase()) {
                         word.meanings = Some(meanings.clone());
                     }
                 }
@@ -100,9 +99,7 @@ impl GameState {
                     .iter_mut()
                     .filter(|w| w.valid == Some(true))
                 {
-                    if let Some(meanings) =
-                        definitions.lock().await.get_word(&word.word.to_lowercase())
-                    {
+                    if let Some(meanings) = definitions.get_word(&word.word.to_lowercase()) {
                         word.meanings = Some(meanings.clone());
                     }
                 }

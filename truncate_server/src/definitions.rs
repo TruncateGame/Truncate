@@ -6,7 +6,7 @@ pub struct WordDB {
 }
 
 impl WordDB {
-    pub fn get_word(&mut self, word: &str) -> Option<Vec<WordMeaning>> {
+    pub fn get_word(&self, word: &str) -> Option<Vec<WordMeaning>> {
         let mut stmt = self
             .conn
             .prepare("SELECT definitions FROM words WHERE word = ?")
