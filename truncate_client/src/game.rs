@@ -29,6 +29,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         rx_game,
         tx_player,
         frame_history: _,
+        map_texture,
     } = client;
 
     let mut send = |msg| {
@@ -103,7 +104,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 send(PlayerMessage::StartGame);
             }
             // TODO: Make a different board ui for the level editor
-            if let Some(msg) = EditorUI::new(board).render(true, ui, theme) {
+            if let Some(msg) = EditorUI::new(board, map_texture.id()).render(true, ui, theme) {
                 send(msg);
             }
         }

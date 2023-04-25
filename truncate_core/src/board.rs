@@ -12,19 +12,17 @@ use crate::rules;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
-    South,
-    East,
+    NorthWest,
     North,
+    NorthEast,
+    East,
+    SouthEast,
+    South,
+    SouthWest,
     West,
 }
 
 impl Direction {
-    pub fn iter() -> Iter<'static, Direction> {
-        use Direction::*;
-        static DIRECTIONS: [Direction; 4] = [South, East, North, West];
-        DIRECTIONS.iter()
-    }
-
     // Returns whether vertical words should be read from top to bottom if played by a player on this side of the board
     fn read_top_to_bottom(self) -> bool {
         matches!(self, Direction::South) || matches!(self, Direction::West)
@@ -36,11 +34,17 @@ impl Direction {
     }
 
     pub fn opposite(self) -> Self {
+        use Direction::*;
+
         match self {
-            Direction::North => Direction::South,
-            Direction::South => Direction::North,
-            Direction::East => Direction::West,
-            Direction::West => Direction::East,
+            NorthWest => SouthEast,
+            North => South,
+            NorthEast => SouthWest,
+            East => West,
+            SouthEast => NorthWest,
+            South => North,
+            SouthWest => NorthEast,
+            West => East,
         }
     }
 }
@@ -252,11 +256,12 @@ impl Board {
     }
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
-        Direction::iter()
-            .filter_map(|delta| {
-                let neighbour_coordinate = position.add(*delta);
-                if let Ok(square) = self.get(neighbour_coordinate) {
-                    Some((neighbour_coordinate, square))
+        position
+            .neighbors_4()
+            .into_iter()
+            .filter_map(|pos| {
+                if let Ok(square) = self.get(pos) {
+                    Some((pos, square))
                 } else {
                     None
                 }
@@ -445,6 +450,9 @@ impl Board {
                 })
                 .collect(),
             Direction::West => (0..self.width()).map(|y| Coordinate { x: 1, y }).collect(),
+
+            // Skipping other directions for now, as this function should soon be deleted.
+            _ => vec![],
         }
     }
 
@@ -565,24 +573,48 @@ impl Coordinate {
     }
 
     pub fn add(self, direction: Direction) -> Coordinate {
-        match direction {
-            Direction::North => Coordinate {
-                x: self.x,
-                y: usize::wrapping_sub(self.y, 1), // We use the computer graphics convention of (0,0) in the top left
+        use Direction::*;
+
+        Coordinate {
+            x: match direction {
+                West | NorthWest | SouthWest => usize::saturating_sub(self.x, 1),
+                East | NorthEast | SouthEast => self.x + 1,
+                North | South => self.x,
             },
-            Direction::South => Coordinate {
-                x: self.x,
-                y: self.y + 1,
-            },
-            Direction::East => Coordinate {
-                x: self.x + 1,
-                y: self.y,
-            },
-            Direction::West => Coordinate {
-                x: usize::wrapping_sub(self.x, 1),
-                y: self.y,
+            y: match direction {
+                North | NorthEast | NorthWest => usize::saturating_sub(self.y, 1),
+                South | SouthEast | SouthWest => self.y + 1,
+                East | West => self.y,
             },
         }
+    }
+
+    /// Return coordinates of the horizontal and vertical neighbors, from north clockwise
+    pub fn neighbors_4(&self) -> [Coordinate; 4] {
+        use Direction::*;
+
+        [
+            self.add(North),
+            self.add(East),
+            self.add(South),
+            self.add(West),
+        ]
+    }
+
+    /// Return coordinates of the horizontal, vertical, and diagonal neighbors, from northwest clockwise
+    pub fn neighbors_8(&self) -> [Coordinate; 8] {
+        use Direction::*;
+
+        [
+            self.add(NorthWest),
+            self.add(North),
+            self.add(NorthEast),
+            self.add(East),
+            self.add(SouthEast),
+            self.add(South),
+            self.add(SouthWest),
+            self.add(West),
+        ]
     }
 }
 

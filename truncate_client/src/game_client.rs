@@ -5,11 +5,10 @@ type S = Sender<PlayerMessage>;
 use super::debug;
 use super::theming::Theme;
 use crate::game;
-use eframe::egui;
-use epaint::hex_color;
+use eframe::egui::{self, Sense, Slider, TextureOptions};
+use epaint::{hex_color, pos2, Color32, Mesh, Rect, Shape, TextureHandle};
 use truncate_core::messages::{GameMessage, PlayerMessage};
 
-#[derive(Debug)]
 pub struct GameClient {
     pub name: String,
     pub theme: Theme,
@@ -17,6 +16,7 @@ pub struct GameClient {
     pub rx_game: R,
     pub tx_player: S,
     pub frame_history: debug::FrameHistory,
+    pub map_texture: TextureHandle,
 }
 
 impl GameClient {
@@ -66,8 +66,20 @@ impl GameClient {
             rx_game,
             tx_player,
             frame_history: Default::default(),
+            map_texture: load_map_texture(&cc.egui_ctx),
         }
     }
+}
+
+fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
+    let image_bytes = include_bytes!("../img/truncate.png");
+    let image = image::load_from_memory(image_bytes).unwrap();
+    let size = [image.width() as _, image.height() as _];
+    let image_buffer = image.to_rgba8();
+    let pixels = image_buffer.as_flat_samples();
+    let image = egui::ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());
+
+    ctx.load_texture("tiles", image, TextureOptions::NEAREST)
 }
 
 impl eframe::App for GameClient {

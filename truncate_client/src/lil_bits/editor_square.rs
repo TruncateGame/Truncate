@@ -1,20 +1,26 @@
 use eframe::egui::{self, Sense};
-use epaint::Stroke;
+use epaint::{vec2, Stroke, TextureId};
 
 use crate::theming::{Darken, Lighten, Theme};
 
-use super::{character::CharacterOrient, CharacterUI};
+use super::{character::CharacterOrient, tex::BGTexType, CharacterUI, Tex};
 
 pub struct EditorSquareUI {
+    map_texture: TextureId,
     enabled: bool,
     root: bool,
+    neighbors: Vec<bool>,
 }
 
 impl EditorSquareUI {
-    pub fn new() -> Self {
+    pub fn new(map_texture: TextureId, neighbors: Vec<bool>) -> Self {
+        debug_assert_eq!(neighbors.len(), 8);
+
         Self {
             enabled: false,
             root: false,
+            map_texture,
+            neighbors,
         }
     }
 
@@ -40,12 +46,32 @@ impl EditorSquareUI {
         );
 
         if ui.is_rect_visible(rect) {
-            if self.enabled {
-                ui.painter().rect_filled(rect, 0.0, theme.text.lighten());
-                ui.painter()
-                    .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
+            let neighbors: Vec<_> = self
+                .neighbors
+                .iter()
+                .map(|n| {
+                    if *n {
+                        BGTexType::Land
+                    } else {
+                        BGTexType::Water
+                    }
+                })
+                .collect();
+
+            let tile_type = if self.enabled {
+                BGTexType::Land
             } else {
-                ui.painter().rect_filled(rect, 0.0, theme.text.darken());
+                BGTexType::Water
+            };
+
+            let ts = rect.width() * 0.25;
+            let tile_rect = rect.shrink(ts);
+
+            for (tex, translate) in Tex::resolve_bg_tile(tile_type, neighbors)
+                .into_iter()
+                .zip([vec2(-ts, -ts), vec2(ts, -ts), vec2(ts, ts), vec2(-ts, ts)].into_iter())
+            {
+                tex.render(self.map_texture, tile_rect.translate(translate), ui);
             }
 
             if self.root {
