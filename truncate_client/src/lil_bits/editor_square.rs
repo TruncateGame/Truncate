@@ -1,11 +1,13 @@
 use eframe::egui::{self, Sense};
 use epaint::{vec2, Stroke, TextureId};
+use truncate_core::board::Coordinate;
 
 use crate::theming::{Darken, Lighten, Theme};
 
 use super::{character::CharacterOrient, tex::BGTexType, CharacterUI, Tex};
 
 pub struct EditorSquareUI {
+    coord: Coordinate,
     map_texture: TextureId,
     enabled: bool,
     root: bool,
@@ -13,10 +15,11 @@ pub struct EditorSquareUI {
 }
 
 impl EditorSquareUI {
-    pub fn new(map_texture: TextureId, neighbors: Vec<bool>) -> Self {
+    pub fn new(coord: Coordinate, map_texture: TextureId, neighbors: Vec<bool>) -> Self {
         debug_assert_eq!(neighbors.len(), 8);
 
         Self {
+            coord,
             enabled: false,
             root: false,
             map_texture,
@@ -67,9 +70,10 @@ impl EditorSquareUI {
             let ts = rect.width() * 0.25;
             let tile_rect = rect.shrink(ts);
 
-            for (tex, translate) in Tex::resolve_bg_tile(tile_type, neighbors)
-                .into_iter()
-                .zip([vec2(-ts, -ts), vec2(ts, -ts), vec2(ts, ts), vec2(-ts, ts)].into_iter())
+            for (tex, translate) in
+                Tex::resolve_bg_tile(tile_type, neighbors, self.coord.x * self.coord.y)
+                    .into_iter()
+                    .zip([vec2(-ts, -ts), vec2(ts, -ts), vec2(ts, ts), vec2(-ts, ts)].into_iter())
             {
                 tex.render(self.map_texture, tile_rect.translate(translate), ui);
             }

@@ -65,10 +65,11 @@ impl<'a> EditorUI<'a> {
                                         .map(|pos| self.board.get(pos).is_ok())
                                         .collect();
 
-                                    let response = EditorSquareUI::new(self.map_texture, neighbors)
-                                        .enabled(square.is_some())
-                                        .root(is_root.is_some())
-                                        .render(ui, &theme);
+                                    let response =
+                                        EditorSquareUI::new(coord, self.map_texture, neighbors)
+                                            .enabled(square.is_some())
+                                            .root(is_root.is_some())
+                                            .render(ui, &theme);
 
                                     if ui.rect_contains_pointer(response.rect) {
                                         // TODO: This shouldn't be mut

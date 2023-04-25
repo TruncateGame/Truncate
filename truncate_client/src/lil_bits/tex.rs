@@ -48,17 +48,33 @@ impl Tex {
 }
 
 impl Tex {
-    /// Determine the tiles to use square and its neighbors,
+    /// Determine the tiles to use based on a given square and its neighbors,
     /// provided clockwise from northwest.
-    pub fn resolve_bg_tile(tex_type: BGTexType, neighbors: Vec<BGTexType>) -> [Self; 4] {
+    pub fn resolve_bg_tile(
+        tex_type: BGTexType,
+        neighbors: Vec<BGTexType>,
+        seed: usize,
+    ) -> [Self; 4] {
         debug_assert_eq!(neighbors.len(), 8);
         if neighbors.len() != 8 {
             return [Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG];
         }
 
+        let rand_tile = |mut n: usize| {
+            n ^= n << 13;
+            n ^= n >> 17;
+            n ^= n << 5;
+            match n % 100 {
+                0..=70 => Self::GRASS1,
+                71..=85 => Self::GRASS2,
+                86..=94 => Self::GRASS3,
+                _ => Self::GRASS4,
+            }
+        };
+
         use BGTexType::*;
         let top_left = match tex_type {
-            Land => Self::GRASS1,
+            Land => rand_tile(seed),
             Water => match (neighbors[7], neighbors[0], neighbors[1]) {
                 (Land, Land | Water, Land) => Self::LAND_N_W,
                 (Land, Land | Water, Water) => Self::LAND_W,
@@ -69,7 +85,7 @@ impl Tex {
         };
 
         let top_right = match tex_type {
-            Land => Self::GRASS2,
+            Land => rand_tile(seed + 1),
             Water => match (neighbors[1], neighbors[2], neighbors[3]) {
                 (Land, Land | Water, Land) => Self::LAND_N_E,
                 (Land, Land | Water, Water) => Self::LAND_N,
@@ -80,7 +96,7 @@ impl Tex {
         };
 
         let bottom_right = match tex_type {
-            Land => Self::GRASS3,
+            Land => rand_tile(seed + 2),
             Water => match (neighbors[3], neighbors[4], neighbors[5]) {
                 (Land, Land | Water, Land) => Self::LAND_S_E,
                 (Land, Land | Water, Water) => Self::LAND_E,
@@ -91,7 +107,7 @@ impl Tex {
         };
 
         let bottom_left = match tex_type {
-            Land => Self::GRASS3,
+            Land => rand_tile(seed + 3),
             Water => match (neighbors[5], neighbors[6], neighbors[7]) {
                 (Land, Land | Water, Land) => Self::LAND_S_W,
                 (Land, Land | Water, Water) => Self::LAND_S,
