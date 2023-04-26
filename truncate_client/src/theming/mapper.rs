@@ -2,7 +2,7 @@ use eframe::egui;
 use epaint::{vec2, Rect, TextureHandle};
 use truncate_core::board::{Board, Coordinate};
 
-use super::tex::{BGTexType, Tex, TexQuad};
+use super::tex::{render_tex_quad, BGTexType, Tex, TexQuad};
 
 #[derive(Clone)]
 pub struct MappedBoard {
@@ -25,16 +25,7 @@ impl MappedBoard {
     }
 
     pub fn render_coord(&self, coord: Coordinate, rect: Rect, ui: &mut egui::Ui) {
-        let ts = rect.width() * 0.25;
-        let tile_rect = rect.shrink(ts);
-
-        for (tex, translate) in self
-            .get(coord)
-            .into_iter()
-            .zip([vec2(-ts, -ts), vec2(ts, -ts), vec2(ts, ts), vec2(-ts, ts)].into_iter())
-        {
-            tex.render(self.map_texture.id(), tile_rect.translate(translate), ui);
-        }
+        render_tex_quad(self.get(coord), rect, &self.map_texture, ui);
     }
 
     pub fn remap(&mut self, board: &Board) {
@@ -75,7 +66,7 @@ impl MappedBoard {
                             BGTexType::Water
                         };
 
-                        Tex::resolve_bg_tile(
+                        Tex::resolve_bg_tex(
                             tile_base_type,
                             neighbor_base_types,
                             board.width() * coord.x * self.map_seed + board.height() + coord.y,
@@ -86,7 +77,7 @@ impl MappedBoard {
             .collect::<Vec<_>>();
     }
 
-    pub fn map(board: &Board, map_texture: TextureHandle, invert: bool) -> Self {
+    pub fn new(board: &Board, map_texture: TextureHandle, invert: bool) -> Self {
         let secs = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("We are living in the future")
@@ -102,5 +93,38 @@ impl MappedBoard {
         mapper.remap(board);
 
         mapper
+    }
+}
+
+#[derive(Clone)]
+pub struct MappedTile {
+    resolved_tex: TexQuad,
+    map_texture: TextureHandle,
+    map_seed: usize,
+}
+
+impl MappedTile {
+    pub fn new(friendly: bool, coord: Option<Coordinate>, map_texture: TextureHandle) -> Self {
+        let secs = instant::SystemTime::now()
+            .duration_since(instant::SystemTime::UNIX_EPOCH)
+            .expect("We are living in the future")
+            .as_secs();
+        let map_seed = (secs % 100000) as usize;
+
+        let resolved_tex = if let Some(coord) = coord {
+            Tex::resolve_board_tile_tex(friendly, coord.x * map_seed + coord.y)
+        } else {
+            Tex::resolve_tile_tex(friendly)
+        };
+
+        Self {
+            resolved_tex,
+            map_texture,
+            map_seed,
+        }
+    }
+
+    pub fn render(&self, rect: Rect, ui: &mut egui::Ui) {
+        render_tex_quad(self.resolved_tex, rect, &self.map_texture, ui);
     }
 }

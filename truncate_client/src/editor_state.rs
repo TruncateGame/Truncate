@@ -37,7 +37,7 @@ impl EditorState {
         Self {
             room_code,
             players,
-            mapped_board: MappedBoard::map(&board, map_texture, false),
+            mapped_board: MappedBoard::new(&board, map_texture, false),
             board,
         }
     }

@@ -1,3 +1,4 @@
+use epaint::TextureHandle;
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -8,7 +9,7 @@ use truncate_core::{
 use eframe::egui;
 use hashbrown::HashMap;
 
-use crate::{theming::{Theme, mapper::MappedBoard}, active_game::HoveredRegion};
+use crate::{theming::{Theme, mapper::{MappedBoard, MappedTile}}, active_game::HoveredRegion};
 
 use super::{
     tile::{TilePlayer},
@@ -40,7 +41,8 @@ impl<'a> BoardUI<'a> {
         winner: Option<usize>,
         ui: &mut egui::Ui,
         theme: &Theme,
-        mapped_board: &MappedBoard
+        mapped_board: &MappedBoard,
+        map_texture: TextureHandle
     ) -> (Option<Option<Coordinate>>, Option<PlayerMessage>, Option<HoveredRegion>) {
         let mut msg = None;
         let mut next_selection = None;
@@ -75,11 +77,15 @@ impl<'a> BoardUI<'a> {
                                     }
                                 };
 
-                                let mut tile = if let Some(Square::Occupied(player, char)) = square {
+                                let (mut tile, mapped_tile) = if let Some(Square::Occupied(player, char)) = square {
                                     let is_winner = winner == Some(*player);
-                                    Some(TileUI::new(*char, tile_player(player)).selected(is_selected).won(is_winner))
+                                    (Some(
+                                        TileUI::new(*char, tile_player(player)).selected(is_selected).won(is_winner)
+                                    ), Some(
+                                        MappedTile::new(true, None, map_texture.clone())
+                                    ))
                                 } else {
-                                    None
+                                    (None, None)
                                 };
 
                                 if let Some(change) = board_changes.get(&coord) {
@@ -172,7 +178,7 @@ impl<'a> BoardUI<'a> {
                                     .overlay(overlay)
                                     .render(ui, &theme, &mapped_board, |ui, theme| {
                                         if let Some(tile) = tile {
-                                            tile_clicked = tile.render(ui, theme).clicked();
+                                            tile_clicked = tile.render(mapped_tile.as_ref().unwrap(), ui, theme).clicked();
                                         }
                                     });
                                 if square.is_some() {

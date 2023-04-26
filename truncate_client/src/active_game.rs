@@ -42,6 +42,7 @@ pub struct ActiveGame {
     pub board_changes: HashMap<Coordinate, BoardChange>,
     pub new_hand_tiles: Vec<usize>,
     pub battles: Vec<BattleReport>,
+    pub map_texture: TextureHandle,
 }
 
 impl ActiveGame {
@@ -63,7 +64,7 @@ impl ActiveGame {
             players,
             player_number,
             next_player_number,
-            mapped_board: MappedBoard::map(&board, map_texture, player_number == 0),
+            mapped_board: MappedBoard::new(&board, map_texture.clone(), player_number == 0),
             board,
             hand,
             selected_tile_in_hand: None,
@@ -74,6 +75,7 @@ impl ActiveGame {
             board_changes: HashMap::new(),
             new_hand_tiles: vec![],
             battles: vec![],
+            map_texture,
         }
     }
 
@@ -162,6 +164,7 @@ impl ActiveGame {
                                         theme,
                                         &self.hovered_tile_on_board,
                                         self.current_time,
+                                        self.map_texture.clone(),
                                     );
 
                                 if let Some(new_selection) = new_selection {
@@ -185,6 +188,7 @@ impl ActiveGame {
                                             ui,
                                             theme,
                                             &self.mapped_board,
+                                            self.map_texture.clone(),
                                         );
 
                                         if let (Some(new_selection), _, _) = board_result {

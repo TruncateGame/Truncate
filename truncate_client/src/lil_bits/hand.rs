@@ -2,9 +2,12 @@ use instant::Duration;
 use truncate_core::{board::Coordinate, player::Hand};
 
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
-use epaint::{vec2, Vec2};
+use epaint::{vec2, TextureHandle, Vec2};
 
-use crate::{active_game::HoveredRegion, theming::Theme};
+use crate::{
+    active_game::HoveredRegion,
+    theming::{mapper::MappedTile, Theme},
+};
 
 use super::{tile::TilePlayer, HandSquareUI, TileUI};
 
@@ -32,6 +35,7 @@ impl<'a> HandUI<'a> {
         theme: &Theme,
         board_tile_hovered: &Option<HoveredRegion>,
         current_time: Duration,
+        map_texture: TextureHandle,
     ) -> (Option<Option<usize>>, Option<usize>) {
         let mut rearrange = None;
         let mut next_selection = None;
@@ -54,12 +58,14 @@ impl<'a> HandUI<'a> {
                         let tile_id = Id::new("Hand").with(i).with(char);
                         let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(tile_id));
 
+                        let mapped_tile = MappedTile::new(true, None, map_texture.clone());
+
                         let tile_response = TileUI::new(*char, TilePlayer::Own)
                             .id(tile_id)
                             .active(self.active)
                             .ghost(is_being_dragged)
                             .selected(Some(i) == selected_tile)
-                            .render(ui, theme);
+                            .render(&mapped_tile, ui, theme);
 
                         if tile_response.drag_started() {
                             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
@@ -99,7 +105,7 @@ impl<'a> HandUI<'a> {
                                         .selected(false)
                                         .hovered(true)
                                         .ghost(board_tile_hovered.is_some())
-                                        .render(ui, &theme.rescale(bouncy_scale));
+                                        .render(&mapped_tile, ui, &theme.rescale(bouncy_scale));
                                 })
                                 .response;
 

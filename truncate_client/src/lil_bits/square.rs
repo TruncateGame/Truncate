@@ -123,10 +123,13 @@ impl SquareUI {
 
             if is_hovered {
                 if let Some(overlay) = self.overlay {
-                    response = TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
-                        &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                        theme,
-                    );
+                    // TODO: Bring back overlays
+                    ui.heading(format!("{overlay}"));
+
+                    // response = TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
+                    //     &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
+                    //     theme,
+                    // );
                 } else if self.empty && !ui.ctx().memory(|mem| mem.is_anything_being_dragged()) {
                     ui.painter().rect_filled(
                         rect.shrink(theme.tile_margin),
