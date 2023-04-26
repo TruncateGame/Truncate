@@ -8,7 +8,7 @@ use eframe::egui::{self, Id, Margin};
 
 use crate::theming::Theme;
 
-use super::{EditorBarEdge, EditorBarUI, EditorSquareUI};
+use super::EditorSquareUI;
 
 #[derive(Clone)]
 enum EditorDrag {
@@ -36,6 +36,11 @@ impl<'a> EditorUI<'a> {
         theme: &Theme,
     ) -> Option<PlayerMessage> {
         let mut edited = false;
+
+        if ui.button("Grow board").clicked() {
+            self.board.grow();
+            edited = true;
+        }
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
@@ -140,48 +145,6 @@ impl<'a> EditorUI<'a> {
         if let Some((coord, new_state)) = modify_pos {
             // Not bounds-checking values as they came from the above loop over this very state.
             self.board.squares[coord.y][coord.x] = new_state;
-            edited = true;
-        }
-
-        if EditorBarUI::new(EditorBarEdge::Top)
-            .render(ui, editor_rect.clone(), &theme)
-            .clicked()
-        {
-            self.board.squares.insert(0, vec![None; self.board.width()]);
-            for root in &mut self.board.roots {
-                root.y += 1;
-            }
-            edited = true;
-        }
-
-        if EditorBarUI::new(EditorBarEdge::Bottom)
-            .render(ui, editor_rect.clone(), &theme)
-            .clicked()
-        {
-            self.board.squares.push(vec![None; self.board.width()]);
-            edited = true;
-        }
-
-        if EditorBarUI::new(EditorBarEdge::Right)
-            .render(ui, editor_rect.clone(), &theme)
-            .clicked()
-        {
-            for row in &mut self.board.squares {
-                row.push(None);
-            }
-            edited = true;
-        }
-
-        if EditorBarUI::new(EditorBarEdge::Left)
-            .render(ui, editor_rect.clone(), &theme)
-            .clicked()
-        {
-            for row in &mut self.board.squares {
-                row.insert(0, None);
-            }
-            for root in &mut self.board.roots {
-                root.x += 1;
-            }
             edited = true;
         }
 
