@@ -1,5 +1,5 @@
 use eframe::egui::{self, Id, Margin};
-use epaint::{Color32, Hsva, Stroke};
+use epaint::{Color32, Hsva, Stroke, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::theming::{mapper::MappedTile, Darken, Lighten, Theme};
@@ -117,7 +117,8 @@ impl TileUI {
 
     pub fn render(
         self,
-        mapped_tile: &MappedTile,
+        map_texture: TextureHandle,
+        coord: Option<Coordinate>,
         ui: &mut egui::Ui,
         theme: &Theme,
     ) -> egui::Response {
@@ -136,6 +137,7 @@ impl TileUI {
             response = ui.interact(tile_rect, id, egui::Sense::click_and_drag());
         }
 
+        let hovered = response.hovered() || self.hovered;
         if response.hovered() {
             if !self.ghost {
                 base_rect = base_rect.translate(egui::vec2(0.0, tile_margin * -1.0));
@@ -145,10 +147,26 @@ impl TileUI {
         }
 
         if ui.is_rect_visible(base_rect) {
+            let outline = if self.selected {
+                Some(theme.selection)
+            } else if self.added {
+                Some(theme.addition)
+            } else if self.modified {
+                Some(theme.modification)
+            } else {
+                None
+            };
+
+            let mapped_tile = MappedTile::new(
+                self.tile_color(hovered, theme),
+                outline,
+                coord,
+                map_texture.clone(),
+            );
             mapped_tile.render(base_rect, ui);
 
             let mut char_rect = tile_rect.clone();
-            char_rect.set_bottom(char_rect.bottom() - tile_margin);
+            char_rect.set_height(char_rect.height() - tile_margin * 2.0);
 
             CharacterUI::new(
                 self.letter,
@@ -166,23 +184,23 @@ impl TileUI {
             .render(ui, char_rect, theme);
         }
 
-        let outline = if self.selected {
-            Some(theme.selection)
-        } else if self.added {
-            Some(theme.addition)
-        } else if self.modified {
-            Some(theme.modification)
-        } else {
-            None
-        };
+        // let outline = if self.selected {
+        //     Some(theme.selection)
+        // } else if self.added {
+        //     Some(theme.addition)
+        // } else if self.modified {
+        //     Some(theme.modification)
+        // } else {
+        //     None
+        // };
 
-        if let Some(outline) = outline {
-            ui.painter().rect_stroke(
-                tile_rect.expand(theme.tile_margin * 0.5),
-                theme.rounding * 1.3,
-                Stroke::new(theme.tile_margin, outline),
-            )
-        }
+        // if let Some(outline) = outline {
+        //     ui.painter().rect_stroke(
+        //         tile_rect.expand(theme.tile_margin * 0.5),
+        //         theme.rounding * 1.3,
+        //         Stroke::new(theme.tile_margin, outline),
+        //     )
+        // }
 
         response
     }

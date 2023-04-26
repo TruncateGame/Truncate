@@ -4,6 +4,7 @@ use epaint::{pos2, vec2, Color32, Mesh, Rect, Shape, TextureHandle, TextureId};
 #[derive(Debug, Copy, Clone)]
 pub struct Tex {
     tile: usize,
+    tint: Option<Color32>,
 }
 
 pub type TexQuad = [Tex; 4];
@@ -17,7 +18,7 @@ pub enum BGTexType {
 // TODO: Generate this impl with codegen from aseprite
 impl Tex {
     const fn index(tile: usize) -> Self {
-        Self { tile }
+        Self { tile, tint: None }
     }
 
     pub const MAX_TILE: usize = 68;
@@ -50,48 +51,59 @@ impl Tex {
     pub const LAND_N_W: Self = Tex::index(26);
 
     // Tiles
-    pub const FRIEND_NW: Self = Tex::index(53);
-    pub const FRIEND_NE: Self = Tex::index(54);
-    pub const FRIEND_SE: Self = Tex::index(55);
-    pub const FRIEND_SW: Self = Tex::index(56);
-
-    pub const ENEMY_NW: Self = Tex::index(57);
-    pub const ENEMY_NE: Self = Tex::index(58);
-    pub const ENEMY_SE: Self = Tex::index(60);
-    pub const ENEMY_SW: Self = Tex::index(59);
+    pub const TILE_NW: Self = Tex::index(53);
+    pub const TILE_NE: Self = Tex::index(54);
+    pub const TILE_SE: Self = Tex::index(55);
+    pub const TILE_SW: Self = Tex::index(56);
 
     // Grass cover over tiles
-    pub const TILE_SE_GRASS1: Self = Tex::index(62);
-    pub const TILE_SE_GRASS2: Self = Tex::index(64);
-    pub const TILE_SE_GRASS3: Self = Tex::index(66);
-    pub const TILE_SE_GRASS4: Self = Tex::index(68);
+    pub const TILE_SE_GRASS1: Self = Tex::index(58);
+    pub const TILE_SE_GRASS2: Self = Tex::index(60);
+    pub const TILE_SE_GRASS3: Self = Tex::index(62);
+    pub const TILE_SE_GRASS4: Self = Tex::index(64);
 
-    pub const TILE_SW_GRASS1: Self = Tex::index(61);
-    pub const TILE_SW_GRASS2: Self = Tex::index(63);
-    pub const TILE_SW_GRASS3: Self = Tex::index(65);
-    pub const TILE_SW_GRASS4: Self = Tex::index(67);
+    pub const TILE_SW_GRASS1: Self = Tex::index(57);
+    pub const TILE_SW_GRASS2: Self = Tex::index(59);
+    pub const TILE_SW_GRASS3: Self = Tex::index(61);
+    pub const TILE_SW_GRASS4: Self = Tex::index(63);
+
+    pub const HIGHLIGHT_NW: Self = Tex::index(65);
+    pub const HIGHLIGHT_NE: Self = Tex::index(66);
+    pub const HIGHLIGHT_SE: Self = Tex::index(68);
+    pub const HIGHLIGHT_SW: Self = Tex::index(67);
 }
 
 impl Tex {
-    pub fn resolve_tile_tex(friendly: bool) -> TexQuad {
-        if friendly {
-            [
-                Self::FRIEND_NW,
-                Self::FRIEND_NE,
-                Self::FRIEND_SE,
-                Self::FRIEND_SW,
-            ]
-        } else {
-            [
-                Self::ENEMY_NW,
-                Self::ENEMY_NE,
-                Self::ENEMY_SE,
-                Self::ENEMY_SW,
-            ]
+    fn tint(mut self, color: Color32) -> Self {
+        self.tint = Some(color);
+        self
+    }
+}
+
+impl Tex {
+    pub fn resolve_tile_tex(color: Color32, highlight: Option<Color32>) -> Vec<TexQuad> {
+        let mut tex = vec![[
+            Self::TILE_NW.tint(color),
+            Self::TILE_NE.tint(color),
+            Self::TILE_SE.tint(color),
+            Self::TILE_SW.tint(color),
+        ]];
+        if let Some(highlight) = highlight {
+            tex.push([
+                Self::HIGHLIGHT_NW.tint(highlight),
+                Self::HIGHLIGHT_NE.tint(highlight),
+                Self::HIGHLIGHT_SE.tint(highlight),
+                Self::HIGHLIGHT_SW.tint(highlight),
+            ])
         }
+        tex
     }
 
-    pub fn resolve_board_tile_tex(friendly: bool, seed: usize) -> Vec<TexQuad> {
+    pub fn resolve_board_tile_tex(
+        color: Color32,
+        highlight: Option<Color32>,
+        seed: usize,
+    ) -> Vec<TexQuad> {
         let rand = |mut n: usize| {
             n ^= n << 13;
             n ^= n >> 7;
@@ -99,25 +111,24 @@ impl Tex {
             n % 100
         };
 
-        vec![
-            Tex::resolve_tile_tex(friendly),
-            [
-                Self::NONE,
-                Self::NONE,
-                match rand(seed) {
-                    0..=25 => Self::TILE_SE_GRASS1,
-                    26..=50 => Self::TILE_SE_GRASS2,
-                    51..=75 => Self::TILE_SE_GRASS3,
-                    _ => Self::TILE_SE_GRASS4,
-                },
-                match rand(seed + 678) {
-                    0..=25 => Self::TILE_SW_GRASS1,
-                    26..=50 => Self::TILE_SW_GRASS2,
-                    51..=75 => Self::TILE_SW_GRASS3,
-                    _ => Self::TILE_SW_GRASS4,
-                },
-            ],
-        ]
+        let mut texs = Tex::resolve_tile_tex(color, highlight);
+        texs.push([
+            Self::NONE,
+            Self::NONE,
+            match rand(seed) {
+                0..=25 => Self::TILE_SE_GRASS1,
+                26..=50 => Self::TILE_SE_GRASS2,
+                51..=75 => Self::TILE_SE_GRASS3,
+                _ => Self::TILE_SE_GRASS4,
+            },
+            match rand(seed + 678) {
+                0..=25 => Self::TILE_SW_GRASS1,
+                26..=50 => Self::TILE_SW_GRASS2,
+                51..=75 => Self::TILE_SW_GRASS3,
+                _ => Self::TILE_SW_GRASS4,
+            },
+        ]);
+        texs
     }
 
     /// Determine the tiles to use based on a given square and its neighbors,
@@ -203,7 +214,7 @@ impl Tex {
                 1.0,
             ),
         );
-        mesh.add_rect_with_uv(rect, uv, Color32::WHITE);
+        mesh.add_rect_with_uv(rect, uv, self.tint.unwrap_or(Color32::WHITE));
         ui.painter().add(Shape::mesh(mesh));
     }
 }

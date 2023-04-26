@@ -69,7 +69,7 @@ impl<'a> BoardUI<'a> {
                                 let coord = Coordinate::new(colnum, rownum);
                                 let is_root = self.board.roots.contains(&coord);
                                 let is_selected = Some(coord) == board_selected_tile;
-                                let tile_player = |p: &usize| {
+                                let calc_tile_player = |p: &usize| {
                                     if *p as u64 == player {
                                         TilePlayer::Own
                                     } else {
@@ -77,15 +77,14 @@ impl<'a> BoardUI<'a> {
                                     }
                                 };
 
-                                let (mut tile, mapped_tile) = if let Some(Square::Occupied(player, char)) = square {
+
+                                let mut tile = if let Some(Square::Occupied(player, char)) = square {
                                     let is_winner = winner == Some(*player);
-                                    (Some(
-                                        TileUI::new(*char, tile_player(player)).selected(is_selected).won(is_winner)
-                                    ), Some(
-                                        MappedTile::new(matches!(tile_player(player), TilePlayer::Own), Some(coord), map_texture.clone())
-                                    ))
+                                    Some(
+                                        TileUI::new(*char, calc_tile_player(player)).selected(is_selected).won(is_winner)
+                                    )
                                 } else {
-                                    (None, None)
+                                    None
                                 };
 
                                 if let Some(change) = board_changes.get(&coord) {
@@ -100,7 +99,7 @@ impl<'a> BoardUI<'a> {
                                             }
                                             .map(
                                                 |(player, char)| {
-                                                    TileUI::new(char, tile_player(&player))
+                                                    TileUI::new(char, calc_tile_player(&player))
                                                         .selected(is_selected)
                                                         .defeated(true)
                                                 },
@@ -112,7 +111,7 @@ impl<'a> BoardUI<'a> {
                                             }
                                             .map(
                                                 |(player, char)| {
-                                                    TileUI::new(char, tile_player(&player))
+                                                    TileUI::new(char, calc_tile_player(&player))
                                                         .selected(is_selected)
                                                         .truncated(true)
                                                 },
@@ -124,7 +123,7 @@ impl<'a> BoardUI<'a> {
                                             }
                                             .map(
                                                 |(player, char)| {
-                                                    TileUI::new(char, tile_player(&player))
+                                                    TileUI::new(char, calc_tile_player(&player))
                                                         .selected(is_selected)
                                                         .defeated(true)
                                                 },
@@ -137,7 +136,7 @@ impl<'a> BoardUI<'a> {
                                             }
                                             .map(
                                                 |(player, char)| {
-                                                    TileUI::new(char, tile_player(&player))
+                                                    TileUI::new(char, calc_tile_player(&player))
                                                         .selected(is_selected)
                                                         .won(true)
                                                 },
@@ -178,7 +177,7 @@ impl<'a> BoardUI<'a> {
                                     .overlay(overlay)
                                     .render(ui, &theme, &mapped_board, |ui, theme| {
                                         if let Some(tile) = tile {
-                                            tile_clicked = tile.render(mapped_tile.as_ref().unwrap(), ui, theme).clicked();
+                                            tile_clicked = tile.render(map_texture.clone(), Some(coord), ui, theme).clicked();
                                         }
                                     });
                                 if square.is_some() {

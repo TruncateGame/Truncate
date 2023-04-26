@@ -58,14 +58,12 @@ impl<'a> HandUI<'a> {
                         let tile_id = Id::new("Hand").with(i).with(char);
                         let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(tile_id));
 
-                        let mapped_tile = MappedTile::new(true, None, map_texture.clone());
-
                         let tile_response = TileUI::new(*char, TilePlayer::Own)
                             .id(tile_id)
                             .active(self.active)
                             .ghost(is_being_dragged)
                             .selected(Some(i) == selected_tile)
-                            .render(&mapped_tile, ui, theme);
+                            .render(map_texture.clone(), None, ui, theme);
 
                         if tile_response.drag_started() {
                             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
@@ -105,7 +103,12 @@ impl<'a> HandUI<'a> {
                                         .selected(false)
                                         .hovered(true)
                                         .ghost(board_tile_hovered.is_some())
-                                        .render(&mapped_tile, ui, &theme.rescale(bouncy_scale));
+                                        .render(
+                                            map_texture.clone(),
+                                            None,
+                                            ui,
+                                            &theme.rescale(bouncy_scale),
+                                        );
                                 })
                                 .response;
 

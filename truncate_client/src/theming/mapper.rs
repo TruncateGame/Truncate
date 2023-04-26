@@ -1,5 +1,5 @@
 use eframe::egui;
-use epaint::{vec2, Rect, TextureHandle};
+use epaint::{vec2, Color32, Rect, TextureHandle};
 use truncate_core::board::{Board, Coordinate};
 
 use super::tex::{render_tex_quad, BGTexType, Tex, TexQuad};
@@ -103,11 +103,16 @@ pub struct MappedTile {
 }
 
 impl MappedTile {
-    pub fn new(friendly: bool, coord: Option<Coordinate>, map_texture: TextureHandle) -> Self {
+    pub fn new(
+        color: Color32,
+        highlight: Option<Color32>,
+        coord: Option<Coordinate>,
+        map_texture: TextureHandle,
+    ) -> Self {
         let resolved_tex = if let Some(coord) = coord {
-            Tex::resolve_board_tile_tex(friendly, coord.x * 99 + coord.y)
+            Tex::resolve_board_tile_tex(color, highlight, coord.x * 99 + coord.y)
         } else {
-            vec![Tex::resolve_tile_tex(friendly)]
+            Tex::resolve_tile_tex(color, highlight)
         };
 
         Self {
