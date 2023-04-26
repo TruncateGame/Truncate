@@ -9,6 +9,7 @@ pub struct MappedBoard {
     resolved_tex: Vec<Vec<TexQuad>>,
     map_texture: TextureHandle,
     map_seed: usize,
+    inverted: bool, // TODO: Handle any transpose
 }
 
 impl MappedBoard {
@@ -47,11 +48,15 @@ impl MappedBoard {
                     .map(|(colnum, square)| {
                         let coord = Coordinate::new(colnum, rownum);
 
-                        let neighbor_squares: Vec<_> = coord
+                        let mut neighbor_squares: Vec<_> = coord
                             .neighbors_8()
                             .into_iter()
                             .map(|pos| board.get(pos).ok())
                             .collect();
+
+                        if self.inverted {
+                            neighbor_squares.rotate_left(4);
+                        }
 
                         let neighbor_base_types: Vec<_> = neighbor_squares
                             .iter()
@@ -81,7 +86,7 @@ impl MappedBoard {
             .collect::<Vec<_>>();
     }
 
-    pub fn map(board: &Board, map_texture: TextureHandle) -> Self {
+    pub fn map(board: &Board, map_texture: TextureHandle, invert: bool) -> Self {
         let secs = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("We are living in the future")
@@ -91,6 +96,7 @@ impl MappedBoard {
             resolved_tex: Vec::with_capacity(board.squares.len()),
             map_texture,
             map_seed: (secs % 100000) as usize,
+            inverted: invert,
         };
 
         mapper.remap(board);

@@ -8,7 +8,7 @@ use truncate_core::{
 use eframe::egui;
 use hashbrown::HashMap;
 
-use crate::{theming::Theme, active_game::HoveredRegion};
+use crate::{theming::{Theme, mapper::MappedBoard}, active_game::HoveredRegion};
 
 use super::{
     tile::{TilePlayer},
@@ -40,6 +40,7 @@ impl<'a> BoardUI<'a> {
         winner: Option<usize>,
         ui: &mut egui::Ui,
         theme: &Theme,
+        mapped_board: &MappedBoard
     ) -> (Option<Option<Coordinate>>, Option<PlayerMessage>, Option<HoveredRegion>) {
         let mut msg = None;
         let mut next_selection = None;
@@ -163,13 +164,13 @@ impl<'a> BoardUI<'a> {
                                 // TODO: Devise a way to show this tile in the place of the board_selected_tile
 
                                 let mut tile_clicked = false;
-                                let (square_response, outer_rect) = SquareUI::new()
+                                let (square_response, outer_rect) = SquareUI::new(coord)
                                     .enabled(square.is_some())
                                     .empty(matches!(square, Some(Square::Empty)))
                                     .root(is_root)
                                     .selected(is_selected)
                                     .overlay(overlay)
-                                    .render(ui, &theme, |ui, theme| {
+                                    .render(ui, &theme, &mapped_board, |ui, theme| {
                                         if let Some(tile) = tile {
                                             tile_clicked = tile.render(ui, theme).clicked();
                                         }

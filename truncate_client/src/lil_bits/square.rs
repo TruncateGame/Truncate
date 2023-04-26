@@ -3,12 +3,14 @@ use eframe::{
     emath::Align,
 };
 use epaint::{Rect, Stroke};
+use truncate_core::board::Coordinate;
 
-use crate::theming::Theme;
+use crate::theming::{mapper::MappedBoard, Theme};
 
 use super::{character::CharacterOrient, tile::TilePlayer, CharacterUI, TileUI};
 
 pub struct SquareUI {
+    coord: Coordinate,
     decorated: bool,
     enabled: bool,
     empty: bool,
@@ -18,8 +20,9 @@ pub struct SquareUI {
 }
 
 impl SquareUI {
-    pub fn new() -> Self {
+    pub fn new(coord: Coordinate) -> Self {
         Self {
+            coord,
             decorated: true,
             enabled: true,
             empty: false,
@@ -63,6 +66,7 @@ impl SquareUI {
         &self,
         ui: &mut egui::Ui,
         theme: &Theme,
+        mapped_board: &MappedBoard,
         contents: impl FnOnce(&mut egui::Ui, &Theme),
     ) -> (egui::Response, Rect) {
         let (rect, response) = ui.allocate_exact_size(
@@ -77,18 +81,22 @@ impl SquareUI {
         );
 
         if ui.is_rect_visible(rect) {
-            if self.enabled {
-                if self.empty && self.selected {
-                    ui.painter()
-                        .rect_filled(rect, theme.rounding, theme.selection);
-                }
+            if self.decorated {
+                mapped_board.render_coord(self.coord, rect, ui);
+            }
 
-                if self.decorated {
-                    ui.painter()
-                        .rect_filled(rect, theme.rounding, theme.background);
-                    ui.painter()
-                        .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
-                }
+            if self.enabled {
+                // if self.empty && self.selected {
+                //     ui.painter()
+                //         .rect_filled(rect, theme.rounding, theme.selection);
+                // }
+
+                // if self.decorated {
+                //     ui.painter()
+                //         .rect_filled(rect, theme.rounding, theme.background);
+                //     ui.painter()
+                //         .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
+                // }
             }
 
             let is_hovered = ui.rect_contains_pointer(interact_rect);

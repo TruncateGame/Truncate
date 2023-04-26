@@ -1,4 +1,4 @@
-use epaint::{Pos2, Rect};
+use epaint::{Pos2, Rect, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
@@ -15,7 +15,7 @@ use hashbrown::HashMap;
 
 use crate::{
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
-    theming::Theme,
+    theming::{mapper::MappedBoard, Theme},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,7 +23,7 @@ pub struct HoveredRegion {
     pub rect: Rect,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 // TODO: Split this state struct up
 pub struct ActiveGame {
     pub current_time: Duration,
@@ -32,6 +32,7 @@ pub struct ActiveGame {
     pub player_number: u64,
     pub next_player_number: u64,
     pub board: Board,
+    pub mapped_board: MappedBoard,
     pub hand: Hand,
     pub selected_tile_in_hand: Option<usize>,
     pub selected_square_on_board: Option<Coordinate>,
@@ -51,6 +52,7 @@ impl ActiveGame {
         next_player_number: u64,
         board: Board,
         hand: Hand,
+        map_texture: TextureHandle,
     ) -> Self {
         let current_time = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
@@ -61,6 +63,7 @@ impl ActiveGame {
             players,
             player_number,
             next_player_number,
+            mapped_board: MappedBoard::map(&board, map_texture, player_number == 0),
             board,
             hand,
             selected_tile_in_hand: None,
@@ -181,6 +184,7 @@ impl ActiveGame {
                                             winner.clone(),
                                             ui,
                                             theme,
+                                            &self.mapped_board,
                                         );
 
                                         if let (Some(new_selection), _, _) = board_result {

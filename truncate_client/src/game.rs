@@ -162,6 +162,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                     next_player_number,
                     board,
                     hand,
+                    map_texture.clone(),
                 ));
                 println!("Starting a game")
             }
