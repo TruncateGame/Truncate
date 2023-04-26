@@ -597,12 +597,12 @@ impl Coordinate {
 
         Coordinate {
             x: match direction {
-                West | NorthWest | SouthWest => usize::saturating_sub(self.x, 1),
+                West | NorthWest | SouthWest => usize::wrapping_sub(self.x, 1),
                 East | NorthEast | SouthEast => self.x + 1,
                 North | South => self.x,
             },
             y: match direction {
-                North | NorthEast | NorthWest => usize::saturating_sub(self.y, 1),
+                North | NorthEast | NorthWest => usize::wrapping_sub(self.y, 1),
                 South | SouthEast | SouthWest => self.y + 1,
                 East | West => self.y,
             },
@@ -1023,8 +1023,8 @@ pub mod tests {
             // TODO: should we allow you to find neighbours of an invalid square?
             b.neighbouring_squares(Coordinate { x: 0, y: 0 }),
             [
-                (Coordinate { x: 0, y: 1 }, Square::Empty),
                 (Coordinate { x: 1, y: 0 }, Square::Empty),
+                (Coordinate { x: 0, y: 1 }, Square::Empty),
             ]
         );
 
@@ -1036,9 +1036,9 @@ pub mod tests {
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 2 }),
             [
-                (Coordinate { x: 1, y: 3 }, Square::Empty),
-                (Coordinate { x: 2, y: 2 }, Square::Empty),
                 (Coordinate { x: 1, y: 1 }, Square::Empty),
+                (Coordinate { x: 2, y: 2 }, Square::Empty),
+                (Coordinate { x: 1, y: 3 }, Square::Empty),
                 (Coordinate { x: 0, y: 2 }, Square::Empty),
             ]
         );
