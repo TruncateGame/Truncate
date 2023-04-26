@@ -52,7 +52,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, false)
         };
         assert_eq!(
             game.make_move(out_of_bounds),
@@ -97,7 +97,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, false)
         };
 
         // Places on the root
@@ -224,7 +224,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, false)
         };
 
         assert_eq!(
@@ -335,9 +335,9 @@ mod tests {
             (
                 vec![middle_attacker.clone()],
                 vec![
+                    right_defender.clone(),
                     middle_defender.clone(),
                     cross_defender.clone(),
-                    right_defender.clone(),
                     left_defender.clone(),
                 ]
             )
@@ -362,7 +362,7 @@ mod tests {
             two_v_two.collect_combanants(0, middle),
             (
                 vec![middle_attacker, left_attacker],
-                vec![middle_defender, short_cross_defender, right_defender],
+                vec![right_defender, middle_defender, short_cross_defender],
             )
         );
     }
@@ -393,7 +393,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(1, 1)
+            ..Game::new(1, 1, false)
         };
 
         game.make_move(Move::Place {
@@ -443,7 +443,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, false)
         };
 
         game.make_move(Move::Place {
@@ -503,7 +503,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, false)
         };
 
         game.make_move(Move::Place {
@@ -560,7 +560,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, false)
         };
 
         game.make_move(Move::Place {
@@ -611,7 +611,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, false)
         };
 
         game.make_move(Move::Place {
