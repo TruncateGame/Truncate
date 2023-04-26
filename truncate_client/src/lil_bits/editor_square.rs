@@ -2,28 +2,24 @@ use eframe::egui::{self, Sense};
 use epaint::{vec2, Stroke, TextureId};
 use truncate_core::board::Coordinate;
 
+use crate::theming::mapper::MappedBoard;
+use crate::theming::tex::{BGTexType, Tex, TexQuad};
 use crate::theming::{Darken, Lighten, Theme};
 
-use super::{character::CharacterOrient, tex::BGTexType, CharacterUI, Tex};
+use super::{character::CharacterOrient, CharacterUI};
 
 pub struct EditorSquareUI {
     coord: Coordinate,
-    map_texture: TextureId,
     enabled: bool,
     root: bool,
-    neighbors: Vec<bool>,
 }
 
 impl EditorSquareUI {
-    pub fn new(coord: Coordinate, map_texture: TextureId, neighbors: Vec<bool>) -> Self {
-        debug_assert_eq!(neighbors.len(), 8);
-
+    pub fn new(coord: Coordinate) -> Self {
         Self {
             coord,
             enabled: false,
             root: false,
-            map_texture,
-            neighbors,
         }
     }
 
@@ -37,7 +33,12 @@ impl EditorSquareUI {
         self
     }
 
-    pub fn render(&self, ui: &mut egui::Ui, theme: &Theme) -> egui::Response {
+    pub fn render(
+        &self,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        mapped_board: &MappedBoard,
+    ) -> egui::Response {
         let (rect, response) = ui.allocate_exact_size(
             egui::vec2(theme.grid_size, theme.grid_size),
             egui::Sense::click(),
@@ -49,34 +50,7 @@ impl EditorSquareUI {
         );
 
         if ui.is_rect_visible(rect) {
-            let neighbors: Vec<_> = self
-                .neighbors
-                .iter()
-                .map(|n| {
-                    if *n {
-                        BGTexType::Land
-                    } else {
-                        BGTexType::Water
-                    }
-                })
-                .collect();
-
-            let tile_type = if self.enabled {
-                BGTexType::Land
-            } else {
-                BGTexType::Water
-            };
-
-            let ts = rect.width() * 0.25;
-            let tile_rect = rect.shrink(ts);
-
-            for (tex, translate) in
-                Tex::resolve_bg_tile(tile_type, neighbors, self.coord.x * self.coord.y)
-                    .into_iter()
-                    .zip([vec2(-ts, -ts), vec2(ts, -ts), vec2(ts, ts), vec2(-ts, ts)].into_iter())
-            {
-                tex.render(self.map_texture, tile_rect.translate(translate), ui);
-            }
+            mapped_board.render_coord(self.coord, rect, ui);
 
             if self.root {
                 CharacterUI::new('#', CharacterOrient::North).render_with_color(

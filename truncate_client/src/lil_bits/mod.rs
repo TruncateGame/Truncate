@@ -5,7 +5,6 @@ mod editor;
 mod editor_square;
 mod hand;
 mod square;
-mod tex;
 mod tile;
 mod timer;
 
@@ -16,6 +15,5 @@ pub use editor::EditorUI;
 pub use editor_square::EditorSquareUI;
 pub use hand::HandUI;
 pub use square::SquareUI;
-pub use tex::Tex;
 pub use tile::TileUI;
 pub use timer::TimerUI;

@@ -6,7 +6,7 @@ use truncate_core::{
 
 use eframe::egui::{self, Id, Margin};
 
-use crate::theming::Theme;
+use crate::theming::{mapper::MappedBoard, Theme};
 
 use super::EditorSquareUI;
 
@@ -19,12 +19,15 @@ enum EditorDrag {
 
 pub struct EditorUI<'a> {
     board: &'a mut Board,
-    map_texture: TextureId,
+    mapped_board: &'a MappedBoard,
 }
 
 impl<'a> EditorUI<'a> {
-    pub fn new(board: &'a mut Board, map_texture: TextureId) -> Self {
-        Self { board, map_texture }
+    pub fn new(board: &'a mut Board, mapped_board: &'a MappedBoard) -> Self {
+        Self {
+            board,
+            mapped_board,
+        }
     }
 }
 
@@ -64,17 +67,10 @@ impl<'a> EditorUI<'a> {
                                     let coord = Coordinate::new(colnum, rownum);
                                     let is_root = self.board.roots.iter().position(|r| r == &coord);
 
-                                    let neighbors = coord
-                                        .neighbors_8()
-                                        .into_iter()
-                                        .map(|pos| self.board.get(pos).is_ok())
-                                        .collect();
-
-                                    let response =
-                                        EditorSquareUI::new(coord, self.map_texture, neighbors)
-                                            .enabled(square.is_some())
-                                            .root(is_root.is_some())
-                                            .render(ui, &theme);
+                                    let response = EditorSquareUI::new(coord)
+                                        .enabled(square.is_some())
+                                        .root(is_root.is_some())
+                                        .render(ui, &theme, self.mapped_board);
 
                                     if ui.rect_contains_pointer(response.rect) {
                                         // TODO: This shouldn't be mut

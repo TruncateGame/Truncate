@@ -3,7 +3,7 @@ use std::fmt::format;
 use eframe::egui;
 use truncate_core::{board::Board, messages::RoomCode, messages::Token};
 
-use crate::{active_game::ActiveGame, lil_bits::EditorUI};
+use crate::{active_game::ActiveGame, editor_state::EditorState, lil_bits::EditorUI};
 
 use super::GameClient;
 use truncate_core::{
@@ -11,12 +11,11 @@ use truncate_core::{
     reporting::Change,
 };
 
-#[derive(Debug)]
 pub enum GameStatus {
     None(RoomCode, Option<Token>),
     PendingJoin(RoomCode),
     PendingCreate,
-    PendingStart(RoomCode, Vec<String>, Board),
+    PendingStart(EditorState),
     Active(ActiveGame),
     Concluded(ActiveGame, u64),
 }
@@ -96,15 +95,8 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         GameStatus::PendingCreate => {
             ui.label("Waiting for a new game to be created . . .");
         }
-        GameStatus::PendingStart(game_id, players, board) => {
-            ui.label(format!("Playing in game {game_id}"));
-            ui.label(format!("In lobby: {}", players.join(", ")));
-            ui.label("Waiting for the game to start . . .");
-            if ui.button("Start game").clicked() {
-                send(PlayerMessage::StartGame);
-            }
-            // TODO: Make a different board ui for the level editor
-            if let Some(msg) = EditorUI::new(board, map_texture.id()).render(true, ui, theme) {
+        GameStatus::PendingStart(editor_state) => {
+            if let Some(msg) = editor_state.render(ui, theme) {
                 send(msg);
             }
         }
@@ -136,10 +128,23 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                         .unwrap();
                 }
 
-                *game_status = GameStatus::PendingStart(id.to_uppercase(), players, board)
+                *game_status = GameStatus::PendingStart(EditorState::new(
+                    id.to_uppercase(),
+                    players,
+                    board,
+                    map_texture.clone(),
+                ))
             }
             GameMessage::LobbyUpdate(id, players, board) => {
-                *game_status = GameStatus::PendingStart(id.to_uppercase(), players, board)
+                match game_status {
+                    GameStatus::PendingStart(editor_state) => {
+                        // assert_eq!(game.room_code, room_code);
+                        // assert_eq!(game.player_number, player_number);
+                        editor_state.players = players;
+                        editor_state.update_board(board);
+                    }
+                    _ => panic!("Game update hit an unknown state"),
+                }
             }
             GameMessage::StartedGame(GameStateMessage {
                 room_code,

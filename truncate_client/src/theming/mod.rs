@@ -1,5 +1,8 @@
 use std::ops::Range;
 
+pub mod mapper;
+pub mod tex;
+
 use eframe::egui::{self, Margin};
 use epaint::{hex_color, Color32, Hsva};
 

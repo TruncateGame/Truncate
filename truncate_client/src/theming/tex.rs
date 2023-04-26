@@ -1,10 +1,12 @@
 use eframe::egui;
 use epaint::{pos2, Color32, Mesh, Rect, Shape, TextureId};
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Tex {
     tile: usize,
 }
+
+pub type TexQuad = [Tex; 4];
 
 #[derive(Debug, Copy, Clone)]
 pub enum BGTexType {
@@ -62,8 +64,9 @@ impl Tex {
 
         let rand_tile = |mut n: usize| {
             n ^= n << 13;
-            n ^= n >> 17;
-            n ^= n << 5;
+            n ^= n >> 7;
+            n ^= n << 17;
+
             match n % 100 {
                 0..=70 => Self::GRASS1,
                 71..=85 => Self::GRASS2,

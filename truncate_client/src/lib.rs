@@ -1,5 +1,6 @@
 mod active_game;
 mod debug;
+mod editor_state;
 mod game;
 mod game_client;
 mod lil_bits;
