@@ -63,7 +63,7 @@ pub struct Board {
 //  - the roots are at empty squares
 
 impl Board {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize, padded: bool) -> Self {
         // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
         let roots = vec![
             Coordinate {
@@ -82,11 +82,15 @@ impl Board {
         squares[roots[0].y][roots[0].x] = Some(Square::Empty); // Create root square
         squares[roots[1].y][roots[1].x] = Some(Square::Empty);
 
-        Board {
+        let mut board = Board {
             squares,
             roots,
             orientations: vec![Direction::North, Direction::South],
+        };
+        if padded {
+            board.grow();
         }
+        board
     }
 
     pub fn get_orientations(&self) -> &Vec<Direction> {
@@ -99,6 +103,22 @@ impl Board {
 
     pub fn height(&self) -> usize {
         self.squares.len()
+    }
+
+    /// Adds empty squares to all edges of the board
+    pub fn grow(&mut self) {
+        for row in &mut self.squares {
+            row.insert(0, None);
+            row.push(None);
+        }
+
+        self.squares.insert(0, vec![None; self.width()]);
+        self.squares.push(vec![None; self.width()]);
+
+        for root in &mut self.roots {
+            root.x += 1;
+            root.y += 1;
+        }
     }
 
     /// Trims edges containing only empty squares
@@ -528,7 +548,7 @@ impl Board {
 
 impl Default for Board {
     fn default() -> Self {
-        Self::new(9, 9)
+        Self::new(9, 9, true)
     }
 }
 
@@ -680,22 +700,35 @@ pub mod tests {
     #[test]
     fn makes_default_boards() {
         assert_eq!(
-            Board::new(3, 1).to_string(),
+            Board::new(3, 1, false).to_string(),
             ["  _  ", "_ _ _", "  _  ", "Roots: (1, 0) / (1, 2)"].join("\n")
         );
 
         assert_eq!(
-            Board::new(3, 2).to_string(),
+            Board::new(3, 1, true).to_string(),
+            [
+                "         ",
+                "    _    ",
+                "  _ _ _  ",
+                "    _    ",
+                "         ",
+                "Roots: (2, 1) / (2, 3)"
+            ]
+            .join("\n")
+        );
+
+        assert_eq!(
+            Board::new(3, 2, false).to_string(),
             ["  _  ", "_ _ _", "_ _ _", "  _  ", "Roots: (1, 0) / (1, 3)"].join("\n")
         );
 
         assert_eq!(
-            Board::new(2, 1).to_string(),
+            Board::new(2, 1, false).to_string(),
             ["_  ", "_ _", "  _", "Roots: (0, 0) / (1, 2)"].join("\n")
         );
 
         assert_eq!(
-            Board::new(5, 1).to_string(),
+            Board::new(5, 1, false).to_string(),
             [
                 "    _    ",
                 "_ _ _ _ _",
@@ -706,7 +739,7 @@ pub mod tests {
         );
 
         assert_eq!(
-            Board::new(6, 1).to_string(),
+            Board::new(6, 1, false).to_string(),
             [
                 "    _      ",
                 "_ _ _ _ _ _",
@@ -803,14 +836,14 @@ pub mod tests {
 
     #[test]
     fn width_height() {
-        let b = Board::new(6, 1);
+        let b = Board::new(6, 1, false);
         assert_eq!(b.width(), 6);
         assert_eq!(b.height(), 3);
     }
 
     #[test]
     fn getset_errors_out_of_bounds() {
-        let mut b = Board::new(1, 1); // Note, height is 3 from home rows
+        let mut b = Board::new(1, 1, false); // Note, height is 3 from home rows
         for position in [Coordinate { x: 1, y: 0 }, Coordinate { x: 0, y: 3 }] {
             assert_eq!(
                 b.get(position),
@@ -825,7 +858,7 @@ pub mod tests {
 
     #[test]
     fn getset_errors_for_dead_squares() {
-        let mut b = Board::new(2, 1); // Note, height is 3 from home rows
+        let mut b = Board::new(2, 1, false); // Note, height is 3 from home rows
 
         for position in [Coordinate { x: 1, y: 0 }, Coordinate { x: 0, y: 2 }] {
             assert_eq!(
@@ -841,7 +874,7 @@ pub mod tests {
 
     #[test]
     fn getset_handles_empty_squares() {
-        let mut b = Board::new(2, 1); // Note, height is 3 from home rows
+        let mut b = Board::new(2, 1, false); // Note, height is 3 from home rows
         assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Empty));
         assert_eq!(b.get(Coordinate { x: 0, y: 1 }), Ok(Square::Empty));
         assert_eq!(b.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
@@ -879,7 +912,7 @@ pub mod tests {
 
     #[test]
     fn set_requires_valid_player() {
-        let mut b = Board::new(2, 1);
+        let mut b = Board::new(2, 1, false);
         assert_eq!(
             b.set(Coordinate { x: 1, y: 2 }, 0, 'a'),
             Ok(BoardChangeDetail {
@@ -910,7 +943,7 @@ pub mod tests {
 
     #[test]
     fn set_changes_get() {
-        let mut b = Board::new(1, 1); // Note, height is 3 from home rows
+        let mut b = Board::new(1, 1, false); // Note, height is 3 from home rows
         assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Empty));
         assert_eq!(
             b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
@@ -927,7 +960,7 @@ pub mod tests {
 
     #[test]
     fn depth_first_search() {
-        let mut b = Board::new(3, 1);
+        let mut b = Board::new(3, 1, false);
 
         // Create a connected tree
         let parts = [
@@ -984,7 +1017,7 @@ pub mod tests {
         // (0,2) (1,2) (2,2)
         // (0,3) (1,3) (2,3)
         // (0,4) (1,4) (2,4)
-        let b = Board::new(3, 3);
+        let b = Board::new(3, 3, false);
 
         assert_eq!(
             // TODO: should we allow you to find neighbours of an invalid square?
@@ -1018,7 +1051,7 @@ pub mod tests {
 
     #[test]
     fn swap() {
-        let mut b = Board::new(3, 1);
+        let mut b = Board::new(3, 1, false);
         let c0_1 = Coordinate { x: 0, y: 1 };
         let c1_1 = Coordinate { x: 1, y: 1 };
         let c2_1 = Coordinate { x: 2, y: 1 };
@@ -1248,7 +1281,7 @@ pub mod tests {
 
     #[test]
     fn get_near_edge() {
-        let b = Board::new(3, 1);
+        let b = Board::new(3, 1, false);
         assert_eq!(
             b.get_near_edge(Direction::North),
             vec![
@@ -1367,7 +1400,7 @@ pub mod tests {
     #[test]
     fn from_string_succeeds() {
         // Checks that our default boards come are the same after being stringified and parsed
-        let boards = [Board::default(), Board::new(34, 28)];
+        let boards = [Board::default(), Board::new(34, 28, false)];
         for b in boards {
             assert_eq!(
                 from_string(

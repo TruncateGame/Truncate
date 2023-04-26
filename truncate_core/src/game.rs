@@ -31,7 +31,7 @@ impl Game {
         let rules = GameRules::default();
         Self {
             players: Vec::with_capacity(2),
-            board: Board::new(width, height),
+            board: Board::new(width, height, true),
             bag: TileBag::new(&rules.tile_distribution),
             judge: Judge::default(),
             recent_changes: vec![],
