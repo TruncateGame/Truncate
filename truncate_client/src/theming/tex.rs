@@ -20,8 +20,9 @@ impl Tex {
         Self { tile }
     }
 
-    pub const TILE_SIZE: f32 = 1.0 / 68.0;
+    pub const MAX_TILE: usize = 68;
 
+    pub const NONE: Self = Tex::index(0);
     // TODO: Make an actual debug tile
     pub const DEBUG: Self = Tex::index(50);
 
@@ -54,20 +55,21 @@ impl Tex {
     pub const FRIEND_SE: Self = Tex::index(55);
     pub const FRIEND_SW: Self = Tex::index(56);
 
-    pub const FRIEND_SE_GRASS1: Self = Tex::index(61);
-    pub const FRIEND_SW_GRASS1: Self = Tex::index(62);
-    pub const FRIEND_SE_GRASS2: Self = Tex::index(63);
-    pub const FRIEND_SW_GRASS2: Self = Tex::index(64);
-
     pub const ENEMY_NW: Self = Tex::index(57);
     pub const ENEMY_NE: Self = Tex::index(58);
     pub const ENEMY_SE: Self = Tex::index(60);
     pub const ENEMY_SW: Self = Tex::index(59);
 
-    pub const ENEMY_SE_GRASS1: Self = Tex::index(65);
-    pub const ENEMY_SW_GRASS1: Self = Tex::index(66);
-    pub const ENEMY_SE_GRASS2: Self = Tex::index(67);
-    pub const ENEMY_SW_GRASS2: Self = Tex::index(68);
+    // Grass cover over tiles
+    pub const TILE_SE_GRASS1: Self = Tex::index(62);
+    pub const TILE_SE_GRASS2: Self = Tex::index(64);
+    pub const TILE_SE_GRASS3: Self = Tex::index(66);
+    pub const TILE_SE_GRASS4: Self = Tex::index(68);
+
+    pub const TILE_SW_GRASS1: Self = Tex::index(61);
+    pub const TILE_SW_GRASS2: Self = Tex::index(63);
+    pub const TILE_SW_GRASS3: Self = Tex::index(65);
+    pub const TILE_SW_GRASS4: Self = Tex::index(67);
 }
 
 impl Tex {
@@ -89,7 +91,7 @@ impl Tex {
         }
     }
 
-    pub fn resolve_board_tile_tex(friendly: bool, seed: usize) -> TexQuad {
+    pub fn resolve_board_tile_tex(friendly: bool, seed: usize) -> Vec<TexQuad> {
         let rand = |mut n: usize| {
             n ^= n << 13;
             n ^= n >> 7;
@@ -97,33 +99,25 @@ impl Tex {
             n % 100
         };
 
-        if friendly {
+        vec![
+            Tex::resolve_tile_tex(friendly),
             [
-                Self::FRIEND_NW,
-                Self::FRIEND_NE,
+                Self::NONE,
+                Self::NONE,
                 match rand(seed) {
-                    0..=50 => Self::FRIEND_SE_GRASS1,
-                    _ => Self::FRIEND_SE_GRASS2,
+                    0..=25 => Self::TILE_SE_GRASS1,
+                    26..=50 => Self::TILE_SE_GRASS2,
+                    51..=75 => Self::TILE_SE_GRASS3,
+                    _ => Self::TILE_SE_GRASS4,
                 },
-                match rand(seed + 1) {
-                    0..=50 => Self::FRIEND_SW_GRASS1,
-                    _ => Self::FRIEND_SW_GRASS2,
+                match rand(seed + 678) {
+                    0..=25 => Self::TILE_SW_GRASS1,
+                    26..=50 => Self::TILE_SW_GRASS2,
+                    51..=75 => Self::TILE_SW_GRASS3,
+                    _ => Self::TILE_SW_GRASS4,
                 },
-            ]
-        } else {
-            [
-                Self::ENEMY_NW,
-                Self::ENEMY_NE,
-                match rand(seed) {
-                    0..=50 => Self::ENEMY_SE_GRASS1,
-                    _ => Self::ENEMY_SE_GRASS2,
-                },
-                match rand(seed + 1) {
-                    0..=50 => Self::ENEMY_SW_GRASS1,
-                    _ => Self::ENEMY_SW_GRASS2,
-                },
-            ]
-        }
+            ],
+        ]
     }
 
     /// Determine the tiles to use based on a given square and its neighbors,
@@ -200,8 +194,14 @@ impl Tex {
     pub fn render(self, map_texture: TextureId, rect: Rect, ui: &mut egui::Ui) {
         let mut mesh = Mesh::with_texture(map_texture);
         let uv = Rect::from_min_max(
-            pos2(Tex::TILE_SIZE * ((self.tile - 1) as f32), 0.0),
-            pos2(Tex::TILE_SIZE * ((self.tile) as f32), 1.0),
+            pos2(
+                (1.0 / (Tex::MAX_TILE + 1) as f32) * ((self.tile) as f32),
+                0.0,
+            ),
+            pos2(
+                (1.0 / (Tex::MAX_TILE + 1) as f32) * ((self.tile + 1) as f32),
+                1.0,
+            ),
         );
         mesh.add_rect_with_uv(rect, uv, Color32::WHITE);
         ui.painter().add(Shape::mesh(mesh));

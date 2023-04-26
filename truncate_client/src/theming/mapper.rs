@@ -98,33 +98,27 @@ impl MappedBoard {
 
 #[derive(Clone)]
 pub struct MappedTile {
-    resolved_tex: TexQuad,
+    resolved_tex: Vec<TexQuad>,
     map_texture: TextureHandle,
-    map_seed: usize,
 }
 
 impl MappedTile {
     pub fn new(friendly: bool, coord: Option<Coordinate>, map_texture: TextureHandle) -> Self {
-        let secs = instant::SystemTime::now()
-            .duration_since(instant::SystemTime::UNIX_EPOCH)
-            .expect("We are living in the future")
-            .as_secs();
-        let map_seed = (secs % 100000) as usize;
-
         let resolved_tex = if let Some(coord) = coord {
-            Tex::resolve_board_tile_tex(friendly, coord.x * map_seed + coord.y)
+            Tex::resolve_board_tile_tex(friendly, coord.x * 99 + coord.y)
         } else {
-            Tex::resolve_tile_tex(friendly)
+            vec![Tex::resolve_tile_tex(friendly)]
         };
 
         Self {
             resolved_tex,
             map_texture,
-            map_seed,
         }
     }
 
     pub fn render(&self, rect: Rect, ui: &mut egui::Ui) {
-        render_tex_quad(self.resolved_tex, rect, &self.map_texture, ui);
+        for tex in &self.resolved_tex {
+            render_tex_quad(*tex, rect, &self.map_texture, ui);
+        }
     }
 }

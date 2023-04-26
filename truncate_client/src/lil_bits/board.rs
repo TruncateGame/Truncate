@@ -82,7 +82,7 @@ impl<'a> BoardUI<'a> {
                                     (Some(
                                         TileUI::new(*char, tile_player(player)).selected(is_selected).won(is_winner)
                                     ), Some(
-                                        MappedTile::new(true, None, map_texture.clone())
+                                        MappedTile::new(matches!(tile_player(player), TilePlayer::Own), Some(coord), map_texture.clone())
                                     ))
                                 } else {
                                     (None, None)
