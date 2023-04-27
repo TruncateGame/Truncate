@@ -70,7 +70,7 @@ impl CharacterUI {
 impl CharacterUI {
     fn char_color(&self, theme: &Theme) -> Color32 {
         if self.ghost {
-            theme.friend.darken()
+            theme.friend
         } else if !self.active {
             theme.outlines
         } else if self.hovered || self.selected {

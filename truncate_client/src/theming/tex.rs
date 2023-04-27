@@ -81,13 +81,18 @@ impl Tex {
 }
 
 impl Tex {
-    pub fn resolve_tile_tex(color: Color32, highlight: Option<Color32>) -> Vec<TexQuad> {
-        let mut tex = vec![[
-            Self::TILE_NW.tint(color),
-            Self::TILE_NE.tint(color),
-            Self::TILE_SE.tint(color),
-            Self::TILE_SW.tint(color),
-        ]];
+    pub fn resolve_tile_tex(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
+        let mut tex = vec![];
+
+        if let Some(color) = color {
+            tex.push([
+                Self::TILE_NW.tint(color),
+                Self::TILE_NE.tint(color),
+                Self::TILE_SE.tint(color),
+                Self::TILE_SW.tint(color),
+            ]);
+        }
+
         if let Some(highlight) = highlight {
             tex.push([
                 Self::HIGHLIGHT_NW.tint(highlight),
@@ -100,7 +105,7 @@ impl Tex {
     }
 
     pub fn resolve_board_tile_tex(
-        color: Color32,
+        color: Option<Color32>,
         highlight: Option<Color32>,
         seed: usize,
     ) -> Vec<TexQuad> {

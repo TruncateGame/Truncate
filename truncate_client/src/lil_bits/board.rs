@@ -175,7 +175,7 @@ impl<'a> BoardUI<'a> {
                                     .root(is_root)
                                     .selected(is_selected)
                                     .overlay(overlay)
-                                    .render(ui, &theme, &mapped_board, |ui, theme| {
+                                    .render(ui, &theme, &mapped_board, &map_texture, |ui, theme| {
                                         if let Some(tile) = tile {
                                             tile_clicked = tile.render(map_texture.clone(), Some(coord), ui, theme).clicked();
                                         }

@@ -2,7 +2,7 @@ use eframe::{
     egui::{self, Layout},
     emath::Align,
 };
-use epaint::{Rect, Stroke};
+use epaint::{Rect, Stroke, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::theming::{mapper::MappedBoard, Theme};
@@ -67,6 +67,7 @@ impl SquareUI {
         ui: &mut egui::Ui,
         theme: &Theme,
         mapped_board: &MappedBoard,
+        map_texture: &TextureHandle,
         contents: impl FnOnce(&mut egui::Ui, &Theme),
     ) -> (egui::Response, Rect) {
         let (rect, response) = ui.allocate_exact_size(
@@ -123,13 +124,12 @@ impl SquareUI {
 
             if is_hovered {
                 if let Some(overlay) = self.overlay {
-                    // TODO: Bring back overlays
-                    ui.heading(format!("{overlay}"));
-
-                    // response = TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
-                    //     &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                    //     theme,
-                    // );
+                    response = TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
+                        map_texture.clone(),
+                        None,
+                        &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
+                        theme,
+                    );
                 } else if self.empty && !ui.ctx().memory(|mem| mem.is_anything_being_dragged()) {
                     ui.painter().rect_filled(
                         rect.shrink(theme.tile_margin),

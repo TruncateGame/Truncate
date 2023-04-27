@@ -157,12 +157,12 @@ impl TileUI {
                 None
             };
 
-            let mapped_tile = MappedTile::new(
-                self.tile_color(hovered, theme),
-                outline,
-                coord,
-                map_texture.clone(),
-            );
+            let tile_color = self.tile_color(hovered, theme);
+            let mapped_tile = if self.ghost {
+                MappedTile::new(None, Some(tile_color), coord, map_texture.clone())
+            } else {
+                MappedTile::new(Some(tile_color), outline, coord, map_texture.clone())
+            };
             mapped_tile.render(base_rect, ui);
 
             let mut char_rect = tile_rect.clone();

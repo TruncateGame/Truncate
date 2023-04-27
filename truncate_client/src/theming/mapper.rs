@@ -104,7 +104,7 @@ pub struct MappedTile {
 
 impl MappedTile {
     pub fn new(
-        color: Color32,
+        color: Option<Color32>,
         highlight: Option<Color32>,
         coord: Option<Coordinate>,
         map_texture: TextureHandle,
