@@ -2,7 +2,7 @@ use eframe::{
     egui::{self, Layout},
     emath::Align,
 };
-use epaint::{Rect, Stroke, TextureHandle};
+use epaint::{hex_color, Rect, Stroke, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::theming::{mapper::MappedBoard, Theme};
@@ -86,19 +86,13 @@ impl SquareUI {
                 mapped_board.render_coord(self.coord, rect, ui);
             }
 
-            if self.enabled {
-                // if self.empty && self.selected {
-                //     ui.painter()
-                //         .rect_filled(rect, theme.rounding, theme.selection);
-                // }
-
-                // if self.decorated {
-                //     ui.painter()
-                //         .rect_filled(rect, theme.rounding, theme.background);
-                //     ui.painter()
-                //         .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
-                // }
-            }
+            // if self.enabled {
+            //     ui.painter().rect_filled(
+            //         rect.shrink(theme.tile_margin),
+            //         theme.rounding,
+            //         hex_color!("ffffff01"),
+            //     );
+            // }
 
             let is_hovered = ui.rect_contains_pointer(interact_rect);
 
@@ -129,12 +123,6 @@ impl SquareUI {
                         None,
                         &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
                         theme,
-                    );
-                } else if self.empty && !ui.ctx().memory(|mem| mem.is_anything_being_dragged()) {
-                    ui.painter().rect_filled(
-                        rect.shrink(theme.tile_margin),
-                        theme.rounding,
-                        theme.outlines,
                     );
                 }
             }
