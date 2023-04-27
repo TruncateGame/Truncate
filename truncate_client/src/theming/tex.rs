@@ -21,7 +21,7 @@ impl Tex {
         Self { tile, tint: None }
     }
 
-    pub const MAX_TILE: usize = 76;
+    pub const MAX_TILE: usize = 79;
 
     pub const NONE: Self = Tex::index(0);
     // TODO: Make an actual debug tile
