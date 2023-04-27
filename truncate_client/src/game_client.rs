@@ -4,8 +4,8 @@ type S = Sender<PlayerMessage>;
 
 use super::debug;
 use super::theming::Theme;
-use crate::game;
-use eframe::egui::{self, Sense, Slider, TextureOptions};
+use crate::{game, glyph_meaure::GlyphMeasure};
+use eframe::egui::{self, Id, Sense, Slider, TextureOptions};
 use epaint::{hex_color, pos2, Color32, Mesh, Rect, Shape, TextureHandle};
 use truncate_core::messages::{GameMessage, PlayerMessage};
 
@@ -24,23 +24,27 @@ impl GameClient {
         let mut fonts = egui::FontDefinitions::default();
 
         fonts.font_data.insert(
-            "Heebo-Medium".into(),
-            egui::FontData::from_static(include_bytes!("../font/Heebo-Medium.ttf")),
+            "PS2P-Medium".into(),
+            egui::FontData::from_static(include_bytes!("../font/PressStart2P-Regular.ttf")),
         );
         fonts.families.insert(
             egui::FontFamily::Name("Truncate-Heavy".into()),
-            vec!["Heebo-Medium".into()],
+            vec!["PS2P-Medium".into()],
         );
 
         fonts.font_data.insert(
-            "Heebo-Regular".into(),
-            egui::FontData::from_static(include_bytes!("../font/Heebo-Regular.ttf")),
+            "PS2P-Regular".into(),
+            egui::FontData::from_static(include_bytes!("../font/PressStart2P-Regular.ttf")),
         );
         fonts.families.insert(
             egui::FontFamily::Name("Truncate-Regular".into()),
-            vec!["Heebo-Regular".into()],
+            vec!["PS2P-Regular".into()],
         );
         cc.egui_ctx.set_fonts(fonts);
+
+        cc.egui_ctx.memory_mut(|mem| {
+            mem.data.insert_temp(Id::null(), GlyphMeasure::new());
+        });
 
         let mut game_status = game::GameStatus::None("".into(), None);
 

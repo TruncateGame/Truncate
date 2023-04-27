@@ -3,6 +3,7 @@ mod debug;
 mod editor_state;
 mod game;
 mod game_client;
+mod glyph_meaure;
 mod lil_bits;
 mod theming;
 #[cfg(target_arch = "wasm32")]

@@ -166,7 +166,7 @@ impl TileUI {
             mapped_tile.render(base_rect, ui);
 
             let mut char_rect = tile_rect.clone();
-            char_rect.set_height(char_rect.height() - tile_margin * 2.0);
+            char_rect.set_height(char_rect.height() - tile_margin * 0.5);
 
             CharacterUI::new(
                 self.letter,

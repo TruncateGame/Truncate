@@ -37,7 +37,7 @@ impl Default for Theme {
             modification: hex_color!("#9452ad"),
             defeated: hex_color!("#944D5E"),
             grid_size: 50.0,
-            letter_size: 30.0,
+            letter_size: 25.0,
             tile_margin: 4.0,
             rounding: 10.0,
             animation_time: 0.05,
