@@ -64,8 +64,10 @@ impl EditorSquareUI {
                     ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Move);
                 };
             } else if response.hovered() {
-                let mapped_addition = Tex::resolve_landscaping_tex(!self.enabled);
-                render_tex_quad(mapped_addition, rect, map_texture, ui);
+                if !response.is_pointer_button_down_on() {
+                    let mapped_addition = Tex::resolve_landscaping_tex(!self.enabled);
+                    render_tex_quad(mapped_addition, rect, map_texture, ui);
+                }
             }
         }
         response

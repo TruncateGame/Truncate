@@ -21,7 +21,7 @@ impl Tex {
         Self { tile, tint: None }
     }
 
-    pub const MAX_TILE: usize = 72;
+    pub const MAX_TILE: usize = 76;
 
     pub const NONE: Self = Tex::index(0);
     // TODO: Make an actual debug tile
@@ -50,11 +50,16 @@ impl Tex {
     pub const LAND_S_W: Self = Tex::index(19);
     pub const LAND_N_W: Self = Tex::index(26);
 
-    // Transparent island
+    // Transparent island in water
     pub const ISLAND_NW: Self = Tex::index(69);
     pub const ISLAND_NE: Self = Tex::index(70);
     pub const ISLAND_SE: Self = Tex::index(72);
     pub const ISLAND_SW: Self = Tex::index(71);
+    // Transparent cracks on land
+    pub const CRACKS_NW: Self = Tex::index(73);
+    pub const CRACKS_NE: Self = Tex::index(74);
+    pub const CRACKS_SE: Self = Tex::index(76);
+    pub const CRACKS_SW: Self = Tex::index(75);
 
     // Tiles
     pub const TILE_NW: Self = Tex::index(53);
@@ -221,10 +226,10 @@ impl Tex {
             ]
         } else {
             [
-                Self::LAND_N_W,
-                Self::LAND_N_E,
-                Self::LAND_S_E,
-                Self::LAND_S_W,
+                Self::CRACKS_NW,
+                Self::CRACKS_NE,
+                Self::CRACKS_SE,
+                Self::CRACKS_SW,
             ]
         }
     }
