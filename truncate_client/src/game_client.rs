@@ -76,7 +76,7 @@ impl GameClient {
 }
 
 fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
-    let image_bytes = include_bytes!("../img/truncate.png");
+    let image_bytes = include_bytes!("../img/truncate_processed.png");
     let image = image::load_from_memory(image_bytes).unwrap();
     let size = [image.width() as _, image.height() as _];
     let image_buffer = image.to_rgba8();

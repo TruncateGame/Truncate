@@ -24,8 +24,7 @@ impl Tex {
     pub const MAX_TILE: usize = 79;
 
     pub const NONE: Self = Tex::index(0);
-    // TODO: Make an actual debug tile
-    pub const DEBUG: Self = Tex::index(50);
+    pub const DEBUG: Self = Tex::index(77);
 
     pub const GRASS1: Self = Tex::index(21);
     pub const GRASS2: Self = Tex::index(22);
@@ -237,17 +236,32 @@ impl Tex {
 
 impl Tex {
     pub fn render(self, map_texture: TextureId, rect: Rect, ui: &mut egui::Ui) {
+        // TODO: Move these calcs into a lazy static since they can't be const :c
+        // (or codegen them)
+
+        let num_tiles = Tex::MAX_TILE + 1;
+        // Outer tiles ate 18px wide with padding
+        let uv_outer_tile_size = 1.0 / (num_tiles) as f32;
+        // Padding is 1px per side out of the 18px
+        let uv_tile_padding_size = uv_outer_tile_size / 18.0;
+
+        // Texture has 1px padding above and below tiles that we can uniformly trim out
+        let tile_y_uv = (0.0625, 0.9375);
+
         let mut mesh = Mesh::with_texture(map_texture);
         let uv = Rect::from_min_max(
             pos2(
-                (1.0 / (Tex::MAX_TILE + 1) as f32) * ((self.tile) as f32),
-                0.0,
+                // Index to our tile, and skip over the leading column padding
+                uv_outer_tile_size * ((self.tile) as f32) + uv_tile_padding_size,
+                tile_y_uv.0,
             ),
             pos2(
-                (1.0 / (Tex::MAX_TILE + 1) as f32) * ((self.tile + 1) as f32),
-                1.0,
+                // Index to our next tile, and skip behind our trailing column padding
+                uv_outer_tile_size * ((self.tile + 1) as f32) - uv_tile_padding_size,
+                tile_y_uv.1,
             ),
         );
+
         mesh.add_rect_with_uv(rect, uv, self.tint.unwrap_or(Color32::WHITE));
         ui.painter().add(Shape::mesh(mesh));
     }
