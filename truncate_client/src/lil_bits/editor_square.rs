@@ -1,9 +1,9 @@
 use eframe::egui::{self, Sense};
-use epaint::{vec2, Stroke, TextureId};
+use epaint::{vec2, Stroke, TextureHandle, TextureId};
 use truncate_core::board::Coordinate;
 
 use crate::theming::mapper::MappedBoard;
-use crate::theming::tex::{BGTexType, Tex, TexQuad};
+use crate::theming::tex::{render_tex_quad, BGTexType, Tex, TexQuad};
 use crate::theming::{Darken, Lighten, Theme};
 
 use super::{character::CharacterOrient, CharacterUI};
@@ -38,6 +38,7 @@ impl EditorSquareUI {
         ui: &mut egui::Ui,
         theme: &Theme,
         mapped_board: &MappedBoard,
+        map_texture: &TextureHandle,
     ) -> egui::Response {
         let (rect, response) = ui.allocate_exact_size(
             egui::vec2(theme.grid_size, theme.grid_size),
@@ -63,18 +64,8 @@ impl EditorSquareUI {
                     ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Move);
                 };
             } else if response.hovered() {
-                let action = if self.enabled { '-' } else { '+' };
-                let color = if self.enabled {
-                    theme.background
-                } else {
-                    theme.addition
-                };
-                CharacterUI::new(action, CharacterOrient::North).render_with_color(
-                    ui,
-                    rect.shrink(theme.tile_margin),
-                    theme,
-                    color,
-                );
+                let mapped_addition = Tex::resolve_landscaping_tex(!self.enabled);
+                render_tex_quad(mapped_addition, rect, map_texture, ui);
             }
         }
         response

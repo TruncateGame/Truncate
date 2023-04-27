@@ -25,6 +25,7 @@ pub struct EditorState {
     pub room_code: RoomCode,
     pub players: Vec<String>,
     pub mapped_board: MappedBoard,
+    pub map_texture: TextureHandle,
 }
 
 impl EditorState {
@@ -37,7 +38,8 @@ impl EditorState {
         Self {
             room_code,
             players,
-            mapped_board: MappedBoard::new(&board, map_texture, false),
+            mapped_board: MappedBoard::new(&board, map_texture.clone(), false),
+            map_texture,
             board,
         }
     }
@@ -58,9 +60,12 @@ impl EditorState {
             msg = Some(PlayerMessage::StartGame);
         }
 
-        if let Some(board_update) =
-            EditorUI::new(&mut self.board, &self.mapped_board).render(true, ui, theme)
-        {
+        if let Some(board_update) = EditorUI::new(&mut self.board, &self.mapped_board).render(
+            true,
+            ui,
+            theme,
+            &self.map_texture,
+        ) {
             msg = Some(board_update);
         }
 

@@ -21,7 +21,7 @@ impl Tex {
         Self { tile, tint: None }
     }
 
-    pub const MAX_TILE: usize = 68;
+    pub const MAX_TILE: usize = 72;
 
     pub const NONE: Self = Tex::index(0);
     // TODO: Make an actual debug tile
@@ -49,6 +49,12 @@ impl Tex {
     pub const LAND_S_E: Self = Tex::index(18);
     pub const LAND_S_W: Self = Tex::index(19);
     pub const LAND_N_W: Self = Tex::index(26);
+
+    // Transparent island
+    pub const ISLAND_NW: Self = Tex::index(69);
+    pub const ISLAND_NE: Self = Tex::index(70);
+    pub const ISLAND_SE: Self = Tex::index(72);
+    pub const ISLAND_SW: Self = Tex::index(71);
 
     // Tiles
     pub const TILE_NW: Self = Tex::index(53);
@@ -203,6 +209,24 @@ impl Tex {
         };
 
         [top_left, top_right, bottom_right, bottom_left]
+    }
+
+    pub fn resolve_landscaping_tex(adding: bool) -> TexQuad {
+        if adding {
+            [
+                Self::ISLAND_NW,
+                Self::ISLAND_NE,
+                Self::ISLAND_SE,
+                Self::ISLAND_SW,
+            ]
+        } else {
+            [
+                Self::LAND_N_W,
+                Self::LAND_N_E,
+                Self::LAND_S_E,
+                Self::LAND_S_W,
+            ]
+        }
     }
 }
 

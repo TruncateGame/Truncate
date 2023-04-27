@@ -1,4 +1,4 @@
-use epaint::TextureId;
+use epaint::{TextureHandle, TextureId};
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -37,6 +37,7 @@ impl<'a> EditorUI<'a> {
         _invert: bool, // TODO: Transpose to any rotation
         ui: &mut egui::Ui,
         theme: &Theme,
+        map_texture: &TextureHandle,
     ) -> Option<PlayerMessage> {
         let mut edited = false;
 
@@ -56,6 +57,7 @@ impl<'a> EditorUI<'a> {
         let outer_frame = egui::Frame::none().inner_margin(Margin::symmetric(0.0, theme.grid_size));
 
         let mut modify_pos = None;
+        let mut modify_root = None;
         let editor_rect = outer_frame
             .show(ui, |ui| {
                 let frame = egui::Frame::none().inner_margin(Margin::same(theme.grid_size));
@@ -70,7 +72,7 @@ impl<'a> EditorUI<'a> {
                                     let response = EditorSquareUI::new(coord)
                                         .enabled(square.is_some())
                                         .root(is_root.is_some())
-                                        .render(ui, &theme, self.mapped_board);
+                                        .render(ui, &theme, self.mapped_board, &map_texture);
 
                                     if ui.rect_contains_pointer(response.rect) {
                                         // TODO: This shouldn't be mut
@@ -91,12 +93,9 @@ impl<'a> EditorUI<'a> {
                                                 modify_pos = Some((coord, None));
                                             }
                                             (Some(EditorDrag::MovingRoot(root)), _) => {
-                                                // TODO: Re-enable moving the roots
-
-                                                // if is_root.is_none() {
-                                                //     self.board.roots[root] = coord;
-                                                //     edited = true;
-                                                // }
+                                                if is_root.is_none() {
+                                                    modify_root = Some((root, coord));
+                                                }
                                             }
                                             _ => {}
                                         }
@@ -141,6 +140,10 @@ impl<'a> EditorUI<'a> {
         if let Some((coord, new_state)) = modify_pos {
             // Not bounds-checking values as they came from the above loop over this very state.
             self.board.squares[coord.y][coord.x] = new_state;
+            edited = true;
+        }
+        if let Some((root, coord)) = modify_root {
+            self.board.roots[root] = coord;
             edited = true;
         }
 
