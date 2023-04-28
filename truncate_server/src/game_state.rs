@@ -63,8 +63,12 @@ impl GameState {
         }
     }
 
-    pub fn player_list(&self) -> Vec<String> {
-        self.players.iter().map(|p| p.name.clone()).collect()
+    pub fn player_list(&self) -> Vec<(String, (u8, u8, u8))> {
+        self.game
+            .players
+            .iter()
+            .map(|p| (p.name.clone(), p.color))
+            .collect()
     }
 
     pub fn edit_board(&mut self, board: Board) {
@@ -122,6 +126,7 @@ impl GameState {
                 .map(|p| GamePlayerMessage {
                     name: p.name.clone(),
                     index: p.index,
+                    color: p.color,
                     allotted_time: p.allotted_time,
                     time_remaining: p.time_remaining,
                     turn_starts_at: p.turn_starts_at,

@@ -1,4 +1,4 @@
-use epaint::{Pos2, Rect, TextureHandle};
+use epaint::{Color32, Pos2, Rect, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
@@ -23,7 +23,7 @@ use crate::{
 pub struct EditorState {
     pub board: Board,
     pub room_code: RoomCode,
-    pub players: Vec<String>,
+    pub players: Vec<(String, (u8, u8, u8))>,
     pub mapped_board: MappedBoard,
     pub map_texture: TextureHandle,
 }
@@ -31,21 +31,35 @@ pub struct EditorState {
 impl EditorState {
     pub fn new(
         room_code: RoomCode,
-        players: Vec<String>,
+        players: Vec<(String, (u8, u8, u8))>,
         board: Board,
         map_texture: TextureHandle,
     ) -> Self {
         Self {
             room_code,
+            mapped_board: MappedBoard::new(
+                &board,
+                map_texture.clone(),
+                false,
+                players
+                    .iter()
+                    .map(|p| Color32::from_rgb(p.1 .0, p.1 .1, p.1 .2))
+                    .collect(),
+            ),
             players,
-            mapped_board: MappedBoard::new(&board, map_texture.clone(), false),
             map_texture,
             board,
         }
     }
 
     pub fn update_board(&mut self, board: Board) {
-        self.mapped_board.remap(&board);
+        self.mapped_board.remap(
+            &board,
+            self.players
+                .iter()
+                .map(|p| Color32::from_rgb(p.1 .0, p.1 .1, p.1 .2))
+                .collect(),
+        );
         self.board = board;
     }
 
@@ -53,7 +67,14 @@ impl EditorState {
         let mut msg = None;
 
         ui.label(format!("Playing in game {}", self.room_code));
-        ui.label(format!("In lobby: {}", self.players.join(", ")));
+        ui.label(format!(
+            "In lobby: {}",
+            self.players
+                .iter()
+                .map(|p| p.0.clone())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
         ui.label("Waiting for the game to start . . .");
 
         if ui.button("Start game").clicked() {

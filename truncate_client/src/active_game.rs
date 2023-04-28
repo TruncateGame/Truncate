@@ -1,4 +1,4 @@
-use epaint::{Pos2, Rect, TextureHandle};
+use epaint::{Color32, Pos2, Rect, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
@@ -61,10 +61,18 @@ impl ActiveGame {
         Self {
             current_time,
             room_code,
-            players,
             player_number,
             next_player_number,
-            mapped_board: MappedBoard::new(&board, map_texture.clone(), player_number == 0),
+            mapped_board: MappedBoard::new(
+                &board,
+                map_texture.clone(),
+                player_number == 0,
+                players
+                    .iter()
+                    .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
+                    .collect(),
+            ),
+            players,
             board,
             hand,
             selected_tile_in_hand: None,

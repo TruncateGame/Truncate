@@ -60,6 +60,7 @@ async fn handle_player_msg(
             })
             .expect("Failed to add first player to game");
 
+            let color = game.game.players[0].color;
             let board = game.game.board.clone();
             game_map.insert(new_game_id.clone(), game);
             active_map.insert(addr, new_game_id.clone());
@@ -78,7 +79,7 @@ async fn handle_player_msg(
             player_tx
                 .send(GameMessage::JoinedLobby(
                     new_game_id,
-                    vec![name],
+                    vec![(name, color)],
                     board,
                     token,
                 ))
@@ -198,8 +199,12 @@ async fn handle_player_msg(
         EditBoard(board) => {
             if let Some(mut game_state) = get_current_game(addr) {
                 game_state.edit_board(board.clone());
-                let player_list: Vec<_> =
-                    game_state.players.iter().map(|p| p.name.clone()).collect();
+                let player_list: Vec<_> = game_state
+                    .game
+                    .players
+                    .iter()
+                    .map(|p| (p.name.clone(), p.color.clone()))
+                    .collect();
 
                 for player in &game_state.players {
                     let Some(socket) = player.socket else { todo!("Handle disconnected player") };

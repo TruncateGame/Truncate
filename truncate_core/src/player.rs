@@ -63,6 +63,7 @@ pub struct Player {
     pub time_remaining: Duration,
     pub turn_starts_at: Option<OffsetDateTime>,
     pub penalties_incurred: usize,
+    pub color: (u8, u8, u8),
 }
 
 impl Player {
@@ -72,6 +73,7 @@ impl Player {
         hand_capacity: usize,
         bag: &mut TileBag,
         time_allowance: Duration,
+        color: (u8, u8, u8),
     ) -> Self {
         Self {
             name,
@@ -82,6 +84,7 @@ impl Player {
             time_remaining: time_allowance,
             turn_starts_at: None,
             penalties_incurred: 0,
+            color,
         }
     }
 
@@ -135,6 +138,7 @@ mod tests {
             7,
             &mut bag,
             Duration::new(60, 0),
+            (255, 0, 0),
         );
         assert_eq!(player.hand.len(), 7);
         // Note, this relies on randomness, so could fail even though it generally passes

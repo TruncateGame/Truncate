@@ -30,7 +30,7 @@ impl MappedBoard {
         render_tex_quads(self.get(coord), rect, &self.map_texture, ui);
     }
 
-    pub fn remap(&mut self, board: &Board) {
+    pub fn remap(&mut self, board: &Board, player_colors: Vec<Color32>) {
         fn base_type(sq: &Square) -> BGTexType {
             match sq {
                 truncate_core::board::Square::Water => BGTexType::Water,
@@ -41,25 +41,17 @@ impl MappedBoard {
             }
         }
 
-        fn layer_type(sq: &Square) -> Option<(FGTexType, Color32)> {
+        fn layer_type(sq: &Square, player_colors: &Vec<Color32>) -> Option<(FGTexType, Color32)> {
             match sq {
                 Square::Water => None,
                 Square::Land => None,
                 Square::Town(owner) => Some((
                     FGTexType::Town,
-                    if *owner == 0 {
-                        Color32::DARK_RED
-                    } else {
-                        Color32::LIGHT_BLUE
-                    },
+                    *player_colors.get(*owner).unwrap_or(&Color32::WHITE),
                 )),
                 Square::Dock(owner) => Some((
                     FGTexType::Dock,
-                    if *owner == 0 {
-                        Color32::DARK_RED
-                    } else {
-                        Color32::LIGHT_BLUE
-                    },
+                    *player_colors.get(*owner).unwrap_or(&Color32::WHITE),
                 )),
                 Square::Occupied(_, _) => None,
             }
@@ -93,7 +85,7 @@ impl MappedBoard {
                             .collect();
 
                         let tile_base_type = base_type(square);
-                        let tile_layer_type = layer_type(square);
+                        let tile_layer_type = layer_type(square, &player_colors);
 
                         Tex::resolve_bg_tex(
                             tile_base_type,
@@ -108,7 +100,12 @@ impl MappedBoard {
             .collect::<Vec<_>>();
     }
 
-    pub fn new(board: &Board, map_texture: TextureHandle, invert: bool) -> Self {
+    pub fn new(
+        board: &Board,
+        map_texture: TextureHandle,
+        invert: bool,
+        player_colors: Vec<Color32>,
+    ) -> Self {
         let secs = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("We are living in the future")
@@ -121,7 +118,7 @@ impl MappedBoard {
             inverted: invert,
         };
 
-        mapper.remap(board);
+        mapper.remap(board, player_colors);
 
         mapper
     }

@@ -38,8 +38,8 @@ mod tests {
     fn invalid_placement_locations() {
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
-            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
-            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
         ];
 
         let position = Coordinate { x: 10, y: 10 };
@@ -91,6 +91,7 @@ mod tests {
             7,
             &mut bag,
             Duration::new(60, 0),
+            (0, 0, 0),
         )];
 
         let mut game = Game {
@@ -216,8 +217,8 @@ mod tests {
     fn invalid_player_or_tile() {
         let mut bag = TileBag::default();
         let players = vec![
-            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
-            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
         ];
 
         let mut game = Game {
@@ -384,8 +385,8 @@ mod tests {
         .unwrap();
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
-            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
-            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
         ];
 
         let mut game = Game {
@@ -434,8 +435,8 @@ mod tests {
         .unwrap();
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
-            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
-            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
         ];
 
         let mut game = Game {
@@ -485,14 +486,28 @@ mod tests {
         .unwrap();
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
-            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
-            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
         ];
 
         let mut test_bag = TileUtils::trivial_bag();
         let test_players = vec![
-            Player::new("A".into(), 0, 7, &mut test_bag, Duration::new(60, 0)),
-            Player::new("B".into(), 1, 7, &mut test_bag, Duration::new(60, 0)),
+            Player::new(
+                "A".into(),
+                0,
+                7,
+                &mut test_bag,
+                Duration::new(60, 0),
+                (0, 0, 0),
+            ),
+            Player::new(
+                "B".into(),
+                1,
+                7,
+                &mut test_bag,
+                Duration::new(60, 0),
+                (0, 0, 0),
+            ),
         ];
 
         assert_eq!(players, test_players);
@@ -551,8 +566,8 @@ mod tests {
         .unwrap();
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
-            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
-            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
         ];
 
         let mut game = Game {
@@ -602,8 +617,8 @@ mod tests {
         .unwrap();
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
-            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0)),
-            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0)),
+            Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
         ];
 
         let mut game = Game {

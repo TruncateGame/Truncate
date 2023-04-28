@@ -13,6 +13,14 @@ use super::moves::Move;
 use super::player::Player;
 use super::reporting::Change;
 
+pub const GAME_COLORS: [(u8, u8, u8); 5] = [
+    (80_u8, 167_u8, 232_u8),
+    (122_u8, 40_u8, 203_u8),
+    (253_u8, 197_u8, 245_u8),
+    (230_u8, 63_u8, 56_u8),
+    (246_u8, 174_u8, 45_u8),
+];
+
 #[derive(Default)]
 pub struct Game {
     pub rules: GameRules,
@@ -56,6 +64,7 @@ impl Game {
             self.rules.hand_size,
             &mut self.bag,
             Duration::new(time_allowance as i64, 0), // TODO: un-hardcode the duration of turns
+            GAME_COLORS[self.players.len()],
         ));
     }
 

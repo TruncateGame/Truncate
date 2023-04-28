@@ -46,6 +46,7 @@ impl fmt::Display for PlayerMessage {
 pub struct GamePlayerMessage {
     pub name: String,
     pub index: usize,
+    pub color: (u8, u8, u8),
     pub allotted_time: Duration,
     pub time_remaining: Duration,
     pub turn_starts_at: Option<OffsetDateTime>,
@@ -82,8 +83,8 @@ impl fmt::Display for GameStateMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
     Ping,
-    JoinedLobby(RoomCode, Vec<String>, Board, Token),
-    LobbyUpdate(RoomCode, Vec<String>, Board),
+    JoinedLobby(RoomCode, Vec<(String, (u8, u8, u8))>, Board, Token),
+    LobbyUpdate(RoomCode, Vec<(String, (u8, u8, u8))>, Board),
     StartedGame(GameStateMessage),
     GameUpdate(GameStateMessage),
     GameEnd(GameStateMessage, PlayerNumber),
@@ -99,14 +100,22 @@ impl fmt::Display for GameMessage {
                 f,
                 "Joined lobby {} with players {}. Board is:\n{}",
                 room,
-                players.join(", "),
+                players
+                    .iter()
+                    .map(|p| p.0.clone())
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 board
             ),
             GameMessage::LobbyUpdate(room, players, board) => write!(
                 f,
                 "Update to lobby {}. Players are {}. Board is:\n{}",
                 room,
-                players.join(", "),
+                players
+                    .iter()
+                    .map(|p| p.0.clone())
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 board
             ),
             GameMessage::StartedGame(game) => write!(f, "Started game:\n{}", game),
