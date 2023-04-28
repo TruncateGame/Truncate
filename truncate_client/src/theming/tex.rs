@@ -226,7 +226,7 @@ impl Tex {
         }
     }
 
-    fn resolve_town_tex(seed: usize) -> Vec<TexQuad> {
+    fn resolve_town_tex(color: Option<Color32>, seed: usize) -> Vec<TexQuad> {
         let rand_house = |n: usize| match quickrand(n) {
             0..=25 => (Self::HOUSE1, Self::ROOF1),
             26..=50 => (Self::HOUSE3, Self::ROOF3),
@@ -263,12 +263,15 @@ impl Tex {
 
         // These may bowl each other over but that's fine,
         // it just skews the average house number down slightly.
-        for _ in 0..numhouses {
-            let housepos = quickrand(seed + 433) % 4;
-            let (house, roof) = rand_house(seed + 6);
+        for h in 0..numhouses {
+            let housepos = quickrand(seed + 45 * h) % 4;
+            let (house, roof) = rand_house(seed + 6 * h);
 
             texs[0][housepos] = house;
             texs[1][housepos] = roof;
+            if let Some(color) = color {
+                texs[1][housepos] = texs[1][housepos].tint(color);
+            }
         }
 
         texs
@@ -280,6 +283,7 @@ impl Tex {
         base_type: BGTexType,
         layer_type: Option<FGTexType>,
         neighbors: Vec<BGTexType>,
+        color: Option<Color32>,
         seed: usize,
     ) -> Vec<TexQuad> {
         debug_assert_eq!(neighbors.len(), 8);
@@ -343,7 +347,7 @@ impl Tex {
 
         if let Some(layer) = layer_type {
             match layer {
-                FGTexType::Town => texs.extend(Tex::resolve_town_tex(seed)),
+                FGTexType::Town => texs.extend(Tex::resolve_town_tex(color, seed)),
                 FGTexType::Dock => texs.push(Tex::resolve_dock_tex(neighbors)),
             }
         }

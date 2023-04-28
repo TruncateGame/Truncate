@@ -4,7 +4,7 @@ use truncate_core::board::{Board, Coordinate, Square};
 
 use crate::theming::tex::FGTexType;
 
-use super::tex::{render_tex_quad, render_tex_quads, BGTexType, Tex, TexQuad};
+use super::tex::{render_tex_quads, BGTexType, Tex, TexQuad};
 
 #[derive(Clone)]
 pub struct MappedBoard {
@@ -41,12 +41,26 @@ impl MappedBoard {
             }
         }
 
-        fn layer_type(sq: &Square) -> Option<FGTexType> {
+        fn layer_type(sq: &Square) -> Option<(FGTexType, Color32)> {
             match sq {
                 Square::Water => None,
                 Square::Land => None,
-                Square::Town(_) => Some(FGTexType::Town),
-                Square::Dock(_) => Some(FGTexType::Dock),
+                Square::Town(owner) => Some((
+                    FGTexType::Town,
+                    if *owner == 0 {
+                        Color32::DARK_RED
+                    } else {
+                        Color32::LIGHT_BLUE
+                    },
+                )),
+                Square::Dock(owner) => Some((
+                    FGTexType::Dock,
+                    if *owner == 0 {
+                        Color32::DARK_RED
+                    } else {
+                        Color32::LIGHT_BLUE
+                    },
+                )),
                 Square::Occupied(_, _) => None,
             }
         }
@@ -83,9 +97,10 @@ impl MappedBoard {
 
                         Tex::resolve_bg_tex(
                             tile_base_type,
-                            tile_layer_type,
+                            tile_layer_type.map(|l| l.0),
                             neighbor_base_types,
-                            board.width() * coord.x * self.map_seed + board.height() + coord.y,
+                            tile_layer_type.map(|l| l.1),
+                            self.map_seed + (coord.x * coord.y + coord.y),
                         )
                     })
                     .collect::<Vec<_>>()
