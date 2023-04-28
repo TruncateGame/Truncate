@@ -121,6 +121,17 @@ impl Tex {
     pub const DOCK_WEST_NE: Self = Tex::index(92);
     pub const DOCK_WEST_SE: Self = Tex::index(94);
     pub const DOCK_WEST_SW: Self = Tex::index(93);
+
+    // PATHS
+    pub const PATH1: Self = Tex::index(40);
+    pub const PATH2: Self = Tex::index(41);
+    pub const PATH3: Self = Tex::index(42);
+    pub const PATH4: Self = Tex::index(43);
+    pub const PATH5: Self = Tex::index(44);
+    pub const PATH6: Self = Tex::index(45);
+    pub const PATH7: Self = Tex::index(46);
+    pub const PATH8: Self = Tex::index(47);
+    pub const PATH9: Self = Tex::index(48);
 }
 
 impl Tex {
@@ -159,24 +170,17 @@ impl Tex {
         highlight: Option<Color32>,
         seed: usize,
     ) -> Vec<TexQuad> {
-        let rand = |mut n: usize| {
-            n ^= n << 13;
-            n ^= n >> 7;
-            n ^= n << 17;
-            n % 100
-        };
-
         let mut texs = Tex::resolve_tile_tex(color, highlight);
         texs.push([
             Self::NONE,
             Self::NONE,
-            match rand(seed) {
+            match quickrand(seed) {
                 0..=25 => Self::TILE_SE_GRASS1,
                 26..=50 => Self::TILE_SE_GRASS2,
                 51..=75 => Self::TILE_SE_GRASS3,
                 _ => Self::TILE_SE_GRASS4,
             },
-            match rand(seed + 678) {
+            match quickrand(seed + 678) {
                 0..=25 => Self::TILE_SW_GRASS1,
                 26..=50 => Self::TILE_SW_GRASS2,
                 51..=75 => Self::TILE_SW_GRASS3,
@@ -222,6 +226,54 @@ impl Tex {
         }
     }
 
+    fn resolve_town_tex(seed: usize) -> Vec<TexQuad> {
+        let rand_house = |n: usize| match quickrand(n) {
+            0..=25 => (Self::HOUSE1, Self::ROOF1),
+            26..=50 => (Self::HOUSE3, Self::ROOF3),
+            51..=75 => (Self::HOUSE2, Self::ROOF2),
+            _ => (Self::HOUSE4, Self::ROOF4),
+        };
+
+        let rand_path = |n: usize| match quickrand(n) {
+            0..=20 => Self::PATH1,
+            21..=30 => Self::PATH3,
+            31..=40 => Self::PATH4,
+            41..=50 => Self::PATH5,
+            51..=60 => Self::PATH6,
+            61..=70 => Self::PATH7,
+            71..=80 => Self::PATH8,
+            81..=90 => Self::PATH9,
+            _ => Self::PATH2,
+        };
+
+        let numhouses = match quickrand(seed + 345) {
+            0..=50 => 1,
+            _ => 2,
+        };
+
+        let mut texs = vec![
+            [
+                rand_path(seed + 4),
+                rand_path(seed + 44),
+                rand_path(seed + 444),
+                rand_path(seed + 4444),
+            ],
+            [Self::NONE, Self::NONE, Self::NONE, Self::NONE],
+        ];
+
+        // These may bowl each other over but that's fine,
+        // it just skews the average house number down slightly.
+        for _ in 0..numhouses {
+            let housepos = quickrand(seed + 433) % 4;
+            let (house, roof) = rand_house(seed + 6);
+
+            texs[0][housepos] = house;
+            texs[1][housepos] = roof;
+        }
+
+        texs
+    }
+
     /// Determine the tiles to use based on a given square and its neighbors,
     /// provided clockwise from northwest.
     pub fn resolve_bg_tex(
@@ -235,17 +287,11 @@ impl Tex {
             return vec![[Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]];
         }
 
-        let rand_grass = |mut n: usize| {
-            n ^= n << 13;
-            n ^= n >> 7;
-            n ^= n << 17;
-
-            match n % 100 {
-                0..=70 => Self::GRASS1,
-                71..=85 => Self::GRASS2,
-                86..=94 => Self::GRASS3,
-                _ => Self::GRASS4,
-            }
+        let rand_grass = |mut n: usize| match quickrand(n) {
+            0..=70 => Self::GRASS1,
+            71..=85 => Self::GRASS2,
+            86..=94 => Self::GRASS3,
+            _ => Self::GRASS4,
         };
 
         use BGTexType::*;
@@ -297,9 +343,7 @@ impl Tex {
 
         if let Some(layer) = layer_type {
             match layer {
-                FGTexType::Town => {
-                    texs.push([Self::HOUSE1, Self::HOUSE2, Self::HOUSE3, Self::HOUSE4])
-                }
+                FGTexType::Town => texs.extend(Tex::resolve_town_tex(seed)),
                 FGTexType::Dock => texs.push(Tex::resolve_dock_tex(neighbors)),
             }
         }
@@ -380,4 +424,11 @@ pub fn render_tex_quads(
     for tex in texs.iter() {
         render_tex_quad(*tex, rect, map_texture, ui);
     }
+}
+
+fn quickrand(mut n: usize) -> usize {
+    n ^= n << 13;
+    n ^= n >> 7;
+    n ^= n << 17;
+    n % 100
 }
