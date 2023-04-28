@@ -31,7 +31,7 @@ pub struct GameState {
 
 impl GameState {
     pub fn new(game_id: String) -> Self {
-        let game = Game::new(9, 9, true);
+        let game = Game::new(9, 11);
 
         Self {
             game_id,
@@ -57,7 +57,7 @@ impl GameState {
                 Ok(())
             }
             None => {
-                println!("Couldn't reconnext player. Nothign stored for player {index}");
+                println!("Couldn't reconnect player. Nothing stored for player {index}");
                 Err(())
             }
         }

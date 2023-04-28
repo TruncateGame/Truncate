@@ -7,11 +7,10 @@ use truncate_core::board::Coordinate;
 
 use crate::theming::{mapper::MappedBoard, Theme};
 
-use super::{character::CharacterOrient, tile::TilePlayer, CharacterUI, TileUI};
+use super::{tile::TilePlayer, TileUI};
 
 pub struct SquareUI {
     coord: Coordinate,
-    decorated: bool,
     enabled: bool,
     empty: bool,
     selected: bool,
@@ -22,17 +21,11 @@ impl SquareUI {
     pub fn new(coord: Coordinate) -> Self {
         Self {
             coord,
-            decorated: true,
             enabled: true,
             empty: false,
             selected: false,
             overlay: None,
         }
-    }
-
-    pub fn decorated(mut self, decorated: bool) -> Self {
-        self.decorated = decorated;
-        self
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -75,17 +68,15 @@ impl SquareUI {
         );
 
         if ui.is_rect_visible(rect) {
-            if self.decorated {
-                mapped_board.render_coord(self.coord, rect, ui);
-            }
+            mapped_board.render_coord(self.coord, rect, ui);
 
-            // if self.enabled {
-            //     ui.painter().rect_filled(
-            //         rect.shrink(theme.tile_margin),
-            //         theme.rounding,
-            //         hex_color!("ffffff01"),
-            //     );
-            // }
+            if self.enabled {
+                ui.painter().rect_stroke(
+                    rect.shrink(theme.tile_margin),
+                    theme.rounding,
+                    Stroke::new(1.0, hex_color!("ffffff01")),
+                );
+            }
 
             let is_hovered = ui.rect_contains_pointer(interact_rect);
 

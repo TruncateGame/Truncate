@@ -35,11 +35,11 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(width: usize, height: usize, padded: bool) -> Self {
+    pub fn new(width: usize, height: usize) -> Self {
         let rules = GameRules::default();
         Self {
             players: Vec::with_capacity(2),
-            board: Board::new(width, height, padded),
+            board: Board::new(width, height),
             bag: TileBag::new(&rules.tile_distribution),
             judge: Judge::default(),
             recent_changes: vec![],
@@ -112,7 +112,7 @@ impl Game {
             return Ok(Some(winner));
         }
 
-        self.next_player = (self.next_player + 1) % self.board.get_orientations().len(); // TODO: remove this hacky way to get the number of players
+        self.next_player = (self.next_player + 1) % self.players.len();
 
         let this_player = &mut self.players[player];
         this_player.time_remaining -= turn_duration;

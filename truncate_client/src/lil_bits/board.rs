@@ -1,4 +1,3 @@
-use epaint::TextureHandle;
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -9,10 +8,10 @@ use truncate_core::{
 use eframe::egui;
 use hashbrown::HashMap;
 
-use crate::{theming::{Theme, mapper::{MappedBoard}}, active_game::HoveredRegion};
+use crate::{theming::mapper::MappedBoard, active_game::{HoveredRegion, GameCtx}};
 
 use super::{
-    tile::{TilePlayer},
+    tile::TilePlayer,
     SquareUI, TileUI,
 };
 
@@ -31,28 +30,26 @@ impl<'a> BoardUI<'a> {
     // game object through, since we touch so much of it.
     pub fn render(
         self,
-        hand_selected_tile: Option<usize>,
         hand_released_tile: Option<usize>,
-        board_selected_tile: Option<Coordinate>,
         hand: &Hand,
         board_changes: &HashMap<Coordinate, BoardChange>,
-        player: u64,
-        invert: bool, // TODO: Transpose to any rotation
         winner: Option<usize>,
+        ctx: &mut GameCtx,
         ui: &mut egui::Ui,
-        theme: &Theme,
         mapped_board: &MappedBoard,
-        map_texture: TextureHandle
-    ) -> (Option<Option<Coordinate>>, Option<PlayerMessage>, Option<HoveredRegion>) {
+    ) -> Option<PlayerMessage> {
         let mut msg = None;
         let mut next_selection = None;
         let mut hovered_square = None;
+
+        // TODO: Do something better for this
+        let invert = ctx.player_number == 0;
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
         let game_area = ui.available_rect_before_wrap();
 
-        let (margin, theme) = theme.calc_rescale(
+        let (margin, theme) = ctx.theme.calc_rescale(
             &game_area, 
             self.board.width(),
             self.board.height(),
@@ -67,9 +64,9 @@ impl<'a> BoardUI<'a> {
                         ui.horizontal(|ui| {
                             for (colnum, square) in row {
                                 let coord = Coordinate::new(colnum, rownum);
-                                let is_selected = Some(coord) == board_selected_tile;
+                                let is_selected = Some(coord) == ctx.selected_square_on_board;
                                 let calc_tile_player = |p: &usize| {
-                                    if *p as u64 == player {
+                                    if *p as u64 == ctx.player_number {
                                         TilePlayer::Own
                                     } else {
                                         TilePlayer::Enemy
@@ -151,14 +148,14 @@ impl<'a> BoardUI<'a> {
                                 }
 
                                 let mut overlay = None;
-                                if let Some(placing_tile) = hand_selected_tile {
+                                if let Some(placing_tile) = ctx.selected_tile_in_hand {
                                     if matches!(square, Square::Land) {
                                         overlay = Some(*hand.get(placing_tile).unwrap());
                                     }
-                                } else if let Some(placing_tile) = board_selected_tile { // TODO: De-nest
+                                } else if let Some(placing_tile) = ctx.selected_square_on_board { // TODO: De-nest
                                     if placing_tile != coord {
                                         if let Square::Occupied(p, _) = square {
-                                            if p == &(player as usize) {
+                                            if p == &(ctx.player_number as usize) {
                                                 if let Ok(Square::Occupied(_, char)) = self.board.get(placing_tile) {
                                                     overlay = Some(char);
                                                 }
@@ -174,9 +171,9 @@ impl<'a> BoardUI<'a> {
                                     .empty(matches!(square, Square::Land))
                                     .selected(is_selected)
                                     .overlay(overlay)
-                                    .render(ui, &theme, &mapped_board, &map_texture, |ui, theme| {
+                                    .render(ui, &theme, &mapped_board, &ctx.map_texture, |ui, theme| {
                                         if let Some(tile) = tile {
-                                            tile_clicked = tile.render(map_texture.clone(), Some(coord), ui, theme).clicked();
+                                            tile_clicked = tile.render(ctx.map_texture.clone(), Some(coord), ui, theme).clicked();
                                         }
                                     });
                                 if matches!(square, Square::Land | Square::Occupied(_, _)) {
@@ -186,13 +183,13 @@ impl<'a> BoardUI<'a> {
                                         });
                                     }
                                     if square_response.clicked() || tile_clicked {
-                                        if let Some(tile) = hand_selected_tile {
+                                        if let Some(tile) = ctx.selected_tile_in_hand {
                                             msg =
                                                 Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
                                             next_selection = Some(None);
                                         } else if is_selected {
                                             next_selection = Some(None);
-                                        } else if let Some(selected_coord) = board_selected_tile {
+                                        } else if let Some(selected_coord) = ctx.selected_square_on_board {
                                             msg = Some(PlayerMessage::Swap(coord, selected_coord));
                                             next_selection = Some(None);
                                         } else {
@@ -223,6 +220,16 @@ impl<'a> BoardUI<'a> {
                 render(Box::new(self.board.squares.iter().enumerate()));
             }
         });
-        (next_selection, msg, hovered_square)
+
+        if let Some(new_selection) = next_selection {
+            ctx.selected_square_on_board = new_selection;
+            ctx.selected_tile_in_hand = None;
+        }
+
+        if hovered_square != ctx.hovered_tile_on_board {
+            ctx.hovered_tile_on_board = hovered_square;
+        }
+
+        msg
     }
 }

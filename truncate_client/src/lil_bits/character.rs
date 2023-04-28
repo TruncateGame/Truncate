@@ -1,5 +1,5 @@
 use eframe::egui::{self, Id};
-use epaint::{vec2, Color32, TextShape, Vec2};
+use epaint::{Color32, TextShape, Vec2};
 use std::f32;
 
 use crate::{glyph_meaure::GlyphMeasure, theming::*};

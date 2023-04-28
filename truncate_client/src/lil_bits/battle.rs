@@ -5,7 +5,7 @@ use eframe::{
 use epaint::vec2;
 use truncate_core::reporting::{BattleReport, BattleWord};
 
-use crate::theming::Theme;
+use crate::active_game::GameCtx;
 
 pub struct BattleUI<'a> {
     battle: &'a BattleReport,
@@ -17,17 +17,17 @@ impl<'a> BattleUI<'a> {
     }
 }
 
-fn render_word(battle_word: &BattleWord, ui: &mut egui::Ui, theme: &Theme) {
+fn render_word(battle_word: &BattleWord, ctx: &GameCtx, ui: &mut egui::Ui) {
     let galley = ui.painter().layout_no_wrap(
         battle_word.word.clone(),
         FontId::new(
-            theme.letter_size,
+            ctx.theme.letter_size,
             egui::FontFamily::Name("Truncate-Heavy".into()),
         ),
         match battle_word.valid {
-            Some(true) => theme.addition,
-            Some(false) => theme.defeated,
-            None => theme.outlines,
+            Some(true) => ctx.theme.addition,
+            Some(false) => ctx.theme.defeated,
+            None => ctx.theme.outlines,
         },
     );
     let (rect, resp) = ui.allocate_at_least(galley.size(), Sense::hover());
@@ -55,8 +55,8 @@ fn render_word(battle_word: &BattleWord, ui: &mut egui::Ui, theme: &Theme) {
 }
 
 impl<'a> BattleUI<'a> {
-    pub fn render(self, ui: &mut egui::Ui, theme: &Theme) {
-        let mut theme = theme.rescale(0.5);
+    pub fn render(self, ctx: &GameCtx, ui: &mut egui::Ui) {
+        let mut theme = ctx.theme.rescale(0.5);
         theme.tile_margin = 0.0;
 
         ui.allocate_ui_with_layout(
@@ -64,7 +64,7 @@ impl<'a> BattleUI<'a> {
             Layout::left_to_right(Align::BOTTOM).with_main_wrap(true),
             |ui| {
                 for battle_word in &self.battle.attackers {
-                    render_word(battle_word, ui, &theme);
+                    render_word(battle_word, ctx, ui);
                 }
 
                 match self.battle.outcome {
@@ -77,7 +77,7 @@ impl<'a> BattleUI<'a> {
                 }
 
                 for battle_word in &self.battle.defenders {
-                    render_word(battle_word, ui, &theme);
+                    render_word(battle_word, ctx, ui);
                 }
             },
         );

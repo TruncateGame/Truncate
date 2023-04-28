@@ -1,4 +1,4 @@
-use epaint::{Color32, Pos2, Rect, TextureHandle};
+use epaint::{Color32, Rect, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
@@ -24,25 +24,30 @@ pub struct HoveredRegion {
 }
 
 #[derive(Clone)]
-// TODO: Split this state struct up
-pub struct ActiveGame {
+pub struct GameCtx {
+    pub theme: Theme,
     pub current_time: Duration,
     pub room_code: RoomCode,
-    pub players: Vec<GamePlayerMessage>,
     pub player_number: u64,
     pub next_player_number: u64,
-    pub board: Board,
-    pub mapped_board: MappedBoard,
-    pub hand: Hand,
     pub selected_tile_in_hand: Option<usize>,
     pub selected_square_on_board: Option<Coordinate>,
     pub hovered_tile_on_board: Option<HoveredRegion>,
     pub playing_tile: Option<char>,
     pub error_msg: Option<String>,
+    pub map_texture: TextureHandle,
+}
+
+#[derive(Clone)]
+pub struct ActiveGame {
+    pub ctx: GameCtx,
+    pub players: Vec<GamePlayerMessage>,
+    pub board: Board,
+    pub mapped_board: MappedBoard,
+    pub hand: Hand,
     pub board_changes: HashMap<Coordinate, BoardChange>,
     pub new_hand_tiles: Vec<usize>,
     pub battles: Vec<BattleReport>,
-    pub map_texture: TextureHandle,
 }
 
 impl ActiveGame {
@@ -54,15 +59,22 @@ impl ActiveGame {
         board: Board,
         hand: Hand,
         map_texture: TextureHandle,
+        theme: Theme,
     ) -> Self {
-        let current_time = instant::SystemTime::now()
-            .duration_since(instant::SystemTime::UNIX_EPOCH)
-            .expect("We are living in the future");
         Self {
-            current_time,
-            room_code,
-            player_number,
-            next_player_number,
+            ctx: GameCtx {
+                theme,
+                current_time: Duration::from_secs(0),
+                room_code,
+                player_number,
+                next_player_number,
+                selected_tile_in_hand: None,
+                selected_square_on_board: None,
+                hovered_tile_on_board: None,
+                playing_tile: None,
+                error_msg: None,
+                map_texture: map_texture.clone(),
+            },
             mapped_board: MappedBoard::new(
                 &board,
                 map_texture.clone(),
@@ -75,15 +87,9 @@ impl ActiveGame {
             players,
             board,
             hand,
-            selected_tile_in_hand: None,
-            selected_square_on_board: None,
-            hovered_tile_on_board: None,
-            playing_tile: None,
-            error_msg: None,
             board_changes: HashMap::new(),
             new_hand_tiles: vec![],
             battles: vec![],
-            map_texture,
         }
     }
 
@@ -99,9 +105,10 @@ impl ActiveGame {
         // instant::SystemTime::now() conditionally uses
         // a js function on wasm targets, and otherwise aliases
         // to the std SystemTime type.
-        self.current_time = instant::SystemTime::now()
+        self.ctx.current_time = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("We are living in the future");
+
         let mut player_message = None;
 
         ui.allocate_ui_with_layout(
@@ -113,17 +120,17 @@ impl ActiveGame {
 
                 ui.allocate_ui_with_layout(sidebar_area, Layout::top_down(Align::TOP), |ui| {
                     ScrollArea::new([false, true]).show(ui, |ui| {
-                        ui.label(format!("Playing in game {}", self.room_code));
+                        ui.label(format!("Playing in game {}", self.ctx.room_code));
 
                         ui.separator();
 
-                        if let Some(error) = &self.error_msg {
+                        if let Some(error) = &self.ctx.error_msg {
                             ui.label(error);
                             ui.separator();
                         }
 
                         for battle in self.battles.iter() {
-                            BattleUI::new(battle).render(ui, theme);
+                            BattleUI::new(battle).render(&mut self.ctx, ui);
                             ui.separator();
                         }
                     });
@@ -136,11 +143,11 @@ impl ActiveGame {
                         if let Some(opponent) = self
                             .players
                             .iter()
-                            .find(|p| p.index != self.player_number as usize)
+                            .find(|p| p.index != self.ctx.player_number as usize)
                         {
-                            TimerUI::new(opponent, self.current_time)
+                            TimerUI::new(opponent, self.ctx.current_time)
                                 .friend(false)
-                                .active(opponent.index == self.next_player_number as usize)
+                                .active(opponent.index == self.ctx.next_player_number as usize)
                                 .winner(winner.clone())
                                 .render(ui, theme);
                         }
@@ -155,61 +162,34 @@ impl ActiveGame {
                                 if let Some(player) = self
                                     .players
                                     .iter()
-                                    .find(|p| p.index == self.player_number as usize)
+                                    .find(|p| p.index == self.ctx.player_number as usize)
                                 {
-                                    TimerUI::new(player, self.current_time)
+                                    TimerUI::new(player, self.ctx.current_time)
                                         .friend(true)
-                                        .active(player.index == self.next_player_number as usize)
+                                        .active(
+                                            player.index == self.ctx.next_player_number as usize,
+                                        )
                                         .winner(winner.clone())
                                         .render(ui, theme);
                                 }
 
-                                let (new_selection, released_tile) = HandUI::new(&mut self.hand)
-                                    .active(self.player_number == self.next_player_number)
-                                    .render(
-                                        self.selected_tile_in_hand,
-                                        ui,
-                                        theme,
-                                        &self.hovered_tile_on_board,
-                                        self.current_time,
-                                        self.map_texture.clone(),
-                                    );
-
-                                if let Some(new_selection) = new_selection {
-                                    self.selected_tile_in_hand = new_selection;
-                                    self.selected_square_on_board = None;
-                                }
+                                let released_tile = HandUI::new(&mut self.hand)
+                                    .active(self.ctx.player_number == self.ctx.next_player_number)
+                                    .render(&mut self.ctx, ui);
 
                                 ui.allocate_ui_with_layout(
                                     ui.available_size(),
                                     Layout::top_down(Align::LEFT),
                                     |ui| {
-                                        let board_result = BoardUI::new(&self.board).render(
-                                            self.selected_tile_in_hand,
+                                        player_message = BoardUI::new(&self.board).render(
                                             released_tile,
-                                            self.selected_square_on_board,
                                             &self.hand,
                                             &self.board_changes,
-                                            self.player_number,
-                                            self.player_number == 0,
                                             winner.clone(),
+                                            &mut self.ctx,
                                             ui,
-                                            theme,
                                             &self.mapped_board,
-                                            self.map_texture.clone(),
                                         );
-
-                                        if let (Some(new_selection), _, _) = board_result {
-                                            self.selected_square_on_board = new_selection;
-                                            self.selected_tile_in_hand = None;
-                                        }
-
-                                        // Update to store the latest size of the tiles on the board.
-                                        if board_result.2 != self.hovered_tile_on_board {
-                                            self.hovered_tile_on_board = board_result.2;
-                                        }
-
-                                        player_message = board_result.1;
                                     },
                                 )
                             },

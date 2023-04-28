@@ -5,8 +5,8 @@ type S = Sender<PlayerMessage>;
 use super::debug;
 use super::theming::Theme;
 use crate::{game, glyph_meaure::GlyphMeasure};
-use eframe::egui::{self, Id, Sense, Slider, TextureOptions};
-use epaint::{hex_color, pos2, Color32, Mesh, Rect, Shape, TextureHandle};
+use eframe::egui::{self, Id, TextureOptions};
+use epaint::{hex_color, TextureHandle};
 use truncate_core::messages::{GameMessage, PlayerMessage};
 
 pub struct GameClient {

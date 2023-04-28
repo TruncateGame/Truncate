@@ -1,13 +1,10 @@
 use instant::Duration;
-use truncate_core::{board::Coordinate, player::Hand};
+use truncate_core::player::Hand;
 
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
-use epaint::{vec2, TextureHandle, Vec2};
+use epaint::{vec2, Vec2};
 
-use crate::{
-    active_game::HoveredRegion,
-    theming::{mapper::MappedTile, Theme},
-};
+use crate::active_game::GameCtx;
 
 use super::{tile::TilePlayer, HandSquareUI, TileUI};
 
@@ -30,19 +27,20 @@ impl<'a> HandUI<'a> {
 impl<'a> HandUI<'a> {
     pub fn render(
         self,
-        selected_tile: Option<usize>,
+        ctx: &mut GameCtx,
+        // selected_tile: Option<usize>,
         ui: &mut egui::Ui,
-        theme: &Theme,
-        board_tile_hovered: &Option<HoveredRegion>,
-        current_time: Duration,
-        map_texture: TextureHandle,
-    ) -> (Option<Option<usize>>, Option<usize>) {
+        // theme: &Theme,
+        // board_tile_hovered: &Option<HoveredRegion>,
+        // current_time: Duration,
+        // map_texture: TextureHandle,
+    ) -> Option<usize> {
         let mut rearrange = None;
         let mut next_selection = None;
         let mut released_drag = None;
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
-        let (margin, mut theme) = theme.calc_rescale(
+        let (margin, theme) = ctx.theme.calc_rescale(
             &ui.available_rect_before_wrap(),
             self.hand.len(),
             1,
@@ -62,15 +60,15 @@ impl<'a> HandUI<'a> {
                             .id(tile_id)
                             .active(self.active)
                             .ghost(is_being_dragged)
-                            .selected(Some(i) == selected_tile)
-                            .render(map_texture.clone(), None, ui, theme);
+                            .selected(Some(i) == ctx.selected_tile_in_hand)
+                            .render(ctx.map_texture.clone(), None, ui, theme);
 
                         if tile_response.drag_started() {
                             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                                 let delta = pointer_pos - tile_response.rect.center();
                                 ui.memory_mut(|mem| {
                                     mem.data.insert_temp(tile_id, delta);
-                                    mem.data.insert_temp(tile_id, current_time);
+                                    mem.data.insert_temp(tile_id, ctx.current_time);
                                 });
                             }
                             next_selection = Some(None);
@@ -88,11 +86,12 @@ impl<'a> HandUI<'a> {
                             );
                             let response = ui
                                 .with_layer_id(layer_id, |ui| {
-                                    let hover_scale = if let Some(region) = board_tile_hovered {
-                                        region.rect.width() / theme.grid_size
-                                    } else {
-                                        1.0
-                                    };
+                                    let hover_scale =
+                                        if let Some(region) = &ctx.hovered_tile_on_board {
+                                            region.rect.width() / theme.grid_size
+                                        } else {
+                                            1.0
+                                        };
                                     let bouncy_scale = ui.ctx().animate_value_with_time(
                                         layer_id.id,
                                         hover_scale,
@@ -102,9 +101,9 @@ impl<'a> HandUI<'a> {
                                         .active(self.active)
                                         .selected(false)
                                         .hovered(true)
-                                        .ghost(board_tile_hovered.is_some())
+                                        .ghost(ctx.hovered_tile_on_board.is_some())
                                         .render(
-                                            map_texture.clone(),
+                                            ctx.map_texture.clone(),
                                             None,
                                             ui,
                                             &theme.rescale(bouncy_scale),
@@ -113,7 +112,7 @@ impl<'a> HandUI<'a> {
                                 .response;
 
                             let snap_to_rect =
-                                board_tile_hovered.as_ref().map(|region| region.rect);
+                                ctx.hovered_tile_on_board.as_ref().map(|region| region.rect);
 
                             let delta = if let Some(snap_rect) = snap_to_rect {
                                 snap_rect.center() - response.rect.center()
@@ -139,14 +138,14 @@ impl<'a> HandUI<'a> {
                                     theme.animation_time,
                                 ),
                             );
-                            ui.ctx().translate_layer(layer_id, animated_delta);
+                            ui.ctx().translate_layer(layer_id, animated_delta.round());
 
                             ui.ctx()
                                 .output_mut(|out| out.cursor_icon = CursorIcon::Grabbing);
                         }
 
                         if tile_response.clicked() {
-                            if let Some(selected) = selected_tile {
+                            if let Some(selected) = ctx.selected_tile_in_hand {
                                 next_selection = Some(None);
                                 if selected != i {
                                     rearrange = Some((selected, i));
@@ -164,6 +163,11 @@ impl<'a> HandUI<'a> {
             self.hand.rearrange(from, to);
         }
 
-        (next_selection, released_drag)
+        if let Some(new_selection) = next_selection {
+            ctx.selected_tile_in_hand = new_selection;
+            ctx.selected_square_on_board = None;
+        }
+
+        released_drag
     }
 }

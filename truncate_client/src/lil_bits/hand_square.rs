@@ -4,35 +4,19 @@ use eframe::{
 };
 use epaint::Rect;
 
-use crate::theming::{mapper::MappedBoard, Theme};
+use crate::theming::Theme;
 
 pub struct HandSquareUI {
-    enabled: bool,
     empty: bool,
-    selected: bool,
 }
 
 impl HandSquareUI {
     pub fn new() -> Self {
-        Self {
-            enabled: true,
-            empty: false,
-            selected: false,
-        }
-    }
-
-    pub fn enabled(mut self, enabled: bool) -> Self {
-        self.enabled = enabled;
-        self
+        Self { empty: false }
     }
 
     pub fn empty(mut self, empty: bool) -> Self {
         self.empty = empty;
-        self
-    }
-
-    pub fn selected(mut self, selected: bool) -> Self {
-        self.selected = selected;
         self
     }
 
@@ -47,7 +31,7 @@ impl HandSquareUI {
             egui::Sense::hover(),
         );
         let interact_rect = rect.shrink(theme.tile_margin);
-        let mut response = ui.interact(
+        let response = ui.interact(
             interact_rect,
             response.id.with("interact"),
             egui::Sense::click(),

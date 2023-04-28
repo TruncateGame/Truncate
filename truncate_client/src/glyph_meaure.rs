@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
-use ab_glyph::{point, Font, FontRef, Glyph, Rect, ScaleFont};
-use epaint::{vec2, Pos2, Vec2};
+use ab_glyph::{Font, FontRef, ScaleFont};
+use epaint::{vec2, Vec2};
 
 struct GlyphMeasurer {
     font: FontRef<'static>,

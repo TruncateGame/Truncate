@@ -1,9 +1,7 @@
-use std::fmt::format;
-
 use eframe::egui;
-use truncate_core::{board::Board, messages::RoomCode, messages::Token};
+use truncate_core::{messages::RoomCode, messages::Token};
 
-use crate::{active_game::ActiveGame, editor_state::EditorState, lil_bits::EditorUI};
+use crate::{active_game::ActiveGame, editor_state::EditorState};
 
 use super::GameClient;
 use truncate_core::{
@@ -163,6 +161,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                     board,
                     hand,
                     map_texture.clone(),
+                    theme.clone(),
                 ));
                 println!("Starting a game")
             }
@@ -181,7 +180,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                         // assert_eq!(game.player_number, player_number);
                         game.players = players;
                         game.board = board;
-                        game.next_player_number = next_player_number;
+                        game.ctx.next_player_number = next_player_number;
 
                         #[cfg(target_arch = "wasm32")]
                         if game.next_player_number == game.player_number {
@@ -232,8 +231,8 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
                         // TODO: Verify that our modified hand matches the actual hand in GameStateMessage
 
-                        game.playing_tile = None;
-                        game.error_msg = None;
+                        game.ctx.playing_tile = None;
+                        game.ctx.error_msg = None;
                     }
                     _ => todo!("Game update hit an unknown state"),
                 }
@@ -284,11 +283,11 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                 GameStatus::Active(game) => {
                     // assert_eq!(game.room_code, id);
                     // assert_eq!(game.player_number, num);
-                    game.error_msg = Some(err);
+                    game.ctx.error_msg = Some(err);
                 }
                 _ => todo!("Game error hit an unknown state"),
             },
-            GameMessage::GenericError(err) => {
+            GameMessage::GenericError(_err) => {
                 todo!("Handle generic errors")
             }
         }

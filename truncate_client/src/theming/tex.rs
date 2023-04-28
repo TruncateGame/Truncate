@@ -291,7 +291,7 @@ impl Tex {
             return vec![[Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]];
         }
 
-        let rand_grass = |mut n: usize| match quickrand(n) {
+        let rand_grass = |n: usize| match quickrand(n) {
             0..=70 => Self::GRASS1,
             71..=85 => Self::GRASS2,
             86..=94 => Self::GRASS3,

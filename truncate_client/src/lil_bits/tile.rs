@@ -1,5 +1,5 @@
-use eframe::egui::{self, Id, Margin};
-use epaint::{Color32, Hsva, Stroke, TextureHandle};
+use eframe::egui::{self, Id};
+use epaint::{Color32, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::theming::{mapper::MappedTile, Darken, Lighten, Theme};

@@ -1,12 +1,10 @@
-use eframe::egui::{self, Sense};
-use epaint::{vec2, Stroke, TextureHandle, TextureId};
+use eframe::egui::{self};
+use epaint::TextureHandle;
 use truncate_core::board::Coordinate;
 
 use crate::theming::mapper::MappedBoard;
-use crate::theming::tex::{render_tex_quad, BGTexType, Tex, TexQuad};
-use crate::theming::{Darken, Lighten, Theme};
-
-use super::{character::CharacterOrient, CharacterUI};
+use crate::theming::tex::{render_tex_quad, Tex};
+use crate::theming::Theme;
 
 pub struct EditorSquareUI {
     coord: Coordinate,

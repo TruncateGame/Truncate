@@ -52,7 +52,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1, false)
+            ..Game::new(3, 1)
         };
         assert_eq!(
             game.make_move(out_of_bounds),
@@ -98,7 +98,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1, false)
+            ..Game::new(3, 1)
         };
 
         // Places on the root
@@ -225,7 +225,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1, false)
+            ..Game::new(3, 1)
         };
 
         assert_eq!(
@@ -394,7 +394,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(1, 1, false)
+            ..Game::new(1, 1)
         };
 
         game.make_move(Move::Place {
@@ -444,7 +444,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1, false)
+            ..Game::new(3, 1)
         };
 
         game.make_move(Move::Place {
@@ -518,7 +518,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1, false)
+            ..Game::new(3, 1)
         };
 
         game.make_move(Move::Place {
@@ -575,7 +575,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1, false)
+            ..Game::new(3, 1)
         };
 
         game.make_move(Move::Place {
@@ -626,7 +626,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1, false)
+            ..Game::new(3, 1)
         };
 
         game.make_move(Move::Place {
