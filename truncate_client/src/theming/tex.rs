@@ -195,19 +195,19 @@ impl Tex {
                 Self::DOCK_SOUTH_SE,
                 Self::DOCK_SOUTH_SW,
             ]
-        } else if matches!(neighbors[3], BGTexType::Land) {
-            [
-                Self::DOCK_WEST_NW,
-                Self::DOCK_WEST_NE,
-                Self::DOCK_WEST_SE,
-                Self::DOCK_WEST_SW,
-            ]
         } else if matches!(neighbors[5], BGTexType::Land) {
             [
                 Self::DOCK_NORTH_NW,
                 Self::DOCK_NORTH_NE,
                 Self::DOCK_NORTH_SE,
                 Self::DOCK_NORTH_SW,
+            ]
+        } else if matches!(neighbors[3], BGTexType::Land) {
+            [
+                Self::DOCK_WEST_NW,
+                Self::DOCK_WEST_NE,
+                Self::DOCK_WEST_SE,
+                Self::DOCK_WEST_SW,
             ]
         } else if matches!(neighbors[7], BGTexType::Land) {
             [

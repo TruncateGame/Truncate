@@ -174,10 +174,7 @@ impl Board {
         self.squares.insert(0, vec![Square::Water; self.width()]);
         self.squares.push(vec![Square::Water; self.width()]);
 
-        for root in &mut self.roots {
-            root.x += 1;
-            root.y += 1;
-        }
+        self.cache_special_squares();
     }
 
     /// Trims edges containing only empty squares
@@ -212,11 +209,6 @@ impl Board {
             })
             .unwrap_or_default();
 
-        for root in &mut self.roots {
-            root.x = root.x.saturating_sub(trim_left);
-            root.y = root.y.saturating_sub(trim_top);
-        }
-
         for _ in 0..trim_top {
             self.squares.remove(0);
         }
@@ -231,6 +223,7 @@ impl Board {
                 row.remove(row.len() - 1);
             }
         }
+        self.cache_special_squares();
     }
 
     pub fn cache_special_squares(&mut self) {
@@ -434,7 +427,12 @@ impl Board {
         let mut visited = HashSet::new();
 
         fn dfs(b: &Board, position: Coordinate, visited: &mut HashSet<Coordinate>) {
-            if let Ok(Square::Occupied(player, _)) = b.get(position) {
+            let player = match b.get(position) {
+                Ok(Square::Occupied(player, _)) => Some(player),
+                Ok(Square::Dock(player)) => Some(player),
+                _ => None,
+            };
+            if let Some(player) = player {
                 visited.insert(position);
                 for (position, square) in b.neighbouring_squares(position) {
                     if let Square::Occupied(neighbours_player, _) = square {

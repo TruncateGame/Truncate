@@ -140,7 +140,6 @@ impl GameState {
 
         // Trim off all edges and add one back for our land edges to show in the gui
         self.game.board.trim();
-        self.game.board.grow();
 
         self.game.start();
         let mut messages = Vec::with_capacity(self.players.len());
