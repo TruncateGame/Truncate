@@ -27,7 +27,7 @@ impl Tex {
         Self { tile, tint: None }
     }
 
-    pub const MAX_TILE: usize = 79;
+    pub const MAX_TILE: usize = 94;
 
     pub const NONE: Self = Tex::index(0);
     pub const DEBUG: Self = Tex::index(77);
@@ -100,6 +100,27 @@ impl Tex {
     pub const ROOF2: Self = Tex::index(33);
     pub const ROOF3: Self = Tex::index(34);
     pub const ROOF4: Self = Tex::index(35);
+
+    // DOCKS
+    pub const DOCK_NORTH_NW: Self = Tex::index(79);
+    pub const DOCK_NORTH_NE: Self = Tex::index(81);
+    pub const DOCK_NORTH_SE: Self = Tex::index(82);
+    pub const DOCK_NORTH_SW: Self = Tex::index(80);
+
+    pub const DOCK_EAST_NW: Self = Tex::index(87);
+    pub const DOCK_EAST_NE: Self = Tex::index(88);
+    pub const DOCK_EAST_SE: Self = Tex::index(90);
+    pub const DOCK_EAST_SW: Self = Tex::index(89);
+
+    pub const DOCK_SOUTH_NW: Self = Tex::index(83);
+    pub const DOCK_SOUTH_NE: Self = Tex::index(85);
+    pub const DOCK_SOUTH_SE: Self = Tex::index(86);
+    pub const DOCK_SOUTH_SW: Self = Tex::index(84);
+
+    pub const DOCK_WEST_NW: Self = Tex::index(91);
+    pub const DOCK_WEST_NE: Self = Tex::index(92);
+    pub const DOCK_WEST_SE: Self = Tex::index(94);
+    pub const DOCK_WEST_SW: Self = Tex::index(93);
 }
 
 impl Tex {
@@ -163,6 +184,42 @@ impl Tex {
             },
         ]);
         texs
+    }
+
+    fn resolve_dock_tex(neighbors: Vec<BGTexType>) -> TexQuad {
+        // TODO: Render docks with multiple edges somehow.
+        if matches!(neighbors[1], BGTexType::Land) {
+            [
+                Self::DOCK_SOUTH_NW,
+                Self::DOCK_SOUTH_NE,
+                Self::DOCK_SOUTH_SE,
+                Self::DOCK_SOUTH_SW,
+            ]
+        } else if matches!(neighbors[3], BGTexType::Land) {
+            [
+                Self::DOCK_WEST_NW,
+                Self::DOCK_WEST_NE,
+                Self::DOCK_WEST_SE,
+                Self::DOCK_WEST_SW,
+            ]
+        } else if matches!(neighbors[5], BGTexType::Land) {
+            [
+                Self::DOCK_NORTH_NW,
+                Self::DOCK_NORTH_NE,
+                Self::DOCK_NORTH_SE,
+                Self::DOCK_NORTH_SW,
+            ]
+        } else if matches!(neighbors[7], BGTexType::Land) {
+            [
+                Self::DOCK_EAST_NW,
+                Self::DOCK_EAST_NE,
+                Self::DOCK_EAST_SE,
+                Self::DOCK_EAST_SW,
+            ]
+        } else {
+            // TODO: Render disconnected docks somehow
+            [Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]
+        }
     }
 
     /// Determine the tiles to use based on a given square and its neighbors,
@@ -243,7 +300,7 @@ impl Tex {
                 FGTexType::Town => {
                     texs.push([Self::HOUSE1, Self::HOUSE2, Self::HOUSE3, Self::HOUSE4])
                 }
-                FGTexType::Dock => texs.push([Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]),
+                FGTexType::Dock => texs.push(Tex::resolve_dock_tex(neighbors)),
             }
         }
 

@@ -149,16 +149,13 @@ impl Game {
                     return Err(GamePlayError::OccupiedPlace);
                 }
 
-                if position != self.board.get_root(player)?
-                    && !self
-                        .board
-                        .neighbouring_squares(position)
-                        .iter()
-                        .any(|&(_, square)| match square {
-                            Square::Occupied(p, _) => p == player,
-                            _ => false,
-                        })
-                {
+                if !self.board.neighbouring_squares(position).iter().any(
+                    |&(_, square)| match square {
+                        Square::Occupied(p, _) => p == player,
+                        Square::Dock(p) => p == player,
+                        _ => false,
+                    },
+                ) {
                     return Err(GamePlayError::NonAdjacentPlace);
                 }
 

@@ -429,13 +429,6 @@ impl Board {
             .collect()
     }
 
-    pub fn get_root(&self, player: usize) -> Result<Coordinate, GamePlayError> {
-        match self.roots.get(player) {
-            Some(player) => Ok(*player),
-            None => Err(GamePlayError::NonExistentPlayer { index: player }),
-        }
-    }
-
     // TODO: return iterator or rename since it doesn't matter that this is depth first when we return a HashSet
     fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
         let mut visited = HashSet::new();
