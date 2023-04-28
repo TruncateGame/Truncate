@@ -43,6 +43,13 @@ impl fmt::Display for PlayerMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LobbyPlayerMessage {
+    pub name: String,
+    pub index: usize,
+    pub color: (u8, u8, u8),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GamePlayerMessage {
     pub name: String,
     pub index: usize,
@@ -83,8 +90,8 @@ impl fmt::Display for GameStateMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
     Ping,
-    JoinedLobby(RoomCode, Vec<(String, (u8, u8, u8))>, Board, Token),
-    LobbyUpdate(RoomCode, Vec<(String, (u8, u8, u8))>, Board),
+    JoinedLobby(RoomCode, Vec<LobbyPlayerMessage>, Board, Token),
+    LobbyUpdate(RoomCode, Vec<LobbyPlayerMessage>, Board),
     StartedGame(GameStateMessage),
     GameUpdate(GameStateMessage),
     GameEnd(GameStateMessage, PlayerNumber),
@@ -102,7 +109,7 @@ impl fmt::Display for GameMessage {
                 room,
                 players
                     .iter()
-                    .map(|p| p.0.clone())
+                    .map(|p| p.name.clone())
                     .collect::<Vec<_>>()
                     .join(", "),
                 board
@@ -113,7 +120,7 @@ impl fmt::Display for GameMessage {
                 room,
                 players
                     .iter()
-                    .map(|p| p.0.clone())
+                    .map(|p| p.name.clone())
                     .collect::<Vec<_>>()
                     .join(", "),
                 board

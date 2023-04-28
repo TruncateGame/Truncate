@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
-    messages::{GameMessage, GamePlayerMessage, GameStateMessage},
+    messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
     moves::Move,
     reporting::Change,
 };
@@ -63,11 +63,15 @@ impl GameState {
         }
     }
 
-    pub fn player_list(&self) -> Vec<(String, (u8, u8, u8))> {
+    pub fn player_list(&self) -> Vec<LobbyPlayerMessage> {
         self.game
             .players
             .iter()
-            .map(|p| (p.name.clone(), p.color))
+            .map(|p| LobbyPlayerMessage {
+                name: p.name.clone(),
+                index: p.index,
+                color: p.color,
+            })
             .collect()
     }
 

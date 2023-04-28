@@ -18,7 +18,7 @@ use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
 use game_state::GameState;
 use room_codes::RoomCodes;
-use truncate_core::messages::{GameMessage, PlayerMessage};
+use truncate_core::messages::{GameMessage, LobbyPlayerMessage, PlayerMessage};
 
 type PeerMap = Arc<DashMap<SocketAddr, UnboundedSender<GameMessage>>>;
 type GameMap = Arc<DashMap<String, GameState>>;
@@ -79,7 +79,11 @@ async fn handle_player_msg(
             player_tx
                 .send(GameMessage::JoinedLobby(
                     new_game_id,
-                    vec![(name, color)],
+                    vec![LobbyPlayerMessage {
+                        name,
+                        color,
+                        index: 0,
+                    }],
                     board,
                     token,
                 ))
@@ -203,7 +207,11 @@ async fn handle_player_msg(
                     .game
                     .players
                     .iter()
-                    .map(|p| (p.name.clone(), p.color.clone()))
+                    .map(|p| LobbyPlayerMessage {
+                        name: p.name.clone(),
+                        index: p.index,
+                        color: p.color,
+                    })
                     .collect();
 
                 for player in &game_state.players {

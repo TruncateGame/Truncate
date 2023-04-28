@@ -1,21 +1,14 @@
-use epaint::{Color32, Pos2, Rect, TextureHandle};
-use instant::Duration;
+use epaint::{Color32, TextureHandle};
 use truncate_core::{
-    board::{Board, Coordinate},
-    messages::{GamePlayerMessage, PlayerMessage, RoomCode},
-    player::Hand,
-    reporting::{BattleReport, BoardChange},
+    board::Board,
+    messages::{LobbyPlayerMessage, PlayerMessage, RoomCode},
 };
 
-use eframe::{
-    egui::{self, Layout, ScrollArea},
-    emath::Align,
-};
-use hashbrown::HashMap;
+use eframe::egui;
 
 use crate::{
-    lil_bits::{BattleUI, BoardUI, EditorUI, HandUI, TimerUI},
-    theming::{mapper::MappedBoard, tex::Tex, Theme},
+    lil_bits::EditorUI,
+    theming::{mapper::MappedBoard, Theme},
 };
 
 #[derive(Clone)]
@@ -23,7 +16,7 @@ use crate::{
 pub struct EditorState {
     pub board: Board,
     pub room_code: RoomCode,
-    pub players: Vec<(String, (u8, u8, u8))>,
+    pub players: Vec<LobbyPlayerMessage>,
     pub mapped_board: MappedBoard,
     pub map_texture: TextureHandle,
 }
@@ -31,7 +24,7 @@ pub struct EditorState {
 impl EditorState {
     pub fn new(
         room_code: RoomCode,
-        players: Vec<(String, (u8, u8, u8))>,
+        players: Vec<LobbyPlayerMessage>,
         board: Board,
         map_texture: TextureHandle,
     ) -> Self {
@@ -43,7 +36,7 @@ impl EditorState {
                 false,
                 players
                     .iter()
-                    .map(|p| Color32::from_rgb(p.1 .0, p.1 .1, p.1 .2))
+                    .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
                     .collect(),
             ),
             players,
@@ -57,7 +50,7 @@ impl EditorState {
             &board,
             self.players
                 .iter()
-                .map(|p| Color32::from_rgb(p.1 .0, p.1 .1, p.1 .2))
+                .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
                 .collect(),
         );
         self.board = board;
@@ -71,7 +64,7 @@ impl EditorState {
             "In lobby: {}",
             self.players
                 .iter()
-                .map(|p| p.0.clone())
+                .map(|p| p.name.clone())
                 .collect::<Vec<_>>()
                 .join(", ")
         ));
