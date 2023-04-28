@@ -57,6 +57,10 @@ impl<'a> BoardUI<'a> {
         );
         let outer_frame = egui::Frame::none().inner_margin(margin);
 
+        // TODO: Remove this hack, which is currently non-destructive place as the board is the last thing we render.
+        // We instead need a way to create a GameCtx scoped to a different theme (or go back to drilling Theme objects down through funcs).
+        ctx.theme = theme;
+
         outer_frame.show(ui, |ui| {
             let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
                 let mut render_row =
@@ -69,7 +73,7 @@ impl<'a> BoardUI<'a> {
                                     if *p as u64 == ctx.player_number {
                                         TilePlayer::Own
                                     } else {
-                                        TilePlayer::Enemy
+                                        TilePlayer::Enemy(*p as usize)
                                     }
                                 };
 
@@ -171,9 +175,9 @@ impl<'a> BoardUI<'a> {
                                     .empty(matches!(square, Square::Land))
                                     .selected(is_selected)
                                     .overlay(overlay)
-                                    .render(ui, &theme, &mapped_board, &ctx.map_texture, |ui, theme| {
+                                    .render(ui, ctx, &mapped_board, |ui, ctx| {
                                         if let Some(tile) = tile {
-                                            tile_clicked = tile.render(ctx.map_texture.clone(), Some(coord), ui, theme).clicked();
+                                            tile_clicked = tile.render(Some(coord), ui, ctx, None).clicked();
                                         }
                                     });
                                 if matches!(square, Square::Land | Square::Occupied(_, _)) {

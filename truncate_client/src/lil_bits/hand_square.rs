@@ -4,7 +4,7 @@ use eframe::{
 };
 use epaint::Rect;
 
-use crate::theming::Theme;
+use crate::{active_game::GameCtx, theming::Theme};
 
 pub struct HandSquareUI {
     empty: bool,
@@ -23,14 +23,14 @@ impl HandSquareUI {
     pub fn render(
         &self,
         ui: &mut egui::Ui,
-        theme: &Theme,
-        contents: impl FnOnce(&mut egui::Ui, &Theme),
+        ctx: &mut GameCtx,
+        contents: impl FnOnce(&mut egui::Ui, &mut GameCtx),
     ) -> (egui::Response, Rect) {
         let (rect, response) = ui.allocate_exact_size(
-            egui::vec2(theme.grid_size, theme.grid_size),
+            egui::vec2(ctx.theme.grid_size, ctx.theme.grid_size),
             egui::Sense::hover(),
         );
-        let interact_rect = rect.shrink(theme.tile_margin);
+        let interact_rect = rect.shrink(ctx.theme.tile_margin);
         let response = ui.interact(
             interact_rect,
             response.id.with("interact"),
@@ -45,16 +45,16 @@ impl HandSquareUI {
             if show_contents {
                 contents(
                     &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                    theme,
+                    ctx,
                 );
             }
 
             if is_hovered {
                 if self.empty && !ui.ctx().memory(|mem| mem.is_anything_being_dragged()) {
                     ui.painter().rect_filled(
-                        rect.shrink(theme.tile_margin),
-                        theme.rounding,
-                        theme.outlines,
+                        rect.shrink(ctx.theme.tile_margin),
+                        ctx.theme.rounding,
+                        ctx.theme.outlines,
                     );
                 }
             }

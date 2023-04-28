@@ -36,6 +36,7 @@ pub struct GameCtx {
     pub playing_tile: Option<char>,
     pub error_msg: Option<String>,
     pub map_texture: TextureHandle,
+    pub player_colors: Vec<Color32>,
 }
 
 #[derive(Clone)]
@@ -61,6 +62,10 @@ impl ActiveGame {
         map_texture: TextureHandle,
         theme: Theme,
     ) -> Self {
+        let player_colors = players
+            .iter()
+            .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
+            .collect::<Vec<_>>();
         Self {
             ctx: GameCtx {
                 theme,
@@ -74,15 +79,13 @@ impl ActiveGame {
                 playing_tile: None,
                 error_msg: None,
                 map_texture: map_texture.clone(),
+                player_colors: player_colors.clone(),
             },
             mapped_board: MappedBoard::new(
                 &board,
                 map_texture.clone(),
                 player_number == 0,
-                players
-                    .iter()
-                    .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
-                    .collect(),
+                player_colors,
             ),
             players,
             board,

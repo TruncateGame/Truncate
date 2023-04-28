@@ -25,16 +25,7 @@ impl<'a> HandUI<'a> {
 }
 
 impl<'a> HandUI<'a> {
-    pub fn render(
-        self,
-        ctx: &mut GameCtx,
-        // selected_tile: Option<usize>,
-        ui: &mut egui::Ui,
-        // theme: &Theme,
-        // board_tile_hovered: &Option<HoveredRegion>,
-        // current_time: Duration,
-        // map_texture: TextureHandle,
-    ) -> Option<usize> {
+    pub fn render(self, ctx: &mut GameCtx, ui: &mut egui::Ui) -> Option<usize> {
         let mut rearrange = None;
         let mut next_selection = None;
         let mut released_drag = None;
@@ -47,12 +38,15 @@ impl<'a> HandUI<'a> {
             0.5..1.3,
         );
 
+        let old_theme = ctx.theme.clone();
+        ctx.theme = theme;
+
         let outer_frame = egui::Frame::none().inner_margin(margin);
 
         outer_frame.show(ui, |ui| {
             ui.horizontal(|ui| {
                 for (i, char) in self.hand.iter().enumerate() {
-                    HandSquareUI::new().render(ui, &theme, |ui, theme| {
+                    HandSquareUI::new().render(ui, ctx, |ui, ctx| {
                         let tile_id = Id::new("Hand").with(i).with(char);
                         let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(tile_id));
 
@@ -61,7 +55,7 @@ impl<'a> HandUI<'a> {
                             .active(self.active)
                             .ghost(is_being_dragged)
                             .selected(Some(i) == ctx.selected_tile_in_hand)
-                            .render(ctx.map_texture.clone(), None, ui, theme);
+                            .render(None, ui, ctx, None);
 
                         if tile_response.drag_started() {
                             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
@@ -88,26 +82,21 @@ impl<'a> HandUI<'a> {
                                 .with_layer_id(layer_id, |ui| {
                                     let hover_scale =
                                         if let Some(region) = &ctx.hovered_tile_on_board {
-                                            region.rect.width() / theme.grid_size
+                                            region.rect.width() / ctx.theme.grid_size
                                         } else {
                                             1.0
                                         };
                                     let bouncy_scale = ui.ctx().animate_value_with_time(
                                         layer_id.id,
                                         hover_scale,
-                                        theme.animation_time,
+                                        ctx.theme.animation_time,
                                     );
                                     TileUI::new(*char, TilePlayer::Own)
                                         .active(self.active)
                                         .selected(false)
                                         .hovered(true)
                                         .ghost(ctx.hovered_tile_on_board.is_some())
-                                        .render(
-                                            ctx.map_texture.clone(),
-                                            None,
-                                            ui,
-                                            &theme.rescale(bouncy_scale),
-                                        );
+                                        .render(None, ui, ctx, Some(bouncy_scale));
                                 })
                                 .response;
 
@@ -130,12 +119,12 @@ impl<'a> HandUI<'a> {
                                 ui.ctx().animate_value_with_time(
                                     layer_id.id.with("delta_x"),
                                     delta.x,
-                                    theme.animation_time,
+                                    ctx.theme.animation_time,
                                 ),
                                 ui.ctx().animate_value_with_time(
                                     layer_id.id.with("delta_y"),
                                     delta.y,
-                                    theme.animation_time,
+                                    ctx.theme.animation_time,
                                 ),
                             );
                             ui.ctx().translate_layer(layer_id, animated_delta.round());
@@ -167,6 +156,8 @@ impl<'a> HandUI<'a> {
             ctx.selected_tile_in_hand = new_selection;
             ctx.selected_square_on_board = None;
         }
+
+        ctx.theme = old_theme;
 
         released_drag
     }

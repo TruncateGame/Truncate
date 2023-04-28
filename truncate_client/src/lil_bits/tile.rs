@@ -2,13 +2,16 @@ use eframe::egui::{self, Id};
 use epaint::{Color32, TextureHandle};
 use truncate_core::board::Coordinate;
 
-use crate::theming::{mapper::MappedTile, Darken, Lighten, Theme};
+use crate::{
+    active_game::GameCtx,
+    theming::{mapper::MappedTile, Darken, Lighten, Theme},
+};
 
 use super::{character::CharacterOrient, CharacterUI};
 
 pub enum TilePlayer {
     Own,
-    Enemy,
+    Enemy(usize),
 }
 
 pub struct TileUI {
@@ -96,32 +99,34 @@ impl TileUI {
 }
 
 impl TileUI {
-    fn edge_color(&self, hovered: bool, theme: &Theme) -> Color32 {
-        self.tile_color(hovered, theme).darken()
-    }
-
-    fn tile_color(&self, hovered: bool, theme: &Theme) -> Color32 {
+    fn tile_color(&self, hovered: bool, theme: &Theme, ctx: &GameCtx) -> Color32 {
         if self.won {
             theme.selection
         } else if self.defeated || self.truncated || !self.active {
             theme.text
         } else {
             match (&self.player, hovered) {
-                (TilePlayer::Own, false) => theme.friend,
-                (TilePlayer::Own, true) => theme.friend.lighten(),
-                (TilePlayer::Enemy, false) => theme.enemy,
-                (TilePlayer::Enemy, true) => theme.enemy.lighten(),
+                (TilePlayer::Own, false) => ctx.player_colors[ctx.player_number as usize].pastel(),
+                (TilePlayer::Own, true) => ctx.player_colors[ctx.player_number as usize]
+                    .pastel()
+                    .lighten(),
+                (TilePlayer::Enemy(p), false) => ctx.player_colors[*p].pastel(),
+                (TilePlayer::Enemy(p), true) => ctx.player_colors[*p].pastel().lighten(),
             }
         }
     }
 
     pub fn render(
         self,
-        map_texture: TextureHandle,
         coord: Option<Coordinate>,
         ui: &mut egui::Ui,
-        theme: &Theme,
+        ctx: &mut GameCtx,
+        rescale: Option<f32>,
     ) -> egui::Response {
+        let theme = rescale
+            .map(|v| ctx.theme.rescale(v))
+            .unwrap_or_else(|| ctx.theme.clone());
+
         // TODO: Remove magic number somehow (currently 2px/16px for tile sprite border)
         let tile_margin = theme.grid_size * 0.125;
 
@@ -157,11 +162,11 @@ impl TileUI {
                 None
             };
 
-            let tile_color = self.tile_color(hovered, theme);
+            let tile_color = self.tile_color(hovered, &theme, ctx);
             let mapped_tile = if self.ghost {
-                MappedTile::new(None, Some(tile_color), coord, map_texture.clone())
+                MappedTile::new(None, Some(tile_color), coord, ctx.map_texture.clone())
             } else {
-                MappedTile::new(Some(tile_color), outline, coord, map_texture.clone())
+                MappedTile::new(Some(tile_color), outline, coord, ctx.map_texture.clone())
             };
             mapped_tile.render(base_rect, ui);
 
@@ -172,7 +177,7 @@ impl TileUI {
                 self.letter,
                 match self.player {
                     TilePlayer::Own => CharacterOrient::North,
-                    TilePlayer::Enemy => CharacterOrient::South,
+                    TilePlayer::Enemy(_) => CharacterOrient::South,
                 },
             )
             .hovered(response.hovered())
@@ -181,7 +186,7 @@ impl TileUI {
             .ghost(self.ghost)
             .defeated(self.defeated)
             .truncated(self.truncated)
-            .render(ui, char_rect, theme);
+            .render(ui, char_rect, &theme);
         }
 
         // let outline = if self.selected {

@@ -5,7 +5,10 @@ use eframe::{
 use epaint::{hex_color, Rect, Stroke, TextureHandle};
 use truncate_core::board::Coordinate;
 
-use crate::theming::{mapper::MappedBoard, Theme};
+use crate::{
+    active_game::GameCtx,
+    theming::{mapper::MappedBoard, Theme},
+};
 
 use super::{tile::TilePlayer, TileUI};
 
@@ -51,16 +54,15 @@ impl SquareUI {
     pub fn render(
         &self,
         ui: &mut egui::Ui,
-        theme: &Theme,
+        ctx: &mut GameCtx,
         mapped_board: &MappedBoard,
-        map_texture: &TextureHandle,
-        contents: impl FnOnce(&mut egui::Ui, &Theme),
+        contents: impl FnOnce(&mut egui::Ui, &mut GameCtx),
     ) -> (egui::Response, Rect) {
         let (rect, response) = ui.allocate_exact_size(
-            egui::vec2(theme.grid_size, theme.grid_size),
+            egui::vec2(ctx.theme.grid_size, ctx.theme.grid_size),
             egui::Sense::hover(),
         );
-        let interact_rect = rect.shrink(theme.tile_margin);
+        let interact_rect = rect.shrink(ctx.theme.tile_margin);
         let mut response = ui.interact(
             interact_rect,
             response.id.with("interact"),
@@ -72,8 +74,8 @@ impl SquareUI {
 
             if self.enabled {
                 ui.painter().rect_stroke(
-                    rect.shrink(theme.tile_margin),
-                    theme.rounding,
+                    rect.shrink(ctx.theme.tile_margin),
+                    ctx.theme.rounding,
                     Stroke::new(1.0, hex_color!("ffffff01")),
                 );
             }
@@ -86,17 +88,17 @@ impl SquareUI {
             if show_contents && !show_overlay {
                 contents(
                     &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                    theme,
+                    ctx,
                 );
             }
 
             if is_hovered {
                 if let Some(overlay) = self.overlay {
                     response = TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
-                        map_texture.clone(),
                         None,
                         &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                        theme,
+                        ctx,
+                        None,
                     );
                 }
             }

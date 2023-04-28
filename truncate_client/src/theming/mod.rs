@@ -95,12 +95,24 @@ impl Darken for Color32 {
 
 pub trait Lighten {
     fn lighten(&self) -> Self;
+    fn pastel(&self) -> Self;
 }
 
 impl Lighten for Color32 {
     fn lighten(&self) -> Self {
         let mut color = Hsva::from(*self);
         color.v *= 2.0;
+        color.s *= 0.9;
+        if color.v > 1.0 {
+            color.v = 1.0;
+        }
+        color.into()
+    }
+
+    fn pastel(&self) -> Self {
+        let mut color = Hsva::from(*self);
+        color.v *= 3.0;
+        color.s *= 0.7;
         if color.v > 1.0 {
             color.v = 1.0;
         }
