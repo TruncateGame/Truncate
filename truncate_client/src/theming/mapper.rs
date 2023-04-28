@@ -1,34 +1,56 @@
 use eframe::egui;
-use epaint::{vec2, Color32, Rect, TextureHandle};
-use truncate_core::board::{Board, Coordinate};
+use epaint::{Color32, Rect, TextureHandle};
+use truncate_core::board::{Board, Coordinate, Square};
 
-use super::tex::{render_tex_quad, BGTexType, Tex, TexQuad};
+use crate::theming::tex::FGTexType;
+
+use super::tex::{render_tex_quad, render_tex_quads, BGTexType, Tex, TexQuad};
 
 #[derive(Clone)]
 pub struct MappedBoard {
-    resolved_tex: Vec<Vec<TexQuad>>,
+    resolved_tex: Vec<Vec<Vec<TexQuad>>>,
     map_texture: TextureHandle,
     map_seed: usize,
     inverted: bool, // TODO: Handle any transpose
 }
 
 impl MappedBoard {
-    pub fn get(&self, coord: Coordinate) -> TexQuad {
+    pub fn get(&self, coord: Coordinate) -> &[TexQuad] {
         match self
             .resolved_tex
             .get(coord.y)
             .and_then(|row| row.get(coord.x))
         {
-            Some(texs) => *texs,
-            None => [Tex::DEBUG; 4],
+            Some(texs) => texs,
+            None => &[[Tex::DEBUG; 4]],
         }
     }
 
     pub fn render_coord(&self, coord: Coordinate, rect: Rect, ui: &mut egui::Ui) {
-        render_tex_quad(self.get(coord), rect, &self.map_texture, ui);
+        render_tex_quads(self.get(coord), rect, &self.map_texture, ui);
     }
 
     pub fn remap(&mut self, board: &Board) {
+        fn base_type(sq: &Square) -> BGTexType {
+            match sq {
+                truncate_core::board::Square::Water => BGTexType::Water,
+                truncate_core::board::Square::Land => BGTexType::Land,
+                truncate_core::board::Square::Town(_) => BGTexType::Land,
+                truncate_core::board::Square::Dock(_) => BGTexType::Water,
+                truncate_core::board::Square::Occupied(_, _) => BGTexType::Land,
+            }
+        }
+
+        fn layer_type(sq: &Square) -> Option<FGTexType> {
+            match sq {
+                Square::Water => None,
+                Square::Land => None,
+                Square::Town(_) => Some(FGTexType::Town),
+                Square::Dock(_) => Some(FGTexType::Dock),
+                Square::Occupied(_, _) => None,
+            }
+        }
+
         self.resolved_tex = board
             .squares
             .iter()
@@ -51,23 +73,17 @@ impl MappedBoard {
 
                         let neighbor_base_types: Vec<_> = neighbor_squares
                             .iter()
-                            .map(|sq| {
-                                if sq.is_some() {
-                                    BGTexType::Land
-                                } else {
-                                    BGTexType::Water
-                                }
+                            .map(|square| {
+                                square.map(|sq| base_type(&sq)).unwrap_or(BGTexType::Water)
                             })
                             .collect();
 
-                        let tile_base_type = if square.is_some() {
-                            BGTexType::Land
-                        } else {
-                            BGTexType::Water
-                        };
+                        let tile_base_type = base_type(square);
+                        let tile_layer_type = layer_type(square);
 
                         Tex::resolve_bg_tex(
                             tile_base_type,
+                            tile_layer_type,
                             neighbor_base_types,
                             board.width() * coord.x * self.map_seed + board.height() + coord.y,
                         )
@@ -122,8 +138,6 @@ impl MappedTile {
     }
 
     pub fn render(&self, rect: Rect, ui: &mut egui::Ui) {
-        for tex in &self.resolved_tex {
-            render_tex_quad(*tex, rect, &self.map_texture, ui);
-        }
+        render_tex_quads(&self.resolved_tex, rect, &self.map_texture, ui);
     }
 }

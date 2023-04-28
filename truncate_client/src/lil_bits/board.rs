@@ -9,7 +9,7 @@ use truncate_core::{
 use eframe::egui;
 use hashbrown::HashMap;
 
-use crate::{theming::{Theme, mapper::{MappedBoard, MappedTile}}, active_game::HoveredRegion};
+use crate::{theming::{Theme, mapper::{MappedBoard}}, active_game::HoveredRegion};
 
 use super::{
     tile::{TilePlayer},
@@ -61,13 +61,12 @@ impl<'a> BoardUI<'a> {
         let outer_frame = egui::Frame::none().inner_margin(margin);
 
         outer_frame.show(ui, |ui| {
-            let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Option<Square>>)>>| {
+            let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
                 let mut render_row =
-                    |rownum, row: Box<dyn Iterator<Item = (usize, &Option<Square>)>>| {
+                    |rownum, row: Box<dyn Iterator<Item = (usize, &Square)>>| {
                         ui.horizontal(|ui| {
                             for (colnum, square) in row {
                                 let coord = Coordinate::new(colnum, rownum);
-                                let is_root = self.board.roots.contains(&coord);
                                 let is_selected = Some(coord) == board_selected_tile;
                                 let calc_tile_player = |p: &usize| {
                                     if *p as u64 == player {
@@ -78,7 +77,7 @@ impl<'a> BoardUI<'a> {
                                 };
 
 
-                                let mut tile = if let Some(Square::Occupied(player, char)) = square {
+                                let mut tile = if let Square::Occupied(player, char) = square {
                                     let is_winner = winner == Some(*player);
                                     Some(
                                         TileUI::new(*char, calc_tile_player(player)).selected(is_selected).won(is_winner)
@@ -88,14 +87,15 @@ impl<'a> BoardUI<'a> {
                                 };
 
                                 if let Some(change) = board_changes.get(&coord) {
+                                    use Square::*;
                                     use truncate_core::reporting::BoardChangeAction;
                                     tile = match (&change.action, tile) {
                                         (BoardChangeAction::Added, Some(tile)) => Some(tile.added(true)),
                                         (BoardChangeAction::Swapped, Some(tile)) => Some(tile.modified(true)),
                                         (BoardChangeAction::Defeated, None) => 
                                             match change.detail.square {
-                                                Square::Empty => None,
-                                                Square::Occupied(player, char) => Some((player, char)),
+                                                Water | Land | Town(_) | Dock(_) => None,
+                                                Occupied(player, char) => Some((player, char)),
                                             }
                                             .map(
                                                 |(player, char)| {
@@ -106,8 +106,8 @@ impl<'a> BoardUI<'a> {
                                             ),
                                         (BoardChangeAction::Truncated, None) => 
                                             match change.detail.square {
-                                                Square::Empty => None,
-                                                Square::Occupied(player, char) => Some((player, char)),
+                                                Water | Land | Town(_) | Dock(_) => None,
+                                                Occupied(player, char) => Some((player, char)),
                                             }
                                             .map(
                                                 |(player, char)| {
@@ -118,8 +118,8 @@ impl<'a> BoardUI<'a> {
                                             ),
                                         (BoardChangeAction::Exploded, None) =>
                                             match change.detail.square {
-                                                Square::Empty => None,
-                                                Square::Occupied(player, char) => Some((player, char)),
+                                                Water | Land | Town(_) | Dock(_) => None,
+                                                Occupied(player, char) => Some((player, char)),
                                             }
                                             .map(
                                                 |(player, char)| {
@@ -131,8 +131,8 @@ impl<'a> BoardUI<'a> {
                                         (BoardChangeAction::Victorious, Some(tile)) => Some(tile.won(true)),
                                         (BoardChangeAction::Victorious, None) =>
                                             match change.detail.square {
-                                                Square::Empty => None,
-                                                Square::Occupied(player, char) => Some((player, char)),
+                                                Water | Land | Town(_) | Dock(_) => None,
+                                                Occupied(player, char) => Some((player, char)),
                                             }
                                             .map(
                                                 |(player, char)| {
@@ -152,12 +152,12 @@ impl<'a> BoardUI<'a> {
 
                                 let mut overlay = None;
                                 if let Some(placing_tile) = hand_selected_tile {
-                                    if matches!(square, Some(Square::Empty)) {
+                                    if matches!(square, Square::Land) {
                                         overlay = Some(*hand.get(placing_tile).unwrap());
                                     }
                                 } else if let Some(placing_tile) = board_selected_tile { // TODO: De-nest
                                     if placing_tile != coord {
-                                        if let Some(Square::Occupied(p, _)) = square {
+                                        if let Square::Occupied(p, _) = square {
                                             if p == &(player as usize) {
                                                 if let Ok(Square::Occupied(_, char)) = self.board.get(placing_tile) {
                                                     overlay = Some(char);
@@ -170,9 +170,8 @@ impl<'a> BoardUI<'a> {
 
                                 let mut tile_clicked = false;
                                 let (square_response, outer_rect) = SquareUI::new(coord)
-                                    .enabled(square.is_some())
-                                    .empty(matches!(square, Some(Square::Empty)))
-                                    .root(is_root)
+                                    .enabled(matches!(square, Square::Land | Square::Occupied(_, _)))
+                                    .empty(matches!(square, Square::Land))
                                     .selected(is_selected)
                                     .overlay(overlay)
                                     .render(ui, &theme, &mapped_board, &map_texture, |ui, theme| {
@@ -180,7 +179,7 @@ impl<'a> BoardUI<'a> {
                                             tile_clicked = tile.render(map_texture.clone(), Some(coord), ui, theme).clicked();
                                         }
                                     });
-                                if square.is_some() {
+                                if matches!(square, Square::Land | Square::Occupied(_, _)) {
                                     if ui.rect_contains_pointer(outer_rect) {
                                         hovered_square = Some(HoveredRegion{
                                             rect: outer_rect,

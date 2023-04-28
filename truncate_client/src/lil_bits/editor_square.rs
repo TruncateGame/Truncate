@@ -11,7 +11,6 @@ use super::{character::CharacterOrient, CharacterUI};
 pub struct EditorSquareUI {
     coord: Coordinate,
     enabled: bool,
-    root: bool,
 }
 
 impl EditorSquareUI {
@@ -19,17 +18,11 @@ impl EditorSquareUI {
         Self {
             coord,
             enabled: false,
-            root: false,
         }
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
-        self
-    }
-
-    pub fn root(mut self, root: bool) -> Self {
-        self.root = root;
         self
     }
 
@@ -53,17 +46,7 @@ impl EditorSquareUI {
         if ui.is_rect_visible(rect) {
             mapped_board.render_coord(self.coord, rect, ui);
 
-            if self.root {
-                CharacterUI::new('#', CharacterOrient::North).render_with_color(
-                    ui,
-                    rect.shrink(theme.tile_margin),
-                    theme,
-                    theme.selection,
-                );
-                if response.hovered() {
-                    ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Move);
-                };
-            } else if response.hovered() {
+            if response.hovered() {
                 if !response.is_pointer_button_down_on() {
                     let mapped_addition = Tex::resolve_landscaping_tex(!self.enabled);
                     render_tex_quad(mapped_addition, rect, map_texture, ui);

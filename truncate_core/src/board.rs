@@ -51,8 +51,9 @@ impl Direction {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Board {
-    pub squares: Vec<Vec<Option<Square>>>,
-    pub roots: Vec<Coordinate>,
+    pub squares: Vec<Vec<Square>>,
+    roots: Vec<Coordinate>,
+    towns: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
                                   // TODO: Move orientations off the Board and have them tagged against specific players
 }
@@ -63,38 +64,92 @@ pub struct Board {
 //  - the roots are at empty squares
 
 impl Board {
-    pub fn new(width: usize, height: usize, padded: bool) -> Self {
+    pub fn new(land_width: usize, land_height: usize, padded: bool) -> Self {
         // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
-        let roots = vec![
-            Coordinate {
-                x: width / 2 + width % 2 - 1,
-                y: 0,
-            },
-            Coordinate {
-                x: width / 2,
-                y: height + 1,
-            },
-        ];
+        // let roots = vec![
+        //     Coordinate {
+        //         x: land_width / 2 + land_width % 2 - 1,
+        //         y: 0,
+        //     },
+        //     Coordinate {
+        //         x: land_width / 2,
+        //         y: land_height + 1,
+        //     },
+        // ];
 
-        let mut squares = vec![vec![None; width]]; // Start with an unoccupiable row to house player 1's root
-        squares.extend(vec![vec![Some(Square::Empty); width]; height]); // Make the centre of the board empty
-        squares.extend(vec![vec![None; width]]); // Add an unoccupiable row to house player 2's root
-        squares[roots[0].y][roots[0].x] = Some(Square::Empty); // Create root square
-        squares[roots[1].y][roots[1].x] = Some(Square::Empty);
+        // Final board should have a ring of water around the land, in which to place the docks
+        let board_width = land_width + 2;
+        let board_height = land_height + 2;
+
+        // Create a slice of land with water on the edges
+        let mut land_row = vec![Square::Land; land_width];
+        land_row.insert(0, Square::Water);
+        land_row.push(Square::Water);
+
+        let mut squares = vec![vec![Square::Water; board_width]]; // Start with our north row of water
+        squares.extend(vec![land_row.clone(); land_height]); // Build out the centre land of the board
+        squares.extend(vec![vec![Square::Water; board_width]]); // Finish with a south row of water
 
         let mut board = Board {
             squares,
-            roots,
+            roots: vec![],
+            towns: vec![], // TODO: populate
             orientations: vec![Direction::North, Direction::South],
         };
-        if padded {
-            board.grow();
+
+        let dock_x = board_width / 2;
+
+        let north_towns = (1..=land_width)
+            .filter(|x| *x != dock_x)
+            .map(|x| Coordinate { x, y: 1 });
+        for town in north_towns {
+            board
+                .set_square(town, Square::Town(0))
+                .expect("Town square should exist on the land");
         }
+        // North dock
+        board
+            .set_square(Coordinate { x: dock_x, y: 0 }, Square::Dock(0))
+            .expect("Dock square should exist in the sea");
+
+        let south_towns = (1..=land_width)
+            .filter(|x| *x != dock_x)
+            .map(|x| Coordinate {
+                x,
+                y: board_height - 2,
+            });
+        for town in south_towns {
+            board
+                .set_square(town, Square::Town(1))
+                .expect("Town square should exist on the land");
+        }
+        // South dock
+        board
+            .set_square(
+                Coordinate {
+                    x: dock_x,
+                    y: board_height - 1,
+                },
+                Square::Dock(1),
+            )
+            .expect("Dock square should exist in the sea");
+
+        board.cache_special_squares();
+        println!("{board:#?}");
+
         board
     }
 
     pub fn get_orientations(&self) -> &Vec<Direction> {
         &self.orientations
+    }
+
+    pub fn land_width(&self) -> usize {
+        unimplemented!("Need to calculate the playable dimensions")
+    }
+
+    pub fn land_height(&self) -> usize {
+        unimplemented!("Need to calculate the playable dimensions")
     }
 
     pub fn width(&self) -> usize {
@@ -105,15 +160,19 @@ impl Board {
         self.squares.len()
     }
 
-    /// Adds empty squares to all edges of the board
+    pub fn towns(&self) -> Iter<Coordinate> {
+        self.towns.iter()
+    }
+
+    /// Adds water to all edges of the board
     pub fn grow(&mut self) {
         for row in &mut self.squares {
-            row.insert(0, None);
-            row.push(None);
+            row.insert(0, Square::Water);
+            row.push(Square::Water);
         }
 
-        self.squares.insert(0, vec![None; self.width()]);
-        self.squares.push(vec![None; self.width()]);
+        self.squares.insert(0, vec![Square::Water; self.width()]);
+        self.squares.push(vec![Square::Water; self.width()]);
 
         for root in &mut self.roots {
             root.x += 1;
@@ -126,23 +185,31 @@ impl Board {
         let trim_top = self
             .squares
             .iter()
-            .position(|row| row.iter().any(|s| s.is_some()))
+            .position(|row| row.iter().any(|s| matches!(s, Square::Water)))
             .unwrap_or_default();
 
         let trim_bottom = self
             .squares
             .iter()
             .rev()
-            .position(|row| row.iter().any(|s| s.is_some()))
+            .position(|row| row.iter().any(|s| matches!(s, Square::Water)))
             .unwrap_or_default();
 
         let trim_left = (0..self.width())
-            .position(|i| self.squares.iter().any(|row| row[i].is_some()))
+            .position(|i| {
+                self.squares
+                    .iter()
+                    .any(|row| matches!(row[i], Square::Water))
+            })
             .unwrap_or_default();
 
         let trim_right = (0..self.width())
             .rev()
-            .position(|i| self.squares.iter().any(|row| row[i].is_some()))
+            .position(|i| {
+                self.squares
+                    .iter()
+                    .any(|row| matches!(row[i], Square::Water))
+            })
             .unwrap_or_default();
 
         for root in &mut self.roots {
@@ -166,16 +233,57 @@ impl Board {
         }
     }
 
+    pub fn cache_special_squares(&mut self) {
+        let rows = self.height();
+        let cols = self.width();
+        // TODO: Implement iterators for board and pull this out
+        let coords = (0..rows)
+            .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+            .map(|(x, y)| Coordinate { x, y });
+
+        self.roots.clear();
+        self.towns.clear();
+
+        for coord in coords {
+            match self.get(coord) {
+                Ok(Square::Water | Square::Land | Square::Occupied(_, _)) => {}
+                Ok(Square::Town(_)) => self.towns.push(coord),
+                Ok(Square::Dock(_)) => self.roots.push(coord),
+                Err(e) => {
+                    eprintln!("{e}");
+                    unreachable!("Iterating over the board should not return invalid positions")
+                }
+            }
+        }
+    }
+
     pub fn get(&self, position: Coordinate) -> Result<Square, GamePlayError> {
         match self
             .squares
             .get(position.y)
             .and_then(|row| row.get(position.x))
         {
-            Some(Some(square)) => Ok(*square),
-            Some(None) => Err(GamePlayError::InvalidPosition { position }),
+            Some(square) => Ok(*square),
             None => Err(GamePlayError::OutSideBoardDimensions { position }),
         }
+    }
+
+    pub fn set_square(
+        &mut self,
+        position: Coordinate,
+        new_square: Square,
+    ) -> Result<(), GamePlayError> {
+        let square = self
+            .squares
+            .get_mut(position.y)
+            .and_then(|row| row.get_mut(position.x));
+
+        let Some(square) = square else {
+            return Err(GamePlayError::OutSideBoardDimensions { position });
+        };
+
+        *square = new_square;
+        Ok(())
     }
 
     pub fn set(
@@ -193,14 +301,13 @@ impl Board {
             .get_mut(position.y)
             .and_then(|row| row.get_mut(position.x))
         {
-            Some(Some(square)) => {
+            Some(square) => {
                 *square = Square::Occupied(player, value);
                 Ok(BoardChangeDetail {
                     square: square.to_owned(),
                     coordinate: position,
                 })
             }
-            Some(None) => Err(GamePlayError::InvalidPosition { position }),
             None => Err(GamePlayError::OutSideBoardDimensions { position }),
         }
     }
@@ -233,14 +340,15 @@ impl Board {
 
         let mut tiles = ['&'; 2];
         for (i, pos) in positions.iter().enumerate() {
+            use Square::*;
             match self.get(*pos)? {
-                Square::Empty => return Err(GamePlayError::UnoccupiedSwap),
-                Square::Occupied(owner, tile) => {
+                Occupied(owner, tile) => {
                     if owner != player {
                         return Err(GamePlayError::UnownedSwap);
                     }
                     tiles[i] = tile;
                 }
+                Water | Land | Town(_) | Dock(_) => return Err(GamePlayError::UnoccupiedSwap),
             };
         }
 
@@ -258,7 +366,7 @@ impl Board {
 
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
     pub fn clear(&mut self, position: Coordinate) -> Option<BoardChangeDetail> {
-        if let Some(Some(square)) = self
+        if let Some(square) = self
             .squares
             .get_mut(position.y as usize)
             .and_then(|y| y.get_mut(position.x as usize))
@@ -268,7 +376,7 @@ impl Board {
                     square: *square,
                     coordinate: position,
                 });
-                *square = Square::Empty;
+                *square = Square::Land;
                 return change;
             }
         }
@@ -424,17 +532,19 @@ impl Board {
         coordinates: &Vec<Vec<Coordinate>>,
     ) -> Result<Vec<String>, GamePlayError> {
         let mut err = None; // TODO: is this a reasonable error handling method? We can't return an Err from the function from within the closure passed to map.
+        use Square::*;
         let strings = coordinates
             .iter()
             .map(|word| {
                 word.iter()
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
-                            Square::Empty => {
+                            Water | Land | Town(_) | Dock(_) => {
+                                debug_assert!(false);
                                 err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
                             }
-                            Square::Occupied(_, letter) => letter,
+                            Occupied(_, letter) => letter,
                         },
                         Err(e) => {
                             err = Some(e);
@@ -449,30 +559,6 @@ impl Board {
             Err(err_string)
         } else {
             Ok(strings)
-        }
-    }
-
-    // Get the row just beside the edge
-    // TODO: Consider deleting once explicit win squares are implemented
-    pub fn get_near_edge(&self, side: Direction) -> Vec<Coordinate> {
-        match side {
-            Direction::North => (0..self.width()).map(|x| Coordinate { x, y: 1 }).collect(),
-            Direction::South => (0..self.width())
-                .map(|x| Coordinate {
-                    x,
-                    y: (self.height() - 2),
-                })
-                .collect(),
-            Direction::East => (0..self.width())
-                .map(|y| Coordinate {
-                    x: (self.width() - 2),
-                    y,
-                })
-                .collect(),
-            Direction::West => (0..self.width()).map(|y| Coordinate { x: 1, y }).collect(),
-
-            // Skipping other directions for now, as this function should soon be deleted.
-            _ => vec![],
         }
     }
 
@@ -561,10 +647,7 @@ impl fmt::Display for Board {
                 .iter()
                 .map(|row| {
                     row.iter()
-                        .map(|opt| match opt {
-                            Some(sq) => sq.to_string(),
-                            None => " ".to_string(),
-                        })
+                        .map(|sq| sq.to_string())
                         .collect::<Vec<String>>()
                         .join(" ")
                 })
@@ -652,44 +735,22 @@ impl std::cmp::PartialEq<(usize, usize)> for Coordinate {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Square {
-    Empty,
+    Water,
+    Land,
+    Town(usize),
+    Dock(usize),
     Occupied(usize, char),
 }
 
 impl fmt::Display for Square {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
-            Square::Empty => write!(f, "_"),
+            Square::Water => write!(f, "~"),
+            Square::Land => write!(f, "_"),
+            Square::Town(_) => write!(f, "☖"),
+            Square::Dock(_) => write!(f, "𝕃"),
             Square::Occupied(_, tile) => write!(f, "{}", tile),
         }
-    }
-}
-
-impl Square {
-    pub fn to_oriented_string(&self, orientations: &Vec<Direction>) -> String {
-        match &self {
-            Square::Empty => String::from("_"),
-            Square::Occupied(player, tile) => {
-                if *(orientations
-                    .get(*player)
-                    .expect("Should only pass valid players"))
-                    == Direction::North
-                {
-                    Self::flip(tile).to_string()
-                } else {
-                    tile.to_string()
-                }
-            }
-        }
-    }
-
-    fn flip(character: &char) -> char {
-        const FLIPPED: [char; 26] = [
-            // TODO: does this recompute every time, or is it created at compile time since it's a const?
-            '∀', 'ꓭ', 'Ͻ', 'ᗡ', 'Ǝ', 'ᖵ', '⅁', 'H', 'I', 'ᒋ', 'ꓘ', '⅂', 'ꟽ', 'N', 'O', 'Ԁ', 'Ꝺ',
-            'ꓤ', 'S', 'ꓕ', 'Ո', 'Ʌ', 'Ϻ', 'X', '⅄', 'Z',
-        ];
-        FLIPPED[(*character as usize) - 65]
     }
 }
 
@@ -875,10 +936,10 @@ pub mod tests {
     #[test]
     fn getset_handles_empty_squares() {
         let mut b = Board::new(2, 1, false); // Note, height is 3 from home rows
-        assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Empty));
-        assert_eq!(b.get(Coordinate { x: 0, y: 1 }), Ok(Square::Empty));
-        assert_eq!(b.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
-        assert_eq!(b.get(Coordinate { x: 1, y: 2 }), Ok(Square::Empty));
+        assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Land));
+        assert_eq!(b.get(Coordinate { x: 0, y: 1 }), Ok(Square::Land));
+        assert_eq!(b.get(Coordinate { x: 1, y: 1 }), Ok(Square::Land));
+        assert_eq!(b.get(Coordinate { x: 1, y: 2 }), Ok(Square::Land));
 
         assert_eq!(
             b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
@@ -944,7 +1005,7 @@ pub mod tests {
     #[test]
     fn set_changes_get() {
         let mut b = Board::new(1, 1, false); // Note, height is 3 from home rows
-        assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Empty));
+        assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Land));
         assert_eq!(
             b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
             Ok(BoardChangeDetail {
@@ -1023,29 +1084,29 @@ pub mod tests {
             // TODO: should we allow you to find neighbours of an invalid square?
             b.neighbouring_squares(Coordinate { x: 0, y: 0 }),
             [
-                (Coordinate { x: 1, y: 0 }, Square::Empty),
-                (Coordinate { x: 0, y: 1 }, Square::Empty),
+                (Coordinate { x: 1, y: 0 }, Square::Land),
+                (Coordinate { x: 0, y: 1 }, Square::Land),
             ]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 0 }),
-            [(Coordinate { x: 1, y: 1 }, Square::Empty),]
+            [(Coordinate { x: 1, y: 1 }, Square::Land),]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 2 }),
             [
-                (Coordinate { x: 1, y: 1 }, Square::Empty),
-                (Coordinate { x: 2, y: 2 }, Square::Empty),
-                (Coordinate { x: 1, y: 3 }, Square::Empty),
-                (Coordinate { x: 0, y: 2 }, Square::Empty),
+                (Coordinate { x: 1, y: 1 }, Square::Land),
+                (Coordinate { x: 2, y: 2 }, Square::Land),
+                (Coordinate { x: 1, y: 3 }, Square::Land),
+                (Coordinate { x: 0, y: 2 }, Square::Land),
             ]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 4 }),
-            [(Coordinate { x: 1, y: 3 }, Square::Empty),]
+            [(Coordinate { x: 1, y: 3 }, Square::Land),]
         );
     }
 
@@ -1279,52 +1340,6 @@ pub mod tests {
         }
     }
 
-    #[test]
-    fn get_near_edge() {
-        let b = Board::new(3, 1, false);
-        assert_eq!(
-            b.get_near_edge(Direction::North),
-            vec![
-                Coordinate { x: 0, y: 1 },
-                Coordinate { x: 1, y: 1 },
-                Coordinate { x: 2, y: 1 }
-            ]
-        );
-
-        assert_eq!(
-            b.get_near_edge(Direction::South),
-            vec![
-                Coordinate { x: 0, y: 1 },
-                Coordinate { x: 1, y: 1 },
-                Coordinate { x: 2, y: 1 }
-            ]
-        );
-        assert_eq!(
-            b.get_near_edge(Direction::East),
-            vec![
-                Coordinate { y: 0, x: 1 },
-                Coordinate { y: 1, x: 1 },
-                Coordinate { y: 2, x: 1 }
-            ]
-        );
-
-        assert_eq!(
-            b.get_near_edge(Direction::West),
-            vec![
-                Coordinate { y: 0, x: 1 },
-                Coordinate { y: 1, x: 1 },
-                Coordinate { y: 2, x: 1 }
-            ]
-        );
-    }
-
-    #[test]
-    fn flipped() {
-        assert_eq!(Square::flip(&'A'), '∀');
-        assert_eq!(Square::flip(&'J'), 'ᒋ');
-        assert_eq!(Square::flip(&'Z'), 'Z');
-    }
-
     pub fn from_string<'a>(
         s: String,
         roots: Vec<Coordinate>,
@@ -1335,7 +1350,7 @@ pub mod tests {
         }
 
         // Transform string into a board
-        let mut squares: Vec<Vec<Option<Square>>> = vec![];
+        let mut squares: Vec<Vec<Square>> = vec![];
         for line in s.split('\n') {
             if line.chars().skip(1).step_by(2).any(|letter| letter != ' ') {
                 return Err("board strings should have spaces to separate each tile");
@@ -1345,9 +1360,9 @@ pub mod tests {
                 line.chars()
                     .step_by(2)
                     .map(|letter| match letter {
-                        ' ' => None,
-                        '_' => Some(Square::Empty),
-                        letter => Some(Square::Occupied(0, letter)),
+                        '~' => Square::Water,
+                        '_' => Square::Land,
+                        letter => Square::Occupied(0, letter),
                     })
                     .collect(),
             );
@@ -1367,6 +1382,7 @@ pub mod tests {
         let mut board = Board {
             roots,
             squares,
+            towns: vec![],
             orientations,
         };
         for (player, root) in r.iter().enumerate() {
@@ -1461,7 +1477,7 @@ pub mod tests {
             Err(GamePlayError::InvalidPosition { position: hole })
         );
         assert_eq!(donut.get(dangling), Ok(Square::Occupied(0, 'D')));
-        assert_eq!(donut.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
+        assert_eq!(donut.get(Coordinate { x: 1, y: 1 }), Ok(Square::Land));
 
         // Complex trees
         let player_1 = [

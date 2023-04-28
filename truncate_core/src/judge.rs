@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    error::GamePlayError,
     reporting::{BattleReport, BattleWord},
     rules,
 };
@@ -68,19 +69,40 @@ impl Judge {
         Self { dictionary }
     }
 
-    // A player wins if they reach the opposite side of the board
+    // A player wins if they touch an opponent's town
     // TODO: accept a config that chooses between different win conditions, like occupying enough quadrants
     // TODO: error (or possibly return a tie) if there are multiple winners - this assume turn based play
     // TODO: put this somewhere better, it conceptually works as a judge associated function, but it only uses values from the board
     pub fn winner(board: &Board) -> Option<usize> {
-        for (potential_winner, orientation) in board.get_orientations().iter().enumerate() {
-            for coordinate in board.get_near_edge(orientation.opposite()) {
-                if let Ok(Square::Occupied(occupier, _)) = board.get(coordinate) {
-                    if potential_winner == occupier {
-                        return Some(potential_winner);
-                    }
-                }
-            }
+        let win_squares = board
+            .towns()
+            .map(|town_coord| {
+                let Ok(Square::Town(owner)) = board.get(*town_coord) else {
+                panic!("The list of towns on the board should match valid squares");
+            };
+
+                (
+                    owner,
+                    town_coord
+                        .neighbors_4()
+                        .iter()
+                        .map(|win_coord| board.get(*win_coord))
+                        .flatten()
+                        .filter_map(|square| match square {
+                            Square::Occupied(tile_owner, _) if tile_owner != owner => {
+                                Some(tile_owner)
+                            }
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .filter(|(_, winning_squares)| !winning_squares.is_empty())
+            .collect::<Vec<_>>();
+
+        // TODO: Handle multiple entries in this array
+        if let Some((losing_town, winning_tiles)) = win_squares.first() {
+            return winning_tiles.first().cloned();
         }
         None
     }

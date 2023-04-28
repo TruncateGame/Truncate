@@ -15,6 +15,12 @@ pub enum BGTexType {
     Water,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum FGTexType {
+    Town,
+    Dock,
+}
+
 // TODO: Generate this impl with codegen from aseprite
 impl Tex {
     const fn index(tile: usize) -> Self {
@@ -66,6 +72,12 @@ impl Tex {
     pub const TILE_SE: Self = Tex::index(55);
     pub const TILE_SW: Self = Tex::index(56);
 
+    // Highlight rings for tiles
+    pub const HIGHLIGHT_NW: Self = Tex::index(65);
+    pub const HIGHLIGHT_NE: Self = Tex::index(66);
+    pub const HIGHLIGHT_SE: Self = Tex::index(68);
+    pub const HIGHLIGHT_SW: Self = Tex::index(67);
+
     // Grass cover over tiles
     pub const TILE_SE_GRASS1: Self = Tex::index(58);
     pub const TILE_SE_GRASS2: Self = Tex::index(60);
@@ -77,10 +89,17 @@ impl Tex {
     pub const TILE_SW_GRASS3: Self = Tex::index(61);
     pub const TILE_SW_GRASS4: Self = Tex::index(63);
 
-    pub const HIGHLIGHT_NW: Self = Tex::index(65);
-    pub const HIGHLIGHT_NE: Self = Tex::index(66);
-    pub const HIGHLIGHT_SE: Self = Tex::index(68);
-    pub const HIGHLIGHT_SW: Self = Tex::index(67);
+    // HOUSES
+    pub const HOUSE1: Self = Tex::index(36);
+    pub const HOUSE2: Self = Tex::index(37);
+    pub const HOUSE3: Self = Tex::index(38);
+    pub const HOUSE4: Self = Tex::index(39);
+
+    // ROOFS
+    pub const ROOF1: Self = Tex::index(32);
+    pub const ROOF2: Self = Tex::index(33);
+    pub const ROOF3: Self = Tex::index(34);
+    pub const ROOF4: Self = Tex::index(35);
 }
 
 impl Tex {
@@ -148,10 +167,15 @@ impl Tex {
 
     /// Determine the tiles to use based on a given square and its neighbors,
     /// provided clockwise from northwest.
-    pub fn resolve_bg_tex(tex_type: BGTexType, neighbors: Vec<BGTexType>, seed: usize) -> TexQuad {
+    pub fn resolve_bg_tex(
+        base_type: BGTexType,
+        layer_type: Option<FGTexType>,
+        neighbors: Vec<BGTexType>,
+        seed: usize,
+    ) -> Vec<TexQuad> {
         debug_assert_eq!(neighbors.len(), 8);
         if neighbors.len() != 8 {
-            return [Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG];
+            return vec![[Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]];
         }
 
         let rand_grass = |mut n: usize| {
@@ -168,7 +192,7 @@ impl Tex {
         };
 
         use BGTexType::*;
-        let top_left = match tex_type {
+        let top_left = match base_type {
             Land => rand_grass(seed),
             Water => match (neighbors[7], neighbors[0], neighbors[1]) {
                 (Land, Land | Water, Land) => Self::LAND_N_W,
@@ -179,7 +203,7 @@ impl Tex {
             },
         };
 
-        let top_right = match tex_type {
+        let top_right = match base_type {
             Land => rand_grass(seed + 1),
             Water => match (neighbors[1], neighbors[2], neighbors[3]) {
                 (Land, Land | Water, Land) => Self::LAND_N_E,
@@ -190,7 +214,7 @@ impl Tex {
             },
         };
 
-        let bottom_right = match tex_type {
+        let bottom_right = match base_type {
             Land => rand_grass(seed + 2),
             Water => match (neighbors[3], neighbors[4], neighbors[5]) {
                 (Land, Land | Water, Land) => Self::LAND_S_E,
@@ -201,7 +225,7 @@ impl Tex {
             },
         };
 
-        let bottom_left = match tex_type {
+        let bottom_left = match base_type {
             Land => rand_grass(seed + 3),
             Water => match (neighbors[5], neighbors[6], neighbors[7]) {
                 (Land, Land | Water, Land) => Self::LAND_S_W,
@@ -212,7 +236,18 @@ impl Tex {
             },
         };
 
-        [top_left, top_right, bottom_right, bottom_left]
+        let mut texs = vec![[top_left, top_right, bottom_right, bottom_left]];
+
+        if let Some(layer) = layer_type {
+            match layer {
+                FGTexType::Town => {
+                    texs.push([Self::HOUSE1, Self::HOUSE2, Self::HOUSE3, Self::HOUSE4])
+                }
+                FGTexType::Dock => texs.push([Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]),
+            }
+        }
+
+        texs
     }
 
     pub fn resolve_landscaping_tex(adding: bool) -> TexQuad {
@@ -276,5 +311,16 @@ pub fn render_tex_quad(texs: TexQuad, rect: Rect, map_texture: &TextureHandle, u
         .zip([vec2(-ts, -ts), vec2(ts, -ts), vec2(ts, ts), vec2(-ts, ts)].into_iter())
     {
         tex.render(map_texture.id(), tile_rect.translate(translate), ui);
+    }
+}
+
+pub fn render_tex_quads(
+    texs: &[TexQuad],
+    rect: Rect,
+    map_texture: &TextureHandle,
+    ui: &mut egui::Ui,
+) {
+    for tex in texs.iter() {
+        render_tex_quad(*tex, rect, map_texture, ui);
     }
 }

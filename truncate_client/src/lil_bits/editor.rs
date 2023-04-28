@@ -1,4 +1,4 @@
-use epaint::{TextureHandle, TextureId};
+use epaint::TextureHandle;
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -57,7 +57,6 @@ impl<'a> EditorUI<'a> {
         let outer_frame = egui::Frame::none().inner_margin(Margin::symmetric(0.0, theme.grid_size));
 
         let mut modify_pos = None;
-        let mut modify_root = None;
         let editor_rect = outer_frame
             .show(ui, |ui| {
                 let frame = egui::Frame::none().inner_margin(Margin::same(theme.grid_size));
@@ -67,11 +66,9 @@ impl<'a> EditorUI<'a> {
                             ui.horizontal(|ui| {
                                 for (colnum, square) in row.iter().enumerate() {
                                     let coord = Coordinate::new(colnum, rownum);
-                                    let is_root = self.board.roots.iter().position(|r| r == &coord);
 
                                     let response = EditorSquareUI::new(coord)
-                                        .enabled(square.is_some())
-                                        .root(is_root.is_some())
+                                        .enabled(matches!(square, Square::Land | Square::Town(_)))
                                         .render(ui, &theme, self.mapped_board, &map_texture);
 
                                     if ui.rect_contains_pointer(response.rect) {
@@ -86,16 +83,14 @@ impl<'a> EditorUI<'a> {
                                         });
 
                                         match (drag_action, &square) {
-                                            (Some(EditorDrag::Enabling), None) => {
-                                                modify_pos = Some((coord, Some(Square::Empty)));
+                                            (Some(EditorDrag::Enabling), Square::Water) => {
+                                                modify_pos = Some((coord, Square::Land));
                                             }
-                                            (Some(EditorDrag::Disabling), Some(_)) => {
-                                                modify_pos = Some((coord, None));
+                                            (Some(EditorDrag::Disabling), Square::Land) => {
+                                                modify_pos = Some((coord, Square::Water));
                                             }
                                             (Some(EditorDrag::MovingRoot(root)), _) => {
-                                                if is_root.is_none() {
-                                                    modify_root = Some((root, coord));
-                                                }
+                                                modify_pos = Some((coord, Square::Dock(root)));
                                             }
                                             _ => {}
                                         }
@@ -104,12 +99,16 @@ impl<'a> EditorUI<'a> {
                                         ui.ctx().memory_mut(|mem| {
                                             mem.data.insert_temp(
                                                 Id::null(),
-                                                if let Some(root) = is_root {
-                                                    EditorDrag::MovingRoot(root)
-                                                } else if square.is_some() {
-                                                    EditorDrag::Disabling
-                                                } else {
-                                                    EditorDrag::Enabling
+                                                match square {
+                                                    Square::Water => EditorDrag::Enabling,
+                                                    Square::Land => EditorDrag::Disabling,
+                                                    Square::Town(_) => EditorDrag::Enabling, // TODO
+                                                    Square::Dock(root) => {
+                                                        EditorDrag::MovingRoot(*root)
+                                                    }
+                                                    Square::Occupied(_, _) => unreachable!(
+                                                        "Board editor shouldn't see occupied tiles"
+                                                    ),
                                                 },
                                             )
                                         });
@@ -122,10 +121,18 @@ impl<'a> EditorUI<'a> {
                                             mem.data.remove::<EditorDrag>(Id::null())
                                         });
                                     } else if response.clicked() {
-                                        if square.is_some() {
-                                            modify_pos = Some((coord, None));
-                                        } else {
-                                            modify_pos = Some((coord, Some(Square::Empty)));
+                                        match square {
+                                            Square::Water => {
+                                                modify_pos = Some((coord, Square::Land))
+                                            }
+                                            Square::Land => {
+                                                modify_pos = Some((coord, Square::Water))
+                                            }
+                                            Square::Town(_) => {} // TODO
+                                            Square::Dock(_) => {} // TODO
+                                            Square::Occupied(_, _) => unreachable!(
+                                                "Board editor shouldn't see occupied tiles"
+                                            ),
                                         }
                                     };
                                 }
@@ -140,10 +147,6 @@ impl<'a> EditorUI<'a> {
         if let Some((coord, new_state)) = modify_pos {
             // Not bounds-checking values as they came from the above loop over this very state.
             self.board.squares[coord.y][coord.x] = new_state;
-            edited = true;
-        }
-        if let Some((root, coord)) = modify_root {
-            self.board.roots[root] = coord;
             edited = true;
         }
 
