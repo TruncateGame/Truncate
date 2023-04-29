@@ -1,0 +1,12 @@
+{
+  "name": "truncate_landing_page",
+  "private": true,
+  "scripts": {
+    "start": "eleventy --serve",
+    "build": "eleventy"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "^2.0.1",
+    "subset-font": "^2.1.0"
+  }
+}
