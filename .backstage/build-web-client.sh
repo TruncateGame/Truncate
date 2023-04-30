@@ -50,3 +50,7 @@ if [[ "${OPTIMIZE}" = true ]]; then
 fi
 
 echo "Finished web_client/src/static/${CRATE_NAME}_bg.wasm"
+
+(cd web_client/src && npm i && npm run build)
+
+echo "Finished building Eleventy site"

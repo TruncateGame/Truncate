@@ -46,6 +46,6 @@ RUN mkdir /app
 WORKDIR /app
 
 ADD Caddyfile /app
-COPY --from=build /app/web_client /app/web_client
+COPY --from=build /app/web_client/src/_site /app/web_client
 
 CMD caddy run
