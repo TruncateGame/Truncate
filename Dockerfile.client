@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
     binaryen \
     jq
 
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+RUN apt-get install -y nodejs
+
 RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 RUN cargo install -f wasm-bindgen-cli
 RUN rustup target add wasm32-unknown-unknown
