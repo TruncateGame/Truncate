@@ -46,7 +46,7 @@ fn main() {
         options,
         Box::new(move |cc| {
             tx_context.send(cc.egui_ctx.clone()).unwrap();
-            Box::new(GameClient::new(cc, rx_game, tx_player))
+            Box::new(GameClient::new(cc, rx_game, tx_player, None))
         }),
     )
     .unwrap();

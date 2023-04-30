@@ -27,6 +27,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         tx_player,
         frame_history: _,
         map_texture,
+        launched_room,
     } = client;
 
     let mut send = |msg| {
@@ -37,6 +38,32 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
         Ok(Some(msg)) => Ok(msg),
         _ => Err(()),
     };
+
+    let mut new_game_status = None;
+
+    if let Some(launched_room) = launched_room.take() {
+        if launched_room == "__REJOIN__" {
+            match game_status {
+                GameStatus::None(_, Some(token)) => {
+                    send(PlayerMessage::RejoinGame(token.to_string()));
+                    new_game_status = Some(GameStatus::PendingJoin("...".into()));
+                }
+                _ => {
+                    panic!("Tried to rejoin a game but no token found in localStorage");
+                }
+            }
+        } else if launched_room.is_empty() {
+            // No room code means we start a new game.
+            send(PlayerMessage::NewGame(name.clone()));
+            new_game_status = Some(GameStatus::PendingCreate);
+        } else {
+            send(PlayerMessage::JoinGame(
+                launched_room.clone(),
+                "Player X".into(),
+            ));
+            new_game_status = Some(GameStatus::PendingJoin(launched_room));
+        }
+    }
 
     ui.horizontal(|ui| {
         if option_env!("TR_PROD").is_none() {
@@ -64,7 +91,6 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
 
     ui.separator();
 
-    let mut new_game_status = None;
     match game_status {
         GameStatus::None(room_code, token) => {
             if ui.button("New Game").clicked() {
@@ -183,7 +209,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                         game.ctx.next_player_number = next_player_number;
 
                         #[cfg(target_arch = "wasm32")]
-                        if game.next_player_number == game.player_number {
+                        if game.ctx.next_player_number == game.ctx.player_number {
                             use eframe::wasm_bindgen::JsCast;
 
                             let window = web_sys::window().expect("window should exist in browser");

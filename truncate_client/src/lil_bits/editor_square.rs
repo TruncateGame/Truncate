@@ -1,5 +1,5 @@
 use eframe::egui::{self};
-use epaint::TextureHandle;
+use epaint::{hex_color, Stroke, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::theming::mapper::MappedBoard;
@@ -51,6 +51,14 @@ impl EditorSquareUI {
                 }
             }
         }
+        if self.enabled {
+            ui.painter().rect_stroke(
+                rect.shrink(theme.tile_margin),
+                theme.rounding,
+                Stroke::new(1.0, hex_color!("ffffff01")),
+            );
+        }
+
         response
     }
 }

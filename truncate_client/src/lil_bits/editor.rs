@@ -67,7 +67,7 @@ impl<'a> EditorUI<'a> {
                                 let coord = Coordinate::new(colnum, rownum);
 
                                 let response = EditorSquareUI::new(coord)
-                                    .enabled(matches!(square, Square::Land | Square::Town(_)))
+                                    .enabled(matches!(square, Square::Land))
                                     .render(ui, &theme, self.mapped_board, &map_texture);
 
                                 if ui.rect_contains_pointer(response.rect) {

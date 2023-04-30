@@ -17,10 +17,16 @@ pub struct GameClient {
     pub tx_player: S,
     pub frame_history: debug::FrameHistory,
     pub map_texture: TextureHandle,
+    pub launched_room: Option<String>,
 }
 
 impl GameClient {
-    pub fn new(cc: &eframe::CreationContext<'_>, rx_game: R, tx_player: S) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        rx_game: R,
+        tx_player: S,
+        room_code: Option<String>,
+    ) -> Self {
         let mut fonts = egui::FontDefinitions::default();
 
         fonts.font_data.insert(
@@ -71,6 +77,7 @@ impl GameClient {
             tx_player,
             frame_history: Default::default(),
             map_texture: load_map_texture(&cc.egui_ctx),
+            launched_room: room_code,
         }
     }
 }

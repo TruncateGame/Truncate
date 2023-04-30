@@ -2,9 +2,12 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Disable zooming: -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg width='318' height='320' viewBox='0 0 318 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 300H268V290H278V280H288V260H298V240H288V260H278V270H258V280H60V270H40V260H30V240H20V260H30V280H40V290H50V300Z' fill='%23ADADAD'/%3E%3Cpath d='M60 20V30H40V40H30V60H20V240H30V260H40V270H60V280H258V270H278V260H288V240H298V60H288V40H278V30H258V20H60Z' fill='white'/%3E%3Cpath d='M135.75 230.75V91.25H89.25V68H228.75V91.25H182.25V230.75H135.75Z' fill='black'/%3E%3C/svg%3E%0A" />
     <title>Truncate</title>
     <style>
         :root {
@@ -20,12 +23,18 @@
             box-sizing: border-box;
         }
 
+        html {
+            /* Remove touch delay: */
+            touch-action: manipulation;
+        }
+
         html,
         body {
+            overflow: hidden;
+            margin: 0 !important;
+            padding: 0 !important;
             width: 100%;
             height: 100%;
-            margin: 0;
-            padding: 0;
             font-family: Truncate;
         }
 
@@ -36,11 +45,20 @@
             transform: scale(0.5);
             transform-origin: top left;
             background-color: var(--water);
+            z-index: 1;
+        }
+
+        #truncate_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: top left;
+            background-color: var(--water);
             z-index: 0;
         }
 
         #controls {
-            z-index: 1;
+            z-index: 2;
             position: absolute;
             top: 0;
             left: 0;
@@ -88,7 +106,7 @@
             cursor: pointer;
             border-radius: 4px 4px 6px 6px;
             border-bottom: solid 2px #b9b9b9bb;
-            z-index: 2;
+            z-index: 3;
             transition: transform .1s ease-in;
         }
 
@@ -100,7 +118,7 @@
             font-size: clamp(10px, 2vw, 14px);
             padding: 11px 10px;
             border-radius: 4px;
-            z-index: 2;
+            z-index: 3;
             min-width: 200px;
             text-transform: uppercase;
         }
@@ -142,11 +160,25 @@
         [data-control-stage="new"] [data-stage="new"] {
             display: flex !important;
         }
+
+        [data-control-stage="error"] [data-stage="error"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="loading"] [data-stage="loading"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="rejoin"] [data-stage="rejoin"] {
+            display: flex !important;
+        }
     </style>
 </head>
 
 <body>
     <canvas id="splash"></canvas>
+    <canvas id="truncate_canvas"></canvas>
+
     <div id="controls" data-control-stage="root">
         <button data-stage="root" data-control="to_new_game">NEW GAME</button>
         <button data-stage="root" data-control="to_join_game">JOIN GAME</button>
@@ -162,6 +194,14 @@
             </div>
         </div>
 
+        <div class="sub" data-stage="rejoin">
+            <div class="split">
+                <button data-control="rejoin" class="fill">REJOIN ACTIVE GAME</button>
+                <button type="button" data-control="cancel_rejoin" class="thin"
+                    aria-label="Cancel rejoining recent game">X</button>
+            </div>
+        </div>
+
         <form class="sub" data-stage="join" action="javascript:void(0);">
             <div class="split">
                 <input data-control="room_code" aria-label="Room code of an existing Truncate game" type="text"
@@ -173,10 +213,82 @@
                     aria-label="Cancel join game selection">X</button>
             </div>
         </form>
+
+        <p data-stage="error">An error occurred loading Truncate</p>
+        <p data-stage="loading">Loading...</p>
     </div>
 
+    <audio id="tr_move" src="/static/move.mp3"></audio>
+
+    <script defer src="static/truncate_client.js"></script>
     <script>
         (function () {
+            const stage = (s) => controls.setAttribute("data-control-stage", s);
+            const control = (t) => document.querySelector(`[data-control="${t}"]`);
+
+            class TruncateRunner {
+                constructor() {
+                    this.errored = false;
+                    this.started = false;
+                    this.startFn = null;
+                    this.pendingCreate = null;
+                    this.pendingJoin = null;
+                    this.pendingRejoin = null;
+                }
+
+                make_ready(startFn) {
+                    this.startFn = startFn;
+                    this.try_start();
+                }
+
+                error(e) {
+                    this.errored = e;
+                    stage("error");
+                }
+
+                create_game() {
+                    this.pendingCreate = true;
+                    this.try_start();
+                }
+
+                join_game(code) {
+                    this.pendingJoin = code;
+                    this.try_start();
+                }
+
+                rejoin_game() {
+                    this.pendingRejoin = true;
+                    this.try_start();
+                }
+
+                try_start() {
+                    if (this.errored) return;
+                    if (!this.startFn) {
+                        stage("loading");
+                        return;
+                    };
+
+                    if (this.pendingRejoin) {
+                        this.startFn("__REJOIN__");
+                        this.register_start();
+                    } else if (this.pendingJoin && this.pendingJoin.length) {
+                        this.startFn(this.pendingJoin);
+                        this.register_start();
+                    } else if (this.pendingCreate) {
+                        this.startFn();
+                        this.register_start();
+                    }
+                }
+
+                register_start() {
+                    this.started = true;
+                    document.querySelector("#splash").style.display = "none";
+                    document.querySelector("#controls").style.display = "none";
+                    document.querySelector("#truncate_canvas").style.zIndex = "999";
+                }
+            }
+            const truncate_runner = new TruncateRunner();
+
             {% include "noise.js" %}
             const islander = get_islander();
             islander.seed(Math.random());
@@ -464,14 +576,26 @@
                 })
             };
 
-            const stage = (s) => controls.setAttribute("data-control-stage", s);
-            const control = (t) => document.querySelector(`[data-control="${t}"]`);
+            const existing_game_token = window.localStorage.getItem("truncate_active_token");
+            if (existing_game_token) {
+                stage("rejoin");
+            }
+
+            control("rejoin").addEventListener("click", e => {
+                truncate_runner.rejoin_game();
+            });
+            control("cancel_rejoin").addEventListener("click", e => {
+                stage("root");
+            });
 
             control("to_new_game").addEventListener("click", e => {
                 stage("new");
             });
             control("cancel_new").addEventListener("click", e => {
                 stage("root");
+            });
+            control("new_game").addEventListener("click", e => {
+                truncate_runner.create_game();
             });
             control("to_join_game").addEventListener("click", e => {
                 stage("join");
@@ -495,10 +619,48 @@
                     }, 500);
                     return;
                 }
-                const url = new URL(window.location);
-                url.pathname = room.toUpperCase();
-                window.location = url;
+
+                truncate_runner.join_game(room);
+
+                // HA code path:
+                // const url = new URL(window.location);
+                // url.pathname = room.toUpperCase();
+                // window.location = url;
             });
+
+            (async function () {
+                while (typeof wasm_bindgen === "undefined") {
+                    await new Promise(r => setTimeout(r, 100));
+                }
+
+                wasm_bindgen("./static/truncate_client_bg.wasm")
+                    .then(on_wasm_loaded)
+                    .catch(on_wasm_error);
+
+                function on_wasm_loaded() {
+                    console.debug("Loaded Truncate webassembly");
+                    const default_server = window.location.host.includes("outpost") ? "wss://coup.truncate.town" : "wss://citadel.truncate.town";
+                    const local_server = window.location.host.includes("localhost") ? "ws://0.0.0.0:8080" : null;
+                    const server = new URLSearchParams(window.location.search).get("server") ?? local_server ?? default_server;
+
+                    if (server) {
+                        console.debug(`Connecting to the server ${server}`);
+                    } else {
+                        console.debug("Connecting to the builtin server");
+                    }
+
+                    truncate_runner.startFn = (room_code) => {
+                        window.__truncate_handle = wasm_bindgen.start("truncate_canvas", server, room_code ?? "");
+                    }
+
+                    console.debug("Truncate game initialized");
+                }
+
+                function on_wasm_error(error) {
+                    console.error("Failed to start: " + error);
+                    truncate_runner.error(error);
+                }
+            })();
         })();
     </script>
 </body>

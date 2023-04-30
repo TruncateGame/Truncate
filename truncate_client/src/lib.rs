@@ -55,6 +55,7 @@ pub fn init_wasm_hooks() {
 pub async fn start_separate(
     canvas_id: &str,
     server_url: &str,
+    room_code: String,
 ) -> Result<WebHandle, wasm_bindgen::JsValue> {
     let web_options = eframe::WebOptions::default();
 
@@ -81,7 +82,7 @@ pub async fn start_separate(
         web_options,
         Box::new(|cc| {
             tx_context.send(cc.egui_ctx.clone()).unwrap();
-            Box::new(GameClient::new(cc, rx_game, tx_player))
+            Box::new(GameClient::new(cc, rx_game, tx_player, Some(room_code)))
         }),
     )
     .await
@@ -94,7 +95,11 @@ pub async fn start_separate(
 /// You can add more callbacks like this if you want to call in to your code.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn start(canvas_id: &str, server_url: &str) -> Result<WebHandle, wasm_bindgen::JsValue> {
+pub async fn start(
+    canvas_id: &str,
+    server_url: &str,
+    room_code: &str,
+) -> Result<WebHandle, wasm_bindgen::JsValue> {
     use web_sys::console;
 
     init_wasm_hooks();
@@ -109,5 +114,5 @@ pub async fn start(canvas_id: &str, server_url: &str) -> Result<WebHandle, wasm_
         console::log_1(&format!("No tagged git commit for current release.").into());
     }
 
-    start_separate(canvas_id, server_url).await
+    start_separate(canvas_id, server_url, room_code.to_string()).await
 }
