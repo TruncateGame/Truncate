@@ -6,4 +6,3 @@ kaikki*
 node_modules
 word_definitions/package-lock.json
 truncate_client/img/package-lock.json
-_site
