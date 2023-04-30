@@ -51,10 +51,31 @@
             justify-content: space-around;
         }
 
+        @media (max-width: 900px) {
+            #controls {
+                justify-content: space-between;
+                align-items: flex-start;
+            }
+        }
+
         #controls .sub {
             display: flex;
             gap: 10px;
         }
+
+        @media (max-width: 900px) {
+            #controls .sub {
+                flex: 1;
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        #controls .split {
+            display: flex;
+            gap: 10px;
+        }
+
 
         #controls button {
             position: relative;
@@ -84,8 +105,20 @@
             text-transform: uppercase;
         }
 
+        @media (max-width: 900px) {
+            #controls input {
+                width: 100%;
+            }
+        }
+
         #controls button.thin {
             padding: 10px 15px;
+        }
+
+        @media (max-width: 900px) {
+            #controls button.fill {
+                flex: 1;
+            }
         }
 
         #controls button:hover {
@@ -118,17 +151,27 @@
         <button data-stage="root" data-control="to_new_game">NEW GAME</button>
         <button data-stage="root" data-control="to_join_game">JOIN GAME</button>
 
-        <button data-stage="new" data-control="tutorial">TUTORIAL</button>
-        <button data-stage="new" data-control="new_game">CREATE ROOM</button>
-        <button data-stage="new" type="button" data-control="cancel_new" class="thin"
-            aria-label="Cancel new game selection">X</button>
+        <div class="sub" data-stage="new">
+            <div class="split">
+                <button data-control="tutorial" class="fill">TUTORIAL</button>
+            </div>
+            <div class="split">
+                <button data-control="new_game" class="fill">CREATE GAME</button>
+                <button type="button" data-control="cancel_new" class="thin"
+                    aria-label="Cancel new game selection">X</button>
+            </div>
+        </div>
 
         <form class="sub" data-stage="join" action="javascript:void(0);">
-            <input data-control="room_code" aria-label="Room code of an existing Truncate game" type="text"
-                placeholder="ROOM CODE" />
-            <button type="submit" data-control="join_game">JOIN</button>
-            <button type="button" data-control="cancel_join" class="thin"
-                aria-label="Cancel join game selection">X</button>
+            <div class="split">
+                <input data-control="room_code" aria-label="Room code of an existing Truncate game" type="text"
+                    placeholder="ROOM CODE" />
+            </div>
+            <div class="split">
+                <button type="submit" data-control="join_game" class="fill">JOIN</button>
+                <button type="button" data-control="cancel_join" class="thin"
+                    aria-label="Cancel join game selection">X</button>
+            </div>
         </form>
     </div>
 
@@ -288,10 +331,12 @@
             const canvas = document.getElementById("splash");
             const controls = document.getElementById("controls");
             let output_size, midpoint;
+            let mobile = false;
 
             const refit = () => {
                 canvas.width = document.body.clientWidth * 2;
                 canvas.height = document.body.clientHeight * 2;
+                mobile = document.body.clientWidth < 900;
 
                 const calc_output = () => {
                     let size = canvas.width / 20;
@@ -494,10 +539,11 @@
                         };
 
                         // Clear space around text
+                        const space_below = mobile ? 3 : 1;
                         if (tile_data.x >= metrics.x - logical_tile_size
                             && tile_data.x < metrics.x + metrics.name_width + logical_tile_size
                             && tile_data.y >= metrics.y - logical_tile_size
-                            && tile_data.y < metrics.y + logical_tile_size * 3) {
+                            && tile_data.y < metrics.y + logical_tile_size * (2 + space_below)) {
                             tile_data.island = false;
                             tile_data.empty = true;
                         }
@@ -543,7 +589,7 @@
 
                 controls.style.left = `${screen_x}px`;
                 controls.style.top = `${screen_y + screen_tile * 3}px`;
-                controls.style.height = `${screen_tile * 2}px`;
+                controls.style.height = `${screen_tile * (mobile ? 5 : 2)}px`;
                 controls.style.width = `${metrics.name_width / 2}px`;
             }
 
