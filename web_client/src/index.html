@@ -16,13 +16,17 @@
             src: url({{assets.font}});
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
         html,
         body {
             width: 100%;
             height: 100%;
             margin: 0;
             padding: 0;
-            font-family: sans-serif;
+            font-family: Truncate;
         }
 
         #splash {
@@ -32,16 +36,120 @@
             transform: scale(0.5);
             transform-origin: top left;
             background-color: var(--water);
+            z-index: 0;
+        }
+
+        #controls {
+            z-index: 1;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 400px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        #controls .sub {
+            display: flex;
+            gap: 10px;
+        }
+
+        #controls button {
+            position: relative;
+            appearance: none;
+            border: 0;
+            background-color: #ffffffbb;
+            font-family: Truncate;
+            font-size: clamp(10px, 2vw, 14px);
+            padding: 10px clamp(15px, 4vw, 40px);
+            cursor: pointer;
+            border-radius: 4px 4px 6px 6px;
+            border-bottom: solid 2px #b9b9b9bb;
+            z-index: 2;
+            transition: transform .1s ease-in;
+        }
+
+        #controls input {
+            appearance: none;
+            border: 0;
+            background-color: #ffffffbb;
+            font-family: Truncate;
+            font-size: clamp(10px, 2vw, 14px);
+            padding: 11px 10px;
+            border-radius: 4px;
+            z-index: 2;
+            min-width: 200px;
+            text-transform: uppercase;
+        }
+
+        #controls button.thin {
+            padding: 10px 15px;
+        }
+
+        #controls button:hover {
+            background-color: #ffffffff;
+            border-bottom: solid 2px #b9b9b9ff;
+            transform: translateY(-2px);
+        }
+
+        [data-stage] {
+            display: none !important;
+        }
+
+        [data-control-stage="root"] [data-stage="root"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="join"] [data-stage="join"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="new"] [data-stage="new"] {
+            display: flex !important;
         }
     </style>
 </head>
 
 <body>
     <canvas id="splash"></canvas>
+    <div id="controls" data-control-stage="root">
+        <button data-stage="root" data-control="to_new_game">NEW GAME</button>
+        <button data-stage="root" data-control="to_join_game">JOIN GAME</button>
+
+        <button data-stage="new" data-control="tutorial">TUTORIAL</button>
+        <button data-stage="new" data-control="new_game">CREATE ROOM</button>
+        <button data-stage="new" type="button" data-control="cancel_new" class="thin"
+            aria-label="Cancel new game selection">X</button>
+
+        <form class="sub" data-stage="join" action="javascript:void(0);">
+            <input data-control="room_code" aria-label="Room code of an existing Truncate game" type="text"
+                placeholder="ROOM CODE" />
+            <button type="submit" data-control="join_game">JOIN</button>
+            <button type="button" data-control="cancel_join" class="thin"
+                aria-label="Cancel join game selection">X</button>
+        </form>
+    </div>
 
     <script>
         (function () {
+            {% include "noise.js" %}
+            const islander = get_islander();
+            islander.seed(Math.random());
+
+            const island_threshold = 0.4;
+            const town_threshold = 0.4;
+            const dock_neg_threshold = -0.7;
+
+            const TILES = JSON.parse(`{{ tiles | json }}`);
+            const TILEPACKS = {
+                GRASSES: [TILES.GRASS1, TILES.GRASS2, TILES.GRASS3, TILES.GRASS4],
+                HOUSES: [[TILES.HOUSE1, TILES.ROOF1], [TILES.HOUSE2, TILES.ROOF2], [TILES.HOUSE3, TILES.ROOF3], [TILES.HOUSE4, TILES.ROOF4]],
+            }
+
             const canvas = document.getElementById("splash");
+            const controls = document.getElementById("controls");
             let output_size, midpoint;
 
             const refit = () => {
@@ -89,21 +197,35 @@
             };
 
             const pick = {
-                grass: () => 20 + Math.ceil(Math.random() * 4)
+                num: (seed) => {
+                    seed = Math.floor(seed * 50000);
+                    seed ^= seed << 13;
+                    seed ^= seed >> 7;
+                    seed ^= seed << 17;
+                    return Math.abs(seed) % 100;
+                },
+                grass: (seed) => {
+                    seed = pick.num(seed);
+                    return TILEPACKS.GRASSES[seed % TILEPACKS.GRASSES.length];
+                },
+                houses: (seed) => {
+                    if (seed < town_threshold) return [];
+
+                    const texs = [[], [], [], []];
+                    const numhouses = pick.num(seed + 4) % 2;
+                    for (let i = 0; i < numhouses; i += 1) {
+                        let house_index = pick.num(seed + i);
+                        texs[pick.num(seed + 18) % 4] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                    }
+                    return texs;
+                }
             }
 
             const render = {
                 name: (name) => {
                     name = name.toUpperCase();
-                    const name_width = name.length * (output_size * 2) + (output_size * 2);
-                    const x = midpoint[0] - name_width / 2, y = midpoint[1] - output_size * 2;
-
-                    // Land
-                    paint.tiles([[4], [10], [10], [15]], x, y);
-                    for (let c = 1; c <= name.length * 2; c += 1) {
-                        paint.tiles([[5], [pick.grass()], [pick.grass()], [16]], x + c * output_size, y);
-                    }
-                    paint.tiles([[6], [11], [11], [17]], x + ((name.length * 2) + 1) * output_size, y);
+                    const name_width = name.length * (output_size * 2);
+                    const x = midpoint[0] - name_width / 2, y = midpoint[1] - output_size;
 
                     ctx.font = `${output_size * 0.9}px Truncate`;
                     ctx.textAlign = `center`;
@@ -111,23 +233,181 @@
 
                     // Tiles
                     const tiles = name.split('');
-                    for (let c = 1; c <= name.length * 2; c += 2) {
-                        paint.tiles([[53, 54], [56, 55]], x + c * output_size, y + output_size);
+                    for (let c = 0; c < name.length * 2; c += 2) {
+                        paint.tiles([
+                            [TILES.GRASS1, TILES.GRASS1],
+                            [TILES.GRASS1, TILES.GRASS1]
+                        ], x + c * output_size, y);
+
+                        paint.tiles([[TILES.TILE_NW, TILES.TILE_NE], [TILES.TILE_SE, TILES.TILE_SW]], x + c * output_size, y);
 
                         const tile = tiles.shift();
                         const metric = ctx.measureText(tile);
                         const shift = (metric.actualBoundingBoxLeft - metric.actualBoundingBoxRight) / 2;
-                        ctx.fillText(tile, x + c * output_size + output_size + shift, y + output_size * 2 - output_size * 0.03, output_size * 2);
+                        ctx.fillText(tile, x + c * output_size + output_size + shift, y + output_size - output_size * 0.03, output_size * 2);
                     }
-                }
+
+                    return { x, y, name_width }
+                },
+
+                background: ({ x, y, seed, island, skip_render, empty }, neighbors) => {
+                    if (skip_render) return;
+
+                    if (island) {
+                        render.island(x, y, seed);
+                    } else {
+                        render.water_nw(x, y, neighbors[7], neighbors[0], neighbors[1]);
+                        render.water_ne(x + output_size, y, neighbors[1], neighbors[2], neighbors[3]);
+                        render.water_se(neighbors, x + output_size, y + output_size, neighbors[3], neighbors[4], neighbors[5]);
+                        render.water_sw(x, y + output_size, neighbors[5], neighbors[6], neighbors[7]);
+                        if (!empty) {
+                            render.dock(x, y, seed, neighbors);
+                        }
+                    }
+                },
+                island: (x, y, seed) => {
+                    paint.tiles([
+                        [pick.grass(seed), pick.grass(seed + 0.2)],
+                        [pick.grass(seed + 0.3), pick.grass(seed + 0.5)]
+                    ], x, y);
+
+                    const houses = pick.houses(seed);
+                    for (const tex of houses?.[0] ?? []) paint.tile(tex, x, y);
+                    for (const tex of houses?.[1] ?? []) paint.tile(tex, x + output_size, y);
+                    for (const tex of houses?.[2] ?? []) paint.tile(tex, x + output_size, y + output_size);
+                    for (const tex of houses?.[3] ?? []) paint.tile(tex, x, y + output_size);
+                },
+                dock: (x, y, seed, neighbors) => {
+                    if (seed > dock_neg_threshold) return;
+
+                    if (neighbors[1]) {
+                        paint.tiles([
+                            [TILES.DOCK_SOUTH_NW, TILES.DOCK_SOUTH_NE],
+                            [TILES.DOCK_SOUTH_SW, TILES.DOCK_SOUTH_SE]
+                        ], x, y);
+                    } else if (neighbors[5]) {
+                        paint.tiles([
+                            [TILES.DOCK_NORTH_NW, TILES.DOCK_NORTH_NE],
+                            [TILES.DOCK_NORTH_SW, TILES.DOCK_NORTH_SE]
+                        ], x, y);
+                    } else if (neighbors[3]) {
+                        paint.tiles([
+                            [TILES.DOCK_WEST_NW, TILES.DOCK_WEST_NE],
+                            [TILES.DOCK_WEST_SW, TILES.DOCK_WEST_SE]
+                        ], x, y);
+                    } else if (neighbors[7]) {
+                        paint.tiles([
+                            [TILES.DOCK_EAST_NW, TILES.DOCK_EAST_NE],
+                            [TILES.DOCK_EAST_SW, TILES.DOCK_EAST_SE]
+                        ], x, y);
+                    }
+                },
+                water_nw: (x, y, w, nw, n) => {
+                    if (w && n) paint.tile(TILES.WATER_NW, x, y);
+                    else if (w) paint.tile(TILES.WATER_W, x, y);
+                    else if (n) paint.tile(TILES.WATER_N, x, y);
+                    else if (nw) paint.tile(TILES.WATER_N_W, x, y);
+                },
+                water_ne: (x, y, n, ne, e) => {
+                    if (n && e) paint.tile(TILES.WATER_NE, x, y);
+                    else if (n) paint.tile(TILES.WATER_N, x, y);
+                    else if (e) paint.tile(TILES.WATER_E, x, y);
+                    else if (ne) paint.tile(TILES.WATER_N_E, x, y);
+                },
+                water_se: (neighbors, x, y, e, se, s) => {
+                    if (e && s) paint.tile(TILES.WATER_SE, x, y);
+                    else if (e) paint.tile(TILES.WATER_E, x, y);
+                    else if (s) paint.tile(TILES.WATER_S, x, y);
+                    else if (se) paint.tile(TILES.WATER_S_E, x, y);
+                },
+                water_sw: (x, y, s, sw, w) => {
+                    if (s && w) paint.tile(TILES.WATER_SW, x, y);
+                    else if (s) paint.tile(TILES.WATER_S, x, y);
+                    else if (w) paint.tile(TILES.WATER_W, x, y);
+                    else if (sw) paint.tile(TILES.WATER_S_W, x, y);
+                },
             };
 
             const ctx = canvas.getContext("2d");
             const the_guts = () => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.imageSmoothingEnabled = false;
+                const logical_tile_size = output_size * 2;
 
-                render.name("TRUNCATE");
+                const metrics = render.name("TRUNCATE");
+
+                const horiz_tile_count = Math.ceil(canvas.width / output_size);
+                const vert_tile_count = Math.ceil(canvas.height / output_size);
+                const tile_from_x = metrics.x - (canvas.width - (canvas.width % logical_tile_size));
+                const tile_from_y = metrics.y - (canvas.height - (canvas.height % logical_tile_size));
+
+                const island_map = [];
+                for (let col = 0; col < horiz_tile_count; col += 1) {
+                    island_map[col] = [];
+                    for (let row = 0; row < vert_tile_count; row += 1) {
+                        const seed = islander.simplex2(col, row);
+
+                        const tile_data = {
+                            x: tile_from_x + col * logical_tile_size,
+                            y: tile_from_y + row * logical_tile_size,
+                            seed,
+                            island: seed > island_threshold ? true : false,
+                            empty: false,
+                            skip_render: false
+                        };
+
+                        // Clear space around text
+                        if (tile_data.x >= metrics.x - logical_tile_size
+                            && tile_data.x < metrics.x + metrics.name_width + logical_tile_size
+                            && tile_data.y >= metrics.y - logical_tile_size
+                            && tile_data.y < metrics.y + logical_tile_size * 3) {
+                            tile_data.island = false;
+                            tile_data.empty = true;
+                        }
+
+                        // Mark land behind text
+                        if (tile_data.x >= metrics.x
+                            && tile_data.x < metrics.x + metrics.name_width
+                            && tile_data.y >= metrics.y
+                            && tile_data.y < metrics.y + logical_tile_size) {
+                            tile_data.island = true;
+                            tile_data.skip_render = true;
+                        }
+
+                        island_map[col][row] = tile_data;
+                    }
+                }
+
+                // Clear single islands out
+                for (let col = 0; col < horiz_tile_count; col += 1) {
+                    for (let row = 0; row < vert_tile_count; row += 1) {
+                        if (!island_map[col + 1]?.[row]?.island
+                            && !island_map[col - 1]?.[row]?.island
+                            && !island_map[col]?.[row + 1]?.island
+                            && !island_map[col]?.[row - 1]?.island) {
+                            island_map[col][row].island = false;
+                        }
+                    }
+                }
+
+                // Render all background tiles
+                for (let col = 0; col < horiz_tile_count; col += 1) {
+                    for (let row = 0; row < vert_tile_count; row += 1) {
+                        const neighbors = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]].map(([x, y]) => {
+                            return island_map[col + x]?.[row + y]?.island ?? false;
+                        });
+                        render.background(island_map[col][row], neighbors);
+                    }
+                }
+
+                // Move HTML UI into position
+                const screen_x = metrics.x / 2, screen_y = metrics.y / 2;
+                const screen_tile = output_size / 2;
+
+                controls.style.left = `${screen_x}px`;
+                controls.style.top = `${screen_y + screen_tile * 3}px`;
+                controls.style.height = `${screen_tile * 2}px`;
+                controls.style.width = `${metrics.name_width / 2}px`;
             }
 
             image.onload = function () {
@@ -137,6 +417,42 @@
                     the_guts();
                 })
             };
+
+            const stage = (s) => controls.setAttribute("data-control-stage", s);
+            const control = (t) => document.querySelector(`[data-control="${t}"]`);
+
+            control("to_new_game").addEventListener("click", e => {
+                stage("new");
+            });
+            control("cancel_new").addEventListener("click", e => {
+                stage("root");
+            });
+            control("to_join_game").addEventListener("click", e => {
+                stage("join");
+                control("room_code").value = "";
+                control("room_code").focus();
+            });
+            control("cancel_join").addEventListener("click", e => {
+                stage("root");
+            });
+            control("room_code").addEventListener("keydown", e => {
+                if (e?.key === "Enter") {
+                    control("join_game").click();
+                }
+            });
+            control("join_game").addEventListener("click", e => {
+                const room = control("room_code").value;
+                if (!room) {
+                    control("room_code").setAttribute("placeholder", "REQUIRED!");
+                    setTimeout(() => {
+                        control("room_code").setAttribute("placeholder", "ROOM CODE");
+                    }, 500);
+                    return;
+                }
+                const url = new URL(window.location);
+                url.pathname = room.toUpperCase();
+                window.location = url;
+            });
         })();
     </script>
 </body>
