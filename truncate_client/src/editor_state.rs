@@ -12,13 +12,20 @@ use crate::{
 };
 
 #[derive(Clone)]
-// TODO: Split this state struct up
+pub enum EditingMode {
+    Land,
+    Town(usize),
+    Dock(usize),
+}
+
+#[derive(Clone)]
 pub struct EditorState {
     pub board: Board,
     pub room_code: RoomCode,
     pub players: Vec<LobbyPlayerMessage>,
     pub mapped_board: MappedBoard,
     pub map_texture: TextureHandle,
+    pub editing_mode: EditingMode,
 }
 
 impl EditorState {
@@ -42,6 +49,7 @@ impl EditorState {
             players,
             map_texture,
             board,
+            editing_mode: EditingMode::Land,
         }
     }
 
@@ -74,12 +82,13 @@ impl EditorState {
             msg = Some(PlayerMessage::StartGame);
         }
 
-        if let Some(board_update) = EditorUI::new(&mut self.board, &self.mapped_board).render(
-            true,
-            ui,
-            theme,
-            &self.map_texture,
-        ) {
+        if let Some(board_update) = EditorUI::new(
+            &mut self.board,
+            &self.mapped_board,
+            &mut self.editing_mode,
+        )
+        .render(true, ui, theme, &self.map_texture)
+        {
             msg = Some(board_update);
         }
 

@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use epaint::TextureHandle;
 use truncate_core::{
     board::{Board, Coordinate, Square},
@@ -6,27 +8,39 @@ use truncate_core::{
 
 use eframe::egui::{self, Id, Margin};
 
-use crate::theming::{mapper::MappedBoard, Theme};
+use crate::{
+    editor_state::EditingMode,
+    theming::{mapper::MappedBoard, Theme},
+};
 
 use super::EditorSquareUI;
 
 #[derive(Clone)]
 enum EditorDrag {
-    Enabling,
-    Disabling,
-    MovingRoot(usize),
+    MakeLand,
+    RemoveLand,
+    MakeTown(usize),
+    RemoveTown(usize),
+    MakeDock(usize),
+    RemoveDock(usize),
 }
 
 pub struct EditorUI<'a> {
     board: &'a mut Board,
     mapped_board: &'a MappedBoard,
+    editing_mode: &'a mut EditingMode,
 }
 
 impl<'a> EditorUI<'a> {
-    pub fn new(board: &'a mut Board, mapped_board: &'a MappedBoard) -> Self {
+    pub fn new(
+        board: &'a mut Board,
+        mapped_board: &'a MappedBoard,
+        editing_mode: &'a mut EditingMode,
+    ) -> Self {
         Self {
             board,
             mapped_board,
+            editing_mode,
         }
     }
 }
@@ -41,10 +55,33 @@ impl<'a> EditorUI<'a> {
     ) -> Option<PlayerMessage> {
         let mut edited = false;
 
-        if ui.button("Grow board").clicked() {
-            self.board.grow();
-            edited = true;
-        }
+        ui.horizontal(|ui| {
+            if ui.button("Grow board").clicked() {
+                self.board.grow();
+                edited = true;
+            }
+            let edit_str = match self.editing_mode {
+                EditingMode::Land => "land and water".to_string(),
+                EditingMode::Town(p) => format!("player {} towns", *p + 1),
+                EditingMode::Dock(p) => format!("player {} docks", *p + 1),
+            };
+            ui.label(format!("Editing {edit_str}; Change to:"));
+            if ui.button("Land").clicked() {
+                *self.editing_mode = EditingMode::Land;
+            }
+            if ui.button("P1 Towns").clicked() {
+                *self.editing_mode = EditingMode::Town(0);
+            }
+            if ui.button("P2 Towns").clicked() {
+                *self.editing_mode = EditingMode::Town(1);
+            }
+            if ui.button("P1 Docks").clicked() {
+                *self.editing_mode = EditingMode::Dock(0);
+            }
+            if ui.button("P2 Docks").clicked() {
+                *self.editing_mode = EditingMode::Dock(1);
+            }
+        });
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
@@ -81,31 +118,68 @@ impl<'a> EditorUI<'a> {
                                         }
                                     });
 
-                                    match (drag_action, &square) {
-                                        (Some(EditorDrag::Enabling), Square::Water) => {
-                                            modify_pos = Some((coord, Square::Land));
+                                    if let Some(drag_action) = drag_action {
+                                        match (drag_action, &square) {
+                                            (
+                                                EditorDrag::MakeLand,
+                                                Square::Water | Square::Dock(_),
+                                            ) => modify_pos = Some((coord, Square::Land)),
+                                            (
+                                                EditorDrag::RemoveLand,
+                                                Square::Land | Square::Town(_),
+                                            ) => modify_pos = Some((coord, Square::Water)),
+                                            (EditorDrag::MakeTown(player), _) => {
+                                                modify_pos = Some((coord, Square::Town(player)))
+                                            }
+                                            (
+                                                EditorDrag::RemoveTown(player),
+                                                Square::Town(sq_player),
+                                            ) if player == *sq_player => {
+                                                modify_pos = Some((coord, Square::Land))
+                                            }
+                                            (EditorDrag::MakeDock(player), _) => {
+                                                modify_pos = Some((coord, Square::Dock(player)))
+                                            }
+                                            (
+                                                EditorDrag::RemoveDock(player),
+                                                Square::Dock(sq_player),
+                                            ) if player == *sq_player => {
+                                                modify_pos = Some((coord, Square::Water))
+                                            }
+                                            (_, _) => {}
                                         }
-                                        (Some(EditorDrag::Disabling), Square::Land) => {
-                                            modify_pos = Some((coord, Square::Water));
-                                        }
-                                        (Some(EditorDrag::MovingRoot(root)), _) => {
-                                            modify_pos = Some((coord, Square::Dock(root)));
-                                        }
-                                        _ => {}
                                     }
                                 }
                                 if response.drag_started() {
                                     ui.ctx().memory_mut(|mem| {
                                         mem.data.insert_temp(
                                             Id::null(),
-                                            match square {
-                                                Square::Water => EditorDrag::Enabling,
-                                                Square::Land => EditorDrag::Disabling,
-                                                Square::Town(_) => EditorDrag::Enabling, // TODO
-                                                Square::Dock(root) => EditorDrag::MovingRoot(*root),
-                                                Square::Occupied(_, _) => unreachable!(
-                                                    "Board editor shouldn't see occupied tiles"
-                                                ),
+                                            match self.editing_mode {
+                                                EditingMode::Land => match square {
+                                                    Square::Water | Square::Dock(_) => {
+                                                        EditorDrag::MakeLand
+                                                    }
+                                                    Square::Land | Square::Town(_) => {
+                                                        EditorDrag::RemoveLand
+                                                    }
+                                                    Square::Occupied(_, _) => unreachable!(),
+                                                },
+                                                EditingMode::Town(editing_player) => match square {
+                                                    Square::Town(sq_player)
+                                                        if sq_player == editing_player =>
+                                                    {
+                                                        EditorDrag::RemoveTown(*editing_player)
+                                                    }
+                                                    _ => EditorDrag::MakeTown(*editing_player),
+                                                },
+                                                EditingMode::Dock(editing_player) => match square {
+                                                    Square::Dock(sq_player)
+                                                        if sq_player == editing_player =>
+                                                    {
+                                                        EditorDrag::RemoveDock(*editing_player)
+                                                    }
+                                                    _ => EditorDrag::MakeDock(*editing_player),
+                                                },
                                             },
                                         )
                                     });
@@ -118,15 +192,18 @@ impl<'a> EditorUI<'a> {
                                         mem.data.remove::<EditorDrag>(Id::null())
                                     });
                                 } else if response.clicked() {
-                                    match square {
-                                        Square::Water => modify_pos = Some((coord, Square::Land)),
-                                        Square::Land => modify_pos = Some((coord, Square::Water)),
-                                        Square::Town(_) => {} // TODO
-                                        Square::Dock(_) => {} // TODO
-                                        Square::Occupied(_, _) => unreachable!(
-                                            "Board editor shouldn't see occupied tiles"
-                                        ),
-                                    }
+                                    unreachable!(
+                                        "Maybe unreachable? Duplicate above state if not..."
+                                    );
+                                    // match square {
+                                    //     Square::Water => modify_pos = Some((coord, Square::Land)),
+                                    //     Square::Land => modify_pos = Some((coord, Square::Water)),
+                                    //     Square::Town(_) => {} // TODO
+                                    //     Square::Dock(_) => {} // TODO
+                                    //     Square::Occupied(_, _) => unreachable!(
+                                    //         "Board editor shouldn't see occupied tiles"
+                                    //     ),
+                                    // }
                                 };
                             }
                         });
