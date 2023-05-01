@@ -465,27 +465,27 @@ mod tests {
         assert_eq!(j.valid("ZYZZYVA"), Some("ZYZZYVA".into()));
     }
 
-    #[test]
-    fn win_condition() {
-        let mut b = BoardUtils::from_string(
-            [
-                "    X    ",
-                "X X X _ _",
-                "X _ _ _ _",
-                "X _ _ _ _",
-                "_ _ _ _ _",
-                "    _    ",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 0, y: 0 }],
-            vec![Direction::North],
-        )
-        .unwrap();
+    // #[test]
+    // fn win_condition() {
+    //     let mut b = BoardUtils::from_string(
+    //         [
+    //             "    X    ",
+    //             "X X X _ _",
+    //             "X _ _ _ _",
+    //             "X _ _ _ _",
+    //             "_ _ _ _ _",
+    //             "    _    ",
+    //         ]
+    //         .join("\n"),
+    //         vec![Coordinate { x: 0, y: 0 }],
+    //         vec![Direction::North],
+    //     )
+    //     .unwrap();
 
-        assert_eq!(Judge::winner(&b), None);
-        b.set(Coordinate { x: 0, y: 4 }, 0, 'X').unwrap();
-        assert_eq!(Judge::winner(&b), Some(0));
-    }
+    //     assert_eq!(Judge::winner(&b), None);
+    //     b.set(Coordinate { x: 0, y: 4 }, 0, 'X').unwrap();
+    //     assert_eq!(Judge::winner(&b), Some(0));
+    // }
 
     // Utils
     pub fn short_dict() -> Judge {

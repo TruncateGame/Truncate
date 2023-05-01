@@ -64,14 +64,15 @@ impl GameClient {
             }
         }
 
-        let mut visuals = egui::Visuals::dark();
-        visuals.window_fill = hex_color!("#141414");
-        visuals.panel_fill = hex_color!("#141414");
+        let theme = Theme::default();
+        let mut visuals = egui::Visuals::light();
+        visuals.window_fill = theme.water;
+        visuals.panel_fill = theme.water;
         cc.egui_ctx.set_visuals(visuals);
 
         Self {
             name: "Mystery Player".into(),
-            theme: Theme::default(),
+            theme,
             game_status,
             rx_game,
             tx_player,

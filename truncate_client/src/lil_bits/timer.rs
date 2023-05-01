@@ -2,7 +2,7 @@ use time::Duration;
 use truncate_core::messages::GamePlayerMessage;
 
 use eframe::egui::{self, widget_text::WidgetTextGalley, Margin, Sense};
-use epaint::{vec2, Color32, Stroke, Vec2};
+use epaint::{hex_color, vec2, Color32, Stroke, Vec2};
 use time::OffsetDateTime;
 
 use crate::theming::{Darken, Theme};
@@ -49,11 +49,11 @@ impl<'a> TimerUI<'a> {
         if self.winner == Some(self.player.index) {
             theme.selection
         } else if !self.active {
-            theme.outlines
+            hex_color!("#444444")
         } else if self.friend {
-            theme.friend.darken()
+            hex_color!("#000000")
         } else {
-            theme.enemy.darken()
+            hex_color!("#000000")
         }
     }
 
@@ -61,11 +61,11 @@ impl<'a> TimerUI<'a> {
         if self.winner == Some(self.player.index) {
             theme.selection
         } else if !self.active {
-            theme.outlines
+            hex_color!("#444444")
         } else if self.friend {
-            theme.friend.darken()
+            hex_color!("#000000")
         } else {
-            theme.enemy.darken()
+            hex_color!("#000000")
         }
     }
 

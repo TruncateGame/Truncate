@@ -8,11 +8,10 @@ use epaint::{hex_color, Color32, Hsva};
 
 #[derive(Debug, Clone)]
 pub struct Theme {
-    pub friend: Color32,
+    pub water: Color32,
     pub enemy: Color32,
     pub text: Color32,
     pub selection: Color32,
-    pub background: Color32,
     pub outlines: Color32,
     pub addition: Color32,
     pub modification: Color32,
@@ -27,11 +26,10 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            friend: hex_color!("#C3CEEA"),
+            water: hex_color!("#50A7E8"),
             enemy: hex_color!("#F7BDB6"),
             text: hex_color!("#333333"),
             selection: hex_color!("#D78D1D"),
-            background: hex_color!("#202020"),
             outlines: hex_color!("#9B9B9B"),
             addition: hex_color!("#55b14c"),
             modification: hex_color!("#9452ad"),

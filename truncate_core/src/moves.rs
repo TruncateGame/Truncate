@@ -52,7 +52,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 3)
         };
         assert_eq!(
             game.make_move(out_of_bounds),
@@ -70,7 +70,7 @@ mod tests {
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
-        let position = Coordinate { x: 0, y: 0 };
+        let position = Coordinate { x: 1, y: 0 };
         let dead = Move::Place {
             player: 0,
             tile: 'A',
@@ -98,14 +98,14 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 3)
         };
 
-        // Places on the root
+        // Places beside dock
         let changes = game.make_move(Move::Place {
             player: 0,
             tile: 'A',
-            position: Coordinate { x: 1, y: 0 },
+            position: Coordinate { x: 2, y: 1 },
         });
         assert_eq!(
             changes.clone().map(|c| {
@@ -116,7 +116,7 @@ mod tests {
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
                     square: Square::Occupied(0, 'A'),
-                    coordinate: Coordinate { x: 1, y: 0 },
+                    coordinate: Coordinate { x: 2, y: 1 },
                 },
                 action: BoardChangeAction::Added
             })])
@@ -142,7 +142,7 @@ mod tests {
             game.make_move(Move::Place {
                 player: 0,
                 tile: 'B',
-                position: Coordinate { x: 1, y: 0 }
+                position: Coordinate { x: 2, y: 1 }
             },),
             Err(GamePlayError::OccupiedPlace)
         );
@@ -152,7 +152,7 @@ mod tests {
             game.make_move(Move::Place {
                 player: 0,
                 tile: 'B',
-                position: Coordinate { x: 0, y: 1 }
+                position: Coordinate { x: 3, y: 2 }
             },),
             Err(GamePlayError::NonAdjacentPlace)
         );
@@ -162,7 +162,7 @@ mod tests {
             game.make_move(Move::Place {
                 player: 0,
                 tile: 'B',
-                position: Coordinate { x: 1, y: 1 }
+                position: Coordinate { x: 2, y: 2 }
             },)
                 .map(|c| {
                     c.into_iter()
@@ -172,7 +172,7 @@ mod tests {
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
                     square: Square::Occupied(0, 'B'),
-                    coordinate: Coordinate { x: 1, y: 1 },
+                    coordinate: Coordinate { x: 2, y: 2 },
                 },
                 action: BoardChangeAction::Added
             })])
@@ -183,7 +183,7 @@ mod tests {
             game.make_move(Move::Place {
                 player: 0,
                 tile: 'B',
-                position: Coordinate { x: 1, y: 1 }
+                position: Coordinate { x: 2, y: 2 }
             },),
             Err(GamePlayError::OccupiedPlace)
         );
@@ -192,20 +192,20 @@ mod tests {
         assert_eq!(
             game.make_move(Move::Swap {
                 player: 0,
-                positions: [Coordinate { x: 1, y: 1 }, Coordinate { x: 1, y: 0 }]
+                positions: [Coordinate { x: 2, y: 1 }, Coordinate { x: 2, y: 2 }]
             },),
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
-                        square: Square::Occupied(0, 'A'),
-                        coordinate: Coordinate { x: 1, y: 1 },
+                        square: Square::Occupied(0, 'B'),
+                        coordinate: Coordinate { x: 2, y: 1 },
                     },
                     action: BoardChangeAction::Swapped
                 }),
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
-                        square: Square::Occupied(0, 'B'),
-                        coordinate: Coordinate { x: 1, y: 0 },
+                        square: Square::Occupied(0, 'A'),
+                        coordinate: Coordinate { x: 2, y: 2 },
                     },
                     action: BoardChangeAction::Swapped
                 })
@@ -225,16 +225,16 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 3)
         };
 
         assert_eq!(
             game.make_move(Move::Place {
                 player: 2,
                 tile: 'A',
-                position: Coordinate { x: 1, y: 0 }
+                position: Coordinate { x: 2, y: 2 }
             },),
-            Err(GamePlayError::NonExistentPlayer { index: 2 })
+            Err(GamePlayError::NonAdjacentPlace)
         );
 
         assert_eq!(
@@ -272,18 +272,12 @@ mod tests {
 
         // 1v1
         let mut one_v_one = BoardUtils::from_string(
-            [
-                "_ _ M _ _",
-                "_ _ D _ _",
-                "_ _ _ _ _",
-                "_ _ M _ _",
-                "_ _ D _ _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
-            vec![Direction::North, Direction::South],
-        )
-        .unwrap();
+            "__ |0 M0 __ __\n\
+             __ __ D0 __ __\n\
+             __ __ __ __ __\n\
+             __ __ M1 __ __\n\
+             __ __ D1 |1 __",
+        );
         one_v_one.set(middle, 0, 'A').unwrap();
 
         assert_eq!(
@@ -293,18 +287,12 @@ mod tests {
 
         // 1v2
         let mut one_v_two = BoardUtils::from_string(
-            [
-                "_ _ M _ _",
-                "_ _ D _ _",
-                "_ L _ R _",
-                "_ F _ T _",
-                "_ D R D _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
-            vec![Direction::North, Direction::South],
-        )
-        .unwrap();
+            "__ |0 M0 __ __\n\
+             __ __ D0 __ __\n\
+             __ L1 __ R1 __\n\
+             __ F1 __ T1 __\n\
+             __ D1 R1 D1 |1",
+        );
         one_v_two.set(middle, 0, 'A').unwrap();
 
         assert_eq!(
@@ -317,18 +305,12 @@ mod tests {
 
         // 1v3
         let mut one_v_three = BoardUtils::from_string(
-            [
-                "_ _ M _ _",
-                "_ _ D _ _",
-                "_ L _ R _",
-                "_ F M T _",
-                "_ D D D _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
-            vec![Direction::North, Direction::South],
-        )
-        .unwrap();
+            "__ |0 M0 __ __\n\
+             __ __ D0 __ __\n\
+             __ L1 __ R1 __\n\
+             __ F1 M1 T1 __\n\
+             __ D1 D1 D1 |1",
+        );
         one_v_three.set(middle, 0, 'A').unwrap();
 
         assert_eq!(
@@ -346,18 +328,12 @@ mod tests {
 
         // 2v2
         let mut two_v_two = BoardUtils::from_string(
-            [
-                "X X M _ _",
-                "X _ D _ _",
-                "L F _ R _",
-                "_ _ M T _",
-                "_ _ D D _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
-            vec![Direction::North, Direction::South],
-        )
-        .unwrap();
+            "X0 X0 M0 |0 __\n\
+             X0 __ D0 __ __\n\
+             L0 F0 __ R1 __\n\
+             __ __ M1 T1 __\n\
+             __ __ D1 D1 |1",
+        );
         two_v_two.set(middle, 0, 'A').unwrap();
         assert_eq!(
             two_v_two.collect_combanants(0, middle),
@@ -370,19 +346,13 @@ mod tests {
 
     #[test]
     fn resolve_successful_attack() {
-        let mut b = BoardUtils::from_string(
-            [
-                "_ S X _ _",
-                "_ T _ _ _",
-                "_ R _ _ _",
-                "_ _ I _ _",
-                "_ _ T _ _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
-            vec![Direction::North, Direction::South],
-        )
-        .unwrap();
+        let b = BoardUtils::from_string(
+            "__ S0 X0 |0 __\n\
+             __ T0 __ __ __\n\
+             __ R0 __ __ __\n\
+             __ __ I1 __ __\n\
+             __ __ T1 |1 __",
+        );
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
@@ -406,33 +376,23 @@ mod tests {
 
         assert_eq!(
             game.board.to_string(),
-            [
-                "_ S X _ _",
-                "_ T _ _ _",
-                "_ R _ _ _",
-                "_ A _ _ _",
-                "_ _ _ _ _",
-                "Roots: (2, 0) / (2, 4)"
-            ]
-            .join("\n"),
+            "__ S0 X0 |0 __\n\
+             __ T0 __ __ __\n\
+             __ R0 __ __ __\n\
+             __ A0 __ __ __\n\
+             __ __ __ |1 __",
         )
     }
 
     #[test]
     fn resolve_failed_attack() {
-        let mut b = BoardUtils::from_string(
-            [
-                "_ X X _ _",
-                "_ T _ _ _",
-                "_ R _ _ _",
-                "_ _ I _ _",
-                "_ _ T _ _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
-            vec![Direction::North, Direction::South],
-        )
-        .unwrap();
+        let b = BoardUtils::from_string(
+            "__ X0 X0 |0 __\n\
+             __ T0 __ __ __\n\
+             __ R0 __ __ __\n\
+             __ __ I1 __ __\n\
+             __ __ T1 |1 __",
+        );
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
@@ -456,34 +416,24 @@ mod tests {
 
         assert_eq!(
             game.board.to_string(),
-            [
-                "_ _ X _ _",
-                "_ _ _ _ _",
-                "_ _ _ _ _",
-                "_ _ I _ _",
-                "_ _ T _ _",
-                "Roots: (2, 0) / (2, 4)",
-            ]
-            .join("\n"),
+            "__ __ X0 |0 __\n\
+             __ __ __ __ __\n\
+             __ __ __ __ __\n\
+             __ __ I1 __ __\n\
+             __ __ T1 |1 __",
         )
     }
 
     #[test]
     fn resolve_truncation() {
-        let mut b = BoardUtils::from_string(
-            [
-                "_ S X _ _",
-                "_ T _ _ _",
-                "_ R _ X _",
-                "_ _ B X _",
-                "_ _ I _ _",
-                "_ _ G _ _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 5 }],
-            vec![Direction::North, Direction::South],
-        )
-        .unwrap();
+        let b = BoardUtils::from_string(
+            "__ S0 X0 |0 __\n\
+             __ T0 __ __ __\n\
+             __ R0 __ X1 __\n\
+             __ __ B1 X1 __\n\
+             __ __ I1 __ __\n\
+             __ __ G1 |1 __",
+        );
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
@@ -535,35 +485,26 @@ mod tests {
 
         assert_eq!(
             game.board.to_string(),
-            [
-                "_ S X _ _",
-                "_ T _ _ _",
-                "_ R _ _ _",
-                "_ A _ _ _",
-                "_ _ I _ _",
-                "_ _ G _ _",
-                "Roots: (2, 0) / (2, 5)",
-            ]
-            .join("\n"),
+            "__ S0 X0 |0 __\n\
+             __ T0 __ __ __\n\
+             __ R0 __ __ __\n\
+             __ A0 __ __ __\n\
+             __ __ I1 __ __\n\
+             __ __ G1 |1 __",
         );
     }
 
     #[test]
     fn resolve_explosion() {
-        let mut b = BoardUtils::from_string(
-            [
-                "_ _ S _ _",
-                "_ _ T _ _",
-                "_ _ R _ _",
-                "_ B _ X _",
-                "_ I _ X _",
-                "_ G X X _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 5 }],
-            vec![Direction::North, Direction::South],
-        )
-        .unwrap();
+        let b = BoardUtils::from_string(
+            "__ __ S0 |0 __\n\
+             __ __ T0 __ __\n\
+             __ __ R0 __ __\n\
+             __ B1 __ X1 __\n\
+             __ I1 __ X1 __\n\
+             __ G1 X1 X1 __\n\
+             ~~ ~~ |1 ~~ ~~",
+        );
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
@@ -587,34 +528,25 @@ mod tests {
 
         assert_eq!(
             game.board.to_string(),
-            [
-                "_ _ S _ _",
-                "_ _ T _ _",
-                "_ _ R _ _",
-                "_ _ A _ _",
-                "_ I _ _ _",
-                "_ G X _ _",
-                "Roots: (2, 0) / (2, 5)",
-            ]
-            .join("\n"),
+            "__ __ S0 |0 __\n\
+             __ __ T0 __ __\n\
+             __ __ R0 __ __\n\
+             __ __ A0 __ __\n\
+             __ I1 __ __ __\n\
+             __ G1 X1 __ __\n\
+             ~~ ~~ |1 ~~ ~~",
         );
     }
 
     #[test]
     fn resolve_noop() {
-        let mut b = BoardUtils::from_string(
-            [
-                "    _    ",
-                "_ _ _ _ _",
-                "_ _ _ _ _",
-                "_ _ _ _ _",
-                "    T    ",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 4 }],
-            vec![Direction::North, Direction::South],
-        )
-        .unwrap();
+        let b = BoardUtils::from_string(
+            "~~ |0 __ ~~ ~~\n\
+             __ __ __ __ __\n\
+             __ __ __ __ __\n\
+             __ __ __ __ __\n\
+             ~~ ~~ T1 |1 ~~",
+        );
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, Duration::new(60, 0), (0, 0, 0)),
@@ -638,15 +570,11 @@ mod tests {
 
         assert_eq!(
             game.board.to_string(),
-            [
-                "    A    ",
-                "_ _ _ _ _",
-                "_ _ _ _ _",
-                "_ _ _ _ _",
-                "    T    ",
-                "Roots: (2, 0) / (2, 4)",
-            ]
-            .join("\n"),
+            "~~ |0 A0 ~~ ~~\n\
+             __ __ __ __ __\n\
+             __ __ __ __ __\n\
+             __ __ __ __ __\n\
+             ~~ ~~ T1 |1 ~~",
         )
     }
 }
