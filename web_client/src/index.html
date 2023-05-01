@@ -294,13 +294,15 @@
             islander.seed(Math.random());
 
             const island_threshold = 0.4;
-            const town_threshold = 0.4;
+            const town_threshold = 0.45;
+            const decor_threshold = 0.6;
             const dock_neg_threshold = -0.7;
 
             const TILES = JSON.parse(`{{ tiles | json }}`);
             const TILEPACKS = {
                 GRASSES: [TILES.GRASS1, TILES.GRASS2, TILES.GRASS3, TILES.GRASS4],
                 HOUSES: [[TILES.HOUSE1, TILES.ROOF1], [TILES.HOUSE2, TILES.ROOF2], [TILES.HOUSE3, TILES.ROOF3], [TILES.HOUSE4, TILES.ROOF4]],
+                DECOR: [TILES.PLANTER1, TILES.PLANTER2, TILES.BUSH, TILES.WHEAT, TILES.WELL],
             }
 
             const canvas = document.getElementById("splash");
@@ -369,10 +371,20 @@
                     if (seed < town_threshold) return [];
 
                     const texs = [[], [], [], []];
-                    const numhouses = pick.num(seed + 4) % 2;
+
+                    const house_seed = pick.num(seed + 4) % 100;
+                    let numhouses = 0;
+                    if (house_seed > 50) numhouses = 1;
+                    if (house_seed > 80) numhouses = 2;
+                    if (house_seed > 98) numhouses = 3;
+
+                    if (numhouses > 0 && seed > decor_threshold) {
+                        let decor_index = pick.num(seed + 123408);
+                        texs[pick.num(seed + 3442) % 4] = [TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length]];
+                    }
                     for (let i = 0; i < numhouses; i += 1) {
                         let house_index = pick.num(seed + i);
-                        texs[pick.num(seed + 18) % 4] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                        texs[pick.num(seed + 18 * i) % 4] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
                     }
                     return texs;
                 }

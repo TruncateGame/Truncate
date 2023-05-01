@@ -27,7 +27,7 @@ impl Tex {
         Self { tile, tint: None }
     }
 
-    pub const MAX_TILE: usize = 94;
+    pub const MAX_TILE: usize = 118;
 
     pub const NONE: Self = Tex::index(0);
     pub const DEBUG: Self = Tex::index(77);

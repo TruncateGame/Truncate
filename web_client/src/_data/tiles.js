@@ -22,6 +22,12 @@ module.exports = async function () {
         ROOF3: 34,
         ROOF4: 35,
 
+        PLANTER1: 111,
+        PLANTER2: 112,
+        BUSH: 113,
+        WHEAT: 114,
+        WELL: 115,
+
         WATER_NW: 26,
         WATER_N: 16,
         WATER_NE: 25,
