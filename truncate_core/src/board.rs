@@ -181,32 +181,42 @@ impl Board {
         let trim_top = self
             .squares
             .iter()
-            .position(|row| row.iter().any(|s| !matches!(s, Square::Water)))
-            .unwrap_or_default();
+            .position(|row| {
+                row.iter()
+                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
 
         let trim_bottom = self
             .squares
             .iter()
             .rev()
-            .position(|row| row.iter().any(|s| !matches!(s, Square::Water)))
-            .unwrap_or_default();
+            .position(|row| {
+                row.iter()
+                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
 
         let trim_left = (0..self.width())
             .position(|i| {
                 self.squares
                     .iter()
-                    .any(|row| !matches!(row[i], Square::Water))
+                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
             })
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .saturating_sub(1);
 
         let trim_right = (0..self.width())
             .rev()
             .position(|i| {
                 self.squares
                     .iter()
-                    .any(|row| !matches!(row[i], Square::Water))
+                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
             })
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .saturating_sub(1);
 
         for _ in 0..trim_top {
             self.squares.remove(0);
@@ -786,7 +796,6 @@ pub mod tests {
 
     #[test]
     fn trim_board() {
-        // Nothing to trim
         let mut b = from_string(
             "~~ ~~ |0 ~~ ~~\n\
              __ __ __ __ __\n\
@@ -803,10 +812,10 @@ pub mod tests {
              __ __ R0 __ __\n\
              __ W0 O0 R0 __\n\
              __ __ S0 __ __\n\
-             __ __ __ __ __"
+             __ __ __ __ __",
+            "Don't trim docks or land"
         );
 
-        // Edges to trim
         let mut b = from_string(
             "~~ ~~ ~~ ~~ ~~\n\
              ~~ __ R0 __ ~~\n\
@@ -817,17 +826,40 @@ pub mod tests {
         b.trim();
         assert_eq!(
             b.to_string(),
-            "__ R0 __\n\
-             W0 O0 R0\n\
-             __ S0 __",
+            "~~ ~~ ~~ ~~ ~~\n\
+             ~~ __ R0 __ ~~\n\
+             ~~ W0 O0 R0 ~~\n\
+             ~~ __ S0 __ ~~\n\
+             ~~ ~~ ~~ ~~ ~~",
+            "Leave an edge of water around the board"
         );
 
-        // Don't trim inners
+        let mut b = from_string(
+            "~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ ~~ |0 ~~ ~~ ~~\n\
+             ~~ ~~ __ R0 __ ~~ ~~\n\
+             ~~ ~~ W0 O0 R0 ~~ ~~\n\
+             ~~ ~~ __ S0 __ |1 ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~ ~~",
+        );
+        b.trim();
+        assert_eq!(
+            b.to_string(),
+            "~~ ~~ |0 ~~ ~~\n\
+             ~~ __ R0 __ ~~\n\
+             ~~ W0 O0 R0 ~~\n\
+             ~~ __ S0 __ |1\n\
+             ~~ ~~ ~~ ~~ ~~",
+            "Trim excess water"
+        );
+
         let mut b = from_string(
             "__ __ __ ~~ __\n\
              __ __ R0 ~~ __\n\
              ~~ ~~ ~~ ~~ ~~\n\
              __ __ S0 ~~ __\n\
+             ~~ ~~ ~~ ~~ ~~\n\
              ~~ ~~ ~~ ~~ ~~",
         );
         b.trim();
@@ -836,7 +868,29 @@ pub mod tests {
             "__ __ __ ~~ __\n\
              __ __ R0 ~~ __\n\
              ~~ ~~ ~~ ~~ ~~\n\
-             __ __ S0 ~~ __",
+             __ __ S0 ~~ __\n\
+             ~~ ~~ ~~ ~~ ~~",
+            "Don't trim inner empty columns or rows"
+        );
+
+        let mut b = from_string(
+            "~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             |0 ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ __ R0 __ ~~ ~~\n\
+             ~~ ~~ W0 O0 R0 ~~ ~~\n\
+             ~~ ~~ __ S0 __ |0 ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ ~~ |1 ~~ ~~ ~~",
+        );
+        b.trim();
+        assert_eq!(
+            b.to_string(),
+            "~~ ~~ ~~ ~~ ~~\n\
+             ~~ __ R0 __ ~~\n\
+             ~~ W0 O0 R0 ~~\n\
+             ~~ __ S0 __ |0\n\
+             ~~ ~~ ~~ ~~ ~~",
+            "Do trim unconnected docks"
         );
     }
 
