@@ -1,6 +1,5 @@
 mod definitions;
 mod game_state;
-mod room_codes;
 
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
@@ -17,7 +16,6 @@ use tungstenite::protocol::Message;
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
 use game_state::GameState;
-use room_codes::RoomCodes;
 use truncate_core::messages::{GameMessage, LobbyPlayerMessage, PlayerMessage};
 
 type PeerMap = Arc<DashMap<SocketAddr, UnboundedSender<GameMessage>>>;
@@ -29,7 +27,6 @@ async fn handle_player_msg(
     msg: Message,
     addr: SocketAddr,
     maps: Maps,
-    code_provider: RoomCodes,
     jwt_key: HS256Key,
 ) -> Result<(), tungstenite::Error> {
     let (peer_map, game_map, active_map, word_map) = maps;
@@ -52,7 +49,7 @@ async fn handle_player_msg(
     match parsed_msg {
         Ping => { /* TODO: Track pings and notify the game when players disconnect */ }
         NewGame(name) => {
-            let new_game_id = code_provider.get_free_code();
+            let new_game_id = word_map.lock().await.get_free_code();
             let mut game = GameState::new(new_game_id.clone());
             game.add_player(Player {
                 name: name.clone(),
@@ -169,7 +166,7 @@ async fn handle_player_msg(
                         if existing_game.game.started_at.is_some() {
                             player_tx
                                 .send(GameMessage::StartedGame(
-                                    existing_game.game_msg(player_index, None).await,
+                                    existing_game.game_msg(player_index, None),
                                 ))
                                 .unwrap();
                         } else {
@@ -256,7 +253,7 @@ async fn handle_player_msg(
         }
         Swap(from, to) => {
             if let Some(mut game_state) = get_current_game(addr) {
-                for (player, message) in game_state.swap(addr, from, to).await {
+                for (player, message) in game_state.swap(addr, from, to, word_map).await {
                     let Some(socket) = player.socket else { todo!("Handle disconnected player") };
                     let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
 
@@ -272,13 +269,7 @@ async fn handle_player_msg(
     Ok(())
 }
 
-async fn handle_connection(
-    maps: Maps,
-    raw_stream: TcpStream,
-    addr: SocketAddr,
-    code_provider: RoomCodes,
-    jwt_key: HS256Key,
-) {
+async fn handle_connection(maps: Maps, raw_stream: TcpStream, addr: SocketAddr, jwt_key: HS256Key) {
     println!("Incoming TCP connection from: {}", addr);
 
     let ws_stream = tokio_tungstenite::accept_async(raw_stream)
@@ -294,15 +285,8 @@ async fn handle_connection(
 
     // TODO: try_for_each from TryStreamExt is quite nice,
     // look to bring that trait to the other stream places
-    let handle_player_msg = incoming.try_for_each(|msg| {
-        handle_player_msg(
-            msg,
-            addr,
-            maps.clone(),
-            code_provider.clone(),
-            jwt_key.clone(),
-        )
-    });
+    let handle_player_msg =
+        incoming.try_for_each(|msg| handle_player_msg(msg, addr, maps.clone(), jwt_key.clone()));
 
     let messages_to_player = {
         UnboundedReceiverStream::new(player_rx)
@@ -359,8 +343,6 @@ async fn main() -> Result<(), IoError> {
 
     let jwt_key = HS256Key::generate();
 
-    let code_provider = RoomCodes::new(maps.1.clone());
-
     let try_socket = TcpListener::bind(&addr).await;
     let listener = try_socket.expect("Failed to bind");
     println!("Listening on: {}", addr);
@@ -372,9 +354,6 @@ async fn main() -> Result<(), IoError> {
             maps.clone(),
             stream,
             addr,
-            // TODO: This is a very expensive clone,
-            // refactor RoomCodes to be an Arc/Mutex shindig
-            code_provider.clone(),
             jwt_key.clone(),
         ));
     }

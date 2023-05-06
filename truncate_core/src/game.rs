@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use time::{Duration, OffsetDateTime};
 
 use crate::bag::TileBag;
@@ -79,7 +81,11 @@ impl Game {
         self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
     }
 
-    pub fn play_turn(&mut self, next_move: Move) -> Result<Option<usize>, String> {
+    pub fn play_turn(
+        &mut self,
+        next_move: Move,
+        external_dictionary: Option<&HashSet<String>>,
+    ) -> Result<Option<usize>, String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
         }
@@ -99,7 +105,7 @@ impl Game {
             return Err("Player's turn has not yet started".into());
         }
 
-        self.recent_changes = match self.make_move(next_move) {
+        self.recent_changes = match self.make_move(next_move, external_dictionary) {
             Ok(changes) => changes,
             Err(msg) => {
                 println!("{}", msg);
@@ -145,7 +151,11 @@ impl Game {
         Ok(None)
     }
 
-    pub fn make_move(&mut self, game_move: Move) -> Result<Vec<Change>, GamePlayError> {
+    pub fn make_move(
+        &mut self,
+        game_move: Move,
+        external_dictionary: Option<&HashSet<String>>,
+    ) -> Result<Vec<Change>, GamePlayError> {
         let mut changes = vec![];
 
         match game_move {
@@ -173,7 +183,7 @@ impl Game {
                     detail: self.board.set(position, player, tile)?,
                     action: BoardChangeAction::Added,
                 }));
-                self.resolve_attack(player, position, &mut changes);
+                self.resolve_attack(player, position, external_dictionary, &mut changes);
                 Ok(changes)
             }
             Move::Swap { player, positions } => {
@@ -189,7 +199,13 @@ impl Game {
     //   - Weak and invalid defending words die
     //   - Any remaining defending letters adjacent to the attacking tile die
     //   - Defending tiles are truncated
-    fn resolve_attack(&mut self, player: usize, position: Coordinate, changes: &mut Vec<Change>) {
+    fn resolve_attack(
+        &mut self,
+        player: usize,
+        position: Coordinate,
+        external_dictionary: Option<&HashSet<String>>,
+        changes: &mut Vec<Change>,
+    ) {
         let (attackers, defenders) = self.board.collect_combanants(player, position);
         let attacking_words = self
             .board
@@ -200,10 +216,12 @@ impl Game {
             .word_strings(&defenders)
             .expect("Words were just found and should be valid");
 
-        if let Some(battle) =
-            self.judge
-                .battle(attacking_words, defending_words, &self.rules.battle_rules)
-        {
+        if let Some(battle) = self.judge.battle(
+            attacking_words,
+            defending_words,
+            &self.rules.battle_rules,
+            external_dictionary,
+        ) {
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
                     changes.extend(defenders.iter().flatten().map(|coordinate| {

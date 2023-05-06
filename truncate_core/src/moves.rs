@@ -55,7 +55,7 @@ mod tests {
             ..Game::new(3, 3)
         };
         assert_eq!(
-            game.make_move(out_of_bounds),
+            game.make_move(out_of_bounds, None),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
@@ -66,7 +66,7 @@ mod tests {
             position,
         };
         assert_eq!(
-            game.make_move(out_of_bounds),
+            game.make_move(out_of_bounds, None),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
@@ -77,7 +77,7 @@ mod tests {
             position,
         };
         assert_eq!(
-            game.make_move(dead),
+            game.make_move(dead, None),
             Err(GamePlayError::InvalidPosition { position })
         );
     }
@@ -102,11 +102,14 @@ mod tests {
         };
 
         // Places beside dock
-        let changes = game.make_move(Move::Place {
-            player: 0,
-            tile: 'A',
-            position: Coordinate { x: 2, y: 1 },
-        });
+        let changes = game.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 2, y: 1 },
+            },
+            None,
+        );
         assert_eq!(
             changes.clone().map(|c| {
                 c.into_iter()
@@ -139,36 +142,45 @@ mod tests {
 
         // Can't place on the same place again
         assert_eq!(
-            game.make_move(Move::Place {
-                player: 0,
-                tile: 'B',
-                position: Coordinate { x: 2, y: 1 }
-            },),
+            game.make_move(
+                Move::Place {
+                    player: 0,
+                    tile: 'B',
+                    position: Coordinate { x: 2, y: 1 }
+                },
+                None
+            ),
             Err(GamePlayError::OccupiedPlace)
         );
 
         // Can't place at a diagonal
         assert_eq!(
-            game.make_move(Move::Place {
-                player: 0,
-                tile: 'B',
-                position: Coordinate { x: 3, y: 2 }
-            },),
+            game.make_move(
+                Move::Place {
+                    player: 0,
+                    tile: 'B',
+                    position: Coordinate { x: 3, y: 2 }
+                },
+                None
+            ),
             Err(GamePlayError::NonAdjacentPlace)
         );
 
         // Can place directly above
         assert_eq!(
-            game.make_move(Move::Place {
-                player: 0,
-                tile: 'B',
-                position: Coordinate { x: 2, y: 2 }
-            },)
-                .map(|c| {
-                    c.into_iter()
-                        .filter(|c| matches!(c, Change::Board(_)))
-                        .collect::<Vec<_>>()
-                }),
+            game.make_move(
+                Move::Place {
+                    player: 0,
+                    tile: 'B',
+                    position: Coordinate { x: 2, y: 2 }
+                },
+                None
+            )
+            .map(|c| {
+                c.into_iter()
+                    .filter(|c| matches!(c, Change::Board(_)))
+                    .collect::<Vec<_>>()
+            }),
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
                     square: Square::Occupied(0, 'B'),
@@ -180,20 +192,26 @@ mod tests {
 
         // Can't place on the same place again
         assert_eq!(
-            game.make_move(Move::Place {
-                player: 0,
-                tile: 'B',
-                position: Coordinate { x: 2, y: 2 }
-            },),
+            game.make_move(
+                Move::Place {
+                    player: 0,
+                    tile: 'B',
+                    position: Coordinate { x: 2, y: 2 }
+                },
+                None
+            ),
             Err(GamePlayError::OccupiedPlace)
         );
 
         // Can swap
         assert_eq!(
-            game.make_move(Move::Swap {
-                player: 0,
-                positions: [Coordinate { x: 2, y: 1 }, Coordinate { x: 2, y: 2 }]
-            },),
+            game.make_move(
+                Move::Swap {
+                    player: 0,
+                    positions: [Coordinate { x: 2, y: 1 }, Coordinate { x: 2, y: 2 }]
+                },
+                None
+            ),
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
@@ -229,20 +247,26 @@ mod tests {
         };
 
         assert_eq!(
-            game.make_move(Move::Place {
-                player: 2,
-                tile: 'A',
-                position: Coordinate { x: 2, y: 2 }
-            },),
+            game.make_move(
+                Move::Place {
+                    player: 2,
+                    tile: 'A',
+                    position: Coordinate { x: 2, y: 2 }
+                },
+                None
+            ),
             Err(GamePlayError::NonAdjacentPlace)
         );
 
         assert_eq!(
-            game.make_move(Move::Place {
-                player: 0,
-                tile: '&',
-                position: Coordinate { x: 1, y: 0 }
-            },),
+            game.make_move(
+                Move::Place {
+                    player: 0,
+                    tile: '&',
+                    position: Coordinate { x: 1, y: 0 }
+                },
+                None
+            ),
             Err(GamePlayError::PlayerDoesNotHaveTile {
                 player: 0,
                 tile: '&'
@@ -367,11 +391,14 @@ mod tests {
             ..Game::new(1, 1)
         };
 
-        game.make_move(Move::Place {
-            player: 0,
-            tile: 'A',
-            position: Coordinate { x: 1, y: 3 },
-        })
+        game.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            None,
+        )
         .unwrap();
 
         assert_eq!(
@@ -407,11 +434,14 @@ mod tests {
             ..Game::new(3, 1)
         };
 
-        game.make_move(Move::Place {
-            player: 0,
-            tile: 'A',
-            position: Coordinate { x: 1, y: 3 },
-        })
+        game.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            None,
+        )
         .unwrap();
 
         assert_eq!(
@@ -471,11 +501,14 @@ mod tests {
             ..Game::new(3, 1)
         };
 
-        game.make_move(Move::Place {
-            player: 0,
-            tile: 'A',
-            position: Coordinate { x: 1, y: 3 },
-        })
+        game.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            None,
+        )
         .unwrap();
 
         for letter in ['B', 'X', 'X'] {
@@ -519,11 +552,14 @@ mod tests {
             ..Game::new(3, 1)
         };
 
-        game.make_move(Move::Place {
-            player: 0,
-            tile: 'A',
-            position: Coordinate { x: 2, y: 3 },
-        })
+        game.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 2, y: 3 },
+            },
+            None,
+        )
         .unwrap();
 
         assert_eq!(
@@ -561,11 +597,14 @@ mod tests {
             ..Game::new(3, 1)
         };
 
-        game.make_move(Move::Place {
-            player: 0,
-            tile: 'A',
-            position: Coordinate { x: 2, y: 0 },
-        })
+        game.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 2, y: 0 },
+            },
+            None,
+        )
         .unwrap();
 
         assert_eq!(

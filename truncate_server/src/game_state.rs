@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, MutexGuard};
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
@@ -79,15 +79,14 @@ impl GameState {
         self.game.board = board;
     }
 
-    pub async fn game_msg(
+    pub fn game_msg(
         &self,
         player_index: usize,
-        word_map: Option<Arc<Mutex<WordDB>>>,
+        word_map: Option<&MutexGuard<'_, WordDB>>,
     ) -> GameStateMessage {
         let (board, mut changes) = self.game.filter_game_to_player(player_index);
 
-        if let Some(definitions_db) = word_map {
-            let definitions = definitions_db.lock().await;
+        if let Some(definitions) = word_map {
             for battle in changes.iter_mut().filter_map(|change| match change {
                 Change::Battle(battle) => Some(battle),
                 _ => None,
@@ -158,7 +157,7 @@ impl GameState {
         for (player_index, player) in self.players.iter().enumerate() {
             messages.push((
                 player.clone(),
-                GameMessage::StartedGame(self.game_msg(player_index, None).await),
+                GameMessage::StartedGame(self.game_msg(player_index, None)),
             ));
         }
 
@@ -180,17 +179,21 @@ impl GameState {
             .enumerate()
             .find(|(_, p)| p.socket == Some(player))
         {
-            match self.game.play_turn(Move::Place {
-                player: player_index,
-                tile,
-                position,
-            }) {
+            let words_db = words.lock().await;
+            match self.game.play_turn(
+                Move::Place {
+                    player: player_index,
+                    tile,
+                    position,
+                },
+                Some(&words_db.valid_words),
+            ) {
                 Ok(Some(winner)) => {
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player.clone(),
                             GameMessage::GameEnd(
-                                self.game_msg(player_index, Some(words.clone())).await,
+                                self.game_msg(player_index, Some(&words_db)),
                                 winner as u64,
                             ),
                         ));
@@ -201,9 +204,7 @@ impl GameState {
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player.clone(),
-                            GameMessage::GameUpdate(
-                                self.game_msg(player_index, Some(words.clone())).await,
-                            ),
+                            GameMessage::GameUpdate(self.game_msg(player_index, Some(&words_db))),
                         ));
                     }
                     return messages;
@@ -231,6 +232,7 @@ impl GameState {
         player: SocketAddr,
         from: Coordinate,
         to: Coordinate,
+        words: Arc<Mutex<WordDB>>,
     ) -> Vec<(&Player, GameMessage)> {
         let mut messages = Vec::with_capacity(self.players.len());
 
@@ -240,10 +242,14 @@ impl GameState {
             .enumerate()
             .find(|(_, p)| p.socket == Some(player))
         {
-            match self.game.play_turn(Move::Swap {
-                player: player_index,
-                positions: [from, to],
-            }) {
+            let words_db = words.lock().await;
+            match self.game.play_turn(
+                Move::Swap {
+                    player: player_index,
+                    positions: [from, to],
+                },
+                Some(&words_db.valid_words),
+            ) {
                 Ok(Some(_)) => {
                     unreachable!("Cannot win by swapping")
                 }
@@ -251,7 +257,7 @@ impl GameState {
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player.clone(),
-                            GameMessage::GameUpdate(self.game_msg(player_index, None).await),
+                            GameMessage::GameUpdate(self.game_msg(player_index, None)),
                         ));
                     }
 
