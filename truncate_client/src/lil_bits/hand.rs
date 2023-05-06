@@ -4,7 +4,7 @@ use truncate_core::player::Hand;
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
 use epaint::{vec2, Vec2};
 
-use crate::active_game::GameCtx;
+use crate::regions::active_game::GameCtx;
 
 use super::{tile::TilePlayer, HandSquareUI, TileUI};
 

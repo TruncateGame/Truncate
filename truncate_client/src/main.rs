@@ -1,11 +1,9 @@
-mod active_game;
+mod app_inner;
+mod app_outer;
 mod debug;
-mod editor_state;
-mod game;
-mod game_client;
-mod glyph_meaure;
 mod lil_bits;
 mod native_comms;
+mod regions;
 mod theming;
 
 use eframe::egui;
@@ -13,7 +11,7 @@ use futures::channel::{mpsc, oneshot};
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::runtime::Builder;
 
-use game_client::GameClient;
+use app_outer::OuterApplication;
 
 fn main() {
     let connect_addr = std::env::args()
@@ -46,7 +44,7 @@ fn main() {
         options,
         Box::new(move |cc| {
             tx_context.send(cc.egui_ctx.clone()).unwrap();
-            Box::new(GameClient::new(cc, rx_game, tx_player, None))
+            Box::new(OuterApplication::new(cc, rx_game, tx_player, None))
         }),
     )
     .unwrap();

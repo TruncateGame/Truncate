@@ -3,7 +3,7 @@ use epaint::{Color32, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::{
-    active_game::GameCtx,
+    regions::active_game::GameCtx,
     theming::{mapper::MappedTile, Darken, Lighten, Theme},
 };
 

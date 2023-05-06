@@ -1,9 +1,9 @@
 use eframe::egui;
 use truncate_core::{messages::RoomCode, messages::Token};
 
-use crate::{active_game::ActiveGame, editor_state::EditorState};
+use crate::{regions::active_game::ActiveGame, regions::lobby::Lobby};
 
-use super::GameClient;
+use super::OuterApplication;
 use truncate_core::{
     messages::{GameMessage, GameStateMessage, PlayerMessage},
     reporting::Change,
@@ -13,13 +13,13 @@ pub enum GameStatus {
     None(RoomCode, Option<Token>),
     PendingJoin(RoomCode),
     PendingCreate,
-    PendingStart(EditorState),
+    PendingStart(Lobby),
     Active(ActiveGame),
     Concluded(ActiveGame, u64),
 }
 
-pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
-    let GameClient {
+pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
+    let OuterApplication {
         name,
         theme,
         game_status,
@@ -152,7 +152,7 @@ pub fn render(client: &mut GameClient, ui: &mut egui::Ui) {
                         .unwrap();
                 }
 
-                *game_status = GameStatus::PendingStart(EditorState::new(
+                *game_status = GameStatus::PendingStart(Lobby::new(
                     id.to_uppercase(),
                     players,
                     board,

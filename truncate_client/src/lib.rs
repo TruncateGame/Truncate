@@ -1,15 +1,13 @@
-mod active_game;
+mod app_inner;
+mod app_outer;
 mod debug;
-mod editor_state;
-mod game;
-mod game_client;
-mod glyph_meaure;
 mod lil_bits;
+mod regions;
 mod theming;
 #[cfg(target_arch = "wasm32")]
 mod web_comms;
 
-use game_client::GameClient;
+use app_outer::OuterApplication;
 
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::{self, prelude::*};
@@ -35,7 +33,7 @@ impl WebHandle {
 
     #[wasm_bindgen]
     pub fn set_some_content_from_javasript(&mut self, _some_data: &str) {
-        let _app = self.handle.lock().app_mut::<GameClient>();
+        let _app = self.handle.lock().app_mut::<OuterApplication>();
         // _app.data = some_data;
     }
 }
@@ -82,7 +80,12 @@ pub async fn start_separate(
         web_options,
         Box::new(|cc| {
             tx_context.send(cc.egui_ctx.clone()).unwrap();
-            Box::new(GameClient::new(cc, rx_game, tx_player, Some(room_code)))
+            Box::new(OuterApplication::new(
+                cc,
+                rx_game,
+                tx_player,
+                Some(room_code),
+            ))
         }),
     )
     .await

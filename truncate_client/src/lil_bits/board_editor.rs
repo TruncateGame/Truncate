@@ -9,7 +9,7 @@ use truncate_core::{
 use eframe::egui::{self, Id, Margin};
 
 use crate::{
-    editor_state::EditingMode,
+    regions::lobby::BoardEditingMode,
     theming::{mapper::MappedBoard, Theme},
 };
 
@@ -28,14 +28,14 @@ enum EditorDrag {
 pub struct EditorUI<'a> {
     board: &'a mut Board,
     mapped_board: &'a MappedBoard,
-    editing_mode: &'a mut EditingMode,
+    editing_mode: &'a mut BoardEditingMode,
 }
 
 impl<'a> EditorUI<'a> {
     pub fn new(
         board: &'a mut Board,
         mapped_board: &'a MappedBoard,
-        editing_mode: &'a mut EditingMode,
+        editing_mode: &'a mut BoardEditingMode,
     ) -> Self {
         Self {
             board,
@@ -61,25 +61,25 @@ impl<'a> EditorUI<'a> {
                 edited = true;
             }
             let edit_str = match self.editing_mode {
-                EditingMode::Land => "land and water".to_string(),
-                EditingMode::Town(p) => format!("player {} towns", *p + 1),
-                EditingMode::Dock(p) => format!("player {} docks", *p + 1),
+                BoardEditingMode::Land => "land and water".to_string(),
+                BoardEditingMode::Town(p) => format!("player {} towns", *p + 1),
+                BoardEditingMode::Dock(p) => format!("player {} docks", *p + 1),
             };
             ui.label(format!("Editing {edit_str}; Change to:"));
             if ui.button("Land").clicked() {
-                *self.editing_mode = EditingMode::Land;
+                *self.editing_mode = BoardEditingMode::Land;
             }
             if ui.button("P1 Towns").clicked() {
-                *self.editing_mode = EditingMode::Town(0);
+                *self.editing_mode = BoardEditingMode::Town(0);
             }
             if ui.button("P2 Towns").clicked() {
-                *self.editing_mode = EditingMode::Town(1);
+                *self.editing_mode = BoardEditingMode::Town(1);
             }
             if ui.button("P1 Docks").clicked() {
-                *self.editing_mode = EditingMode::Dock(0);
+                *self.editing_mode = BoardEditingMode::Dock(0);
             }
             if ui.button("P2 Docks").clicked() {
-                *self.editing_mode = EditingMode::Dock(1);
+                *self.editing_mode = BoardEditingMode::Dock(1);
             }
         });
 
@@ -155,7 +155,7 @@ impl<'a> EditorUI<'a> {
                                         mem.data.insert_temp(
                                             Id::null(),
                                             match self.editing_mode {
-                                                EditingMode::Land => match square {
+                                                BoardEditingMode::Land => match square {
                                                     Square::Water | Square::Dock(_) => {
                                                         EditorDrag::MakeLand
                                                     }
@@ -164,22 +164,26 @@ impl<'a> EditorUI<'a> {
                                                     }
                                                     Square::Occupied(_, _) => unreachable!(),
                                                 },
-                                                EditingMode::Town(editing_player) => match square {
-                                                    Square::Town(sq_player)
-                                                        if sq_player == editing_player =>
-                                                    {
-                                                        EditorDrag::RemoveTown(*editing_player)
+                                                BoardEditingMode::Town(editing_player) => {
+                                                    match square {
+                                                        Square::Town(sq_player)
+                                                            if sq_player == editing_player =>
+                                                        {
+                                                            EditorDrag::RemoveTown(*editing_player)
+                                                        }
+                                                        _ => EditorDrag::MakeTown(*editing_player),
                                                     }
-                                                    _ => EditorDrag::MakeTown(*editing_player),
-                                                },
-                                                EditingMode::Dock(editing_player) => match square {
-                                                    Square::Dock(sq_player)
-                                                        if sq_player == editing_player =>
-                                                    {
-                                                        EditorDrag::RemoveDock(*editing_player)
+                                                }
+                                                BoardEditingMode::Dock(editing_player) => {
+                                                    match square {
+                                                        Square::Dock(sq_player)
+                                                            if sq_player == editing_player =>
+                                                        {
+                                                            EditorDrag::RemoveDock(*editing_player)
+                                                        }
+                                                        _ => EditorDrag::MakeDock(*editing_player),
                                                     }
-                                                    _ => EditorDrag::MakeDock(*editing_player),
-                                                },
+                                                }
                                             },
                                         )
                                     });

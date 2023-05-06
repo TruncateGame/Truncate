@@ -4,7 +4,7 @@ use eframe::{
 };
 use epaint::Rect;
 
-use crate::{active_game::GameCtx, theming::Theme};
+use crate::{regions::active_game::GameCtx, theming::Theme};
 
 pub struct HandSquareUI {
     empty: bool,

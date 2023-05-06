@@ -5,7 +5,7 @@ use eframe::{
 use epaint::vec2;
 use truncate_core::reporting::{BattleReport, BattleWord};
 
-use crate::active_game::GameCtx;
+use crate::regions::active_game::GameCtx;
 
 pub struct BattleUI<'a> {
     battle: &'a BattleReport,

@@ -4,15 +4,15 @@ type S = Sender<PlayerMessage>;
 
 use super::debug;
 use super::theming::Theme;
-use crate::{game, glyph_meaure::GlyphMeasure};
+use crate::{app_inner, theming::glyph_meaure::GlyphMeasure};
 use eframe::egui::{self, Id, TextureOptions};
 use epaint::{hex_color, TextureHandle};
 use truncate_core::messages::{GameMessage, PlayerMessage};
 
-pub struct GameClient {
+pub struct OuterApplication {
     pub name: String,
     pub theme: Theme,
-    pub game_status: game::GameStatus,
+    pub game_status: app_inner::GameStatus,
     pub rx_game: R,
     pub tx_player: S,
     pub frame_history: debug::FrameHistory,
@@ -20,7 +20,7 @@ pub struct GameClient {
     pub launched_room: Option<String>,
 }
 
-impl GameClient {
+impl OuterApplication {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         rx_game: R,
@@ -52,7 +52,7 @@ impl GameClient {
             mem.data.insert_temp(Id::null(), GlyphMeasure::new());
         });
 
-        let mut game_status = game::GameStatus::None("".into(), None);
+        let mut game_status = app_inner::GameStatus::None("".into(), None);
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -60,7 +60,7 @@ impl GameClient {
             if let Some(existing_game_token) =
                 local_storage.get_item("truncate_active_token").unwrap()
             {
-                game_status = game::GameStatus::None("".into(), Some(existing_game_token));
+                game_status = app_inner::GameStatus::None("".into(), Some(existing_game_token));
             }
         }
 
@@ -94,7 +94,7 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
     ctx.load_texture("tiles", image, TextureOptions::NEAREST)
 }
 
-impl eframe::App for GameClient {
+impl eframe::App for OuterApplication {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.frame_history
             .on_new_frame(ctx.input(|i| i.time), _frame.info().cpu_usage);
@@ -102,7 +102,7 @@ impl eframe::App for GameClient {
         egui::CentralPanel::default().show(ctx, |ui| {
             // Show debug timings in-app
             // self.frame_history.ui(ui);
-            game::render(self, ui)
+            app_inner::render(self, ui)
         });
 
         ctx.request_repaint_after(std::time::Duration::from_millis(250));

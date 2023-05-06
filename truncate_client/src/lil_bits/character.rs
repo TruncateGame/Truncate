@@ -2,7 +2,7 @@ use eframe::egui::{self, Id};
 use epaint::{Color32, TextShape, Vec2};
 use std::f32;
 
-use crate::{glyph_meaure::GlyphMeasure, theming::*};
+use crate::{theming::glyph_meaure::GlyphMeasure, theming::*};
 
 pub enum CharacterOrient {
     North,

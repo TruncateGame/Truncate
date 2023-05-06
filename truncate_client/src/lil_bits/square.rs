@@ -6,7 +6,7 @@ use epaint::{hex_color, Rect, Stroke, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::{
-    active_game::GameCtx,
+    regions::active_game::GameCtx,
     theming::{mapper::MappedBoard, Theme},
 };
 

@@ -11,7 +11,7 @@ impl GlyphMeasurer {
     fn new() -> Self {
         Self {
             font: ab_glyph::FontRef::try_from_slice(include_bytes!(
-                "../font/PressStart2P-Regular.ttf"
+                "../../font/PressStart2P-Regular.ttf"
             ))
             .unwrap(),
         }

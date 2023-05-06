@@ -12,23 +12,23 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub enum EditingMode {
+pub enum BoardEditingMode {
     Land,
     Town(usize),
     Dock(usize),
 }
 
 #[derive(Clone)]
-pub struct EditorState {
+pub struct Lobby {
     pub board: Board,
     pub room_code: RoomCode,
     pub players: Vec<LobbyPlayerMessage>,
     pub mapped_board: MappedBoard,
     pub map_texture: TextureHandle,
-    pub editing_mode: EditingMode,
+    pub editing_mode: BoardEditingMode,
 }
 
-impl EditorState {
+impl Lobby {
     pub fn new(
         room_code: RoomCode,
         players: Vec<LobbyPlayerMessage>,
@@ -49,7 +49,7 @@ impl EditorState {
             players,
             map_texture,
             board,
-            editing_mode: EditingMode::Land,
+            editing_mode: BoardEditingMode::Land,
         }
     }
 

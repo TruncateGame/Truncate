@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+pub mod glyph_meaure;
 pub mod mapper;
 pub mod tex;
 

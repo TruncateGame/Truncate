@@ -8,7 +8,7 @@ use truncate_core::{
 use eframe::egui;
 use hashbrown::HashMap;
 
-use crate::{theming::mapper::MappedBoard, active_game::{HoveredRegion, GameCtx}};
+use crate::{theming::mapper::MappedBoard, regions::active_game::{HoveredRegion, GameCtx}};
 
 use super::{
     tile::TilePlayer,
