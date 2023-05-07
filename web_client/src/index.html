@@ -606,6 +606,9 @@
             control("cancel_new").addEventListener("click", e => {
                 stage("root");
             });
+            control("tutorial").addEventListener("click", e => {
+                truncate_runner.join_game("TUTORIAL_01");
+            });
             control("new_game").addEventListener("click", e => {
                 truncate_runner.create_game();
             });

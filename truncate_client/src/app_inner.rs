@@ -56,6 +56,11 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                     panic!("Tried to rejoin a game but no token found in localStorage");
                 }
             }
+        } else if launched_room == "TUTORIAL_01" {
+            new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+                map_texture.clone(),
+                theme.clone(),
+            )));
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
             send(PlayerMessage::NewGame(name.clone()));
