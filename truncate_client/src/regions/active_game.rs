@@ -2,9 +2,9 @@ use epaint::{Color32, Rect, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
-    messages::{GamePlayerMessage, PlayerMessage, RoomCode},
+    messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
     player::Hand,
-    reporting::{BattleReport, BoardChange},
+    reporting::{BattleReport, BoardChange, Change},
 };
 
 use eframe::{
@@ -203,5 +203,74 @@ impl ActiveGame {
         );
 
         player_message
+    }
+
+    pub fn apply_new_state(&mut self, state_message: GameStateMessage) {
+        let GameStateMessage {
+            room_code: _,
+            players,
+            player_number: _,
+            next_player_number,
+            board,
+            hand: _,
+            changes,
+        } = state_message;
+
+        // assert_eq!(self.room_code, room_code);
+        // assert_eq!(self.player_number, player_number);
+        self.players = players;
+        self.board = board;
+        self.ctx.next_player_number = next_player_number;
+
+        #[cfg(target_arch = "wasm32")]
+        if self.ctx.next_player_number == self.ctx.player_number {
+            use eframe::wasm_bindgen::JsCast;
+
+            let window = web_sys::window().expect("window should exist in browser");
+            let document = window.document().expect("documnt should exist in window");
+            if let Some(element) = document.query_selector("#tr_move").unwrap() {
+                if let Ok(audio) = element.dyn_into::<web_sys::HtmlAudioElement>() {
+                    audio.play().expect("Audio should be playable");
+                }
+            }
+        }
+
+        self.board_changes.clear();
+        for board_change in changes.iter().filter_map(|c| match c {
+            Change::Board(change) => Some(change),
+            _ => None,
+        }) {
+            self.board_changes
+                .insert(board_change.detail.coordinate, board_change.clone());
+        }
+
+        for hand_change in changes.iter().filter_map(|c| match c {
+            Change::Hand(change) => Some(change),
+            _ => None,
+        }) {
+            for removed in &hand_change.removed {
+                self.hand.remove(
+                    self.hand
+                        .iter()
+                        .position(|t| t == removed)
+                        .expect("Player doesn't have tile being removed"),
+                );
+            }
+            let reduced_length = self.hand.len();
+            self.hand.0.extend(&hand_change.added);
+            self.new_hand_tiles = (reduced_length..self.hand.len()).collect();
+        }
+
+        for battle in changes.into_iter().filter_map(|c| match c {
+            Change::Battle(battle) => Some(battle),
+            _ => None,
+        }) {
+            self.battles.push(battle);
+        }
+
+        // TODO: Verify that our modified hand matches the actual hand in GameStateMessage
+
+        self.ctx.playing_tile = None;
+        self.ctx.error_msg = None;
     }
 }

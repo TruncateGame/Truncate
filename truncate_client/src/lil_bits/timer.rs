@@ -86,20 +86,33 @@ impl<'a> TimerUI<'a> {
                     .expect("Should be a valid timestamp");
                 let elapsed = now - next_turn;
                 if elapsed.is_positive() {
-                    self.time = self.player.time_remaining - elapsed;
-                    format!("{:?}s remaining", self.time.whole_seconds())
+                    if let Some(time) = self.player.time_remaining {
+                        self.time = time - elapsed;
+                        format!("{:?}s remaining", self.time.whole_seconds())
+                    } else {
+                        format!("Playing")
+                    }
                 } else {
-                    self.time = self.player.time_remaining;
-                    let starts_in = elapsed.whole_seconds() * -1;
-                    format!(
-                        "{:?}s remaining. Turn in {starts_in:?}s",
-                        self.time.whole_seconds()
-                    )
+                    if let Some(time) = self.player.time_remaining {
+                        self.time = time;
+                        let starts_in = elapsed.whole_seconds() * -1;
+                        format!(
+                            "{:?}s remaining. Turn in {starts_in:?}s",
+                            self.time.whole_seconds()
+                        )
+                    } else {
+                        let starts_in = elapsed.whole_seconds() * -1;
+                        format!("Turn starts in {starts_in:?}s")
+                    }
                 }
             }
             None => {
-                self.time = self.player.time_remaining;
-                format!("{:?}s remaining", self.time.whole_seconds())
+                if let Some(time) = self.player.time_remaining {
+                    self.time = time;
+                    format!("{:?}s remaining", self.time.whole_seconds())
+                } else {
+                    format!("")
+                }
             }
         }
     }
@@ -144,12 +157,8 @@ impl<'a> TimerUI<'a> {
                 self.get_name_color(theme),
             );
 
-            let (time_size, galley) = self.get_galley(
-                &time_string,
-                "Truncate-Regular",
-                theme.letter_size * 0.6,
-                ui,
-            );
+            let (time_size, galley) =
+                self.get_galley(&time_string, "Truncate-Heavy", theme.letter_size * 0.6, ui);
             ui.allocate_space(vec2(ui.available_width(), time_size.y));
             let mut pos = timer_ui_rect.right_top();
             pos.x -= time_size.x;
@@ -164,38 +173,41 @@ impl<'a> TimerUI<'a> {
             ui.painter()
                 .rect_filled(time_bar, timer_rounding, theme.text.darken());
 
-            // Paint time remaining
-            let time_proportion = (self.time / self.player.allotted_time) as f32;
-            time_bar.set_right(time_bar.left() + time_proportion * timer_ui_rect.width());
-            ui.painter()
-                .rect_filled(time_bar, timer_rounding, self.get_time_color(theme));
-
-            // If in an active turn, paint the point the turn started at
-            if self.player.time_remaining != self.time {
-                let time_proportion =
-                    (self.player.time_remaining / self.player.allotted_time) as f32;
+            if let (Some(time_remaining), Some(allotted_time)) =
+                (self.player.time_remaining, self.player.allotted_time)
+            {
+                // Paint time remaining
+                let time_proportion = (self.time / allotted_time) as f32;
                 time_bar.set_right(time_bar.left() + time_proportion * timer_ui_rect.width());
-
-                ui.painter().rect_stroke(
-                    time_bar,
-                    timer_rounding,
-                    Stroke::new(1.0, self.get_time_color(theme)),
-                );
-            }
-
-            let time_division_count = self.player.allotted_time.whole_minutes();
-            let time_division_width = timer_ui_rect.width() / time_division_count as f32;
-
-            let mut time_division_line = [time_bar.left_top(), time_bar.left_bottom()];
-            time_division_line[0].y += time_bar.height() * 0.15;
-            time_division_line[1].y -= time_bar.height() * 0.15;
-
-            for _ in 1..time_division_count {
-                time_division_line[0].x += time_division_width;
-                time_division_line[1].x += time_division_width;
-
                 ui.painter()
-                    .line_segment(time_division_line, Stroke::new(1.0, theme.text));
+                    .rect_filled(time_bar, timer_rounding, self.get_time_color(theme));
+
+                // If in an active turn, paint the point the turn started at
+                if time_remaining != self.time {
+                    let time_proportion = (time_remaining / allotted_time) as f32;
+                    time_bar.set_right(time_bar.left() + time_proportion * timer_ui_rect.width());
+
+                    ui.painter().rect_stroke(
+                        time_bar,
+                        timer_rounding,
+                        Stroke::new(1.0, self.get_time_color(theme)),
+                    );
+                }
+
+                let time_division_count = allotted_time.whole_minutes();
+                let time_division_width = timer_ui_rect.width() / time_division_count as f32;
+
+                let mut time_division_line = [time_bar.left_top(), time_bar.left_bottom()];
+                time_division_line[0].y += time_bar.height() * 0.15;
+                time_division_line[1].y -= time_bar.height() * 0.15;
+
+                for _ in 1..time_division_count {
+                    time_division_line[0].x += time_division_width;
+                    time_division_line[1].x += time_division_width;
+
+                    ui.painter()
+                        .line_segment(time_division_line, Stroke::new(1.0, theme.text));
+                }
             }
         });
     }

@@ -8,7 +8,7 @@ use crate::rules;
 pub struct TileBag {
     bag: Vec<char>,
     rng: Rand32,
-    letter_distribution: [usize; 26],
+    letter_distribution: Option<[usize; 26]>,
 }
 
 impl TileBag {
@@ -31,10 +31,24 @@ impl TileBag {
                     .expect("Time went backwards")
                     .as_secs(),
             ),
-            letter_distribution,
+            letter_distribution: Some(letter_distribution),
         };
         tile_bag.fill();
         tile_bag
+    }
+
+    pub fn explicit(tiles: Vec<char>) -> Self {
+        TileBag {
+            bag: tiles,
+            rng: Rand32::new(
+                // TODO: Use some other RNG to get a seed for the game
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Time went backwards")
+                    .as_secs(),
+            ),
+            letter_distribution: None,
+        }
     }
 
     pub fn draw_tile(&mut self) -> char {
@@ -51,12 +65,14 @@ impl TileBag {
     }
 
     fn fill(&mut self) {
-        self.bag.extend(
-            self.letter_distribution
-                .iter()
-                .enumerate()
-                .flat_map(|(letter, count)| [((letter as u8) + 65) as char].repeat(*count)),
-        );
+        if let Some(letter_distribution) = self.letter_distribution {
+            self.bag.extend(
+                letter_distribution
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(letter, count)| [((letter as u8) + 65) as char].repeat(*count)),
+            );
+        }
     }
 }
 

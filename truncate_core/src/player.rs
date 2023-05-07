@@ -35,8 +35,18 @@ impl Hand {
         self.0.get(index)
     }
 
+    pub fn find(&self, tile: char) -> Option<usize> {
+        self.0.iter().position(|t| *t == tile)
+    }
+
     pub fn replace(&mut self, index: usize, tile: char) {
         self.0[index] = tile;
+    }
+
+    pub fn replace_tile(&mut self, from: char, to: char) {
+        if let Some(index) = self.find(from) {
+            self.replace(index, to);
+        }
     }
 
     pub fn add(&mut self, tile: char) {
@@ -59,8 +69,8 @@ pub struct Player {
     pub index: usize,
     pub hand: Hand,
     pub hand_capacity: usize,
-    pub allotted_time: Duration,
-    pub time_remaining: Duration,
+    pub allotted_time: Option<Duration>,
+    pub time_remaining: Option<Duration>,
     pub turn_starts_at: Option<OffsetDateTime>,
     pub penalties_incurred: usize,
     pub color: (u8, u8, u8),
@@ -72,7 +82,7 @@ impl Player {
         index: usize,
         hand_capacity: usize,
         bag: &mut TileBag,
-        time_allowance: Duration,
+        time_allowance: Option<Duration>,
         color: (u8, u8, u8),
     ) -> Self {
         Self {
@@ -137,7 +147,7 @@ mod tests {
             0,
             7,
             &mut bag,
-            Duration::new(60, 0),
+            Some(Duration::new(60, 0)),
             (255, 0, 0),
         );
         assert_eq!(player.hand.len(), 7);

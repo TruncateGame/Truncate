@@ -29,23 +29,29 @@ impl OuterApplication {
     ) -> Self {
         let mut fonts = egui::FontDefinitions::default();
 
-        fonts.font_data.insert(
-            "PS2P-Medium".into(),
-            egui::FontData::from_static(include_bytes!("../font/PressStart2P-Regular.ttf")),
-        );
-        fonts.families.insert(
-            egui::FontFamily::Name("Truncate-Heavy".into()),
-            vec!["PS2P-Medium".into()],
-        );
+        // Main tile font
+        {
+            fonts.font_data.insert(
+                "PS2P-Regular".into(),
+                egui::FontData::from_static(include_bytes!("../font/PressStart2P-Regular.ttf")),
+            );
+            fonts.families.insert(
+                egui::FontFamily::Name("Truncate-Heavy".into()),
+                vec!["PS2P-Regular".into()],
+            );
+        }
 
-        fonts.font_data.insert(
-            "PS2P-Regular".into(),
-            egui::FontData::from_static(include_bytes!("../font/PressStart2P-Regular.ttf")),
-        );
-        fonts.families.insert(
-            egui::FontFamily::Name("Truncate-Regular".into()),
-            vec!["PS2P-Regular".into()],
-        );
+        // Dialog / text font
+        {
+            fonts.font_data.insert(
+                "pixel".into(),
+                egui::FontData::from_static(include_bytes!("../font/PixelOperator.ttf")),
+            );
+            fonts
+                .families
+                .insert(egui::FontFamily::Proportional, vec!["pixel".to_owned()]);
+        }
+
         cc.egui_ctx.set_fonts(fonts);
 
         cc.egui_ctx.memory_mut(|mem| {
@@ -65,10 +71,29 @@ impl OuterApplication {
         }
 
         let theme = Theme::default();
-        let mut visuals = egui::Visuals::light();
-        visuals.window_fill = theme.water;
-        visuals.panel_fill = theme.water;
-        cc.egui_ctx.set_visuals(visuals);
+
+        {
+            use egui::FontFamily;
+            use egui::FontId;
+            use egui::TextStyle::*;
+
+            let mut style = egui::Style::default();
+            style.text_styles = [
+                (Heading, FontId::new(32.0, FontFamily::Proportional)),
+                (Body, FontId::new(16.0, FontFamily::Proportional)),
+                (Monospace, FontId::new(16.0, FontFamily::Monospace)),
+                (Button, FontId::new(16.0, FontFamily::Proportional)),
+                (Small, FontId::new(8.0, FontFamily::Proportional)),
+            ]
+            .into();
+
+            let mut visuals = egui::Visuals::light();
+            visuals.window_fill = theme.water;
+            visuals.panel_fill = theme.water;
+            style.visuals = visuals;
+
+            cc.egui_ctx.set_style(style);
+        }
 
         Self {
             name: "Mystery Player".into(),

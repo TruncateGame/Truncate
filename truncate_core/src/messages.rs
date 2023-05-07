@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     board::{Board, Coordinate},
-    player::Hand,
+    player::{Hand, Player},
     reporting::Change,
 };
 
@@ -13,7 +13,7 @@ pub type RoomCode = String;
 pub type PlayerNumber = u64;
 pub type Token = String;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PlayerMessage {
     Ping,
     NewGame(String),
@@ -54,9 +54,22 @@ pub struct GamePlayerMessage {
     pub name: String,
     pub index: usize,
     pub color: (u8, u8, u8),
-    pub allotted_time: Duration,
-    pub time_remaining: Duration,
+    pub allotted_time: Option<Duration>,
+    pub time_remaining: Option<Duration>,
     pub turn_starts_at: Option<OffsetDateTime>,
+}
+
+impl From<&Player> for GamePlayerMessage {
+    fn from(p: &Player) -> Self {
+        Self {
+            name: p.name.clone(),
+            index: p.index,
+            color: p.color,
+            allotted_time: p.allotted_time,
+            time_remaining: p.time_remaining,
+            turn_starts_at: p.turn_starts_at,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

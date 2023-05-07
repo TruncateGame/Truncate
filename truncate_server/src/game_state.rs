@@ -122,19 +122,7 @@ impl GameState {
 
         GameStateMessage {
             room_code: self.game_id.clone(),
-            players: self
-                .game
-                .players
-                .iter()
-                .map(|p| GamePlayerMessage {
-                    name: p.name.clone(),
-                    index: p.index,
-                    color: p.color,
-                    allotted_time: p.allotted_time,
-                    time_remaining: p.time_remaining,
-                    turn_starts_at: p.turn_starts_at,
-                })
-                .collect(),
+            players: self.game.players.iter().map(Into::into).collect(),
             player_number: player_index as u64,
             next_player_number: self.game.next() as u64,
             board,

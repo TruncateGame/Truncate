@@ -1,0 +1,38 @@
+name: "Tutorial 01: Basics"
+board: |-
+  ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
+  ~~ #0 #0 #0 __ #0 #0 #0 ~~
+  ~~ __ __ __ __ __ __ __ ~~
+  ~~ __ __ __ __ __ __ __ ~~
+  ~~ __ __ __ __ __ __ __ ~~
+  ~~ __ __ __ __ __ __ __ ~~
+  ~~ __ __ __ __ __ __ __ ~~
+  ~~ __ __ __ __ __ __ __ ~~
+  ~~ __ __ __ __ __ __ __ ~~
+  ~~ #1 #1 #1 __ #1 #1 #1 ~~
+  ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~
+
+player_hand: ABCDEFG
+computer_hand: ABCDEFG
+
+dict:
+  WORD: "Word definition"
+  ANOTHER: "Word definition"
+  LAST: "Word definition"
+
+steps:
+
+  - message: |-
+      Welcome to Truncate!
+
+      This tutorial will help you understand the basics of the game.
+
+  - description: |-
+      To start the game, you place a tile....
+    you: "A -> 4,1"
+    gets: "H"
+
+  - description: |-
+      Now, the computer places a tile
+    computer: "F -> 4,9"
+    gets: "H"

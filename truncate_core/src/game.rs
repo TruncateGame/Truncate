@@ -65,7 +65,7 @@ impl Game {
             self.players.len(),
             self.rules.hand_size,
             &mut self.bag,
-            Duration::new(time_allowance as i64, 0), // TODO: un-hardcode the duration of turns
+            Some(Duration::new(time_allowance as i64, 0)),
             GAME_COLORS[self.players.len()],
         ));
     }
@@ -121,26 +121,28 @@ impl Game {
         self.next_player = (self.next_player + 1) % self.players.len();
 
         let this_player = &mut self.players[player];
-        this_player.time_remaining -= turn_duration;
-        let mut apply_penalties = 0;
+        if let Some(time_remaining) = &mut this_player.time_remaining {
+            *time_remaining -= turn_duration;
+            let mut apply_penalties = 0;
 
-        if this_player.time_remaining.is_negative() {
-            // TODO: Make the penalty period an option
-            let total_penalties = 1 + (this_player.time_remaining.whole_seconds() / -60) as usize; // usize cast as we guaranteed both are negative
-            println!("Player {player} now has {total_penalties} penalties");
-            apply_penalties = total_penalties - this_player.penalties_incurred;
-            println!("Player {player} needs {apply_penalties} to be applied");
-            this_player.penalties_incurred = total_penalties;
-        }
+            if time_remaining.is_negative() {
+                // TODO: Make the penalty period an option
+                let total_penalties = 1 + (time_remaining.whole_seconds() / -60) as usize; // usize cast as we guaranteed both are negative
+                println!("Player {player} now has {total_penalties} penalties");
+                apply_penalties = total_penalties - this_player.penalties_incurred;
+                println!("Player {player} needs {apply_penalties} to be applied");
+                this_player.penalties_incurred = total_penalties;
+            }
 
-        if apply_penalties > 0 {
-            for other_player in &mut self.players {
-                if other_player.index == player {
-                    continue;
-                }
-                for _ in 0..apply_penalties {
-                    println!("Player {} gets a free tile", other_player.name);
-                    self.recent_changes.push(other_player.add_special_tile('¤'));
+            if apply_penalties > 0 {
+                for other_player in &mut self.players {
+                    if other_player.index == player {
+                        continue;
+                    }
+                    for _ in 0..apply_penalties {
+                        println!("Player {} gets a free tile", other_player.name);
+                        self.recent_changes.push(other_player.add_special_tile('¤'));
+                    }
                 }
             }
         }

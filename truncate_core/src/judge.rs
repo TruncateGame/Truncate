@@ -42,7 +42,7 @@ impl Default for Judge {
 }
 
 impl Judge {
-    pub fn new(words: Vec<&str>) -> Self {
+    pub fn new(words: Vec<String>) -> Self {
         let mut dictionary = HashSet::new();
         for word in words {
             dictionary.insert(word.to_lowercase());
@@ -486,7 +486,14 @@ mod tests {
     // Utils
     pub fn short_dict() -> Judge {
         Judge::new(vec![
-            "BIG", "BAG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS",
+            "BIG".into(),
+            "BAG".into(),
+            "FAT".into(),
+            "JOLLY".into(),
+            "AND".into(),
+            "SILLY".into(),
+            "FOLK".into(),
+            "ARTS".into(),
         ]) // TODO: Collins 2018 list
     }
 }

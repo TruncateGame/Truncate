@@ -639,6 +639,68 @@ impl Default for Board {
     }
 }
 
+impl Board {
+    pub fn from_string<S: AsRef<str>>(s: S) -> Board {
+        // Transform string into a board
+        let mut squares: Vec<Vec<Square>> = vec![];
+        for line in s.as_ref().split('\n') {
+            squares.push(
+                line.split(' ')
+                    .map(|tile| {
+                        let mut chars = tile.chars();
+                        match chars.next() {
+                            Some('~') => Square::Water,
+                            Some('_') => Square::Land,
+                            Some('|') => Square::Dock(
+                                chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize,
+                            ),
+                            Some('#') => Square::Town(
+                                chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize,
+                            ),
+                            Some(letter) => Square::Occupied(
+                                chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize,
+                                letter,
+                            ),
+                            _ => panic!("Couldn't build board from string"),
+                        }
+                    })
+                    .collect(),
+            );
+        }
+
+        // Make sure the board is an valid non-jagged grid
+        if squares
+            .iter()
+            .skip(1)
+            .any(|line| line.len() != squares[0].len())
+        {
+            panic!("Tried to make a jagged board");
+        }
+
+        let mut board = Board {
+            squares,
+            towns: vec![],
+            docks: vec![],
+            orientations: vec![Direction::North, Direction::South],
+        };
+        board.cache_special_squares();
+
+        board
+    }
+}
+
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -796,7 +858,7 @@ pub mod tests {
 
     #[test]
     fn trim_board() {
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "~~ ~~ |0 ~~ ~~\n\
              __ __ __ __ __\n\
              __ __ R0 __ __\n\
@@ -816,7 +878,7 @@ pub mod tests {
             "Don't trim docks or land"
         );
 
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "~~ ~~ ~~ ~~ ~~\n\
              ~~ __ R0 __ ~~\n\
              ~~ W0 O0 R0 ~~\n\
@@ -834,7 +896,7 @@ pub mod tests {
             "Leave an edge of water around the board"
         );
 
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
              ~~ ~~ ~~ |0 ~~ ~~ ~~\n\
              ~~ ~~ __ R0 __ ~~ ~~\n\
@@ -854,7 +916,7 @@ pub mod tests {
             "Trim excess water"
         );
 
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "__ __ __ ~~ __\n\
              __ __ R0 ~~ __\n\
              ~~ ~~ ~~ ~~ ~~\n\
@@ -873,7 +935,7 @@ pub mod tests {
             "Don't trim inner empty columns or rows"
         );
 
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
              |0 ~~ ~~ ~~ ~~ ~~ ~~\n\
              ~~ ~~ __ R0 __ ~~ ~~\n\
@@ -903,7 +965,7 @@ pub mod tests {
 
     #[test]
     fn getset_errors_out_of_bounds() {
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "|0 __ __\n\
              __ ~~ __\n\
              __ __ __",
@@ -924,7 +986,7 @@ pub mod tests {
 
     #[test]
     fn getset_errors_for_dead_squares() {
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "__ |0 __\n\
              __ ~~ __\n\
              __ |1 __",
@@ -942,7 +1004,7 @@ pub mod tests {
 
     #[test]
     fn getset_handles_empty_squares() {
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "__ |0 __\n\
              __ |1 __",
         );
@@ -984,7 +1046,7 @@ pub mod tests {
 
     #[test]
     fn set_requires_valid_player() {
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "__ |0 __\n\
              __ |1 __",
         );
@@ -1036,7 +1098,7 @@ pub mod tests {
 
     #[test]
     fn depth_first_search() {
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "~~ ~~ |0 ~~ ~~\n\
              ~~ __ __ __ ~~\n\
              ~~ __ __ __ ~~\n\
@@ -1132,7 +1194,7 @@ pub mod tests {
 
     #[test]
     fn swap() {
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "__ __ __ |0\n\
              __ __ __ __\n\
              __ __ __ |1",
@@ -1205,7 +1267,7 @@ pub mod tests {
 
     #[test]
     fn disjoint_swapping() {
-        let mut b = from_string(
+        let mut b = Board::from_string(
             "~~ ~~ |0 ~~ ~~\n\
              __ __ C0 __ __\n\
              __ __ R0 __ O0\n\
@@ -1267,7 +1329,7 @@ pub mod tests {
         }
 
         // Gets two words in the middle of a cross
-        let b = from_string(
+        let b = Board::from_string(
             "__ __ C0 __ __\n\
              __ __ R0 __ __\n\
              S0 W0 O0 R0 D0\n\
@@ -1289,7 +1351,7 @@ pub mod tests {
         }
 
         // Don't cross other players
-        let b = from_string(
+        let b = Board::from_string(
             "__ __ C0 __ __\n\
              __ __ R0 __ __\n\
              __ __ O1 __ __\n\
@@ -1308,7 +1370,7 @@ pub mod tests {
 
     #[test]
     fn get_words_orientations() {
-        let b = from_string(
+        let b = Board::from_string(
             "~~ ~~ ~~ |0 ~~ ~~ ~~\n\
              ~~ N0 U0 B0 #0 __ ~~\n\
              ~~ E0 __ __ __ G1 ~~\n\
@@ -1333,69 +1395,9 @@ pub mod tests {
         }
     }
 
-    pub fn from_string<S: AsRef<str>>(s: S) -> Board {
-        // Transform string into a board
-        let mut squares: Vec<Vec<Square>> = vec![];
-        for line in s.as_ref().split('\n') {
-            squares.push(
-                line.split(' ')
-                    .map(|tile| {
-                        let mut chars = tile.chars();
-                        match chars.next() {
-                            Some('~') => Square::Water,
-                            Some('_') => Square::Land,
-                            Some('|') => Square::Dock(
-                                chars
-                                    .next()
-                                    .expect("Square needs player")
-                                    .to_digit(10)
-                                    .unwrap() as usize,
-                            ),
-                            Some('#') => Square::Town(
-                                chars
-                                    .next()
-                                    .expect("Square needs player")
-                                    .to_digit(10)
-                                    .unwrap() as usize,
-                            ),
-                            Some(letter) => Square::Occupied(
-                                chars
-                                    .next()
-                                    .expect("Square needs player")
-                                    .to_digit(10)
-                                    .unwrap() as usize,
-                                letter,
-                            ),
-                            _ => panic!("Couldn't build board from string"),
-                        }
-                    })
-                    .collect(),
-            );
-        }
-
-        // Make sure the board is an valid non-jagged grid
-        if squares
-            .iter()
-            .skip(1)
-            .any(|line| line.len() != squares[0].len())
-        {
-            panic!("Tried to make a jagged board");
-        }
-
-        let mut board = Board {
-            squares,
-            towns: vec![],
-            docks: vec![],
-            orientations: vec![Direction::North, Direction::South],
-        };
-        board.cache_special_squares();
-
-        board
-    }
-
     #[test]
     fn apply_fog_of_war() {
-        let board = from_string(
+        let board = Board::from_string(
             "~~ ~~ A0 ~~ ~~\n\
              A0 A0 A0 A0 A0\n\
              A0 __ __ A0 __\n\
@@ -1420,7 +1422,7 @@ pub mod tests {
 
     #[test]
     fn apply_disjoint_fog_of_war() {
-        let board = from_string(
+        let board = Board::from_string(
             "~~ ~~ A0 ~~ ~~\n\
              A0 A0 A0 __ A0\n\
              A0 __ __ A0 __\n\

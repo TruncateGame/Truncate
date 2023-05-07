@@ -1,7 +1,10 @@
 use eframe::egui;
 use truncate_core::{messages::RoomCode, messages::Token};
 
-use crate::{regions::active_game::ActiveGame, regions::lobby::Lobby};
+use crate::{
+    regions::active_game::ActiveGame,
+    regions::{lobby::Lobby, tutorial::TutorialState},
+};
 
 use super::OuterApplication;
 use truncate_core::{
@@ -11,6 +14,7 @@ use truncate_core::{
 
 pub enum GameStatus {
     None(RoomCode, Option<Token>),
+    Tutorial(TutorialState),
     PendingJoin(RoomCode),
     PendingCreate,
     PendingStart(Lobby),
@@ -93,6 +97,12 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
 
     match game_status {
         GameStatus::None(room_code, token) => {
+            if ui.button("Tutorial").clicked() {
+                new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+                    map_texture.clone(),
+                    theme.clone(),
+                )));
+            }
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
                 send(PlayerMessage::NewGame(name.clone()));
@@ -112,6 +122,9 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                     new_game_status = Some(GameStatus::PendingJoin("...".into()));
                 }
             }
+        }
+        GameStatus::Tutorial(tutorial) => {
+            tutorial.render(ui, theme);
         }
         GameStatus::PendingJoin(room_code) => {
             ui.label(format!("Waiting to join room {room_code}"));
@@ -191,116 +204,15 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                 ));
                 println!("Starting a game")
             }
-            GameMessage::GameUpdate(GameStateMessage {
-                room_code: _,
-                players,
-                player_number: _,
-                next_player_number,
-                board,
-                hand: _,
-                changes,
-            }) => {
-                match game_status {
-                    GameStatus::Active(game) => {
-                        // assert_eq!(game.room_code, room_code);
-                        // assert_eq!(game.player_number, player_number);
-                        game.players = players;
-                        game.board = board;
-                        game.ctx.next_player_number = next_player_number;
-
-                        #[cfg(target_arch = "wasm32")]
-                        if game.ctx.next_player_number == game.ctx.player_number {
-                            use eframe::wasm_bindgen::JsCast;
-
-                            let window = web_sys::window().expect("window should exist in browser");
-                            let document =
-                                window.document().expect("documnt should exist in window");
-                            if let Some(element) = document.query_selector("#tr_move").unwrap() {
-                                if let Ok(audio) = element.dyn_into::<web_sys::HtmlAudioElement>() {
-                                    audio.play().expect("Audio should be playable");
-                                }
-                            }
-                        }
-
-                        game.board_changes.clear();
-                        for board_change in changes.iter().filter_map(|c| match c {
-                            Change::Board(change) => Some(change),
-                            _ => None,
-                        }) {
-                            game.board_changes
-                                .insert(board_change.detail.coordinate, board_change.clone());
-                        }
-
-                        for hand_change in changes.iter().filter_map(|c| match c {
-                            Change::Hand(change) => Some(change),
-                            _ => None,
-                        }) {
-                            for removed in &hand_change.removed {
-                                game.hand.remove(
-                                    game.hand
-                                        .iter()
-                                        .position(|t| t == removed)
-                                        .expect("Player doesn't have tile being removed"),
-                                );
-                            }
-                            let reduced_length = game.hand.len();
-                            game.hand.0.extend(&hand_change.added);
-                            game.new_hand_tiles = (reduced_length..game.hand.len()).collect();
-                        }
-
-                        for battle in changes.into_iter().filter_map(|c| match c {
-                            Change::Battle(battle) => Some(battle),
-                            _ => None,
-                        }) {
-                            game.battles.push(battle);
-                        }
-
-                        // TODO: Verify that our modified hand matches the actual hand in GameStateMessage
-
-                        game.ctx.playing_tile = None;
-                        game.ctx.error_msg = None;
-                    }
-                    _ => todo!("Game update hit an unknown state"),
-                }
-            }
-            GameMessage::GameEnd(
-                GameStateMessage {
-                    room_code: _,
-                    players,
-                    player_number: _,
-                    next_player_number: _,
-                    board,
-                    hand: _,
-                    changes,
-                },
-                winner,
-            ) => match game_status {
+            GameMessage::GameUpdate(state_message) => match game_status {
                 GameStatus::Active(game) => {
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        let local_storage =
-                            web_sys::window().unwrap().local_storage().unwrap().unwrap();
-                        local_storage.remove_item("truncate_active_token").unwrap();
-                    }
-
-                    // assert_eq!(game.room_code, id);
-                    // assert_eq!(game.player_number, num);
-                    game.players = players;
-                    game.board = board;
-                    game.board_changes.clear();
-                    for board_change in changes.iter().filter_map(|c| match c {
-                        Change::Board(change) => Some(change),
-                        _ => None,
-                    }) {
-                        game.board_changes
-                            .insert(board_change.detail.coordinate, board_change.clone());
-                    }
-                    for battle in changes.into_iter().filter_map(|c| match c {
-                        Change::Battle(battle) => Some(battle),
-                        _ => None,
-                    }) {
-                        game.battles.push(battle);
-                    }
+                    game.apply_new_state(state_message);
+                }
+                _ => todo!("Game update hit an unknown state"),
+            },
+            GameMessage::GameEnd(state_message, winner) => match game_status {
+                GameStatus::Active(game) => {
+                    game.apply_new_state(state_message);
                     *game_status = GameStatus::Concluded(game.clone(), winner);
                 }
                 _ => todo!("Game error hit an unknown state"),
