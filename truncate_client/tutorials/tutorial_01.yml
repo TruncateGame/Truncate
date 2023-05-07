@@ -12,8 +12,8 @@ board: |-
   ~~ #1 #1 #1 __ #1 #1 #1 ~~
   ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~
 
-player_hand: ABCDEFG
-computer_hand: ABCDEFG
+player_hand: ALIFIRM
+computer_hand: D
 
 dict:
   WORD: "Word definition"
@@ -27,12 +27,73 @@ steps:
 
       This tutorial will help you understand the basics of the game.
 
+  - message: |-
+      <game lore>
+
+      To win Truncate, you must place a valid word that touches your opponent's town.
+
   - description: |-
-      To start the game, you place a tile....
-    you: "A -> 4,1"
+      To start the game, you take a tile from your hand and place it adjacent to your dock.
+
+      You can drag a tile from your hand onto the board, or you can click the tile and then click a square on the board.
+
+      We'll guide you through some example gameplay, so start by placing the 'L' tile from your hand on the square touching your dock at the bottom of the board.
+    you: "L -> 4,1"
+    gets: "E"
+
+  - description: |-
+      After you place a tile, a new tile will be drawn from the bag and added to your hand.
+
+      Then your turn ends and your opponent's turn starts.
+
+      Click Next to see their move.
+    computer: "D -> 4,9"
+    gets: "R"
+
+  - description: |-
+      Your opponent placed a 'D' beside their dock, and it's your turn to play again.
+
+      Now that you have a tile beside your dock, all tiles you place must touch your existing tiles. Since you can't play on top of a town, there's only one valid spot for you to play, which is above your 'L' tile.
+
+      To continue, place your 'I' tile above your 'L' tile on the board.
+    you: "I -> 4,2"
+    gets: "S"
+
+  - description: |-
+      Now your side of the board has the word 'IL'. This isn't a valid word, but that's okay!
+
+      Words in Truncate only have to be valid when they are attacked, and you can only attack a word by touching it. Since our opponent is too far away, we don't have to worry about this word being attacked just yet.
+
+      Let's see what our opponent plays next.
+    computer: "R -> 4,8"
+    gets: "E"
+  
+  - description: |-
+      For their turn, they placed the letter 'R'.
+
+      You'll notice that their tiles are upside down to you — this means that their word is 'RD', not 'DR'.
+
+      From here we have a choice of playing on the sides of our 'I', or on top. Generally we want to claim as much of the board as we can early on, so we'll keep building up.
+
+      Place your 'A' tile above your 'I', to make 'AIL'.
+    you: "A -> 4,3"
+    gets: "O"
+
+  - description: |-
+      And let's see their turn...
+    computer: "E -> 4,7"
     gets: "H"
 
   - description: |-
-      Now, the computer places a tile
-    computer: "F -> 4,9"
-    gets: "H"
+      Now we're getting close to each other, so we need to start being careful.
+
+      The word we've been building thus far is our "root word" — the word that touches our dock. This will be the backbone of our entire board, so we want it to be long and valid.
+
+      Let's finish up our root word with the tile 'F', making it the word 'FAIL'.
+    you: "F -> 4,4"
+    gets: "E"
+
+  - description: |-
+      Now our opponent will most likely finish their root word...
+    computer: "H -> 4,6"
+    gets: "N"

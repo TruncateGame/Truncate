@@ -110,7 +110,7 @@ impl TutorialState {
                     name: "You".into(),
                     index: 0,
                     hand: Hand(loaded_tutorial.player_hand.chars().collect()),
-                    hand_capacity: 7,
+                    hand_capacity: loaded_tutorial.player_hand.len(),
                     allotted_time: None,
                     time_remaining: None,
                     turn_starts_at: Some(OffsetDateTime::now_utc()),
@@ -121,7 +121,7 @@ impl TutorialState {
                     name: "Computer".into(),
                     index: 1,
                     hand: Hand(loaded_tutorial.computer_hand.chars().collect()),
-                    hand_capacity: 7,
+                    hand_capacity: loaded_tutorial.computer_hand.len(),
                     allotted_time: None,
                     time_remaining: None,
                     turn_starts_at: None,
@@ -177,7 +177,7 @@ impl TutorialState {
         }
 
         let mut dialog_pos = ui.available_rect_before_wrap();
-        let max_width = f32::max(300.0, dialog_pos.width() * 0.8);
+        let max_width = f32::min(300.0, dialog_pos.width() * 0.8);
         let top_left = dialog_pos.right_bottom() - vec2(max_width, 200.0);
         dialog_pos.set_left(top_left.x);
         dialog_pos.set_top(top_left.y);
@@ -187,6 +187,7 @@ impl TutorialState {
             .title_bar(false)
             .vscroll(true)
             .resizable(false)
+            .fixed_size([dialog_pos.width(), dialog_pos.height()])
             .default_rect(dialog_pos)
             .show(ui.ctx(), |ui| {
                 match current_step {
@@ -201,7 +202,6 @@ impl TutorialState {
                         } => {
                             ui.label(description);
                             if ui.button("Next").clicked() {
-                                self.stage += 1;
                                 next_move = Some(action_to_move(1, action));
                             }
                         }
@@ -256,6 +256,16 @@ impl TutorialState {
 
             match self.game.make_move(game_move, None) {
                 Ok(changes) => {
+                    let changes = changes
+                        .into_iter()
+                        .filter(|change| match change {
+                            truncate_core::reporting::Change::Board(_) => true,
+                            truncate_core::reporting::Change::Hand(hand_change) => {
+                                hand_change.player == 0
+                            }
+                            truncate_core::reporting::Change::Battle(_) => true,
+                        })
+                        .collect();
                     let ctx = &self.active_game.ctx;
                     let state_message = GameStateMessage {
                         room_code: ctx.room_code.clone(),
