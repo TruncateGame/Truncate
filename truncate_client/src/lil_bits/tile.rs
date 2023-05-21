@@ -152,17 +152,19 @@ impl TileUI {
         }
 
         if ui.is_rect_visible(base_rect) {
-            let outline = if self.selected {
+            let outline = if self.added {
                 Some(theme.selection)
-            } else if self.added {
-                Some(theme.addition)
             } else if self.modified {
                 Some(theme.modification)
             } else {
                 None
             };
 
-            let tile_color = self.tile_color(hovered, &theme, ctx);
+            let tile_color = if self.selected {
+                theme.selection
+            } else {
+                self.tile_color(hovered, &theme, ctx)
+            };
             let mapped_tile = if self.ghost {
                 MappedTile::new(None, Some(tile_color), coord, ctx.map_texture.clone())
             } else {

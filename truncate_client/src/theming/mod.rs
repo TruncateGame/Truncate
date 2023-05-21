@@ -22,6 +22,7 @@ pub struct Theme {
     pub tile_margin: f32,
     pub rounding: f32,
     pub animation_time: f32,
+    pub mobile_breakpoint: f32,
 }
 
 impl Default for Theme {
@@ -40,6 +41,7 @@ impl Default for Theme {
             tile_margin: 4.0,
             rounding: 10.0,
             animation_time: 0.05,
+            mobile_breakpoint: 800.0,
         }
     }
 }

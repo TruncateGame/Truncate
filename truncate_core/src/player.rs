@@ -72,6 +72,7 @@ pub struct Player {
     pub allotted_time: Option<Duration>,
     pub time_remaining: Option<Duration>,
     pub turn_starts_at: Option<OffsetDateTime>,
+    pub swap_count: usize,
     pub penalties_incurred: usize,
     pub color: (u8, u8, u8),
 }
@@ -93,6 +94,7 @@ impl Player {
             allotted_time: time_allowance,
             time_remaining: time_allowance,
             turn_starts_at: None,
+            swap_count: 0,
             penalties_incurred: 0,
             color,
         }

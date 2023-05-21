@@ -1,10 +1,10 @@
-use epaint::{Color32, Rect, TextureHandle};
+use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
-    board::{Board, Coordinate},
+    board::{Board, Coordinate, Square},
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
     player::Hand,
-    reporting::{BattleReport, BoardChange, Change},
+    reporting::{BattleReport, BoardChange, Change, TimeChange},
 };
 
 use eframe::{
@@ -37,6 +37,9 @@ pub struct GameCtx {
     pub error_msg: Option<String>,
     pub map_texture: TextureHandle,
     pub player_colors: Vec<Color32>,
+    pub board_zoom: f32,
+    pub board_pan: Vec2,
+    pub sidebar_visible: bool,
 }
 
 #[derive(Clone)]
@@ -48,7 +51,8 @@ pub struct ActiveGame {
     pub hand: Hand,
     pub board_changes: HashMap<Coordinate, BoardChange>,
     pub new_hand_tiles: Vec<usize>,
-    pub battles: Vec<BattleReport>,
+    pub time_changes: Vec<TimeChange>,
+    pub turn_reports: Vec<Vec<Change>>,
 }
 
 impl ActiveGame {
@@ -80,6 +84,9 @@ impl ActiveGame {
                 error_msg: None,
                 map_texture: map_texture.clone(),
                 player_colors: player_colors.clone(),
+                board_zoom: 1.0,
+                board_pan: vec2(0.0, 0.0),
+                sidebar_visible: true,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -92,7 +99,8 @@ impl ActiveGame {
             hand,
             board_changes: HashMap::new(),
             new_hand_tiles: vec![],
-            battles: vec![],
+            time_changes: vec![],
+            turn_reports: vec![],
         }
     }
 
@@ -118,89 +126,201 @@ impl ActiveGame {
             ui.available_size(),
             Layout::right_to_left(Align::TOP),
             |ui| {
-                let mut sidebar_area = ui.available_size();
-                sidebar_area.x -= sidebar_area.x * 0.7;
+                if self.ctx.sidebar_visible {
+                    if ui.available_size().x < self.ctx.theme.mobile_breakpoint {
+                    } else {
+                        let sidebar_area = vec2(300.0, ui.available_height());
 
-                ui.allocate_ui_with_layout(sidebar_area, Layout::top_down(Align::TOP), |ui| {
-                    ScrollArea::new([false, true]).show(ui, |ui| {
-                        ui.label(format!("Playing in game {}", self.ctx.room_code));
+                        ui.allocate_ui_with_layout(
+                            sidebar_area,
+                            Layout::top_down(Align::TOP),
+                            |ui| {
+                                ScrollArea::new([false, true]).show(ui, |ui| {
+                                    if let Some(error) = &self.ctx.error_msg {
+                                        ui.label(error);
+                                        ui.separator();
+                                    }
 
-                        ui.separator();
+                                    for turn in self.turn_reports.iter() {
+                                        for placement in
+                                            turn.iter().filter_map(|change| match change {
+                                                Change::Board(placement) => Some(placement),
+                                                _ => None,
+                                            })
+                                        {
+                                            let Square::Occupied(player, tile) = placement.detail.square else {
+                                                continue;
+                                            };
+                                            let Some(player) = self.players.get(player) else {
+                                                continue;
+                                            };
 
-                        if let Some(error) = &self.ctx.error_msg {
-                            ui.label(error);
-                            ui.separator();
-                        }
+                                            match placement.action {
+                                                truncate_core::reporting::BoardChangeAction::Added => {
+                                                    ui.label(format!("{} placed the tile {}", player.name, tile));
+                                                },
+                                                truncate_core::reporting::BoardChangeAction::Swapped => {
+                                                    ui.label(format!("{} swapped the tile {}", player.name, tile));
+                                                },
+                                                _ => {}
+                                            }
+                                        }
 
-                        for battle in self.battles.iter() {
-                            BattleUI::new(battle).render(&mut self.ctx, ui);
-                            ui.separator();
-                        }
-                    });
-                });
+                                        for battle in
+                                            turn.iter().filter_map(|change| match change {
+                                                Change::Battle(battle) => Some(battle),
+                                                _ => None,
+                                            })
+                                        {
+                                            BattleUI::new(battle).render(&mut self.ctx, ui);
+                                        }
+                                        ui.separator();
+                                    }
+                                });
+                            },
+                        );
+                    }
+                }
 
                 ui.allocate_ui_with_layout(
                     ui.available_size(),
-                    Layout::top_down(Align::TOP),
+                    Layout::bottom_up(Align::LEFT),
                     |ui| {
+                        if let Some(player) = self
+                            .players
+                            .iter()
+                            .find(|p| p.index == self.ctx.player_number as usize)
+                        {
+                            TimerUI::new(player, self.ctx.current_time, &self.time_changes)
+                                .friend(true)
+                                .active(player.index == self.ctx.next_player_number as usize)
+                                .winner(winner.clone())
+                                .render(ui, theme, &mut self.ctx);
+                        }
+
                         if let Some(opponent) = self
                             .players
                             .iter()
                             .find(|p| p.index != self.ctx.player_number as usize)
                         {
-                            TimerUI::new(opponent, self.ctx.current_time)
+                            TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
                                 .friend(false)
                                 .active(opponent.index == self.ctx.next_player_number as usize)
                                 .winner(winner.clone())
-                                .render(ui, theme);
+                                .render(ui, theme, &mut self.ctx);
                         }
 
-                        let mut remaining_area = ui.available_size();
-                        remaining_area.y -= theme.grid_size;
+                        let released_tile = HandUI::new(&mut self.hand)
+                            .active(self.ctx.player_number == self.ctx.next_player_number)
+                            .render(&mut self.ctx, ui);
 
                         ui.allocate_ui_with_layout(
-                            remaining_area,
-                            Layout::bottom_up(Align::LEFT),
+                            ui.available_size(),
+                            Layout::top_down(Align::LEFT),
                             |ui| {
-                                if let Some(player) = self
-                                    .players
-                                    .iter()
-                                    .find(|p| p.index == self.ctx.player_number as usize)
-                                {
-                                    TimerUI::new(player, self.ctx.current_time)
-                                        .friend(true)
-                                        .active(
-                                            player.index == self.ctx.next_player_number as usize,
-                                        )
-                                        .winner(winner.clone())
-                                        .render(ui, theme);
-                                }
-
-                                let released_tile = HandUI::new(&mut self.hand)
-                                    .active(self.ctx.player_number == self.ctx.next_player_number)
-                                    .render(&mut self.ctx, ui);
-
-                                ui.allocate_ui_with_layout(
-                                    ui.available_size(),
-                                    Layout::top_down(Align::LEFT),
-                                    |ui| {
-                                        player_message = BoardUI::new(&self.board).render(
-                                            released_tile,
-                                            &self.hand,
-                                            &self.board_changes,
-                                            winner.clone(),
-                                            &mut self.ctx,
-                                            ui,
-                                            &self.mapped_board,
-                                        );
-                                    },
-                                )
+                                player_message = BoardUI::new(&self.board).render(
+                                    released_tile,
+                                    &self.hand,
+                                    &self.board_changes,
+                                    winner.clone(),
+                                    &mut self.ctx,
+                                    ui,
+                                    &self.mapped_board,
+                                );
                             },
                         );
                     },
-                )
+                );
             },
         );
+
+        // ui.allocate_ui_with_layout(
+        //     ui.available_size(),
+        //     Layout::right_to_left(Align::TOP),
+        //     |ui| {
+        //         let mut sidebar_area = ui.available_size();
+        //         sidebar_area.x -= sidebar_area.x * 0.7;
+
+        //         ui.allocate_ui_with_layout(sidebar_area, Layout::top_down(Align::TOP), |ui| {
+        //             ScrollArea::new([false, true]).show(ui, |ui| {
+        //                 ui.label(format!("Playing in game {}", self.ctx.room_code));
+
+        //                 ui.separator();
+
+        //                 if let Some(error) = &self.ctx.error_msg {
+        //                     ui.label(error);
+        //                     ui.separator();
+        //                 }
+
+        //                 for battle in self.battles.iter() {
+        //                     BattleUI::new(battle).render(&mut self.ctx, ui);
+        //                     ui.separator();
+        //                 }
+        //             });
+        //         });
+
+        //         ui.allocate_ui_with_layout(
+        //             ui.available_size(),
+        //             Layout::top_down(Align::TOP),
+        //             |ui| {
+        //                 if let Some(opponent) = self
+        //                     .players
+        //                     .iter()
+        //                     .find(|p| p.index != self.ctx.player_number as usize)
+        //                 {
+        //                     TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
+        //                         .friend(false)
+        //                         .active(opponent.index == self.ctx.next_player_number as usize)
+        //                         .winner(winner.clone())
+        //                         .render(ui, theme, &mut self.ctx);
+        //                 }
+
+        //                 let mut remaining_area = ui.available_size();
+        //                 remaining_area.y -= theme.grid_size;
+
+        //                 ui.allocate_ui_with_layout(
+        //                     remaining_area,
+        //                     Layout::bottom_up(Align::LEFT),
+        //                     |ui| {
+        //                         if let Some(player) = self
+        //                             .players
+        //                             .iter()
+        //                             .find(|p| p.index == self.ctx.player_number as usize)
+        //                         {
+        //                             TimerUI::new(player, self.ctx.current_time, &self.time_changes)
+        //                                 .friend(true)
+        //                                 .active(
+        //                                     player.index == self.ctx.next_player_number as usize,
+        //                                 )
+        //                                 .winner(winner.clone())
+        //                                 .render(ui, theme, &mut self.ctx);
+        //                         }
+
+        //                         let released_tile = HandUI::new(&mut self.hand)
+        //                             .active(self.ctx.player_number == self.ctx.next_player_number)
+        //                             .render(&mut self.ctx, ui);
+
+        //                         ui.allocate_ui_with_layout(
+        //                             ui.available_size(),
+        //                             Layout::top_down(Align::LEFT),
+        //                             |ui| {
+        //                                 player_message = BoardUI::new(&self.board).render(
+        //                                     released_tile,
+        //                                     &self.hand,
+        //                                     &self.board_changes,
+        //                                     winner.clone(),
+        //                                     &mut self.ctx,
+        //                                     ui,
+        //                                     &self.mapped_board,
+        //                                 );
+        //                             },
+        //                         )
+        //                     },
+        //                 );
+        //             },
+        //         )
+        //     },
+        // );
 
         player_message
     }
@@ -261,12 +381,15 @@ impl ActiveGame {
             self.new_hand_tiles = (reduced_length..self.hand.len()).collect();
         }
 
-        for battle in changes.into_iter().filter_map(|c| match c {
-            Change::Battle(battle) => Some(battle),
-            _ => None,
-        }) {
-            self.battles.push(battle);
-        }
+        self.time_changes = changes
+            .iter()
+            .filter_map(|change| match change {
+                Change::Time(time_change) => Some(time_change.clone()),
+                _ => None,
+            })
+            .collect();
+
+        self.turn_reports.push(changes);
 
         // TODO: Verify that our modified hand matches the actual hand in GameStateMessage
 

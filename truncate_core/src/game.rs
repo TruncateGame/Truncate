@@ -6,7 +6,7 @@ use crate::bag::TileBag;
 use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
 use crate::judge::Outcome;
-use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail};
+use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, TimeChange};
 use crate::rules::{self, GameRules};
 
 use super::board::Board;
@@ -186,10 +186,52 @@ impl Game {
                     action: BoardChangeAction::Added,
                 }));
                 self.resolve_attack(player, position, external_dictionary, &mut changes);
+
+                self.players[player].swap_count = 0;
+
                 Ok(changes)
             }
-            Move::Swap { player, positions } => {
-                self.board.swap(player, positions, &self.rules.swapping)
+            Move::Swap {
+                player: player_index,
+                positions,
+            } => {
+                let mut swap_result =
+                    self.board
+                        .swap(player_index, positions, &self.rules.swapping)?;
+                let player = &mut self.players[player_index];
+
+                player.swap_count += 1;
+
+                if let Some(swap_rules) = match &self.rules.swapping {
+                    rules::Swapping::Contiguous(rules) => Some(rules),
+                    rules::Swapping::Universal(rules) => Some(rules),
+                    rules::Swapping::None => None,
+                } {
+                    let player_swaps = player.swap_count;
+                    if player_swaps > swap_rules.swap_threshold {
+                        let penalty_number = player_swaps - swap_rules.swap_threshold - 1;
+                        let penalty = swap_rules
+                            .penalties
+                            .get(penalty_number)
+                            .or_else(|| swap_rules.penalties.last());
+                        if let (Some(penalty), Some(time_remaining)) =
+                            (penalty, &mut player.time_remaining)
+                        {
+                            let time_change = -(*penalty as isize);
+                            *time_remaining += Duration::seconds(time_change as i64);
+                            swap_result.push(Change::Time(TimeChange {
+                                player: player_index,
+                                time_change,
+                                reason: format!(
+                                    "Lost time for {player_swaps} consecutive swap{}",
+                                    if player_swaps == 1 { "" } else { "s" }
+                                ),
+                            }))
+                        }
+                    }
+                }
+
+                Ok(swap_result)
             }
         }
     }

@@ -74,31 +74,31 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
         }
     }
 
-    ui.horizontal(|ui| {
-        if option_env!("TR_PROD").is_none() {
-            if let (Some(commit_msg), Some(commit_hash)) =
-                (option_env!("TR_MSG"), option_env!("TR_COMMIT"))
-            {
-                ui.hyperlink_to(
-                    format!("Running \"{commit_msg}\""),
-                    format!("https://github.com/TruncateGame/Truncate/commit/{commit_hash}"),
-                );
-            } else {
-                ui.label(format!("No tagged commit."));
-            }
-        }
+    // ui.horizontal(|ui| {
+    //     if option_env!("TR_PROD").is_none() {
+    //         if let (Some(commit_msg), Some(commit_hash)) =
+    //             (option_env!("TR_MSG"), option_env!("TR_COMMIT"))
+    //         {
+    //             ui.hyperlink_to(
+    //                 format!("Running \"{commit_msg}\""),
+    //                 format!("https://github.com/TruncateGame/Truncate/commit/{commit_hash}"),
+    //             );
+    //         } else {
+    //             ui.label(format!("No tagged commit."));
+    //         }
+    //     }
 
-        if matches!(game_status, GameStatus::None(_, _)) {
-            ui.horizontal(|ui| {
-                ui.label("Name: ");
-                ui.text_edit_singleline(name);
-            });
-        } else {
-            ui.label(format!("Playing as {name}"));
-        }
-    });
+    //     if matches!(game_status, GameStatus::None(_, _)) {
+    //         ui.horizontal(|ui| {
+    //             ui.label("Name: ");
+    //             ui.text_edit_singleline(name);
+    //         });
+    //     } else {
+    //         ui.label(format!("Playing as {name}"));
+    //     }
+    // });
 
-    ui.separator();
+    // ui.separator();
 
     match game_status {
         GameStatus::None(room_code, token) => {

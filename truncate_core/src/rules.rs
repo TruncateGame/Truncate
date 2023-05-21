@@ -52,9 +52,14 @@ pub struct BattleRules {
 }
 
 pub enum Swapping {
-    Contiguous,
-    Universal,
+    Contiguous(SwapPenalty),
+    Universal(SwapPenalty),
     None,
+}
+
+pub struct SwapPenalty {
+    pub swap_threshold: usize,
+    pub penalties: Vec<usize>,
 }
 
 pub struct GameRules {
@@ -83,7 +88,10 @@ impl Default for GameRules {
             tile_distribution: TileDistribution::Standard,
             tile_bag_behaviour: TileBagBehaviour::Standard,
             battle_rules: BattleRules { length_delta: 2 },
-            swapping: Swapping::Contiguous,
+            swapping: Swapping::Contiguous(SwapPenalty {
+                swap_threshold: 2,
+                penalties: vec![5, 10, 30, 60, 120, 240],
+            }),
         }
     }
 }

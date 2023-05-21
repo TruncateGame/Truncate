@@ -326,7 +326,7 @@ impl Board {
         }
 
         match swap_rules {
-            rules::Swapping::Contiguous => {
+            rules::Swapping::Contiguous(_) => {
                 if self
                     .depth_first_search(positions[0])
                     .get(&positions[1])
@@ -335,7 +335,7 @@ impl Board {
                     return Err(GamePlayError::DisjointSwap);
                 }
             }
-            rules::Swapping::Universal => { /* All swaps are allowed */ }
+            rules::Swapping::Universal(_) => { /* All swaps are allowed */ }
             rules::Swapping::None => {
                 return Err(GamePlayError::NoSwapping);
             }
@@ -814,7 +814,16 @@ impl fmt::Display for Square {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::rules::SwapPenalty;
+
     use super::*;
+
+    fn default_swap_rules() -> SwapPenalty {
+        SwapPenalty {
+            swap_threshold: 3,
+            penalties: vec![],
+        }
+    }
 
     #[test]
     fn makes_default_boards() {
@@ -1227,7 +1236,11 @@ pub mod tests {
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'a')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(
-            b.swap(0, [c0_1, c1_1], &rules::Swapping::Contiguous),
+            b.swap(
+                0,
+                [c0_1, c1_1],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
@@ -1248,19 +1261,35 @@ pub mod tests {
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'a')));
         assert_eq!(
-            b.swap(0, [c0_1, c0_1], &rules::Swapping::Contiguous),
+            b.swap(
+                0,
+                [c0_1, c0_1],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Err(GamePlayError::SelfSwap)
         );
         assert_eq!(
-            b.swap(0, [c0_1, c2_1], &rules::Swapping::Contiguous),
+            b.swap(
+                0,
+                [c0_1, c2_1],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Err(GamePlayError::DisjointSwap)
         );
         assert_eq!(
-            b.swap(0, [c0_1, c2_1], &rules::Swapping::Universal),
+            b.swap(
+                0,
+                [c0_1, c2_1],
+                &rules::Swapping::Universal(default_swap_rules())
+            ),
             Err(GamePlayError::UnownedSwap)
         );
         assert_eq!(
-            b.swap(1, [c0_1, c1_1], &rules::Swapping::Contiguous),
+            b.swap(
+                1,
+                [c0_1, c1_1],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Err(GamePlayError::UnownedSwap)
         );
     }
@@ -1286,12 +1315,20 @@ pub mod tests {
         );
 
         assert_eq!(
-            b.swap(0, [pos1, pos2], &rules::Swapping::Contiguous),
+            b.swap(
+                0,
+                [pos1, pos2],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Err(GamePlayError::DisjointSwap)
         );
 
         assert_eq!(
-            b.swap(0, [pos1, pos2], &rules::Swapping::Universal),
+            b.swap(
+                0,
+                [pos1, pos2],
+                &rules::Swapping::Universal(default_swap_rules())
+            ),
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {

@@ -114,6 +114,7 @@ impl TutorialState {
                     allotted_time: None,
                     time_remaining: None,
                     turn_starts_at: Some(OffsetDateTime::now_utc()),
+                    swap_count: 0,
                     penalties_incurred: 0,
                     color: (128, 128, 255),
                 },
@@ -125,6 +126,7 @@ impl TutorialState {
                     allotted_time: None,
                     time_remaining: None,
                     turn_starts_at: None,
+                    swap_count: 0,
                     penalties_incurred: 0,
                     color: (255, 80, 80),
                 },
@@ -264,6 +266,7 @@ impl TutorialState {
                                 hand_change.player == 0
                             }
                             truncate_core::reporting::Change::Battle(_) => true,
+                            truncate_core::reporting::Change::Time(_) => true,
                         })
                         .collect();
                     let ctx = &self.active_game.ctx;
