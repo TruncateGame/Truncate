@@ -300,7 +300,7 @@ impl<'a> BoardUI<'a> {
 
         // TODO: This is capturing gestures everywhere
         if let Some(touch) = ui.input(|i| i.multi_touch()) {
-            ctx.board_zoom *= touch.zoom_delta * 0.25;
+            ctx.board_zoom *= (touch.zoom_delta - 1.0) * 0.25 + 1.0;
             ctx.board_pan += touch.translation_delta;
         }
 
