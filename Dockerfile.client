@@ -14,7 +14,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt-get install -y nodejs
 
 RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-RUN cargo install -f wasm-bindgen-cli
+# Keep this wasm-bindgen-cli version aligned with the latest egui release's dependency
+RUN cargo install -f wasm-bindgen-cli  --version 0.2.84
 RUN rustup target add wasm32-unknown-unknown
 
 RUN mkdir /app
