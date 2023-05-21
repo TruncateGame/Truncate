@@ -194,8 +194,10 @@ impl<'a> BoardUI<'a> {
                                         if ui.rect_contains_pointer(outer_rect) {
                                             hovered_square = Some(HoveredRegion{
                                                 rect: outer_rect,
+                                                coord: Some(coord)
                                             });
                                         }
+
                                         if square_response.clicked() || tile_clicked {
                                             if let Some(tile) = ctx.selected_tile_in_hand {
                                                 msg =
@@ -210,11 +212,11 @@ impl<'a> BoardUI<'a> {
                                                 next_selection = Some(Some(coord));
                                             }
                                         } else if let Some(tile) = ctx.released_tile {
-                                            if ui.rect_contains_pointer(outer_rect) {
-                                                msg = Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
+                                            if tile.1 == coord {
+                                                msg = Some(PlayerMessage::Place(coord, *hand.get(tile.0).unwrap()));
                                                 next_selection = Some(None);
+                                                ctx.released_tile = None;
                                             }
-                                            ctx.released_tile = None;
                                         }
                                     }
                                 }
@@ -296,8 +298,9 @@ impl<'a> BoardUI<'a> {
             ctx.board_pan += pointer_delta;
         }
 
+        // TODO: This is capturing gestures everywhere
         if let Some(touch) = ui.input(|i| i.multi_touch()) {
-            ctx.board_zoom *= touch.zoom_delta;
+            ctx.board_zoom *= touch.zoom_delta * 0.25;
             ctx.board_pan += touch.translation_delta;
         }
 

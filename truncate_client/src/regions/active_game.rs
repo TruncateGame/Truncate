@@ -4,7 +4,7 @@ use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
     player::Hand,
-    reporting::{BattleReport, BoardChange, Change, TimeChange},
+    reporting::{BoardChange, Change, TimeChange},
 };
 
 use eframe::{
@@ -21,6 +21,8 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct HoveredRegion {
     pub rect: Rect,
+    // If we're hovering the board, what coordinate is it?
+    pub coord: Option<Coordinate>,
 }
 
 #[derive(Clone)]
@@ -31,7 +33,7 @@ pub struct GameCtx {
     pub player_number: u64,
     pub next_player_number: u64,
     pub selected_tile_in_hand: Option<usize>,
-    pub released_tile: Option<usize>,
+    pub released_tile: Option<(usize, Coordinate)>,
     pub selected_square_on_board: Option<Coordinate>,
     pub hovered_tile_on_board: Option<HoveredRegion>,
     pub playing_tile: Option<char>,

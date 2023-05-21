@@ -4,7 +4,7 @@ use truncate_core::player::Hand;
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
 use epaint::{vec2, Vec2};
 
-use crate::regions::active_game::GameCtx;
+use crate::regions::active_game::{GameCtx, HoveredRegion};
 
 use super::{tile::TilePlayer, HandSquareUI, TileUI};
 
@@ -66,7 +66,12 @@ impl<'a> HandUI<'a> {
                             }
                             next_selection = Some(None);
                         } else if tile_response.drag_released() {
-                            ctx.released_tile = Some(i);
+                            if let Some(HoveredRegion {
+                                coord: Some(coord), ..
+                            }) = ctx.hovered_tile_on_board
+                            {
+                                ctx.released_tile = Some((i, coord));
+                            }
                         }
 
                         if is_being_dragged {
