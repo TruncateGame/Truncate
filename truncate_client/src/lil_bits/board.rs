@@ -1,4 +1,4 @@
-use epaint::{hex_color, emath::Align2, vec2};
+use epaint::{hex_color, emath::Align2, vec2, Vec2};
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -31,7 +31,6 @@ impl<'a> BoardUI<'a> {
     // game object through, since we touch so much of it.
     pub fn render(
         self,
-        hand_released_tile: Option<usize>,
         hand: &Hand,
         board_changes: &HashMap<Coordinate, BoardChange>,
         winner: Option<usize>,
@@ -210,11 +209,12 @@ impl<'a> BoardUI<'a> {
                                             } else {
                                                 next_selection = Some(Some(coord));
                                             }
-                                        } else if let Some(tile) = hand_released_tile {
+                                        } else if let Some(tile) = ctx.released_tile {
                                             if ui.rect_contains_pointer(outer_rect) {
                                                 msg = Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
                                                 next_selection = Some(None);
                                             }
+                                            ctx.released_tile = None;
                                         }
                                     }
                                 }
@@ -239,22 +239,66 @@ impl<'a> BoardUI<'a> {
         .inner;
 
         if let Some(hover_pos) = board_frame.response.hover_pos() {
-            let zoom_delta = ui.input(|i| i.zoom_delta());
-            if zoom_delta != 1.0 {
-                ctx.board_zoom *= zoom_delta;
-            }
+            // Move the drag focus to our board layer if it looks like a drag is starting.
+            // NB: This is possible sensitive to the board being painted _last_ on our screen,
+            // such that anything else that should be getting the drag this frame will already
+            // exist in the `is_anything_being_dragged` check.
+            // (The `layer_id_at` check should avoid this issue in most cases, I imagine)
+            if ui.input(|i| i.pointer.any_down() 
+            && i.pointer.any_pressed()) 
+            && !ui.memory(|mem| mem.is_anything_being_dragged()) {
 
-            let is_dragging = ui.input(|i| i.pointer.any_down()) && !ui.memory(|mem| mem.is_anything_being_dragged());
-            let is_top = if let Some(top_layer_id) = ui.ctx().layer_id_at(hover_pos) {
-                top_layer_id == area_id
-            } else {
-                false
+                if ui.ctx().layer_id_at(hover_pos) == Some(area_id) {
+                    ui.memory_mut(|mem| mem.set_dragged_id(area_id.id))
+                }
+            }
+        }
+
+        // Global(ish) interactions
+        if let Some(hover_pos) = ui.ctx().pointer_hover_pos() {
+            let zoom_delta = ui.input(|i| i.zoom_delta());
+            let scroll_delta = ui.input(|i| i.scroll_delta);
+
+            let maybe_zooming = zoom_delta != 1.0;
+            let maybe_panning = scroll_delta != Vec2::ZERO;
+
+            let capture_action = maybe_zooming || maybe_panning 
+            && match ui.ctx().layer_id_at(hover_pos) {
+                // No layer, probably fine 🤷
+                None => true,
+                // Board layer, definitely ours
+                Some(layer) if layer == area_id => true,
+                // A background layer _should_ be the window itself,
+                // and thus the ocean. We'll handle this input.
+                Some(layer) if layer.order == Order::Background => true,
+                // Gesturing over something else, maybe scrolling a dialog.
+                // Cancel handling this input.
+                Some(_) => false
             };
 
-            if is_dragging && is_top {
-                let pointer_delta = ui.ctx().input(|i| i.pointer.delta());
-                ctx.board_pan += pointer_delta;
+            if capture_action {
+                // --- Zooming ---
+                if zoom_delta != 1.0 {
+                    ctx.board_zoom *= zoom_delta;
+                }
+                // --- Panning ---
+                if scroll_delta != Vec2::ZERO {
+                    ctx.board_pan += scroll_delta;
+                }
             }
+        }
+
+        // Handle the drag focus in all cases
+        // (in case the pointer is now over something else but we are still dragging)
+        // (egui handles releasing this drag state when a pointer is up)
+        if ui.memory(|mem| mem.is_being_dragged(area_id.id)) {
+            let pointer_delta = ui.ctx().input(|i| i.pointer.delta());
+            ctx.board_pan += pointer_delta;
+        }
+
+        if let Some(touch) = ui.input(|i| i.multi_touch()) {
+            ctx.board_zoom *= touch.zoom_delta;
+            ctx.board_pan += touch.translation_delta;
         }
 
         if let Some(new_selection) = next_selection {

@@ -25,10 +25,9 @@ impl<'a> HandUI<'a> {
 }
 
 impl<'a> HandUI<'a> {
-    pub fn render(self, ctx: &mut GameCtx, ui: &mut egui::Ui) -> Option<usize> {
+    pub fn render(self, ctx: &mut GameCtx, ui: &mut egui::Ui) {
         let mut rearrange = None;
         let mut next_selection = None;
-        let mut released_drag = None;
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
         let (margin, theme) = ctx.theme.calc_rescale(
@@ -67,7 +66,7 @@ impl<'a> HandUI<'a> {
                             }
                             next_selection = Some(None);
                         } else if tile_response.drag_released() {
-                            released_drag = Some(i);
+                            ctx.released_tile = Some(i);
                         }
 
                         if is_being_dragged {
@@ -158,7 +157,5 @@ impl<'a> HandUI<'a> {
         }
 
         ctx.theme = old_theme;
-
-        released_drag
     }
 }
