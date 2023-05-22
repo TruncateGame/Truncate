@@ -33,4 +33,7 @@ RUN mkdir /truncate
 ADD word_definitions/defs.db.gz /truncate/defs.db.gz
 RUN gunzip /truncate/defs.db.gz
 
+ARG TR_COMMIT
+ENV TR_COMMIT=$TR_COMMIT
+
 CMD truncate_server
