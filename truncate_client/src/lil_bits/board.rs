@@ -48,11 +48,12 @@ impl<'a> BoardUI<'a> {
         let game_area = ui.available_rect_before_wrap();
         ui.set_clip_rect(game_area);
 
-        let (margin, theme) = ctx.theme.calc_rescale(
+        let (_, theme) = ctx.theme.calc_rescale(
             &game_area, 
             self.board.width(),
             self.board.height(),
-            0.4..2.0
+            0.4..2.0,
+            (2, 2)
         );
         let theme = theme.rescale(ctx.board_zoom);
         let outer_frame = egui::Frame::none().inner_margin(0.0);

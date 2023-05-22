@@ -53,9 +53,10 @@ impl Theme {
         board_width: usize,
         board_height: usize,
         scale_bounds: Range<f32>,
+        pad_by: (usize, usize),
     ) -> (Margin, Self) {
-        let mut ideal_grid = avail_space.width() / (board_width + 2) as f32;
-        let y_space = avail_space.height() / (board_height + 2) as f32;
+        let mut ideal_grid = avail_space.width() / (board_width + pad_by.0) as f32;
+        let y_space = avail_space.height() / (board_height + pad_by.1) as f32;
         if y_space < ideal_grid {
             ideal_grid = y_space;
         }
@@ -66,7 +67,7 @@ impl Theme {
         let width = (board_width) as f32 * (self.grid_size * scale);
 
         (
-            Margin::symmetric((avail_space.width() - width) / 2.0, self.grid_size),
+            Margin::symmetric((avail_space.width() - width) / 2.0, 0.0),
             self.rescale(scale),
         )
     }
@@ -79,6 +80,18 @@ impl Theme {
             rounding: self.rounding * scale,
             ..self.clone()
         }
+    }
+}
+
+pub trait Diaphanize {
+    fn diaphanize(&self) -> Self;
+}
+
+impl Diaphanize for Color32 {
+    fn diaphanize(&self) -> Self {
+        let mut color = Hsva::from(*self);
+        color.a *= 0.5;
+        color.into()
     }
 }
 

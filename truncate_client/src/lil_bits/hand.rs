@@ -30,11 +30,13 @@ impl<'a> HandUI<'a> {
         let mut next_selection = None;
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
+
         let (margin, theme) = ctx.theme.calc_rescale(
             &ui.available_rect_before_wrap(),
             self.hand.len(),
             1,
             0.5..1.3,
+            (2, 0),
         );
 
         let old_theme = ctx.theme.clone();
