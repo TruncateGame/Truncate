@@ -1,4 +1,4 @@
-use epaint::{hex_color, emath::Align2, vec2, Vec2};
+use epaint::{hex_color, emath::Align2, vec2, Vec2, pos2, Rect};
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -78,6 +78,17 @@ impl<'a> BoardUI<'a> {
                         |rownum, row: Box<dyn Iterator<Item = (usize, &Square)>>| {
                             ui.horizontal(|ui| {
                                 for (colnum, square) in row {
+                                    // TODO: An extra row is being clipped off the bottom here in some cases.
+                                    let grid_cell = Rect::from_min_size(ui.next_widget_position(), Vec2::splat(ctx.theme.grid_size));
+                                    if !ui.is_rect_visible(grid_cell) {
+                                        // Skip all work for board that is offscreen, just move the cursor.
+                                        _ = ui.allocate_exact_size(
+                                            Vec2::splat(ctx.theme.grid_size),
+                                            egui::Sense::hover(),
+                                        );
+                                        continue;
+                                    }
+
                                     let coord = Coordinate::new(colnum, rownum);
                                     let is_selected = Some(coord) == ctx.selected_square_on_board;
                                     let calc_tile_player = |p: &usize| {
@@ -178,6 +189,7 @@ impl<'a> BoardUI<'a> {
                                             }
                                         }
                                     }
+
                                     // TODO: Devise a way to show this tile in the place of the board_selected_tile
 
                                     let mut tile_clicked = false;
@@ -283,6 +295,12 @@ impl<'a> BoardUI<'a> {
                 // --- Zooming ---
                 if zoom_delta != 1.0 {
                     ctx.board_zoom *= zoom_delta;
+
+                    // Center the zoom around the cursor
+                    let pointer_delta = hover_pos - ctx.board_pan;
+                    let zoom_diff = zoom_delta - 1.0;
+                    let zoom_pan_delta = pos2(pointer_delta.x * zoom_diff, pointer_delta.y * zoom_diff);
+                    ctx.board_pan -= zoom_pan_delta.to_vec2();
                 }
                 // --- Panning ---
                 if scroll_delta != Vec2::ZERO {
