@@ -3452,6 +3452,7 @@ name = "truncate_core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "instant",
  "oorandom",
  "serde",
  "strum",

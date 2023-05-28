@@ -1,6 +1,5 @@
 use oorandom::Rand32;
 use std::fmt;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::rules;
 
@@ -26,9 +25,9 @@ impl TileBag {
             bag: Vec::new(),
             rng: Rand32::new(
                 // TODO: Use some other RNG to get a seed for the game
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("Time went backwards")
+                instant::SystemTime::now()
+                    .duration_since(instant::SystemTime::UNIX_EPOCH)
+                    .expect("Please don't play Truncate earlier than 1970")
                     .as_secs(),
             ),
             letter_distribution: Some(letter_distribution),
@@ -42,9 +41,9 @@ impl TileBag {
             bag: tiles,
             rng: Rand32::new(
                 // TODO: Use some other RNG to get a seed for the game
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("Time went backwards")
+                instant::SystemTime::now()
+                    .duration_since(instant::SystemTime::UNIX_EPOCH)
+                    .expect("Please don't play Truncate earlier than 1970")
                     .as_secs(),
             ),
             letter_distribution: None,
