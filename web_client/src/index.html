@@ -220,7 +220,7 @@
 
     <audio id="tr_move" src="/static/move.mp3"></audio>
 
-    <script defer src="static/truncate_client.js?commit={{ env.TR_COMMIT }}"></script>
+    <script defer src="static/truncate_client.js?commit={{ env.environment }}"></script>
     <script>
         (function () {
             const stage = (s) => controls.setAttribute("data-control-stage", s);
@@ -648,7 +648,7 @@
                     await new Promise(r => setTimeout(r, 100));
                 }
 
-                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.TR_COMMIT }}")
+                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.environment }}")
                     .then(on_wasm_loaded)
                     .catch(on_wasm_error);
 
