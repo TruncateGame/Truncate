@@ -107,20 +107,40 @@ impl Tex {
     pub const DOCK_NORTH_SE: Self = Tex::index(82);
     pub const DOCK_NORTH_SW: Self = Tex::index(80);
 
+    pub const DOCK_NORTH_NW_SAIL: Self = Tex::index(95);
+    pub const DOCK_NORTH_NE_SAIL: Self = Tex::index(96);
+    pub const DOCK_NORTH_SE_SAIL: Self = Self::NONE;
+    pub const DOCK_NORTH_SW_SAIL: Self = Self::NONE;
+
     pub const DOCK_EAST_NW: Self = Tex::index(87);
     pub const DOCK_EAST_NE: Self = Tex::index(88);
     pub const DOCK_EAST_SE: Self = Tex::index(90);
     pub const DOCK_EAST_SW: Self = Tex::index(89);
+
+    pub const DOCK_EAST_NW_SAIL: Self = Tex::index(99);
+    pub const DOCK_EAST_NE_SAIL: Self = Tex::index(100);
+    pub const DOCK_EAST_SE_SAIL: Self = Tex::index(108);
+    pub const DOCK_EAST_SW_SAIL: Self = Tex::index(107);
 
     pub const DOCK_SOUTH_NW: Self = Tex::index(83);
     pub const DOCK_SOUTH_NE: Self = Tex::index(85);
     pub const DOCK_SOUTH_SE: Self = Tex::index(86);
     pub const DOCK_SOUTH_SW: Self = Tex::index(84);
 
+    pub const DOCK_SOUTH_NW_SAIL: Self = Tex::index(97);
+    pub const DOCK_SOUTH_NE_SAIL: Self = Self::NONE;
+    pub const DOCK_SOUTH_SE_SAIL: Self = Self::NONE;
+    pub const DOCK_SOUTH_SW_SAIL: Self = Tex::index(105);
+
     pub const DOCK_WEST_NW: Self = Tex::index(91);
     pub const DOCK_WEST_NE: Self = Tex::index(92);
     pub const DOCK_WEST_SE: Self = Tex::index(94);
     pub const DOCK_WEST_SW: Self = Tex::index(93);
+
+    pub const DOCK_WEST_NW_SAIL: Self = Tex::index(101);
+    pub const DOCK_WEST_NE_SAIL: Self = Tex::index(102);
+    pub const DOCK_WEST_SE_SAIL: Self = Self::NONE;
+    pub const DOCK_WEST_SW_SAIL: Self = Self::NONE;
 
     // PATHS
     pub const PATH1: Self = Tex::index(40);
@@ -190,40 +210,78 @@ impl Tex {
         texs
     }
 
-    fn resolve_dock_tex(neighbors: Vec<BGTexType>) -> TexQuad {
+    fn resolve_dock_tex(color: Option<Color32>, neighbors: Vec<BGTexType>) -> Vec<TexQuad> {
         // TODO: Render docks with multiple edges somehow.
-        if matches!(neighbors[1], BGTexType::Land) {
-            [
-                Self::DOCK_SOUTH_NW,
-                Self::DOCK_SOUTH_NE,
-                Self::DOCK_SOUTH_SE,
-                Self::DOCK_SOUTH_SW,
+        let mut dock = if matches!(neighbors[1], BGTexType::Land) {
+            vec![
+                [
+                    Self::DOCK_SOUTH_NW,
+                    Self::DOCK_SOUTH_NE,
+                    Self::DOCK_SOUTH_SE,
+                    Self::DOCK_SOUTH_SW,
+                ],
+                [
+                    Self::DOCK_SOUTH_NW_SAIL,
+                    Self::DOCK_SOUTH_NE_SAIL,
+                    Self::DOCK_SOUTH_SE_SAIL,
+                    Self::DOCK_SOUTH_SW_SAIL,
+                ],
             ]
         } else if matches!(neighbors[5], BGTexType::Land) {
-            [
-                Self::DOCK_NORTH_NW,
-                Self::DOCK_NORTH_NE,
-                Self::DOCK_NORTH_SE,
-                Self::DOCK_NORTH_SW,
+            vec![
+                [
+                    Self::DOCK_NORTH_NW,
+                    Self::DOCK_NORTH_NE,
+                    Self::DOCK_NORTH_SE,
+                    Self::DOCK_NORTH_SW,
+                ],
+                [
+                    Self::DOCK_NORTH_NW_SAIL,
+                    Self::DOCK_NORTH_NE_SAIL,
+                    Self::DOCK_NORTH_SE_SAIL,
+                    Self::DOCK_NORTH_SW_SAIL,
+                ],
             ]
         } else if matches!(neighbors[3], BGTexType::Land) {
-            [
-                Self::DOCK_WEST_NW,
-                Self::DOCK_WEST_NE,
-                Self::DOCK_WEST_SE,
-                Self::DOCK_WEST_SW,
+            vec![
+                [
+                    Self::DOCK_WEST_NW,
+                    Self::DOCK_WEST_NE,
+                    Self::DOCK_WEST_SE,
+                    Self::DOCK_WEST_SW,
+                ],
+                [
+                    Self::DOCK_WEST_NW_SAIL,
+                    Self::DOCK_WEST_NE_SAIL,
+                    Self::DOCK_WEST_SE_SAIL,
+                    Self::DOCK_WEST_SW_SAIL,
+                ],
             ]
         } else if matches!(neighbors[7], BGTexType::Land) {
-            [
-                Self::DOCK_EAST_NW,
-                Self::DOCK_EAST_NE,
-                Self::DOCK_EAST_SE,
-                Self::DOCK_EAST_SW,
+            vec![
+                [
+                    Self::DOCK_EAST_NW,
+                    Self::DOCK_EAST_NE,
+                    Self::DOCK_EAST_SE,
+                    Self::DOCK_EAST_SW,
+                ],
+                [
+                    Self::DOCK_EAST_NW_SAIL,
+                    Self::DOCK_EAST_NE_SAIL,
+                    Self::DOCK_EAST_SE_SAIL,
+                    Self::DOCK_EAST_SW_SAIL,
+                ],
             ]
         } else {
             // TODO: Render disconnected docks somehow
-            [Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]
+            vec![[Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]; 2]
+        };
+        if let Some(color) = color {
+            for p in 0..4 {
+                dock[1][p] = dock[1][p].tint(color);
+            }
         }
+        dock
     }
 
     fn resolve_town_tex(color: Option<Color32>, seed: usize) -> Vec<TexQuad> {
@@ -348,7 +406,7 @@ impl Tex {
         if let Some(layer) = layer_type {
             match layer {
                 FGTexType::Town => texs.extend(Tex::resolve_town_tex(color, seed)),
-                FGTexType::Dock => texs.push(Tex::resolve_dock_tex(neighbors)),
+                FGTexType::Dock => texs.extend(Tex::resolve_dock_tex(color, neighbors)),
             }
         }
 
