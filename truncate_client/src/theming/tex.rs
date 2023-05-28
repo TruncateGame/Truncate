@@ -152,6 +152,18 @@ impl Tex {
     pub const PATH7: Self = Tex::index(46);
     pub const PATH8: Self = Tex::index(47);
     pub const PATH9: Self = Tex::index(48);
+
+    // DECOR
+    pub const DECOR_PLANTER1: Self = Tex::index(111);
+    pub const DECOR_PLANTER1_COLOR: Self = Tex::index(116);
+    pub const DECOR_PLANTER2: Self = Tex::index(112);
+    pub const DECOR_PLANTER2_COLOR: Self = Tex::index(117);
+    pub const DECOR_BUSH: Self = Tex::index(113);
+    pub const DECOR_BUSH_COLOR: Self = Tex::index(118);
+    pub const DECOR_WHEAT: Self = Tex::index(114);
+    pub const DECOR_WHEAT_COLOR: Self = Self::NONE;
+    pub const DECOR_WELL: Self = Tex::index(115);
+    pub const DECOR_WELL_COLOR: Self = Self::NONE;
 }
 
 impl Tex {
@@ -292,6 +304,30 @@ impl Tex {
             _ => (Self::HOUSE4, Self::ROOF4),
         };
 
+        let rand_house_colored = |n: usize| {
+            let mut h = rand_house(n);
+            if let Some(color) = &color {
+                h.1 = h.1.tint(*color);
+            }
+            h
+        };
+
+        let rand_decor = |n: usize| match quickrand(n) {
+            0..=20 => (Self::DECOR_PLANTER1, Self::DECOR_PLANTER1_COLOR),
+            21..=40 => (Self::DECOR_PLANTER2, Self::DECOR_PLANTER2_COLOR),
+            41..=60 => (Self::DECOR_BUSH, Self::DECOR_BUSH_COLOR),
+            61..=80 => (Self::DECOR_WHEAT, Self::DECOR_WHEAT_COLOR),
+            _ => (Self::DECOR_WELL, Self::DECOR_WELL_COLOR),
+        };
+
+        let rand_decor_colored = |n: usize| {
+            let mut d = rand_decor(n);
+            if let Some(color) = &color {
+                d.1 = d.1.tint(*color);
+            }
+            d
+        };
+
         let rand_path = |n: usize| match quickrand(n) {
             0..=20 => Self::PATH1,
             21..=30 => Self::PATH3,
@@ -309,6 +345,11 @@ impl Tex {
             _ => 2,
         };
 
+        let numdecor = match quickrand(seed + 23465) {
+            0..=70 => 0,
+            _ => 1,
+        };
+
         let mut texs = vec![
             [
                 rand_path(seed + 4),
@@ -319,17 +360,22 @@ impl Tex {
             [Self::NONE, Self::NONE, Self::NONE, Self::NONE],
         ];
 
+        for d in 0..numdecor {
+            let decorpos = quickrand(seed + 454 + d + d) % 4;
+            let (decor, layer) = rand_decor_colored(seed + 646 * d);
+
+            texs[0][decorpos] = decor;
+            texs[1][decorpos] = layer;
+        }
+
         // These may bowl each other over but that's fine,
         // it just skews the average house number down slightly.
         for h in 0..numhouses {
             let housepos = quickrand(seed + 45 * h) % 4;
-            let (house, roof) = rand_house(seed + 6 * h);
+            let (house, roof) = rand_house_colored(seed + 6 * h);
 
             texs[0][housepos] = house;
             texs[1][housepos] = roof;
-            if let Some(color) = color {
-                texs[1][housepos] = texs[1][housepos].tint(color);
-            }
         }
 
         texs
