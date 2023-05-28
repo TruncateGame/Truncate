@@ -1,5 +1,5 @@
 use std::fmt;
-use time::{Duration, OffsetDateTime};
+use time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -71,7 +71,7 @@ pub struct Player {
     pub hand_capacity: usize,
     pub allotted_time: Option<Duration>,
     pub time_remaining: Option<Duration>,
-    pub turn_starts_at: Option<OffsetDateTime>,
+    pub turn_starts_at: Option<u64>,
     pub swap_count: usize,
     pub penalties_incurred: usize,
     pub color: (u8, u8, u8),

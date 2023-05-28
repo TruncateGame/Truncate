@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use eframe::egui;
 use epaint::{vec2, TextureHandle};
 use serde::Deserialize;
-use time::OffsetDateTime;
 use truncate_core::{
     bag::TileBag,
     board::{Board, Coordinate},
@@ -113,7 +112,12 @@ impl TutorialState {
                     hand_capacity: loaded_tutorial.player_hand.len(),
                     allotted_time: None,
                     time_remaining: None,
-                    turn_starts_at: Some(OffsetDateTime::now_utc()),
+                    turn_starts_at: Some(
+                        instant::SystemTime::now()
+                            .duration_since(instant::SystemTime::UNIX_EPOCH)
+                            .expect("Please don't play Truncate earlier than 1970")
+                            .as_secs(),
+                    ),
                     swap_count: 0,
                     penalties_incurred: 0,
                     color: (128, 128, 255),

@@ -1,5 +1,5 @@
 use std::fmt;
-use time::{Duration, OffsetDateTime};
+use time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -56,7 +56,7 @@ pub struct GamePlayerMessage {
     pub color: (u8, u8, u8),
     pub allotted_time: Option<Duration>,
     pub time_remaining: Option<Duration>,
-    pub turn_starts_at: Option<OffsetDateTime>,
+    pub turn_starts_at: Option<u64>,
 }
 
 impl From<&Player> for GamePlayerMessage {

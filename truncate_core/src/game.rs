@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use time::{Duration, OffsetDateTime};
+use time::Duration;
 
 use crate::bag::TileBag;
 use crate::board::{Coordinate, Square};
@@ -31,9 +31,17 @@ pub struct Game {
     pub bag: TileBag,
     pub judge: Judge,
     pub recent_changes: Vec<Change>,
-    pub started_at: Option<OffsetDateTime>,
+    pub started_at: Option<u64>,
     pub next_player: usize,
     pub winner: Option<usize>,
+}
+
+// TODO: Move this to a helper file somewhere
+fn now() -> u64 {
+    instant::SystemTime::now()
+        .duration_since(instant::SystemTime::UNIX_EPOCH)
+        .expect("Please don't play Truncate before 1970")
+        .as_secs()
 }
 
 impl Game {
@@ -76,9 +84,9 @@ impl Game {
     }
 
     pub fn start(&mut self) {
-        self.started_at = Some(OffsetDateTime::now_utc());
+        self.started_at = Some(now());
         // TODO: Lookup player by `index` field rather than vec position
-        self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
+        self.players[self.next_player].turn_starts_at = Some(now());
     }
 
     pub fn play_turn(
@@ -97,13 +105,14 @@ impl Game {
         if player != self.next_player {
             return Err("Only the next player can play".into());
         }
-        let turn_duration = OffsetDateTime::now_utc()
-            - self.players[player]
+        let turn_duration = now().checked_sub(
+            self.players[player]
                 .turn_starts_at
-                .expect("Player played without the time running");
-        if turn_duration.is_negative() {
+                .expect("Player played without the time running"),
+        );
+        let Some(turn_duration) = turn_duration else {
             return Err("Player's turn has not yet started".into());
-        }
+        };
 
         self.recent_changes = match self.make_move(next_move, external_dictionary) {
             Ok(changes) => changes,
@@ -122,7 +131,7 @@ impl Game {
 
         let this_player = &mut self.players[player];
         if let Some(time_remaining) = &mut this_player.time_remaining {
-            *time_remaining -= turn_duration;
+            *time_remaining -= Duration::seconds(turn_duration as i64);
             let mut apply_penalties = 0;
 
             if time_remaining.is_negative() {
@@ -148,7 +157,7 @@ impl Game {
         }
 
         self.players[player].turn_starts_at = None;
-        self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
+        self.players[self.next_player].turn_starts_at = Some(now());
 
         Ok(None)
     }

@@ -3,7 +3,6 @@ use truncate_core::{messages::GamePlayerMessage, reporting::TimeChange};
 
 use eframe::egui::{self, widget_text::WidgetTextGalley, Layout, Margin, Response, Sense};
 use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, Vec2};
-use time::OffsetDateTime;
 
 use crate::{
     regions::active_game::GameCtx,
@@ -101,23 +100,21 @@ impl<'a> TimerUI<'a> {
 
         match self.player.turn_starts_at {
             Some(next_turn) => {
-                let now = OffsetDateTime::from_unix_timestamp(self.current_time.as_secs() as i64)
-                    .expect("Should be a valid timestamp");
-                let elapsed = now - next_turn;
-                if !elapsed.whole_seconds().is_negative() {
+                let now = self.current_time.as_secs();
+                let elapsed = now.checked_sub(next_turn);
+                if let Some(elapsed) = elapsed {
                     if let Some(time) = self.player.time_remaining {
-                        self.time = time - elapsed;
+                        self.time = time - Duration::seconds(elapsed as i64);
                         format!("{}", TimerUI::human_time(self.time.whole_seconds()))
                     } else {
                         format!("Playing")
                     }
                 } else {
+                    let starts_in = (next_turn.saturating_sub(now) as i64) * -1;
                     if let Some(time) = self.player.time_remaining {
                         self.time = time;
-                        let starts_in = elapsed.whole_seconds() * -1;
                         format!("Wait {}", TimerUI::human_time(starts_in))
                     } else {
-                        let starts_in = elapsed.whole_seconds() * -1;
                         format!("Wait {}", TimerUI::human_time(starts_in))
                     }
                 }
