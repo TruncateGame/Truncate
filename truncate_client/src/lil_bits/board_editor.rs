@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use epaint::TextureHandle;
 use truncate_core::{
     board::{Board, Coordinate, Square},
@@ -60,7 +58,7 @@ impl<'a> EditorUI<'a> {
                 self.board.grow();
                 edited = true;
             }
-            let edit_str = match self.editing_mode {
+            let edit_str = match &self.editing_mode {
                 BoardEditingMode::Land => "land and water".to_string(),
                 BoardEditingMode::Town(p) => format!("player {} towns", *p + 1),
                 BoardEditingMode::Dock(p) => format!("player {} docks", *p + 1),
@@ -155,7 +153,7 @@ impl<'a> EditorUI<'a> {
                                     ui.ctx().memory_mut(|mem| {
                                         mem.data.insert_temp(
                                             Id::null(),
-                                            match self.editing_mode {
+                                            match &self.editing_mode {
                                                 BoardEditingMode::Land => match square {
                                                     Square::Water | Square::Dock(_) => {
                                                         EditorDrag::MakeLand
@@ -221,6 +219,41 @@ impl<'a> EditorUI<'a> {
         if let Some((coord, new_state)) = modify_pos {
             // Not bounds-checking values as they came from the above loop over this very state.
             self.board.squares[coord.y][coord.x] = new_state;
+
+            // TODO: Put board mirroring behind a flag
+            {
+                let board_mid = (
+                    self.board.width() as isize / 2,
+                    self.board.height() as isize / 2,
+                );
+                let recip_x = board_mid.0 - (coord.x as isize - board_mid.0);
+                let recip_y = board_mid.1 - (coord.y as isize - board_mid.1);
+
+                // TODO: Player mirroring won't work for >2 players
+                let mirrored_state = match new_state {
+                    Square::Water | Square::Land => new_state,
+                    Square::Town(p) => {
+                        if p == 0 {
+                            Square::Town(1)
+                        } else {
+                            Square::Town(0)
+                        }
+                    }
+                    Square::Dock(p) => {
+                        if p == 0 {
+                            Square::Dock(1)
+                        } else {
+                            Square::Dock(0)
+                        }
+                    }
+                    Square::Occupied(_, _) => {
+                        unreachable!("Board editor should not contain occupied tiles")
+                    }
+                };
+
+                self.board.squares[recip_y as usize][recip_x as usize] = mirrored_state;
+            }
+
             edited = true;
         }
 
