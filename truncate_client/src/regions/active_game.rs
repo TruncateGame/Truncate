@@ -1,4 +1,4 @@
-use epaint::{emath::Align2, hex_color, vec2, Color32, Rect, TextureHandle, Vec2};
+use epaint::{emath::Align2, hex_color, vec2, Color32, Rect, Stroke, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Square},
@@ -8,7 +8,7 @@ use truncate_core::{
 };
 
 use eframe::{
-    egui::{self, Layout, Order, ScrollArea, Sense},
+    egui::{self, Frame, Label, Layout, Margin, Order, RichText, ScrollArea, Sense},
     emath::Align,
 };
 use hashbrown::HashMap;
@@ -119,44 +119,51 @@ impl ActiveGame {
             .order(Order::Foreground)
             .anchor(Align2::LEFT_BOTTOM, vec2(0.0, 0.0));
 
+        let avail_width = ui.available_width();
+
         let resp = area.show(ui.ctx(), |ui| {
-            ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
-                ui.add_space(20.0);
+            ui.allocate_ui_with_layout(
+                vec2(avail_width, 10.0),
+                Layout::top_down(Align::LEFT),
+                |ui| {
+                    let (hand_alloc, _) =
+                        ui.allocate_at_least(vec2(ui.available_width(), 50.0), Sense::hover());
+                    let mut hand_ui = ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
+                    HandUI::new(&mut self.hand)
+                        .active(self.ctx.player_number == self.ctx.next_player_number)
+                        .render(&mut self.ctx, &mut hand_ui);
 
-                if let Some(opponent) = self
-                    .players
-                    .iter()
-                    .find(|p| p.index != self.ctx.player_number as usize)
-                {
-                    TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
-                        .friend(false)
-                        .active(opponent.index == self.ctx.next_player_number as usize)
-                        .winner(winner.clone())
-                        .render(ui, theme, &mut self.ctx);
                     ui.add_space(10.0);
-                }
 
-                if let Some(player) = self
-                    .players
-                    .iter()
-                    .find(|p| p.index == self.ctx.player_number as usize)
-                {
-                    TimerUI::new(player, self.ctx.current_time, &self.time_changes)
-                        .friend(true)
-                        .active(player.index == self.ctx.next_player_number as usize)
-                        .winner(winner.clone())
-                        .render(ui, theme, &mut self.ctx);
+                    if let Some(player) = self
+                        .players
+                        .iter()
+                        .find(|p| p.index == self.ctx.player_number as usize)
+                    {
+                        TimerUI::new(player, self.ctx.current_time, &self.time_changes)
+                            .friend(true)
+                            .active(player.index == self.ctx.next_player_number as usize)
+                            .winner(winner.clone())
+                            .render(ui, theme, &mut self.ctx);
+                        ui.add_space(10.0);
+                    }
+
+                    if let Some(opponent) = self
+                        .players
+                        .iter()
+                        .find(|p| p.index != self.ctx.player_number as usize)
+                    {
+                        TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
+                            .friend(false)
+                            .active(opponent.index == self.ctx.next_player_number as usize)
+                            .winner(winner.clone())
+                            .render(ui, theme, &mut self.ctx);
+                        ui.add_space(10.0);
+                    }
+
                     ui.add_space(10.0);
-                }
-
-                ui.add_space(10.0);
-                let (hand_alloc, _) =
-                    ui.allocate_at_least(vec2(ui.available_width(), 50.0), Sense::hover());
-                let mut hand_ui = ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
-                HandUI::new(&mut self.hand)
-                    .active(self.ctx.player_number == self.ctx.next_player_number)
-                    .render(&mut self.ctx, &mut hand_ui);
-            });
+                },
+            );
         });
         // TODO: Paint this to an appropriate layer, or do sizing within the area above and paint it there.
         // ui.painter().rect_filled(resp.response.rect, 0.0, hex_color!("#ff000088"));
@@ -176,51 +183,72 @@ impl ActiveGame {
             return;
         }
 
-        if ui.available_size().x < self.ctx.theme.mobile_breakpoint {
-            return self.render_mobile_sidebar(ui, theme, winner);
-        }
-        let sidebar_area = vec2(300.0, ui.available_height());
+        let area = egui::Area::new(egui::Id::new("sidebar_layer"))
+            .movable(false)
+            .order(Order::Foreground)
+            .anchor(Align2::RIGHT_TOP, vec2(0.0, 0.0));
 
-        ui.allocate_ui_with_layout(sidebar_area, Layout::top_down(Align::TOP), |ui| {
-            ScrollArea::new([false, true]).show(ui, |ui| {
-                if let Some(error) = &self.ctx.error_msg {
-                    ui.label(error);
-                    ui.separator();
-                }
+        let outer_frame = Frame::default().inner_margin(Margin::same(8.0));
 
-                for turn in self.turn_reports.iter() {
-                    for placement in turn.iter().filter_map(|change| match change {
-                        Change::Board(placement) => Some(placement),
-                        _ => None,
-                    }) {
-                        let Square::Occupied(player, tile) = placement.detail.square else {
-                                        continue;
-                                    };
-                        let Some(player) = self.players.get(player) else {
-                                        continue;
-                                    };
+        let inner_frame = Frame::default()
+            .inner_margin(Margin::same(8.0))
+            .fill(hex_color!("#111111aa"));
 
-                        match placement.action {
-                            truncate_core::reporting::BoardChangeAction::Added => {
-                                ui.label(format!("{} placed the tile {}", player.name, tile));
-                            }
-                            truncate_core::reporting::BoardChangeAction::Swapped => {
-                                ui.label(format!("{} swapped the tile {}", player.name, tile));
-                            }
-                            _ => {}
+        let outer_sidebar_area = ui.max_rect();
+
+        let resp =
+            area.show(ui.ctx(), |ui| {
+                ui.expand_to_include_rect(outer_sidebar_area);
+                outer_frame.show(ui, |ui| {
+                    inner_frame.show(ui, |ui| {
+                        ui.expand_to_include_rect(ui.max_rect());
+                        ScrollArea::new([false, true]).show(ui, |ui| {
+                        if let Some(error) = &self.ctx.error_msg {
+                            ui.label(error);
+                            ui.separator();
                         }
-                    }
 
-                    for battle in turn.iter().filter_map(|change| match change {
-                        Change::Battle(battle) => Some(battle),
-                        _ => None,
-                    }) {
-                        BattleUI::new(battle).render(&mut self.ctx, ui);
-                    }
-                    ui.separator();
-                }
+                        for turn in self.turn_reports.iter() {
+                            for placement in turn.iter().filter_map(|change| match change {
+                                Change::Board(placement) => Some(placement),
+                                _ => None,
+                            }) {
+                                let Square::Occupied(player, tile) = placement.detail.square else {
+                                                    continue;
+                                                };
+                                let Some(player) = self.players.get(player) else {
+                                                    continue;
+                                                };
+
+                                match placement.action {
+                                    truncate_core::reporting::BoardChangeAction::Added => {
+                                        ui.label(RichText::new(format!(
+                                            "{} placed the tile {}",
+                                            player.name, tile
+                                        )).color(Color32::WHITE));
+                                    }
+                                    truncate_core::reporting::BoardChangeAction::Swapped => {
+                                        ui.label(RichText::new(format!(
+                                            "{} swapped the tile {}",
+                                            player.name, tile
+                                        )).color(Color32::WHITE));
+                                    }
+                                    _ => {}
+                                }
+                            }
+
+                            for battle in turn.iter().filter_map(|change| match change {
+                                Change::Battle(battle) => Some(battle),
+                                _ => None,
+                            }) {
+                                BattleUI::new(battle).render(&mut self.ctx, ui);
+                            }
+                            ui.separator();
+                        }
+                    });
+                    });
+                });
             });
-        });
     }
 
     pub fn render(
@@ -239,18 +267,28 @@ impl ActiveGame {
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("Please don't play Truncate earlier than 1970");
 
-        self.render_control_strip(ui, theme, winner);
+        let mut game_space = ui.available_rect_before_wrap();
+        let mut sidebar_space = game_space.clone();
+        sidebar_space.set_left(sidebar_space.right() - 300.0);
+
+        if ui.available_size().x >= self.ctx.theme.mobile_breakpoint {
+            game_space.set_right(game_space.right() - 300.0);
+        }
+
+        let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
+        self.render_control_strip(&mut game_space_ui, theme, winner);
+
+        let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
+        self.render_sidebar(&mut sidebar_space_ui, theme, winner);
 
         let player_message = BoardUI::new(&self.board).render(
             &self.hand,
             &self.board_changes,
             winner.clone(),
             &mut self.ctx,
-            ui,
+            &mut game_space_ui,
             &self.mapped_board,
         );
-
-        self.render_sidebar(ui, theme, winner);
 
         player_message
     }

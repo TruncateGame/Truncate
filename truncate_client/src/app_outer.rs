@@ -5,8 +5,8 @@ type S = Sender<PlayerMessage>;
 use super::debug;
 use super::theming::Theme;
 use crate::{app_inner, theming::glyph_meaure::GlyphMeasure};
-use eframe::egui::{self, Id, TextureOptions};
-use epaint::{hex_color, TextureHandle};
+use eframe::egui::{self, Frame, Id, Margin, TextureOptions};
+use epaint::{hex_color, vec2, TextureHandle};
 use truncate_core::messages::{GameMessage, PlayerMessage};
 
 pub struct OuterApplication {
@@ -91,6 +91,7 @@ impl OuterApplication {
             visuals.window_fill = theme.water;
             visuals.panel_fill = theme.water;
             style.visuals = visuals;
+            style.spacing.window_margin = Margin::same(0.0);
 
             cc.egui_ctx.set_style(style);
         }
@@ -124,11 +125,13 @@ impl eframe::App for OuterApplication {
         self.frame_history
             .on_new_frame(ctx.input(|i| i.time), _frame.info().cpu_usage);
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // Show debug timings in-app
-            // self.frame_history.ui(ui);
-            app_inner::render(self, ui)
-        });
+        egui::CentralPanel::default()
+            .frame(Frame::default().fill(self.theme.water))
+            .show(ctx, |ui| {
+                // Show debug timings in-app
+                // self.frame_history.ui(ui);
+                app_inner::render(self, ui)
+            });
 
         ctx.request_repaint_after(std::time::Duration::from_millis(250));
     }

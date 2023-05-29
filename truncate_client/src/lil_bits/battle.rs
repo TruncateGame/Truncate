@@ -1,8 +1,8 @@
 use eframe::{
-    egui::{self, FontId, Layout, Sense},
+    egui::{self, FontId, Layout, RichText, Sense},
     emath::Align,
 };
-use epaint::vec2;
+use epaint::{vec2, Color32};
 use truncate_core::reporting::{BattleReport, BattleWord};
 
 use crate::regions::active_game::GameCtx;
@@ -69,10 +69,10 @@ impl<'a> BattleUI<'a> {
 
                 match self.battle.outcome {
                     truncate_core::judge::Outcome::AttackerWins(_) => {
-                        ui.label("Beats");
+                        ui.label(RichText::new("Beats").color(Color32::WHITE));
                     }
                     truncate_core::judge::Outcome::DefenderWins => {
-                        ui.label("Loses to");
+                        ui.label(RichText::new("Loses to").color(Color32::WHITE));
                     }
                 }
 
