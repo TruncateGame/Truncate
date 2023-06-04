@@ -1,26 +1,34 @@
 use eframe::egui::{self};
 use epaint::{hex_color, Stroke, TextureHandle};
-use truncate_core::board::Coordinate;
+use truncate_core::board::{Coordinate, Square};
 
+use crate::regions::lobby::BoardEditingMode;
 use crate::theming::mapper::MappedBoard;
 use crate::theming::tex::{render_tex_quad, Tex};
 use crate::theming::Theme;
 
 pub struct EditorSquareUI {
     coord: Coordinate,
-    enabled: bool,
+    square: Square,
+    action: BoardEditingMode,
 }
 
 impl EditorSquareUI {
     pub fn new(coord: Coordinate) -> Self {
         Self {
             coord,
-            enabled: false,
+            square: Square::Water,
+            action: BoardEditingMode::Land,
         }
     }
 
-    pub fn enabled(mut self, enabled: bool) -> Self {
-        self.enabled = enabled;
+    pub fn square(mut self, square: Square) -> Self {
+        self.square = square;
+        self
+    }
+
+    pub fn action(mut self, action: BoardEditingMode) -> Self {
+        self.action = action;
         self
     }
 
@@ -41,19 +49,28 @@ impl EditorSquareUI {
             egui::Sense::click_and_drag(),
         );
 
+        let inner_bounds = rect.shrink(theme.tile_margin);
+
         if ui.is_rect_visible(rect) {
             mapped_board.render_coord(self.coord, rect, ui);
 
             if response.hovered() {
                 if !response.is_pointer_button_down_on() {
-                    let mapped_addition = Tex::resolve_landscaping_tex(!self.enabled);
-                    render_tex_quad(mapped_addition, rect, map_texture, ui);
+                    if let Some(overlay) = Tex::landscaping(&self.square, &self.action) {
+                        render_tex_quad(overlay, rect, map_texture, ui);
+                    } else {
+                        ui.painter().rect_filled(
+                            inner_bounds,
+                            theme.rounding,
+                            hex_color!("ffffff03"),
+                        )
+                    }
                 }
             }
         }
-        if self.enabled {
+        if matches!(self.square, Square::Land) {
             ui.painter().rect_stroke(
-                rect.shrink(theme.tile_margin),
+                inner_bounds,
                 theme.rounding,
                 Stroke::new(1.0, hex_color!("ffffff01")),
             );

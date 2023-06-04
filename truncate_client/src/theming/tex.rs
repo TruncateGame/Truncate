@@ -1,5 +1,8 @@
 use eframe::egui;
 use epaint::{pos2, vec2, Color32, Mesh, Rect, Shape, TextureHandle, TextureId};
+use truncate_core::board::Square;
+
+use crate::regions::lobby::BoardEditingMode;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Tex {
@@ -78,8 +81,8 @@ impl Tex {
 
     // Transparent island in water
     pub const ISLAND: TexQuad = Tex::quad(69, 70, 72, 71);
-    // Transparent cracks on land
-    pub const CRACKS: TexQuad = Tex::quad(73, 74, 76, 75);
+    // Transparent lake on land
+    pub const LAKE: TexQuad = Tex::quad(73, 74, 76, 75);
 
     // Tiles
     pub const GAME_TILE: TexQuad = Tex::quad(53, 54, 55, 56);
@@ -171,17 +174,16 @@ impl Tint for Tex {
 }
 
 impl Tint for TexQuad {
-    fn tint(self, color: Color32) -> Self {
-        self[0].tint(color);
-        self[1].tint(color);
-        self[2].tint(color);
-        self[3].tint(color);
+    fn tint(mut self, color: Color32) -> Self {
+        for i in 0..4 {
+            self[i].tint = Some(color);
+        }
         self
     }
 }
 
 impl Tex {
-    pub fn resolve_tile_tex(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
+    pub fn game_tile(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
         let mut tex = vec![];
 
         if let Some(color) = color {
@@ -194,12 +196,12 @@ impl Tex {
         tex
     }
 
-    pub fn resolve_board_tile_tex(
+    pub fn board_game_tile(
         color: Option<Color32>,
         highlight: Option<Color32>,
         seed: usize,
     ) -> Vec<TexQuad> {
-        let mut texs = Tex::resolve_tile_tex(color, highlight);
+        let mut texs = Tex::game_tile(color, highlight);
         texs.push([
             Self::NONE,
             Self::NONE,
@@ -219,33 +221,45 @@ impl Tex {
         texs
     }
 
-    fn resolve_town_button_tex(color: Option<Color32>) -> Vec<TexQuad> {
-        vec![
+    pub fn town_button(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
+        let mut t = vec![
             Self::BUTTON_TOWN,
             if let Some(color) = color {
                 Self::BUTTON_TOWN_COLOR.tint(color)
             } else {
                 Self::BUTTON_TOWN_COLOR
             },
-        ]
+        ];
+        if let Some(highlight) = highlight {
+            t.push(Self::HIGHLIGHT.tint(highlight));
+        };
+        t
     }
 
-    fn resolve_dock_button_tex(color: Option<Color32>) -> Vec<TexQuad> {
-        vec![
+    pub fn dock_button(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
+        let mut t = vec![
             Self::BUTTON_DOCK,
             if let Some(color) = color {
                 Self::BUTTON_DOCK_COLOR.tint(color)
             } else {
                 Self::BUTTON_DOCK_COLOR
             },
-        ]
+        ];
+        if let Some(highlight) = highlight {
+            t.push(Self::HIGHLIGHT.tint(highlight));
+        };
+        t
     }
 
-    fn resolve_land_button_tex() -> TexQuad {
-        Self::BUTTON_LAND
+    pub fn land_button(highlight: Option<Color32>) -> Vec<TexQuad> {
+        if let Some(highlight) = highlight {
+            vec![Self::BUTTON_LAND, Self::HIGHLIGHT.tint(highlight)]
+        } else {
+            vec![Self::BUTTON_LAND]
+        }
     }
 
-    fn resolve_dock_tex(color: Option<Color32>, neighbors: Vec<BGTexType>) -> Vec<TexQuad> {
+    fn dock(color: Option<Color32>, neighbors: Vec<BGTexType>) -> Vec<TexQuad> {
         // TODO: Render docks with multiple edges somehow.
         let mut dock = if matches!(neighbors[1], BGTexType::Land) {
             vec![Self::DOCK_SOUTH, Self::DOCK_SOUTH_SAIL]
@@ -264,7 +278,7 @@ impl Tex {
         dock
     }
 
-    fn resolve_town_tex(color: Option<Color32>, seed: usize) -> Vec<TexQuad> {
+    fn town(color: Option<Color32>, seed: usize) -> Vec<TexQuad> {
         let rand_house = |n: usize| match quickrand(n) {
             0..=25 => (Self::HOUSE1, Self::ROOF1),
             26..=50 => (Self::HOUSE3, Self::ROOF3),
@@ -351,7 +365,7 @@ impl Tex {
 
     /// Determine the tiles to use based on a given square and its neighbors,
     /// provided clockwise from northwest.
-    pub fn resolve_bg_tex(
+    pub fn terrain(
         base_type: BGTexType,
         layer_type: Option<FGTexType>,
         neighbors: Vec<BGTexType>,
@@ -419,19 +433,25 @@ impl Tex {
 
         if let Some(layer) = layer_type {
             match layer {
-                FGTexType::Town => texs.extend(Tex::resolve_town_tex(color, seed)),
-                FGTexType::Dock => texs.extend(Tex::resolve_dock_tex(color, neighbors)),
+                FGTexType::Town => texs.extend(Tex::town(color, seed)),
+                FGTexType::Dock => texs.extend(Tex::dock(color, neighbors)),
             }
         }
 
         texs
     }
 
-    pub fn resolve_landscaping_tex(adding: bool) -> TexQuad {
-        if adding {
-            Self::ISLAND
-        } else {
-            Self::CRACKS
+    pub fn landscaping(from: &Square, action: &BoardEditingMode) -> Option<TexQuad> {
+        match (action, from) {
+            (
+                BoardEditingMode::Land | BoardEditingMode::Town(_),
+                Square::Water | Square::Dock(_),
+            ) => Some(Self::ISLAND),
+            (
+                BoardEditingMode::Land | BoardEditingMode::Dock(_),
+                Square::Land | Square::Town(_),
+            ) => Some(Self::LAKE),
+            _ => None,
         }
     }
 }

@@ -96,7 +96,7 @@ impl ActiveGame {
                 &board,
                 map_texture.clone(),
                 player_number == 0,
-                player_colors,
+                &player_colors,
             ),
             players,
             board,
@@ -188,67 +188,67 @@ impl ActiveGame {
             .order(Order::Foreground)
             .anchor(Align2::RIGHT_TOP, vec2(0.0, 0.0));
 
-        let outer_frame = Frame::default().inner_margin(Margin::same(8.0));
+        let mut outer_sidebar_area = ui.max_rect().shrink2(vec2(0.0, 8.0));
+        outer_sidebar_area.set_right(outer_sidebar_area.right() - 8.0);
+        let inner_sidebar_area = outer_sidebar_area.shrink(8.0);
 
-        let inner_frame = Frame::default()
-            .inner_margin(Margin::same(8.0))
-            .fill(hex_color!("#111111aa"));
+        let resp = area.show(ui.ctx(), |ui| {
+            ui.painter()
+                .rect_filled(outer_sidebar_area, 4.0, hex_color!("#111111aa"));
 
-        let outer_sidebar_area = ui.max_rect();
+            ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
+                ScrollArea::new([false, true]).show(ui, |ui| {
+                    if let Some(error) = &self.ctx.error_msg {
+                        ui.label(error);
+                        ui.separator();
+                    }
 
-        let resp =
-            area.show(ui.ctx(), |ui| {
-                ui.expand_to_include_rect(outer_sidebar_area);
-                outer_frame.show(ui, |ui| {
-                    inner_frame.show(ui, |ui| {
-                        ui.expand_to_include_rect(ui.max_rect());
-                        ScrollArea::new([false, true]).show(ui, |ui| {
-                        if let Some(error) = &self.ctx.error_msg {
-                            ui.label(error);
-                            ui.separator();
-                        }
+                    for turn in self.turn_reports.iter() {
+                        for placement in turn.iter().filter_map(|change| match change {
+                            Change::Board(placement) => Some(placement),
+                            _ => None,
+                        }) {
+                            let Square::Occupied(player, tile) = placement.detail.square else {
+                                                continue;
+                                            };
+                            let Some(player) = self.players.get(player) else {
+                                                continue;
+                                            };
 
-                        for turn in self.turn_reports.iter() {
-                            for placement in turn.iter().filter_map(|change| match change {
-                                Change::Board(placement) => Some(placement),
-                                _ => None,
-                            }) {
-                                let Square::Occupied(player, tile) = placement.detail.square else {
-                                                    continue;
-                                                };
-                                let Some(player) = self.players.get(player) else {
-                                                    continue;
-                                                };
-
-                                match placement.action {
-                                    truncate_core::reporting::BoardChangeAction::Added => {
-                                        ui.label(RichText::new(format!(
+                            match placement.action {
+                                truncate_core::reporting::BoardChangeAction::Added => {
+                                    ui.label(
+                                        RichText::new(format!(
                                             "{} placed the tile {}",
                                             player.name, tile
-                                        )).color(Color32::WHITE));
-                                    }
-                                    truncate_core::reporting::BoardChangeAction::Swapped => {
-                                        ui.label(RichText::new(format!(
+                                        ))
+                                        .color(Color32::WHITE),
+                                    );
+                                }
+                                truncate_core::reporting::BoardChangeAction::Swapped => {
+                                    ui.label(
+                                        RichText::new(format!(
                                             "{} swapped the tile {}",
                                             player.name, tile
-                                        )).color(Color32::WHITE));
-                                    }
-                                    _ => {}
+                                        ))
+                                        .color(Color32::WHITE),
+                                    );
                                 }
+                                _ => {}
                             }
-
-                            for battle in turn.iter().filter_map(|change| match change {
-                                Change::Battle(battle) => Some(battle),
-                                _ => None,
-                            }) {
-                                BattleUI::new(battle).render(&mut self.ctx, ui);
-                            }
-                            ui.separator();
                         }
-                    });
-                    });
+
+                        for battle in turn.iter().filter_map(|change| match change {
+                            Change::Battle(battle) => Some(battle),
+                            _ => None,
+                        }) {
+                            BattleUI::new(battle).render(&mut self.ctx, ui);
+                        }
+                        ui.separator();
+                    }
                 });
             });
+        });
     }
 
     pub fn render(

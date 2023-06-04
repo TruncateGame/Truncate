@@ -30,7 +30,7 @@ impl MappedBoard {
         render_tex_quads(self.get(coord), rect, &self.map_texture, ui);
     }
 
-    pub fn remap(&mut self, board: &Board, player_colors: Vec<Color32>) {
+    pub fn remap(&mut self, board: &Board, player_colors: &Vec<Color32>) {
         fn base_type(sq: &Square) -> BGTexType {
             match sq {
                 truncate_core::board::Square::Water => BGTexType::Water,
@@ -87,7 +87,7 @@ impl MappedBoard {
                         let tile_base_type = base_type(square);
                         let tile_layer_type = layer_type(square, &player_colors);
 
-                        Tex::resolve_bg_tex(
+                        Tex::terrain(
                             tile_base_type,
                             tile_layer_type.map(|l| l.0),
                             neighbor_base_types,
@@ -104,7 +104,7 @@ impl MappedBoard {
         board: &Board,
         map_texture: TextureHandle,
         invert: bool,
-        player_colors: Vec<Color32>,
+        player_colors: &Vec<Color32>,
     ) -> Self {
         let secs = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
@@ -138,9 +138,9 @@ impl MappedTile {
         map_texture: TextureHandle,
     ) -> Self {
         let resolved_tex = if let Some(coord) = coord {
-            Tex::resolve_board_tile_tex(color, highlight, coord.x * 99 + coord.y)
+            Tex::board_game_tile(color, highlight, coord.x * 99 + coord.y)
         } else {
-            Tex::resolve_tile_tex(color, highlight)
+            Tex::game_tile(color, highlight)
         };
 
         Self {

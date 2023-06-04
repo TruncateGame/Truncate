@@ -31,7 +31,7 @@ impl<'a> HandUI<'a> {
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        let (margin, theme) = ctx.theme.calc_rescale(
+        let (mut margin, theme) = ctx.theme.calc_rescale(
             &ui.available_rect_before_wrap(),
             self.hand.len(),
             1,
@@ -41,6 +41,9 @@ impl<'a> HandUI<'a> {
 
         let old_theme = ctx.theme.clone();
         ctx.theme = theme;
+
+        margin.top = 0.0;
+        margin.bottom = 0.0;
 
         let outer_frame = egui::Frame::none().inner_margin(margin);
 

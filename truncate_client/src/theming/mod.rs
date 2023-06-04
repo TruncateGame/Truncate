@@ -65,9 +65,13 @@ impl Theme {
         let scale = scale.clamp(scale_bounds.start, scale_bounds.end);
 
         let width = (board_width) as f32 * (self.grid_size * scale);
+        let height = (board_height) as f32 * (self.grid_size * scale);
 
         (
-            Margin::symmetric((avail_space.width() - width) / 2.0, 0.0),
+            Margin::symmetric(
+                (avail_space.width() - width) / 2.0,
+                (avail_space.height() - height) / 2.0,
+            ),
             self.rescale(scale),
         )
     }
