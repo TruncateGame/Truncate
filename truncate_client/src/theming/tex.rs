@@ -27,7 +27,7 @@ impl Tex {
         Self { tile, tint: None }
     }
 
-    pub const MAX_TILE: usize = 118;
+    pub const MAX_TILE: usize = 146;
 
     pub const NONE: Self = Tex::index(0);
     pub const DEBUG: Self = Tex::index(77);
@@ -141,6 +141,16 @@ impl Tex {
     pub const DOCK_WEST_NE_SAIL: Self = Tex::index(102);
     pub const DOCK_WEST_SE_SAIL: Self = Self::NONE;
     pub const DOCK_WEST_SW_SAIL: Self = Self::NONE;
+
+    pub const DOCK_DISCONNECTED_NW: Self = Tex::index(139);
+    pub const DOCK_DISCONNECTED_NE: Self = Tex::index(140);
+    pub const DOCK_DISCONNECTED_SE: Self = Tex::index(142);
+    pub const DOCK_DISCONNECTED_SW: Self = Tex::index(141);
+
+    pub const DOCK_DISCONNECTED_NW_SAIL: Self = Tex::index(143);
+    pub const DOCK_DISCONNECTED_NE_SAIL: Self = Tex::index(144);
+    pub const DOCK_DISCONNECTED_SE_SAIL: Self = Tex::index(146);
+    pub const DOCK_DISCONNECTED_SW_SAIL: Self = Tex::index(145);
 
     // PATHS
     pub const PATH1: Self = Tex::index(40);
@@ -285,8 +295,20 @@ impl Tex {
                 ],
             ]
         } else {
-            // TODO: Render disconnected docks somehow
-            vec![[Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]; 2]
+            vec![
+                [
+                    Self::DOCK_DISCONNECTED_NW,
+                    Self::DOCK_DISCONNECTED_NE,
+                    Self::DOCK_DISCONNECTED_SE,
+                    Self::DOCK_DISCONNECTED_SW,
+                ],
+                [
+                    Self::DOCK_DISCONNECTED_NW_SAIL,
+                    Self::DOCK_DISCONNECTED_NE_SAIL,
+                    Self::DOCK_DISCONNECTED_SE_SAIL,
+                    Self::DOCK_DISCONNECTED_SW_SAIL,
+                ],
+            ]
         };
         if let Some(color) = color {
             for p in 0..4 {
