@@ -23,162 +23,159 @@ pub enum FGTexType {
 
 // TODO: Generate this impl with codegen from aseprite
 impl Tex {
-    const fn index(tile: usize) -> Self {
+    const fn single(tile: usize) -> Self {
         Self { tile, tint: None }
+    }
+
+    const fn quad(nw_tile: usize, ne_tile: usize, se_tile: usize, sw_tile: usize) -> [Self; 4] {
+        [
+            Self {
+                tile: nw_tile,
+                tint: None,
+            },
+            Self {
+                tile: ne_tile,
+                tint: None,
+            },
+            Self {
+                tile: se_tile,
+                tint: None,
+            },
+            Self {
+                tile: sw_tile,
+                tint: None,
+            },
+        ]
     }
 
     pub const MAX_TILE: usize = 146;
 
-    pub const NONE: Self = Tex::index(0);
-    pub const DEBUG: Self = Tex::index(77);
+    pub const NONE: Self = Tex::single(0);
+    pub const DEBUG: Self = Tex::single(77);
 
-    pub const GRASS1: Self = Tex::index(21);
-    pub const GRASS2: Self = Tex::index(22);
-    pub const GRASS3: Self = Tex::index(23);
-    pub const GRASS4: Self = Tex::index(24);
+    pub const GRASS1: Self = Tex::single(21);
+    pub const GRASS2: Self = Tex::single(22);
+    pub const GRASS3: Self = Tex::single(23);
+    pub const GRASS4: Self = Tex::single(24);
 
-    pub const WATER: Self = Tex::index(8);
+    pub const WATER: Self = Tex::single(8);
 
     // Water with land on one edge
-    pub const LAND_SE: Self = Tex::index(4);
-    pub const LAND_S: Self = Tex::index(5);
-    pub const LAND_SW: Self = Tex::index(6);
-    pub const LAND_W: Self = Tex::index(11);
-    pub const LAND_NW: Self = Tex::index(17);
-    pub const LAND_N: Self = Tex::index(16);
-    pub const LAND_NE: Self = Tex::index(15);
-    pub const LAND_E: Self = Tex::index(10);
+    pub const LAND_SE: Self = Tex::single(4);
+    pub const LAND_S: Self = Tex::single(5);
+    pub const LAND_SW: Self = Tex::single(6);
+    pub const LAND_W: Self = Tex::single(11);
+    pub const LAND_NW: Self = Tex::single(17);
+    pub const LAND_N: Self = Tex::single(16);
+    pub const LAND_NE: Self = Tex::single(15);
+    pub const LAND_E: Self = Tex::single(10);
 
     // Water with land on two edges
-    pub const LAND_N_E: Self = Tex::index(25);
-    pub const LAND_S_E: Self = Tex::index(18);
-    pub const LAND_S_W: Self = Tex::index(19);
-    pub const LAND_N_W: Self = Tex::index(26);
+    pub const LAND_N_E: Self = Tex::single(25);
+    pub const LAND_S_E: Self = Tex::single(18);
+    pub const LAND_S_W: Self = Tex::single(19);
+    pub const LAND_N_W: Self = Tex::single(26);
 
     // Transparent island in water
-    pub const ISLAND_NW: Self = Tex::index(69);
-    pub const ISLAND_NE: Self = Tex::index(70);
-    pub const ISLAND_SE: Self = Tex::index(72);
-    pub const ISLAND_SW: Self = Tex::index(71);
+    pub const ISLAND: TexQuad = Tex::quad(69, 70, 72, 71);
     // Transparent cracks on land
-    pub const CRACKS_NW: Self = Tex::index(73);
-    pub const CRACKS_NE: Self = Tex::index(74);
-    pub const CRACKS_SE: Self = Tex::index(76);
-    pub const CRACKS_SW: Self = Tex::index(75);
+    pub const CRACKS: TexQuad = Tex::quad(73, 74, 76, 75);
 
     // Tiles
-    pub const TILE_NW: Self = Tex::index(53);
-    pub const TILE_NE: Self = Tex::index(54);
-    pub const TILE_SE: Self = Tex::index(55);
-    pub const TILE_SW: Self = Tex::index(56);
+    pub const GAME_TILE: TexQuad = Tex::quad(53, 54, 55, 56);
 
     // Highlight rings for tiles
-    pub const HIGHLIGHT_NW: Self = Tex::index(65);
-    pub const HIGHLIGHT_NE: Self = Tex::index(66);
-    pub const HIGHLIGHT_SE: Self = Tex::index(68);
-    pub const HIGHLIGHT_SW: Self = Tex::index(67);
+    pub const HIGHLIGHT: TexQuad = Tex::quad(65, 66, 68, 67);
 
     // Grass cover over tiles
-    pub const TILE_SE_GRASS1: Self = Tex::index(58);
-    pub const TILE_SE_GRASS2: Self = Tex::index(60);
-    pub const TILE_SE_GRASS3: Self = Tex::index(62);
-    pub const TILE_SE_GRASS4: Self = Tex::index(64);
+    pub const TILE_SE_GRASS1: Self = Tex::single(58);
+    pub const TILE_SE_GRASS2: Self = Tex::single(60);
+    pub const TILE_SE_GRASS3: Self = Tex::single(62);
+    pub const TILE_SE_GRASS4: Self = Tex::single(64);
 
-    pub const TILE_SW_GRASS1: Self = Tex::index(57);
-    pub const TILE_SW_GRASS2: Self = Tex::index(59);
-    pub const TILE_SW_GRASS3: Self = Tex::index(61);
-    pub const TILE_SW_GRASS4: Self = Tex::index(63);
+    pub const TILE_SW_GRASS1: Self = Tex::single(57);
+    pub const TILE_SW_GRASS2: Self = Tex::single(59);
+    pub const TILE_SW_GRASS3: Self = Tex::single(61);
+    pub const TILE_SW_GRASS4: Self = Tex::single(63);
 
     // HOUSES
-    pub const HOUSE1: Self = Tex::index(36);
-    pub const HOUSE2: Self = Tex::index(37);
-    pub const HOUSE3: Self = Tex::index(38);
-    pub const HOUSE4: Self = Tex::index(39);
+    pub const HOUSE1: Self = Tex::single(36);
+    pub const HOUSE2: Self = Tex::single(37);
+    pub const HOUSE3: Self = Tex::single(38);
+    pub const HOUSE4: Self = Tex::single(39);
 
     // ROOFS
-    pub const ROOF1: Self = Tex::index(32);
-    pub const ROOF2: Self = Tex::index(33);
-    pub const ROOF3: Self = Tex::index(34);
-    pub const ROOF4: Self = Tex::index(35);
+    pub const ROOF1: Self = Tex::single(32);
+    pub const ROOF2: Self = Tex::single(33);
+    pub const ROOF3: Self = Tex::single(34);
+    pub const ROOF4: Self = Tex::single(35);
 
     // DOCKS
-    pub const DOCK_NORTH_NW: Self = Tex::index(79);
-    pub const DOCK_NORTH_NE: Self = Tex::index(81);
-    pub const DOCK_NORTH_SE: Self = Tex::index(82);
-    pub const DOCK_NORTH_SW: Self = Tex::index(80);
+    pub const DOCK_NORTH: TexQuad = Tex::quad(79, 81, 82, 80);
+    pub const DOCK_NORTH_SAIL: TexQuad = Tex::quad(95, 96, 0, 0);
 
-    pub const DOCK_NORTH_NW_SAIL: Self = Tex::index(95);
-    pub const DOCK_NORTH_NE_SAIL: Self = Tex::index(96);
-    pub const DOCK_NORTH_SE_SAIL: Self = Self::NONE;
-    pub const DOCK_NORTH_SW_SAIL: Self = Self::NONE;
+    pub const DOCK_EAST: TexQuad = Tex::quad(87, 88, 90, 89);
+    pub const DOCK_EAST_SAIL: TexQuad = Tex::quad(99, 100, 108, 107);
 
-    pub const DOCK_EAST_NW: Self = Tex::index(87);
-    pub const DOCK_EAST_NE: Self = Tex::index(88);
-    pub const DOCK_EAST_SE: Self = Tex::index(90);
-    pub const DOCK_EAST_SW: Self = Tex::index(89);
+    pub const DOCK_SOUTH: TexQuad = Tex::quad(83, 85, 86, 84);
+    pub const DOCK_SOUTH_SAIL: TexQuad = Tex::quad(97, 0, 0, 105);
 
-    pub const DOCK_EAST_NW_SAIL: Self = Tex::index(99);
-    pub const DOCK_EAST_NE_SAIL: Self = Tex::index(100);
-    pub const DOCK_EAST_SE_SAIL: Self = Tex::index(108);
-    pub const DOCK_EAST_SW_SAIL: Self = Tex::index(107);
+    pub const DOCK_WEST: TexQuad = Tex::quad(91, 92, 94, 93);
+    pub const DOCK_WEST_SAIL: TexQuad = Tex::quad(101, 102, 0, 0);
 
-    pub const DOCK_SOUTH_NW: Self = Tex::index(83);
-    pub const DOCK_SOUTH_NE: Self = Tex::index(85);
-    pub const DOCK_SOUTH_SE: Self = Tex::index(86);
-    pub const DOCK_SOUTH_SW: Self = Tex::index(84);
-
-    pub const DOCK_SOUTH_NW_SAIL: Self = Tex::index(97);
-    pub const DOCK_SOUTH_NE_SAIL: Self = Self::NONE;
-    pub const DOCK_SOUTH_SE_SAIL: Self = Self::NONE;
-    pub const DOCK_SOUTH_SW_SAIL: Self = Tex::index(105);
-
-    pub const DOCK_WEST_NW: Self = Tex::index(91);
-    pub const DOCK_WEST_NE: Self = Tex::index(92);
-    pub const DOCK_WEST_SE: Self = Tex::index(94);
-    pub const DOCK_WEST_SW: Self = Tex::index(93);
-
-    pub const DOCK_WEST_NW_SAIL: Self = Tex::index(101);
-    pub const DOCK_WEST_NE_SAIL: Self = Tex::index(102);
-    pub const DOCK_WEST_SE_SAIL: Self = Self::NONE;
-    pub const DOCK_WEST_SW_SAIL: Self = Self::NONE;
-
-    pub const DOCK_DISCONNECTED_NW: Self = Tex::index(139);
-    pub const DOCK_DISCONNECTED_NE: Self = Tex::index(140);
-    pub const DOCK_DISCONNECTED_SE: Self = Tex::index(142);
-    pub const DOCK_DISCONNECTED_SW: Self = Tex::index(141);
-
-    pub const DOCK_DISCONNECTED_NW_SAIL: Self = Tex::index(143);
-    pub const DOCK_DISCONNECTED_NE_SAIL: Self = Tex::index(144);
-    pub const DOCK_DISCONNECTED_SE_SAIL: Self = Tex::index(146);
-    pub const DOCK_DISCONNECTED_SW_SAIL: Self = Tex::index(145);
+    pub const DOCK_DISCONNECTED: TexQuad = Tex::quad(139, 140, 142, 141);
+    pub const DOCK_DISCONNECTED_SAIL: TexQuad = Tex::quad(143, 144, 146, 145);
 
     // PATHS
-    pub const PATH1: Self = Tex::index(40);
-    pub const PATH2: Self = Tex::index(41);
-    pub const PATH3: Self = Tex::index(42);
-    pub const PATH4: Self = Tex::index(43);
-    pub const PATH5: Self = Tex::index(44);
-    pub const PATH6: Self = Tex::index(45);
-    pub const PATH7: Self = Tex::index(46);
-    pub const PATH8: Self = Tex::index(47);
-    pub const PATH9: Self = Tex::index(48);
+    pub const PATH1: Self = Tex::single(40);
+    pub const PATH2: Self = Tex::single(41);
+    pub const PATH3: Self = Tex::single(42);
+    pub const PATH4: Self = Tex::single(43);
+    pub const PATH5: Self = Tex::single(44);
+    pub const PATH6: Self = Tex::single(45);
+    pub const PATH7: Self = Tex::single(46);
+    pub const PATH8: Self = Tex::single(47);
+    pub const PATH9: Self = Tex::single(48);
 
     // DECOR
-    pub const DECOR_PLANTER1: Self = Tex::index(111);
-    pub const DECOR_PLANTER1_COLOR: Self = Tex::index(116);
-    pub const DECOR_PLANTER2: Self = Tex::index(112);
-    pub const DECOR_PLANTER2_COLOR: Self = Tex::index(117);
-    pub const DECOR_BUSH: Self = Tex::index(113);
-    pub const DECOR_BUSH_COLOR: Self = Tex::index(118);
-    pub const DECOR_WHEAT: Self = Tex::index(114);
+    pub const DECOR_PLANTER1: Self = Tex::single(111);
+    pub const DECOR_PLANTER1_COLOR: Self = Tex::single(116);
+    pub const DECOR_PLANTER2: Self = Tex::single(112);
+    pub const DECOR_PLANTER2_COLOR: Self = Tex::single(117);
+    pub const DECOR_BUSH: Self = Tex::single(113);
+    pub const DECOR_BUSH_COLOR: Self = Tex::single(118);
+    pub const DECOR_WHEAT: Self = Tex::single(114);
     pub const DECOR_WHEAT_COLOR: Self = Self::NONE;
-    pub const DECOR_WELL: Self = Tex::index(115);
+    pub const DECOR_WELL: Self = Tex::single(115);
     pub const DECOR_WELL_COLOR: Self = Self::NONE;
+
+    // BUTTONS
+    pub const BUTTON_TOWN: TexQuad = Tex::quad(119, 120, 126, 125);
+    pub const BUTTON_TOWN_COLOR: TexQuad = Tex::quad(131, 132, 134, 133);
+
+    pub const BUTTON_DOCK: TexQuad = Tex::quad(121, 122, 128, 127);
+    pub const BUTTON_DOCK_COLOR: TexQuad = Tex::quad(135, 136, 138, 137);
+
+    pub const BUTTON_LAND: TexQuad = Tex::quad(123, 124, 130, 129);
 }
 
-impl Tex {
+trait Tint {
+    fn tint(self, color: Color32) -> Self;
+}
+
+impl Tint for Tex {
     fn tint(mut self, color: Color32) -> Self {
         self.tint = Some(color);
+        self
+    }
+}
+
+impl Tint for TexQuad {
+    fn tint(self, color: Color32) -> Self {
+        self[0].tint(color);
+        self[1].tint(color);
+        self[2].tint(color);
+        self[3].tint(color);
         self
     }
 }
@@ -188,21 +185,11 @@ impl Tex {
         let mut tex = vec![];
 
         if let Some(color) = color {
-            tex.push([
-                Self::TILE_NW.tint(color),
-                Self::TILE_NE.tint(color),
-                Self::TILE_SE.tint(color),
-                Self::TILE_SW.tint(color),
-            ]);
+            tex.push(Self::GAME_TILE.tint(color));
         }
 
         if let Some(highlight) = highlight {
-            tex.push([
-                Self::HIGHLIGHT_NW.tint(highlight),
-                Self::HIGHLIGHT_NE.tint(highlight),
-                Self::HIGHLIGHT_SE.tint(highlight),
-                Self::HIGHLIGHT_SW.tint(highlight),
-            ])
+            tex.push(Self::HIGHLIGHT.tint(highlight))
         }
         tex
     }
@@ -232,88 +219,47 @@ impl Tex {
         texs
     }
 
+    fn resolve_town_button_tex(color: Option<Color32>) -> Vec<TexQuad> {
+        vec![
+            Self::BUTTON_TOWN,
+            if let Some(color) = color {
+                Self::BUTTON_TOWN_COLOR.tint(color)
+            } else {
+                Self::BUTTON_TOWN_COLOR
+            },
+        ]
+    }
+
+    fn resolve_dock_button_tex(color: Option<Color32>) -> Vec<TexQuad> {
+        vec![
+            Self::BUTTON_DOCK,
+            if let Some(color) = color {
+                Self::BUTTON_DOCK_COLOR.tint(color)
+            } else {
+                Self::BUTTON_DOCK_COLOR
+            },
+        ]
+    }
+
+    fn resolve_land_button_tex() -> TexQuad {
+        Self::BUTTON_LAND
+    }
+
     fn resolve_dock_tex(color: Option<Color32>, neighbors: Vec<BGTexType>) -> Vec<TexQuad> {
         // TODO: Render docks with multiple edges somehow.
         let mut dock = if matches!(neighbors[1], BGTexType::Land) {
-            vec![
-                [
-                    Self::DOCK_SOUTH_NW,
-                    Self::DOCK_SOUTH_NE,
-                    Self::DOCK_SOUTH_SE,
-                    Self::DOCK_SOUTH_SW,
-                ],
-                [
-                    Self::DOCK_SOUTH_NW_SAIL,
-                    Self::DOCK_SOUTH_NE_SAIL,
-                    Self::DOCK_SOUTH_SE_SAIL,
-                    Self::DOCK_SOUTH_SW_SAIL,
-                ],
-            ]
+            vec![Self::DOCK_SOUTH, Self::DOCK_SOUTH_SAIL]
         } else if matches!(neighbors[5], BGTexType::Land) {
-            vec![
-                [
-                    Self::DOCK_NORTH_NW,
-                    Self::DOCK_NORTH_NE,
-                    Self::DOCK_NORTH_SE,
-                    Self::DOCK_NORTH_SW,
-                ],
-                [
-                    Self::DOCK_NORTH_NW_SAIL,
-                    Self::DOCK_NORTH_NE_SAIL,
-                    Self::DOCK_NORTH_SE_SAIL,
-                    Self::DOCK_NORTH_SW_SAIL,
-                ],
-            ]
+            vec![Self::DOCK_NORTH, Self::DOCK_NORTH_SAIL]
         } else if matches!(neighbors[3], BGTexType::Land) {
-            vec![
-                [
-                    Self::DOCK_WEST_NW,
-                    Self::DOCK_WEST_NE,
-                    Self::DOCK_WEST_SE,
-                    Self::DOCK_WEST_SW,
-                ],
-                [
-                    Self::DOCK_WEST_NW_SAIL,
-                    Self::DOCK_WEST_NE_SAIL,
-                    Self::DOCK_WEST_SE_SAIL,
-                    Self::DOCK_WEST_SW_SAIL,
-                ],
-            ]
+            vec![Self::DOCK_WEST, Self::DOCK_WEST_SAIL]
         } else if matches!(neighbors[7], BGTexType::Land) {
-            vec![
-                [
-                    Self::DOCK_EAST_NW,
-                    Self::DOCK_EAST_NE,
-                    Self::DOCK_EAST_SE,
-                    Self::DOCK_EAST_SW,
-                ],
-                [
-                    Self::DOCK_EAST_NW_SAIL,
-                    Self::DOCK_EAST_NE_SAIL,
-                    Self::DOCK_EAST_SE_SAIL,
-                    Self::DOCK_EAST_SW_SAIL,
-                ],
-            ]
+            vec![Self::DOCK_EAST, Self::DOCK_EAST_SAIL]
         } else {
-            vec![
-                [
-                    Self::DOCK_DISCONNECTED_NW,
-                    Self::DOCK_DISCONNECTED_NE,
-                    Self::DOCK_DISCONNECTED_SE,
-                    Self::DOCK_DISCONNECTED_SW,
-                ],
-                [
-                    Self::DOCK_DISCONNECTED_NW_SAIL,
-                    Self::DOCK_DISCONNECTED_NE_SAIL,
-                    Self::DOCK_DISCONNECTED_SE_SAIL,
-                    Self::DOCK_DISCONNECTED_SW_SAIL,
-                ],
-            ]
+            vec![Self::DOCK_DISCONNECTED, Self::DOCK_DISCONNECTED_SAIL]
         };
         if let Some(color) = color {
-            for p in 0..4 {
-                dock[1][p] = dock[1][p].tint(color);
-            }
+            dock[1] = dock[1].tint(color);
         }
         dock
     }
@@ -483,19 +429,9 @@ impl Tex {
 
     pub fn resolve_landscaping_tex(adding: bool) -> TexQuad {
         if adding {
-            [
-                Self::ISLAND_NW,
-                Self::ISLAND_NE,
-                Self::ISLAND_SE,
-                Self::ISLAND_SW,
-            ]
+            Self::ISLAND
         } else {
-            [
-                Self::CRACKS_NW,
-                Self::CRACKS_NE,
-                Self::CRACKS_SE,
-                Self::CRACKS_SW,
-            ]
+            Self::CRACKS
         }
     }
 }
