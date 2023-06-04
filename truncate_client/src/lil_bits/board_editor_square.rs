@@ -3,9 +3,9 @@ use epaint::{hex_color, Stroke, TextureHandle};
 use truncate_core::board::{Coordinate, Square};
 
 use crate::regions::lobby::BoardEditingMode;
-use crate::theming::mapper::MappedBoard;
-use crate::theming::tex::{render_tex_quad, Tex};
-use crate::theming::Theme;
+use crate::utils::mapper::MappedBoard;
+use crate::utils::tex::{render_tex_quad, Tex};
+use crate::utils::Theme;
 
 pub struct EditorSquareUI {
     coord: Coordinate,
@@ -54,7 +54,7 @@ impl EditorSquareUI {
         if ui.is_rect_visible(rect) {
             mapped_board.render_coord(self.coord, rect, ui);
 
-            if response.hovered() {
+            if !matches!(self.action, BoardEditingMode::None) && response.hovered() {
                 if !response.is_pointer_button_down_on() {
                     if let Some(overlay) = Tex::landscaping(&self.square, &self.action) {
                         render_tex_quad(overlay, rect, map_texture, ui);

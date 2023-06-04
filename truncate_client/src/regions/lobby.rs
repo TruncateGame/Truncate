@@ -11,15 +11,17 @@ use eframe::egui::{self, Frame, Layout, Margin, Order, RichText, ScrollArea, Sen
 
 use crate::{
     lil_bits::EditorUI,
-    theming::{
+    utils::{
         mapper::MappedBoard,
         tex::{render_tex_quads, Tex, TexQuad},
-        Theme,
+        text::TextHelper,
+        Diaphanize, Lighten, Theme,
     },
 };
 
 #[derive(Clone)]
 pub enum BoardEditingMode {
+    None,
     Land,
     Town(usize),
     Dock(usize),
@@ -54,7 +56,7 @@ impl Lobby {
             player_colors,
             map_texture,
             board,
-            editing_mode: BoardEditingMode::Land,
+            editing_mode: BoardEditingMode::None,
         }
     }
 
@@ -80,22 +82,34 @@ impl Lobby {
                 .rect_filled(outer_sidebar_area, 4.0, hex_color!("#111111aa"));
 
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
+                ui.style_mut().spacing.item_spacing = Vec2::splat(6.0);
                 ScrollArea::new([false, true]).show(ui, |ui| {
-                    ui.label(RichText::new("Room Code:").color(Color32::WHITE));
-                    ui.label(RichText::new(&self.room_code).color(Color32::WHITE).font(
-                        egui::FontId::new(
-                            theme.letter_size / 2.0,
-                            egui::FontFamily::Name("Truncate-Heavy".into()),
-                        ),
-                    ));
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Room Code:").color(Color32::WHITE));
+                        let text = TextHelper::heavy(&self.room_code, 14.0, ui);
+                        text.paint(Color32::WHITE, ui);
+                    });
 
-                    if ui.button("Start game").clicked() {
+                    let text = TextHelper::heavy("START GAME", 14.0, ui);
+                    if text
+                        .full_button(
+                            theme.selection.lighten().lighten(),
+                            theme.text,
+                            &self.map_texture,
+                            ui,
+                        )
+                        .clicked()
+                    {
                         msg = Some(PlayerMessage::StartGame);
                     }
 
-                    ui.separator();
+                    ui.add_space(12.0);
 
-                    ui.label(RichText::new("Players:").color(Color32::WHITE));
+                    // ui.text_edit_singleline(&mut self.players.get_mut(0).unwrap().name);
+
+                    // ui.add_space(12.0);
+
+                    ui.label(RichText::new("Other Players in Lobby:").color(Color32::WHITE));
                     for player in &self.players {
                         ui.label(RichText::new(&player.name).color(Color32::WHITE).font(
                             egui::FontId::new(
@@ -105,64 +119,104 @@ impl Lobby {
                         ));
                     }
 
-                    ui.separator();
+                    ui.add_space(32.0);
 
-                    if ui.button("Grow board").clicked() {
-                        self.board.grow();
-                        msg = Some(PlayerMessage::EditBoard(self.board.clone()));
-                    }
-
-                    let mut highlights = [None; 5];
-                    match self.editing_mode {
-                        BoardEditingMode::Land => highlights[0] = Some(theme.selection),
-                        BoardEditingMode::Town(0) => highlights[1] = Some(theme.selection),
-                        BoardEditingMode::Town(1) => highlights[2] = Some(theme.selection),
-                        BoardEditingMode::Dock(0) => highlights[3] = Some(theme.selection),
-                        BoardEditingMode::Dock(1) => highlights[4] = Some(theme.selection),
-                        _ => unreachable!(
-                            "Unknown board editing mode — player count has likely increased"
-                        ),
-                    }
-
-                    let tiled_button = |quads: Vec<TexQuad>, ui: &mut egui::Ui| {
-                        let (mut rect, resp) =
-                            ui.allocate_exact_size(Vec2::splat(48.0), Sense::click());
-                        if resp.hovered() {
-                            ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
-                            rect = rect.translate(vec2(0.0, -2.0));
+                    if matches!(self.editing_mode, BoardEditingMode::None) {
+                        let text = TextHelper::heavy("EDIT BOARD", 10.0, ui);
+                        if text
+                            .button(
+                                Color32::WHITE.diaphanize(),
+                                theme.text,
+                                &self.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            self.editing_mode = BoardEditingMode::Land;
                         }
-                        render_tex_quads(&quads, rect, &self.map_texture, ui);
-                        resp
+                    }
+
+                    if !matches!(self.editing_mode, BoardEditingMode::None) {
+                        let mut highlights = [None; 5];
+                        match self.editing_mode {
+                            BoardEditingMode::Land => highlights[0] = Some(theme.selection),
+                            BoardEditingMode::Town(0) => highlights[1] = Some(theme.selection),
+                            BoardEditingMode::Town(1) => highlights[2] = Some(theme.selection),
+                            BoardEditingMode::Dock(0) => highlights[3] = Some(theme.selection),
+                            BoardEditingMode::Dock(1) => highlights[4] = Some(theme.selection),
+                            _ => unreachable!(
+                                "Unknown board editing mode — player count has likely increased"
+                            ),
+                        }
+
+                        let tiled_button = |quads: Vec<TexQuad>, ui: &mut egui::Ui| {
+                            let (mut rect, resp) =
+                                ui.allocate_exact_size(Vec2::splat(48.0), Sense::click());
+                            if resp.hovered() {
+                                ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+                                rect = rect.translate(vec2(0.0, -2.0));
+                            }
+                            render_tex_quads(&quads, rect, &self.map_texture, ui);
+                            resp
+                        };
+
+                        let pcol = |pnum: usize| self.player_colors.get(pnum).copied();
+
+                        ui.label(RichText::new("Land & Water").color(Color32::WHITE));
+                        if tiled_button(Tex::land_button(highlights[0]), ui).clicked() {
+                            self.editing_mode = BoardEditingMode::Land;
+                        }
+
+                        ui.label(RichText::new("Towns").color(Color32::WHITE));
+                        ui.horizontal(|ui| {
+                            if tiled_button(Tex::town_button(pcol(0), highlights[1]), ui).clicked()
+                            {
+                                self.editing_mode = BoardEditingMode::Town(0);
+                            }
+
+                            if tiled_button(Tex::town_button(pcol(1), highlights[2]), ui).clicked()
+                            {
+                                self.editing_mode = BoardEditingMode::Town(1);
+                            }
+                        });
+
+                        ui.label(RichText::new("Docks").color(Color32::WHITE));
+                        ui.horizontal(|ui| {
+                            if tiled_button(Tex::dock_button(pcol(0), highlights[3]), ui).clicked()
+                            {
+                                self.editing_mode = BoardEditingMode::Dock(0);
+                            }
+
+                            if tiled_button(Tex::dock_button(pcol(1), highlights[4]), ui).clicked()
+                            {
+                                self.editing_mode = BoardEditingMode::Dock(1);
+                            }
+                        });
+
+                        ui.label(RichText::new("Actions").color(Color32::WHITE));
+
+                        let text = TextHelper::heavy("GROW BOARD", 10.0, ui);
+                        if text
+                            .button(Color32::WHITE, theme.text, &self.map_texture, ui)
+                            .clicked()
+                        {
+                            self.board.grow();
+                            msg = Some(PlayerMessage::EditBoard(self.board.clone()));
+                        }
+
+                        let text = TextHelper::heavy("STOP EDITING BOARD", 10.0, ui);
+                        if text
+                            .button(
+                                Color32::RED.lighten().lighten().lighten(),
+                                theme.text,
+                                &self.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            self.editing_mode = BoardEditingMode::None;
+                        }
                     };
-
-                    let pcol = |pnum: usize| self.player_colors.get(pnum).copied();
-
-                    ui.label(RichText::new("Land & Water").color(Color32::WHITE));
-                    if tiled_button(Tex::land_button(highlights[0]), ui).clicked() {
-                        self.editing_mode = BoardEditingMode::Land;
-                    }
-
-                    ui.label(RichText::new("Towns").color(Color32::WHITE));
-                    ui.horizontal(|ui| {
-                        if tiled_button(Tex::town_button(pcol(0), highlights[1]), ui).clicked() {
-                            self.editing_mode = BoardEditingMode::Town(0);
-                        }
-
-                        if tiled_button(Tex::town_button(pcol(1), highlights[2]), ui).clicked() {
-                            self.editing_mode = BoardEditingMode::Town(1);
-                        }
-                    });
-
-                    ui.label(RichText::new("Docks").color(Color32::WHITE));
-                    ui.horizontal(|ui| {
-                        if tiled_button(Tex::dock_button(pcol(0), highlights[3]), ui).clicked() {
-                            self.editing_mode = BoardEditingMode::Dock(0);
-                        }
-
-                        if tiled_button(Tex::dock_button(pcol(1), highlights[4]), ui).clicked() {
-                            self.editing_mode = BoardEditingMode::Dock(1);
-                        }
-                    });
                 });
             });
         });

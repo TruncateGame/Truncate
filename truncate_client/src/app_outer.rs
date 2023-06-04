@@ -3,8 +3,8 @@ type R = Receiver<GameMessage>;
 type S = Sender<PlayerMessage>;
 
 use super::debug;
-use super::theming::Theme;
-use crate::{app_inner, theming::glyph_meaure::GlyphMeasure};
+use super::utils::Theme;
+use crate::{app_inner, utils::glyph_meaure::GlyphMeasure};
 use eframe::egui::{self, Frame, Id, Margin, TextureOptions};
 use epaint::{hex_color, vec2, TextureHandle};
 use truncate_core::messages::{GameMessage, PlayerMessage};

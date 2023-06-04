@@ -7,7 +7,7 @@ use truncate_core::board::Coordinate;
 
 use crate::{
     regions::active_game::GameCtx,
-    theming::{mapper::MappedBoard, Theme},
+    utils::{mapper::MappedBoard, Theme},
 };
 
 use super::{tile::TilePlayer, TileUI};

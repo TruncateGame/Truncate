@@ -14,7 +14,7 @@ use truncate_core::{
     rules::{GameRules, TileDistribution},
 };
 
-use crate::theming::Theme;
+use crate::utils::Theme;
 
 use super::active_game::ActiveGame;
 

@@ -15,7 +15,7 @@ use hashbrown::HashMap;
 
 use crate::{
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
-    theming::{mapper::MappedBoard, Theme},
+    utils::{mapper::MappedBoard, Theme},
 };
 
 #[derive(Debug, Clone, PartialEq)]

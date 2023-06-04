@@ -4,7 +4,7 @@ use truncate_core::board::Coordinate;
 
 use crate::{
     regions::active_game::GameCtx,
-    theming::{mapper::MappedTile, Darken, Lighten, Theme},
+    utils::{mapper::MappedTile, Darken, Lighten, Theme},
 };
 
 use super::{character::CharacterOrient, CharacterUI};

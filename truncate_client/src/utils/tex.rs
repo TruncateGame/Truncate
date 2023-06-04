@@ -51,7 +51,7 @@ impl Tex {
         ]
     }
 
-    pub const MAX_TILE: usize = 146;
+    pub const MAX_TILE: usize = 148;
 
     pub const NONE: Self = Tex::single(0);
     pub const DEBUG: Self = Tex::single(77);
@@ -86,6 +86,14 @@ impl Tex {
 
     // Tiles
     pub const GAME_TILE: TexQuad = Tex::quad(53, 54, 55, 56);
+
+    // Tiles for buttons
+    pub const GAME_TILE_NW: Self = Tex::single(53);
+    pub const GAME_TILE_SW: Self = Tex::single(56);
+    pub const GAME_TILE_N: Self = Tex::single(147);
+    pub const GAME_TILE_S: Self = Tex::single(148);
+    pub const GAME_TILE_NE: Self = Tex::single(54);
+    pub const GAME_TILE_SE: Self = Tex::single(55);
 
     // Highlight rings for tiles
     pub const HIGHLIGHT: TexQuad = Tex::quad(65, 66, 68, 67);
@@ -162,7 +170,7 @@ impl Tex {
     pub const BUTTON_LAND: TexQuad = Tex::quad(123, 124, 130, 129);
 }
 
-trait Tint {
+pub trait Tint {
     fn tint(self, color: Color32) -> Self;
 }
 
@@ -177,6 +185,15 @@ impl Tint for TexQuad {
     fn tint(mut self, color: Color32) -> Self {
         for i in 0..4 {
             self[i].tint = Some(color);
+        }
+        self
+    }
+}
+
+impl Tint for Vec<Tex> {
+    fn tint(mut self, color: Color32) -> Self {
+        for tex in &mut self {
+            tex.tint = Some(color);
         }
         self
     }
@@ -257,6 +274,18 @@ impl Tex {
         } else {
             vec![Self::BUTTON_LAND]
         }
+    }
+
+    pub fn text_button(ratio: f32) -> Vec<Tex> {
+        let extra_tiles = ratio as usize;
+        [
+            vec![Self::GAME_TILE_NW],
+            vec![Self::GAME_TILE_N; extra_tiles],
+            vec![Self::GAME_TILE_NE, Self::GAME_TILE_SE],
+            vec![Self::GAME_TILE_S; extra_tiles],
+            vec![Self::GAME_TILE_SW],
+        ]
+        .concat()
     }
 
     fn dock(color: Option<Color32>, neighbors: Vec<BGTexType>) -> Vec<TexQuad> {
@@ -509,6 +538,39 @@ pub fn render_tex_quads(
 ) {
     for tex in texs.iter() {
         render_tex_quad(*tex, rect, map_texture, ui);
+    }
+}
+
+pub fn render_texs_clockwise(
+    texs: Vec<Tex>,
+    rect: Rect,
+    map_texture: &TextureHandle,
+    ui: &mut egui::Ui,
+) {
+    let h_tex_count = texs.len() / 2;
+    let tsize = rect.width() / h_tex_count as f32;
+    let mut tile_rect = rect.clone();
+    tile_rect.set_width(tsize);
+    tile_rect.set_height(rect.height() / 2.0);
+
+    for toptex in 0..h_tex_count {
+        let tex = texs[toptex];
+        tex.render(
+            map_texture.id(),
+            tile_rect.translate(vec2(tile_rect.width() * toptex as f32, 0.0)),
+            ui,
+        );
+    }
+    for bottex in h_tex_count..texs.len() {
+        let tex = texs[bottex];
+        tex.render(
+            map_texture.id(),
+            tile_rect.translate(vec2(
+                tile_rect.width() * (h_tex_count - (bottex - h_tex_count) - 1) as f32,
+                tile_rect.height(),
+            )),
+            ui,
+        );
     }
 }
 

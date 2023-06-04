@@ -4,7 +4,7 @@ mod debug;
 mod lil_bits;
 mod native_comms;
 mod regions;
-mod theming;
+mod utils;
 
 use eframe::egui;
 use futures::channel::{mpsc, oneshot};

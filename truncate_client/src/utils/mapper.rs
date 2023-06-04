@@ -2,7 +2,7 @@ use eframe::egui;
 use epaint::{Color32, Rect, TextureHandle};
 use truncate_core::board::{Board, Coordinate, Square};
 
-use crate::theming::tex::FGTexType;
+use crate::utils::tex::FGTexType;
 
 use super::tex::{render_tex_quads, BGTexType, Tex, TexQuad};
 

@@ -3,7 +3,7 @@ mod app_outer;
 mod debug;
 mod lil_bits;
 mod regions;
-mod theming;
+mod utils;
 #[cfg(target_arch = "wasm32")]
 mod web_comms;
 

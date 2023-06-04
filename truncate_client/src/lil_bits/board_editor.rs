@@ -8,7 +8,7 @@ use eframe::egui::{self, Id, Margin};
 
 use crate::{
     regions::lobby::BoardEditingMode,
-    theming::{mapper::MappedBoard, Theme},
+    utils::{mapper::MappedBoard, Theme},
 };
 
 use super::EditorSquareUI;
@@ -76,6 +76,10 @@ impl<'a> EditorUI<'a> {
                             .action(self.editing_mode.clone())
                             .render(ui, &theme, self.mapped_board, &map_texture);
 
+                        if matches!(self.editing_mode, BoardEditingMode::None) {
+                            continue;
+                        }
+
                         if ui.rect_contains_pointer(response.rect) {
                             // TODO: This shouldn't be mut
                             // https://github.com/emilk/egui/issues/2741
@@ -120,6 +124,9 @@ impl<'a> EditorUI<'a> {
                                 mem.data.insert_temp(
                                     Id::null(),
                                     match &self.editing_mode {
+                                        BoardEditingMode::None => unreachable!(
+                                            "With no board editing set we should not be editing"
+                                        ),
                                         BoardEditingMode::Land => match square {
                                             Square::Water | Square::Dock(_) => EditorDrag::MakeLand,
                                             Square::Land | Square::Town(_) => {

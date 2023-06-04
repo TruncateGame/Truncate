@@ -9,7 +9,7 @@ use truncate_core::{
 use eframe::egui::{self, LayerId, Order};
 use hashbrown::HashMap;
 
-use crate::{theming::mapper::MappedBoard, regions::active_game::{HoveredRegion, GameCtx}};
+use crate::{utils::mapper::MappedBoard, regions::active_game::{HoveredRegion, GameCtx}};
 
 use super::{
     tile::TilePlayer,

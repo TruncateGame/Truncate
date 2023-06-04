@@ -6,7 +6,7 @@ use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, Vec2};
 
 use crate::{
     regions::active_game::GameCtx,
-    theming::{Darken, Diaphanize, Theme},
+    utils::{self, text::TextHelper, Darken, Diaphanize, Theme},
 };
 
 pub struct TimerUI<'a> {
@@ -130,23 +130,6 @@ impl<'a> TimerUI<'a> {
         }
     }
 
-    /// Helper to wrangle with egui's galley system, and return the calculated size
-    fn get_galley(
-        &self,
-        text: &String,
-        font: &'static str,
-        size: f32,
-        ui: &mut egui::Ui,
-    ) -> (Vec2, WidgetTextGalley) {
-        let font = egui::FontSelection::FontId(egui::FontId {
-            size: size,
-            family: egui::FontFamily::Name(font.into()),
-        });
-        let galley = egui::WidgetText::RichText(egui::RichText::new(text))
-            .into_galley(ui, None, 1000.0, font); // TODO: Use a non-wrapping method so this giant float isn't here
-        (galley.size(), galley)
-    }
-
     /// Renders everything within our timer frame
     pub fn render_inner(&mut self, ui: &mut egui::Ui, theme: &Theme, ctx: &mut GameCtx) {
         let (bar_h, font_z) = (10.0, 14.0);
@@ -158,18 +141,20 @@ impl<'a> TimerUI<'a> {
         ui.allocate_rect(inner_timer_rect, Sense::hover());
 
         // Render the player name in the top left
-        let (name_size, galley) = self.get_galley(&self.player.name, "Truncate-Heavy", font_z, ui);
-        galley.paint_with_color_override(ui.painter(), inner_timer_rect.left_top(), timer_color);
+        let text = TextHelper::heavy(&self.player.name, font_z, ui);
+        let name_size = text.size();
+        text.paint_at(inner_timer_rect.left_top(), timer_color, ui);
 
         let time_string = self.calculate_time();
-        let (time_size, galley) = self.get_galley(&time_string, "Truncate-Heavy", font_z, ui);
+        let text = TextHelper::heavy(&time_string, font_z, ui);
+        let time_size = text.size();
 
         // Render the remaining time in the top left,
         // aligned to the bottom of the name
         let mut pos = inner_timer_rect.right_top();
         pos.x -= time_size.x;
         pos.y += name_size.y - time_size.y;
-        galley.paint_with_color_override(ui.painter(), pos, timer_color);
+        text.paint_at(pos, timer_color, ui);
 
         // Paint bar background
         let mut bar = inner_timer_rect.clone();
