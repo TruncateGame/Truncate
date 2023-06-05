@@ -7,7 +7,7 @@ const sqlite3 = require('sqlite3').verbose();
 const input_file = path.join(__dirname, "kaikki.org-dictionary-English.json");
 
 if (!fs.existsSync(input_file)) {
-    console.error(`Need to build word definitions from a dinctionary reference.`);
+    console.error(`Need to build word definitions from a dictionary reference.`);
     console.error(`Download the English JSON data from https://kaikki.org/dictionary/English/index.html`);
     console.error(`And place the file at ${input_file}`);
     process.exit(1);

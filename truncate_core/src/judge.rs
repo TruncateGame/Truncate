@@ -8,9 +8,16 @@ use crate::{
 
 use super::board::{Board, Square};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fmt::{self, Display},
 };
+
+#[derive(Clone)]
+pub struct WordData {
+    pub extensions: u32,
+    pub rel_freq: f32,
+}
+pub type WordDict = HashMap<String, WordData>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Outcome {
@@ -31,22 +38,28 @@ impl fmt::Display for Outcome {
 
 #[derive(Clone)]
 pub struct Judge {
-    builtin_dictionary: HashSet<String>,
+    builtin_dictionary: WordDict,
 }
 
 impl Default for Judge {
     fn default() -> Self {
         Self {
-            builtin_dictionary: HashSet::new(),
+            builtin_dictionary: HashMap::new(),
         }
     }
 }
 
 impl Judge {
     pub fn new(words: Vec<String>) -> Self {
-        let mut dictionary = HashSet::new();
+        let mut dictionary = HashMap::new();
         for word in words {
-            dictionary.insert(word.to_lowercase());
+            dictionary.insert(
+                word.to_lowercase(),
+                WordData {
+                    extensions: 0,
+                    rel_freq: 0.0,
+                },
+            );
         }
         Self {
             builtin_dictionary: dictionary,
@@ -101,7 +114,7 @@ impl Judge {
         attackers: Vec<S>,
         defenders: Vec<S>,
         battle_rules: &rules::BattleRules,
-        external_dictionary: Option<&HashSet<String>>,
+        external_dictionary: Option<&WordDict>,
     ) -> Option<BattleReport> {
         // If there are no attackers or no defenders there is no battle
         if attackers.is_empty() || defenders.is_empty() {
@@ -194,7 +207,7 @@ impl Judge {
     fn valid<S: AsRef<str>>(
         &self,
         word: S,
-        external_dictionary: Option<&HashSet<String>>,
+        external_dictionary: Option<&WordDict>,
     ) -> Option<String> {
         if word.as_ref().contains('¤') {
             return Some(word.as_ref().to_string().to_uppercase());
@@ -212,7 +225,7 @@ impl Judge {
         } else {
             if external_dictionary
                 .unwrap_or(&self.builtin_dictionary)
-                .contains(&word.as_ref().to_lowercase())
+                .contains_key(&word.as_ref().to_lowercase())
             {
                 Some(word.as_ref().to_string().to_uppercase())
             } else {

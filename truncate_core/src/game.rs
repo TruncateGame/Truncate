@@ -1,11 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use time::Duration;
 
 use crate::bag::TileBag;
 use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
-use crate::judge::Outcome;
+use crate::judge::{Outcome, WordDict};
 use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, TimeChange};
 use crate::rules::{self, GameRules};
 
@@ -92,7 +92,7 @@ impl Game {
     pub fn play_turn(
         &mut self,
         next_move: Move,
-        external_dictionary: Option<&HashSet<String>>,
+        external_dictionary: Option<&WordDict>,
     ) -> Result<Option<usize>, String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
@@ -165,7 +165,7 @@ impl Game {
     pub fn make_move(
         &mut self,
         game_move: Move,
-        external_dictionary: Option<&HashSet<String>>,
+        external_dictionary: Option<&WordDict>,
     ) -> Result<Vec<Change>, GamePlayError> {
         let mut changes = vec![];
 
@@ -256,7 +256,7 @@ impl Game {
         &mut self,
         player: usize,
         position: Coordinate,
-        external_dictionary: Option<&HashSet<String>>,
+        external_dictionary: Option<&WordDict>,
         changes: &mut Vec<Change>,
     ) {
         let (attackers, defenders) = self.board.collect_combanants(player, position);

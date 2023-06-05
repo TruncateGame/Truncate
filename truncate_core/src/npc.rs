@@ -1,17 +1,18 @@
-use std::{collections::HashSet, ops::Div};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Div,
+};
 
 use crate::{
     board::{self, Board, Coordinate, Square},
     game::Game,
+    judge::WordDict,
     messages::PlayerMessage,
     moves::Move,
 };
 
 impl Game {
-    pub fn brute_force(
-        game: &Game,
-        external_dictionary: Option<&HashSet<String>>,
-    ) -> PlayerMessage {
+    pub fn brute_force(game: &Game, external_dictionary: Option<&WordDict>) -> PlayerMessage {
         let mut playable_squares = HashSet::new();
         for dock in &game.board.docks {
             let sq = game.board.get(*dock).unwrap();
@@ -109,7 +110,7 @@ impl Game {
         &self,
         player: usize,
         position: Coordinate,
-        external_dictionary: &HashSet<String>,
+        external_dictionary: &WordDict,
     ) -> f32 {
         let (coords, _) = self.board.collect_combanants(player, position);
         let words = self
@@ -121,8 +122,8 @@ impl Game {
         let score: f32 = words
             .into_iter()
             .map(|word| {
-                if external_dictionary.get(&word.to_lowercase()).is_some() {
-                    word.len() as f32
+                if let Some(word_data) = external_dictionary.get(&word.to_lowercase()) {
+                    word.len() as f32 + (word_data.extensions.min(100) as f32 / 100.0)
                 } else {
                     -3 as f32
                 }

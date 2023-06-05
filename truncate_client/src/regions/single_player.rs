@@ -1,30 +1,25 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use eframe::egui;
-use epaint::{vec2, TextureHandle};
+use epaint::TextureHandle;
 use instant::Duration;
-use serde::Deserialize;
 use truncate_core::{
-    bag::TileBag,
-    board::{Board, Coordinate},
     game::Game,
-    judge::Judge,
-    messages::{GamePlayerMessage, GameStateMessage, PlayerMessage},
+    judge::{WordData, WordDict},
+    messages::{GameStateMessage, PlayerMessage},
     moves::Move,
-    player::{Hand, Player},
-    rules::{GameRules, TileDistribution},
 };
 
 use crate::utils::Theme;
 
 use super::active_game::ActiveGame;
 
-pub static WORDNIK: &str = include_str!("../../../truncate_server/wordnik_wordlist.txt");
+pub static WORDNIK: &str = include_str!("../../../word_freqs/final_wordlist.txt");
 
 pub struct SinglePlayerState {
     game: Game,
     active_game: ActiveGame,
-    dict: HashSet<String>,
+    dict: WordDict,
     next_response_at: Option<Duration>,
     winner: Option<usize>,
 }
@@ -47,12 +42,18 @@ impl SinglePlayerState {
             theme,
         );
 
-        let mut valid_words = HashSet::new();
-        let mut lines = WORDNIK.lines();
-        lines.next(); // Skip copyright
+        let mut valid_words = HashMap::new();
+        let lines = WORDNIK.lines();
 
         for line in lines {
-            valid_words.insert(line.to_string());
+            let mut chunks = line.split(' ');
+            valid_words.insert(
+                chunks.next().unwrap().to_string(),
+                WordData {
+                    extensions: chunks.next().unwrap().parse().unwrap(),
+                    rel_freq: chunks.next().unwrap().parse().unwrap(),
+                },
+            );
         }
 
         Self {
@@ -65,10 +66,8 @@ impl SinglePlayerState {
     }
 
     pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) {
-        let mut next_msg = None;
-
         // Standard game helper
-        next_msg = self
+        let mut next_msg = self
             .active_game
             .render(ui, theme, self.winner)
             .map(|msg| (0, msg));

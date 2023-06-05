@@ -1,14 +1,17 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use rand::seq::SliceRandom;
 use rusqlite::Connection;
-use truncate_core::reporting::WordMeaning;
+use truncate_core::{
+    judge::{WordData, WordDict},
+    reporting::WordMeaning,
+};
 
-pub static WORDNIK: &str = include_str!("../wordnik_wordlist.txt");
+pub static WORDNIK: &str = include_str!("../../word_freqs/final_wordlist.txt");
 
 pub struct WordDB {
     pub conn: Option<Connection>,
-    pub valid_words: HashSet<String>,
+    pub valid_words: WordDict,
     pub room_codes: Vec<&'static str>,
     pub allocated_room_codes: HashSet<&'static str>,
 }
@@ -56,12 +59,18 @@ pub fn read_defs() -> WordDB {
 
     let defs_file = option_env!("TR_DEFS_FILE").unwrap_or_else(|| "/truncate/defs.db");
 
-    let mut valid_words = HashSet::new();
-    let mut lines = WORDNIK.lines();
-    lines.next(); // Skip copyright
+    let mut valid_words = HashMap::new();
+    let lines = WORDNIK.lines();
 
     for line in lines {
-        valid_words.insert(line.to_string());
+        let mut chunks = line.split(' ');
+        valid_words.insert(
+            chunks.next().unwrap().to_string(),
+            WordData {
+                extensions: chunks.next().unwrap().parse().unwrap(),
+                rel_freq: chunks.next().unwrap().parse().unwrap(),
+            },
+        );
     }
 
     WordDB {
