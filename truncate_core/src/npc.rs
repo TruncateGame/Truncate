@@ -69,13 +69,17 @@ impl Game {
                     external_dictionary.unwrap(),
                 );
 
-                let our_score = game_clone.eval_board_progress(game.next_player);
-                let their_score =
+                let our_progress = game_clone.eval_board_progress(game.next_player);
+                let their_progress =
                     game_clone.eval_board_progress((game.next_player + 1) % game.players.len());
+
+                let our_balance = game_clone.eval_board_balance(game.next_player) * 2.0;
+                println!("Computer board balance: {our_balance}");
 
                 let win_score = game_clone.eval_win(game.next_player);
 
-                let total_score = win_score + move_quality + our_score - their_score;
+                let total_score =
+                    win_score + move_quality + our_progress - their_progress - our_balance;
 
                 if best_move.0 < total_score {
                     best_move = (total_score, PlayerMessage::Place(position, *tile));
@@ -106,6 +110,28 @@ impl Game {
         score
     }
 
+    pub fn eval_board_balance(&self, player: usize) -> f32 {
+        let mut left = 0;
+        let mut right = 0;
+        let mut count = 0;
+        let midpoint = self.board.squares[0].len() / 2;
+
+        for row in self.board.squares.iter() {
+            for (colnum, sq) in row.iter().enumerate() {
+                if matches!(sq, Square::Occupied(p, _) if player == *p) {
+                    count += 1;
+                    if colnum < midpoint {
+                        left += midpoint - colnum;
+                    } else if colnum > midpoint {
+                        right += colnum - midpoint;
+                    }
+                }
+            }
+        }
+
+        left.abs_diff(right) as f32 / count as f32
+    }
+
     pub fn eval_position_quality(
         &self,
         player: usize,
@@ -123,7 +149,7 @@ impl Game {
             .into_iter()
             .map(|word| {
                 if let Some(word_data) = external_dictionary.get(&word.to_lowercase()) {
-                    word.len() as f32 + (word_data.extensions.min(100) as f32 / 100.0)
+                    word.len() as f32 + (word_data.extensions.min(25) as f32 / 100.0)
                 } else {
                     -3 as f32
                 }
