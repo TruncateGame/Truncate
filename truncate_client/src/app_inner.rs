@@ -62,6 +62,11 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                 map_texture.clone(),
                 theme.clone(),
             )));
+        } else if launched_room == "SINGLE_PLAYER" {
+            new_game_status = Some(GameStatus::SinglePlayer(SinglePlayerState::new(
+                map_texture.clone(),
+                theme.clone(),
+            )));
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
             send(PlayerMessage::NewGame(name.clone()));

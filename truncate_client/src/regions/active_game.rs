@@ -179,9 +179,9 @@ impl ActiveGame {
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
-        // if !self.ctx.sidebar_visible {
-        return;
-        // }
+        if !self.ctx.sidebar_visible {
+            return;
+        }
 
         let area = egui::Area::new(egui::Id::new("sidebar_layer"))
             .movable(false)
@@ -198,6 +198,9 @@ impl ActiveGame {
 
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
                 ScrollArea::new([false, true]).show(ui, |ui| {
+                    ui.label(RichText::new("Game history").color(Color32::WHITE));
+                    ui.separator();
+
                     if let Some(error) = &self.ctx.error_msg {
                         ui.label(error);
                         ui.separator();

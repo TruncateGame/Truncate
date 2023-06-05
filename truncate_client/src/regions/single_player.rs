@@ -24,6 +24,7 @@ pub struct SinglePlayerState {
     game: Game,
     active_game: ActiveGame,
     dict: HashSet<String>,
+    winner: Option<usize>,
 }
 
 impl SinglePlayerState {
@@ -34,7 +35,7 @@ impl SinglePlayerState {
         game.start();
 
         let active_game = ActiveGame::new(
-            "TUTORIAL_01".into(),
+            "SINGLE_PLAYER".into(),
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -56,6 +57,7 @@ impl SinglePlayerState {
             game,
             active_game,
             dict: valid_words,
+            winner: None,
         }
     }
 
@@ -63,15 +65,32 @@ impl SinglePlayerState {
         let mut next_msg = None;
 
         // Standard game helper
-        next_msg = self.active_game.render(ui, theme, None).map(|msg| (0, msg));
+        next_msg = self
+            .active_game
+            .render(ui, theme, self.winner)
+            .map(|msg| (0, msg));
+
+        if self.winner.is_some() {
+            return;
+        }
 
         if self.game.next_player != 0 {
-            println!(
-                "Before turn, computer's hand is: {:?}",
-                self.game.players[1].hand.0
-            );
             next_msg = Some((1, Game::brute_force(&self.game, Some(&self.dict))));
         }
+
+        // A version of the above that includes a turn delay.
+        // TODO: Store time that the turn changes and use that instead, since we only have whole seconds here.
+        // TODO: Maybe only delay when attacks happened?
+        // if self.game.next_player != 0 {
+        //     let current_time = self.active_game.ctx.current_time.as_secs();
+        //     let turn_starts = self.game.players[self.game.next_player]
+        //         .turn_starts_at
+        //         .unwrap_or_default();
+
+        //     if current_time - turn_starts > 0 {
+        //         next_msg = Some((1, Game::brute_force(&self.game, Some(&self.dict))));
+        //     }
+        // }
 
         let next_move = match next_msg {
             Some((player, PlayerMessage::Place(position, tile))) => Some(Move::Place {
@@ -88,7 +107,7 @@ impl SinglePlayerState {
 
         if let Some(next_move) = next_move {
             match self.game.play_turn(next_move, Some(&self.dict)) {
-                Ok(None) => {
+                Ok(winner) => {
                     let changes = self
                         .game
                         .recent_changes
@@ -114,8 +133,9 @@ impl SinglePlayerState {
                         changes,
                     };
                     self.active_game.apply_new_state(state_message);
+
+                    self.winner = winner;
                 }
-                Ok(Some(winner)) => panic!("Hooray!"),
                 Err(msg) => eprintln!("Failed: {msg}"),
             }
         }

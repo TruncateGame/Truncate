@@ -101,7 +101,7 @@
             border: 0;
             background-color: #ffffffbb;
             font-family: Truncate;
-            font-size: clamp(10px, 2vw, 14px);
+            font-size: clamp(10px, 2vw, 13px);
             padding: 10px clamp(15px, 4vw, 40px);
             cursor: pointer;
             border-radius: 4px 4px 6px 6px;
@@ -153,11 +153,15 @@
             display: flex !important;
         }
 
+        [data-control-stage="create"] [data-stage="create"] {
+            display: flex !important;
+        }
+
         [data-control-stage="join"] [data-stage="join"] {
             display: flex !important;
         }
 
-        [data-control-stage="new"] [data-stage="new"] {
+        [data-control-stage="multi"] [data-stage="multi"] {
             display: flex !important;
         }
 
@@ -180,16 +184,24 @@
     <canvas id="truncate_canvas"></canvas>
 
     <div id="controls" data-control-stage="root">
-        <button data-stage="root" data-control="to_new_game">NEW GAME</button>
-        <button data-stage="root" data-control="to_join_game">JOIN GAME</button>
 
-        <div class="sub" data-stage="new">
+        <button data-stage="root" data-control="tutorial">TUTORIAL</button>
+        <button data-stage="root" data-control="to_create_game">PLAY GAME</button>
+
+        <div class="sub" data-stage="create">
             <div class="split">
-                <button data-control="tutorial" class="fill">TUTORIAL</button>
+                <button data-control="new_single" class="fill">SINGLE PLAYER</button>
+                <button data-control="to_multi_game" class="fill">MULTI PLAYER</button>
+            </div>
+        </div>
+
+        <div class="sub" data-stage="multi">
+            <div class="split">
+                <button data-control="to_join_game" class="fill">JOIN GAME</button>
             </div>
             <div class="split">
-                <button data-control="new_game" class="fill">CREATE GAME</button>
-                <button type="button" data-control="cancel_new" class="thin"
+                <button data-control="new_multi" class="fill">CREATE GAME</button>
+                <button type="button" data-control="cancel_multi" class="thin"
                     aria-label="Cancel new game selection">X</button>
             </div>
         </div>
@@ -600,16 +612,22 @@
                 stage("root");
             });
 
-            control("to_new_game").addEventListener("click", e => {
-                stage("new");
+            control("to_multi_game").addEventListener("click", e => {
+                stage("multi");
             });
-            control("cancel_new").addEventListener("click", e => {
+            control("cancel_multi").addEventListener("click", e => {
                 stage("root");
             });
             control("tutorial").addEventListener("click", e => {
                 truncate_runner.join_game("TUTORIAL_01");
             });
-            control("new_game").addEventListener("click", e => {
+            control("to_create_game").addEventListener("click", e => {
+                stage("create");
+            });
+            control("new_single").addEventListener("click", e => {
+                truncate_runner.join_game("SINGLE_PLAYER");
+            });
+            control("new_multi").addEventListener("click", e => {
                 truncate_runner.create_game();
             });
             control("to_join_game").addEventListener("click", e => {
