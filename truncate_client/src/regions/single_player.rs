@@ -26,7 +26,7 @@ pub struct SinglePlayerState {
 
 impl SinglePlayerState {
     pub fn new(map_texture: TextureHandle, theme: Theme) -> Self {
-        let mut game = Game::new(9, 9);
+        let mut game = Game::new(9, 11);
         game.add_player("You".into());
         game.add_player("Computer".into());
         game.start();

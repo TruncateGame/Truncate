@@ -73,7 +73,7 @@ impl Game {
                 let their_progress =
                     game_clone.eval_board_progress((game.next_player + 1) % game.players.len());
 
-                let our_balance = game_clone.eval_board_balance(game.next_player) * 2.0;
+                let our_balance = game_clone.eval_single_player_balance(game.next_player) * 2.0;
                 println!("Computer board balance: {our_balance}");
 
                 let win_score = game_clone.eval_win(game.next_player);
@@ -110,7 +110,7 @@ impl Game {
         score
     }
 
-    pub fn eval_board_balance(&self, player: usize) -> f32 {
+    pub fn eval_single_player_balance(&self, player: usize) -> f32 {
         let mut left = 0;
         let mut right = 0;
         let mut count = 0;
