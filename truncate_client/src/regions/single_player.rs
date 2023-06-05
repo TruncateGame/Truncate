@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use eframe::egui;
 use epaint::{vec2, TextureHandle};
+use instant::Duration;
 use serde::Deserialize;
 use truncate_core::{
     bag::TileBag,
@@ -24,6 +25,7 @@ pub struct SinglePlayerState {
     game: Game,
     active_game: ActiveGame,
     dict: HashSet<String>,
+    next_response_at: Option<Duration>,
     winner: Option<usize>,
 }
 
@@ -57,6 +59,7 @@ impl SinglePlayerState {
             game,
             active_game,
             dict: valid_words,
+            next_response_at: None,
             winner: None,
         }
     }
@@ -73,6 +76,13 @@ impl SinglePlayerState {
         if self.winner.is_some() {
             return;
         }
+
+        if let Some(next_response_at) = self.next_response_at {
+            if next_response_at > self.active_game.ctx.current_time {
+                return;
+            }
+        }
+        self.next_response_at = None;
 
         if self.game.next_player != 0 {
             next_msg = Some((1, Game::brute_force(&self.game, Some(&self.dict))));
@@ -108,7 +118,9 @@ impl SinglePlayerState {
         if let Some(next_move) = next_move {
             match self.game.play_turn(next_move, Some(&self.dict)) {
                 Ok(winner) => {
-                    let changes = self
+                    self.winner = winner;
+
+                    let changes: Vec<_> = self
                         .game
                         .recent_changes
                         .clone()
@@ -122,6 +134,11 @@ impl SinglePlayerState {
                             truncate_core::reporting::Change::Time(_) => true,
                         })
                         .collect();
+
+                    let has_battles = changes.iter().any(|change| {
+                        matches!(change, truncate_core::reporting::Change::Battle(_))
+                    });
+
                     let ctx = &self.active_game.ctx;
                     let state_message = GameStateMessage {
                         room_code: ctx.room_code.clone(),
@@ -134,7 +151,16 @@ impl SinglePlayerState {
                     };
                     self.active_game.apply_new_state(state_message);
 
-                    self.winner = winner;
+                    let delay = if has_battles { 1200 } else { 200 };
+
+                    self.next_response_at = Some(
+                        self.active_game
+                            .ctx
+                            .current_time
+                            .saturating_add(Duration::from_millis(delay)),
+                    );
+                    ui.ctx()
+                        .request_repaint_after(Duration::from_millis(delay / 2));
                 }
                 Err(msg) => eprintln!("Failed: {msg}"),
             }
