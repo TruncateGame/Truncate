@@ -12,8 +12,8 @@ pub static WORDNIK: &str = include_str!("../../word_freqs/final_wordlist.txt");
 pub struct WordDB {
     pub conn: Option<Connection>,
     pub valid_words: WordDict,
-    pub room_codes: Vec<&'static str>,
-    pub allocated_room_codes: HashSet<&'static str>,
+    pub room_codes: Vec<String>,
+    pub allocated_room_codes: HashSet<String>,
 }
 
 impl WordDB {
@@ -36,7 +36,7 @@ impl WordDB {
             .flatten()
     }
 
-    fn rand_code(&self) -> &'static str {
+    fn rand_code(&self) -> String {
         self.room_codes
             .choose(&mut rand::thread_rng())
             .cloned()
@@ -46,11 +46,11 @@ impl WordDB {
     // TODO: Reclaim codes after use
     pub fn get_free_code(&mut self) -> String {
         let mut word = self.rand_code();
-        while self.allocated_room_codes.get(word).is_some() {
+        while self.allocated_room_codes.get(&word).is_some() {
             word = self.rand_code();
         }
-        self.allocated_room_codes.insert(word);
-        word.to_owned()
+        self.allocated_room_codes.insert(word.clone());
+        word
     }
 }
 
@@ -75,8 +75,12 @@ pub fn read_defs() -> WordDB {
 
     WordDB {
         conn: Connection::open(defs_file).ok(),
+        room_codes: valid_words
+            .keys()
+            .filter(|k| k.len() < 6)
+            .cloned()
+            .collect(),
         valid_words,
-        room_codes: WORDNIK.lines().filter(|l| l.len() < 6).collect(),
         allocated_room_codes: HashSet::new(),
     }
 }
