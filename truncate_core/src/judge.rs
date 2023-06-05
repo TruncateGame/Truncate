@@ -29,6 +29,7 @@ impl fmt::Display for Outcome {
     }
 }
 
+#[derive(Clone)]
 pub struct Judge {
     builtin_dictionary: HashSet<String>,
 }

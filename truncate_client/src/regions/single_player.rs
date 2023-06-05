@@ -18,6 +18,8 @@ use crate::utils::Theme;
 
 use super::active_game::ActiveGame;
 
+pub static WORDNIK: &str = include_str!("../../../truncate_server/wordnik_wordlist.txt");
+
 pub struct SinglePlayerState {
     game: Game,
     active_game: ActiveGame,
@@ -26,7 +28,7 @@ pub struct SinglePlayerState {
 
 impl SinglePlayerState {
     pub fn new(map_texture: TextureHandle, theme: Theme) -> Self {
-        let mut game = Game::new(7, 7);
+        let mut game = Game::new(9, 9);
         game.add_player("You".into());
         game.add_player("Computer".into());
         game.start();
@@ -42,10 +44,18 @@ impl SinglePlayerState {
             theme,
         );
 
+        let mut valid_words = HashSet::new();
+        let mut lines = WORDNIK.lines();
+        lines.next(); // Skip copyright
+
+        for line in lines {
+            valid_words.insert(line.to_string());
+        }
+
         Self {
             game,
             active_game,
-            dict: HashSet::from(["the".into()]),
+            dict: valid_words,
         }
     }
 
@@ -56,7 +66,11 @@ impl SinglePlayerState {
         next_msg = self.active_game.render(ui, theme, None).map(|msg| (0, msg));
 
         if self.game.next_player != 0 {
-            next_msg = Some((1, self.game.brute_force()));
+            println!(
+                "Before turn, computer's hand is: {:?}",
+                self.game.players[1].hand.0
+            );
+            next_msg = Some((1, Game::brute_force(&self.game, Some(&self.dict))));
         }
 
         let next_move = match next_msg {

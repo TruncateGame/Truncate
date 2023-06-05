@@ -1,22 +1,26 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, ops::Div};
 
 use crate::{
-    board::{Board, Square},
+    board::{self, Board, Coordinate, Square},
     game::Game,
     messages::PlayerMessage,
+    moves::Move,
 };
 
 impl Game {
-    pub fn brute_force(&mut self) -> PlayerMessage {
+    pub fn brute_force(
+        game: &Game,
+        external_dictionary: Option<&HashSet<String>>,
+    ) -> PlayerMessage {
         let mut playable_squares = HashSet::new();
-        for dock in &self.board.docks {
-            let sq = self.board.get(*dock).unwrap();
-            if !matches!(sq, Square::Dock(p) if p == self.next_player) {
+        for dock in &game.board.docks {
+            let sq = game.board.get(*dock).unwrap();
+            if !matches!(sq, Square::Dock(p) if p == game.next_player) {
                 continue;
             }
 
             playable_squares.extend(
-                self.board
+                game.board
                     .depth_first_search(*dock)
                     .iter()
                     .flat_map(|sq| sq.neighbors_4())
@@ -26,30 +30,62 @@ impl Game {
 
         playable_squares = playable_squares
             .into_iter()
-            .filter(|sq| matches!(self.board.get(*sq), Ok(Square::Land)))
+            .filter(|sq| matches!(game.board.get(*sq), Ok(Square::Land)))
             .collect();
 
         let mut best_move: (f32, PlayerMessage) = (f32::MIN, PlayerMessage::Ping);
 
+        let playable_tiles: Vec<_> = game
+            .players
+            .get(game.next_player)
+            .unwrap()
+            .hand
+            .iter()
+            .cloned()
+            .collect();
+
         for position in playable_squares {
-            for tile in self.players.get(self.next_player).unwrap().hand.iter() {
-                self.board
-                    .set_square(position, Square::Occupied(self.next_player, *tile))
-                    .expect("We should have validated these squares");
-                let move_score = self.eval_self_board_progress(self.next_player);
-                if best_move.0 < move_score {
-                    best_move = (move_score, PlayerMessage::Place(position, *tile));
+            for tile in &playable_tiles {
+                let mut game_clone = game.to_owned();
+
+                if game_clone
+                    .play_turn(
+                        Move::Place {
+                            player: game.next_player,
+                            tile: *tile,
+                            position,
+                        },
+                        external_dictionary,
+                    )
+                    .is_err()
+                {
+                    continue;
+                }
+
+                let move_quality = game_clone.eval_position_quality(
+                    game.next_player,
+                    position,
+                    external_dictionary.unwrap(),
+                );
+
+                let our_score = game_clone.eval_board_progress(game.next_player);
+                let their_score =
+                    game_clone.eval_board_progress((game.next_player + 1) % game.players.len());
+
+                let win_score = game_clone.eval_win(game.next_player);
+
+                let total_score = win_score + move_quality + our_score - their_score;
+
+                if best_move.0 < total_score {
+                    best_move = (total_score, PlayerMessage::Place(position, *tile));
                 }
             }
-            self.board.clear(position);
         }
-
-        print!("Best move is {best_move:#?}");
 
         best_move.1
     }
 
-    pub fn eval_self_board_progress(&self, player: usize) -> f32 {
+    pub fn eval_board_progress(&self, player: usize) -> f32 {
         let mut score = 0.0;
 
         for (rownum, row) in self.board.squares.iter().enumerate() {
@@ -67,5 +103,40 @@ impl Game {
         }
 
         score
+    }
+
+    pub fn eval_position_quality(
+        &self,
+        player: usize,
+        position: Coordinate,
+        external_dictionary: &HashSet<String>,
+    ) -> f32 {
+        let (coords, _) = self.board.collect_combanants(player, position);
+        let words = self
+            .board
+            .word_strings(&coords)
+            .expect("This should have already been a valid turn");
+        let num_words = words.len() as f32;
+
+        let score: f32 = words
+            .into_iter()
+            .map(|word| {
+                if external_dictionary.get(&word.to_lowercase()).is_some() {
+                    word.len() as f32
+                } else {
+                    -3 as f32
+                }
+            })
+            .sum();
+
+        score / num_words
+    }
+
+    pub fn eval_win(&self, player: usize) -> f32 {
+        if matches!(self.winner, Some(player)) {
+            1000.0
+        } else {
+            0.0
+        }
     }
 }

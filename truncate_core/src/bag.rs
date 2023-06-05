@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::rules;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TileBag {
     bag: Vec<char>,
     rng: Rand32,

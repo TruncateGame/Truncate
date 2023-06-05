@@ -23,7 +23,7 @@ pub const GAME_COLORS: [(u8, u8, u8); 5] = [
     (246_u8, 174_u8, 45_u8),
 ];
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Game {
     pub rules: GameRules,
     pub players: Vec<Player>,

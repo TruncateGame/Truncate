@@ -179,9 +179,9 @@ impl ActiveGame {
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
-        if !self.ctx.sidebar_visible {
-            return;
-        }
+        // if !self.ctx.sidebar_visible {
+        return;
+        // }
 
         let area = egui::Area::new(egui::Id::new("sidebar_layer"))
             .movable(false)
