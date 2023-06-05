@@ -18,6 +18,7 @@ ENV TR_MSG=$TR_MSG
 
 ADD truncate_server /app/truncate_server
 ADD truncate_core /app/truncate_core
+ADD word_freqs /app/word_freqs
 
 RUN cd truncate_server && cargo build --release
 
