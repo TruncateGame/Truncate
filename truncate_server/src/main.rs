@@ -226,6 +226,36 @@ async fn handle_player_msg(
                 todo!("Handle player not being enrolled in a game");
             }
         }
+        EditName(name) => {
+            if let Some(mut game_state) = get_current_game(addr) {
+                if game_state.rename_player(addr, name).is_ok() {
+                    let player_list: Vec<_> = game_state
+                        .game
+                        .players
+                        .iter()
+                        .map(|p| LobbyPlayerMessage {
+                            name: p.name.clone(),
+                            index: p.index,
+                            color: p.color,
+                        })
+                        .collect();
+
+                    for player in &game_state.players {
+                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                        let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+
+                        peer.send(GameMessage::LobbyUpdate(
+                            game_state.game_id.clone(),
+                            player_list.clone(),
+                            game_state.game.board.clone(),
+                        ))
+                        .unwrap();
+                    }
+                }
+            } else {
+                todo!("Handle player not being enrolled in a game");
+            }
+        }
         StartGame => {
             if let Some(mut game_state) = get_current_game(addr) {
                 for (player, message) in game_state.start().await {

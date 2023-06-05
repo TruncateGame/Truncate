@@ -3,7 +3,7 @@ use truncate_core::{messages::RoomCode, messages::Token};
 
 use crate::{
     regions::active_game::ActiveGame,
-    regions::{lobby::Lobby, tutorial::TutorialState},
+    regions::{lobby::Lobby, single_player::SinglePlayerState, tutorial::TutorialState},
 };
 
 use super::OuterApplication;
@@ -15,6 +15,7 @@ use truncate_core::{
 pub enum GameStatus {
     None(RoomCode, Option<Token>),
     Tutorial(TutorialState),
+    SinglePlayer(SinglePlayerState),
     PendingJoin(RoomCode),
     PendingCreate,
     PendingStart(Lobby),
@@ -108,6 +109,12 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                     theme.clone(),
                 )));
             }
+            if ui.button("Single Player").clicked() {
+                new_game_status = Some(GameStatus::SinglePlayer(SinglePlayerState::new(
+                    map_texture.clone(),
+                    theme.clone(),
+                )));
+            }
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
                 send(PlayerMessage::NewGame(name.clone()));
@@ -130,6 +137,9 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
         }
         GameStatus::Tutorial(tutorial) => {
             tutorial.render(ui, theme);
+        }
+        GameStatus::SinglePlayer(sp) => {
+            sp.render(ui, theme);
         }
         GameStatus::PendingJoin(room_code) => {
             ui.label(format!("Waiting to join room {room_code}"));

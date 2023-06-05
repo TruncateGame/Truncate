@@ -52,8 +52,8 @@ impl Direction {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Board {
     pub squares: Vec<Vec<Square>>,
-    docks: Vec<Coordinate>,
-    towns: Vec<Coordinate>,
+    pub docks: Vec<Coordinate>,
+    pub towns: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
                                   // TODO: Move orientations off the Board and have them tagged against specific players
 }
@@ -433,7 +433,7 @@ impl Board {
     }
 
     // TODO: return iterator or rename since it doesn't matter that this is depth first when we return a HashSet
-    fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
+    pub fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
         let mut visited = HashSet::new();
 
         fn dfs(b: &Board, position: Coordinate, visited: &mut HashSet<Coordinate>) {

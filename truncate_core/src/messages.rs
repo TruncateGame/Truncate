@@ -20,6 +20,7 @@ pub enum PlayerMessage {
     JoinGame(RoomCode, String),
     RejoinGame(Token),
     EditBoard(Board),
+    EditName(String),
     StartGame,
     Place(Coordinate, char),
     Swap(Coordinate, Coordinate),
@@ -35,6 +36,7 @@ impl fmt::Display for PlayerMessage {
                 write!(f, "Player wants to rejoin a game using the token {}", token)
             }
             PlayerMessage::EditBoard(board) => write!(f, "Set board to {board}"),
+            PlayerMessage::EditName(name) => write!(f, "Set name to {name}"),
             PlayerMessage::StartGame => write!(f, "Start the game"),
             PlayerMessage::Place(coord, tile) => write!(f, "Place {} at {}", tile, coord),
             PlayerMessage::Swap(a, b) => write!(f, "Swap the tiles at {} and {}", a, b),

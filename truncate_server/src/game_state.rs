@@ -63,6 +63,16 @@ impl GameState {
         }
     }
 
+    pub fn rename_player(&mut self, socket: SocketAddr, name: String) -> Result<(), ()> {
+        if let Some(player) = self.players.iter_mut().find(|p| p.socket == Some(socket)) {
+            player.name = name;
+            Ok(())
+        } else {
+            println!("Couldn't rename player. Nothing stored for player {socket}");
+            Err(())
+        }
+    }
+
     pub fn player_list(&self) -> Vec<LobbyPlayerMessage> {
         self.game
             .players
