@@ -74,7 +74,6 @@ impl Game {
                     game_clone.eval_board_progress((game.next_player + 1) % game.players.len());
 
                 let our_balance = game_clone.eval_single_player_balance(game.next_player) * 2.0;
-                println!("Computer board balance: {our_balance}");
 
                 let win_score = game_clone.eval_win(game.next_player);
 
@@ -129,7 +128,11 @@ impl Game {
             }
         }
 
-        left.abs_diff(right) as f32 / count as f32
+        if count > 0 {
+            left.abs_diff(right) as f32 / count as f32
+        } else {
+            0.0
+        }
     }
 
     pub fn eval_position_quality(
@@ -139,6 +142,11 @@ impl Game {
         external_dictionary: &WordDict,
     ) -> f32 {
         let (coords, _) = self.board.collect_combanants(player, position);
+
+        if coords.is_empty() {
+            return 0.0;
+        }
+
         let words = self
             .board
             .word_strings(&coords)
