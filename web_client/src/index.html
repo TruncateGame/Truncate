@@ -274,19 +274,23 @@
                 }
 
                 try_start() {
-                    if (this.errored) return;
+                    console.log("Trying to start Truncate...");
+                    if (this.errored || this.started) return;
                     if (!this.startFn) {
                         stage("loading");
                         return;
                     };
 
                     if (this.pendingRejoin) {
+                        console.log(`Rejoining...`);
                         this.startFn("__REJOIN__");
                         this.register_start();
                     } else if (this.pendingJoin && this.pendingJoin.length) {
+                        console.log(`Joining ${this.pendingJoin}...`);
                         this.startFn(this.pendingJoin);
                         this.register_start();
                     } else if (this.pendingCreate) {
+                        console.log(`Creating a new game...`);
                         this.startFn();
                         this.register_start();
                     }
@@ -297,6 +301,7 @@
                     document.querySelector("#splash").style.display = "none";
                     document.querySelector("#controls").style.display = "none";
                     document.querySelector("#truncate_canvas").style.zIndex = "999";
+                    console.log(`Revealing the Truncate client...`);
                 }
             }
             const truncate_runner = new TruncateRunner();
@@ -682,9 +687,9 @@
                         console.debug("Connecting to the builtin server");
                     }
 
-                    truncate_runner.startFn = (room_code) => {
+                    truncate_runner.make_ready((room_code) => {
                         window.__truncate_handle = wasm_bindgen.start("truncate_canvas", server, room_code ?? "");
-                    }
+                    });
 
                     console.debug("Truncate game initialized");
                 }
