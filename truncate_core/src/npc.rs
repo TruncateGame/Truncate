@@ -138,16 +138,18 @@ impl Game {
                     external_dictionary.unwrap(),
                 );
 
-                let our_progress = game_clone.eval_board_progress(game.next_player);
+                let our_frontline = game_clone.eval_board_frontline(game.next_player);
+                let our_progress = game_clone.eval_board_positions(game.next_player) * 0.2;
                 let their_progress =
-                    game_clone.eval_board_progress((game.next_player + 1) % game.players.len());
+                    game_clone.eval_board_positions((game.next_player + 1) % game.players.len());
 
-                let our_balance = game_clone.eval_single_player_balance(game.next_player) * 2.0;
+                let our_balance = game_clone.eval_single_player_balance(game.next_player) * 1.5;
 
                 let win_score = game_clone.eval_win(game.next_player);
 
-                let total_score =
-                    win_score + move_quality + our_progress - their_progress - our_balance;
+                let total_score = win_score + move_quality + our_frontline + our_progress
+                    - their_progress
+                    - our_balance;
 
                 moves.push((total_score, PlayerMessage::Place(position, *tile)));
             }
@@ -177,7 +179,8 @@ impl Game {
 
 // Evaluation functions
 impl Game {
-    pub fn eval_board_progress(&self, player: usize) -> f32 {
+    /// How many <player> tiles are there, and how far down the board are they?
+    pub fn eval_board_positions(&self, player: usize) -> f32 {
         let mut score = 0.0;
 
         for (rownum, row) in self.board.squares.iter().enumerate() {
@@ -197,6 +200,30 @@ impl Game {
         score
     }
 
+    /// How far forward are our furthest tiles?
+    pub fn eval_board_frontline(&self, player: usize) -> f32 {
+        let mut score = 0.0;
+
+        for (rownum, row) in self.board.squares.iter().enumerate() {
+            let row_score = if player == 0 {
+                rownum as f32
+            } else {
+                (&self.board.squares.len() - rownum) as f32
+            };
+
+            for sq in row {
+                if matches!(sq, Square::Occupied(p, _) if player == *p) {
+                    if row_score > score {
+                        score = row_score;
+                    }
+                }
+            }
+        }
+
+        score
+    }
+
+    /// How balanced are <player>'s tiles, left to right?
     pub fn eval_single_player_balance(&self, player: usize) -> f32 {
         let mut left = 0;
         let mut right = 0;
@@ -223,6 +250,7 @@ impl Game {
         }
     }
 
+    /// Are the words at the proposed position valid? How long and extensible are they?
     pub fn eval_position_quality(
         &self,
         player: usize,
@@ -255,11 +283,12 @@ impl Game {
         score / num_words
     }
 
+    /// Did someone win?
     pub fn eval_win(&self, player: usize) -> f32 {
-        if matches!(self.winner, Some(p) if p == player) {
-            100000.0
-        } else {
-            0.0
+        match self.winner {
+            Some(p) if p == player => 100000.0,
+            Some(_) => -100000.0,
+            None => 0.0,
         }
     }
 }
