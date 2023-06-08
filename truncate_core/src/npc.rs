@@ -9,10 +9,79 @@ use crate::{
     judge::WordDict,
     messages::PlayerMessage,
     moves::Move,
+    player::Hand,
 };
 
 impl Game {
     pub fn brute_force(game: &Game, external_dictionary: Option<&WordDict>) -> PlayerMessage {
+        let evaluation_player = game.next_player;
+
+        let mut best_moves = Game::find_best_moves(game.to_owned(), external_dictionary, 5);
+
+        for potential_move in best_moves.iter_mut() {
+            // Winning move
+            if potential_move.0 >= 5000.0 {
+                return potential_move.1.clone();
+            }
+
+            let PlayerMessage::Place(position, tile) = potential_move.1 else {
+                continue;
+            };
+
+            let mut thisgame = game.to_owned();
+            thisgame.instrument_unknown_game_state(evaluation_player);
+            thisgame
+                .play_turn(
+                    Move::Place {
+                        player: thisgame.next_player,
+                        tile,
+                        position,
+                    },
+                    external_dictionary,
+                )
+                .expect("Potential move was valid");
+
+            if let Some(best_opponent_move) =
+                Game::find_best_moves(thisgame.clone(), external_dictionary, 1).first()
+            {
+                let PlayerMessage::Place(position, tile) = best_opponent_move.1 else {
+                    continue;
+                };
+
+                thisgame
+                    .play_turn(
+                        Move::Place {
+                            player: thisgame.next_player,
+                            tile,
+                            position,
+                        },
+                        external_dictionary,
+                    )
+                    .expect("Potential move was valid");
+
+                if let Some(best_subsequent_move) =
+                    Game::find_best_moves(thisgame.clone(), external_dictionary, 1).first()
+                {
+                    potential_move.0 = best_subsequent_move.0;
+                }
+            }
+        }
+
+        best_moves.sort_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap());
+
+        if let Some((_, best_move)) = best_moves.into_iter().next() {
+            best_move
+        } else {
+            panic!("NPC Couldn't perform any move!");
+        }
+    }
+
+    // Finds the best N moves for whoever the next player is
+    pub fn find_best_moves(
+        game: Game,
+        external_dictionary: Option<&WordDict>,
+        num_moves: usize,
+    ) -> Vec<(f32, PlayerMessage)> {
         let mut playable_squares = HashSet::new();
         for dock in &game.board.docks {
             let sq = game.board.get(*dock).unwrap();
@@ -34,7 +103,7 @@ impl Game {
             .filter(|sq| matches!(game.board.get(*sq), Ok(Square::Land)))
             .collect();
 
-        let mut best_move: (f32, PlayerMessage) = (f32::MIN, PlayerMessage::Ping);
+        let mut moves: Vec<(f32, PlayerMessage)> = vec![];
 
         let playable_tiles: Vec<_> = game
             .players
@@ -80,15 +149,36 @@ impl Game {
                 let total_score =
                     win_score + move_quality + our_progress - their_progress - our_balance;
 
-                if best_move.0 < total_score {
-                    best_move = (total_score, PlayerMessage::Place(position, *tile));
-                }
+                moves.push((total_score, PlayerMessage::Place(position, *tile)));
             }
         }
 
-        best_move.1
+        if !moves.is_empty() {
+            moves.sort_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap());
+
+            println!("{moves:#?}");
+
+            let num_moves = moves.len().max(num_moves);
+            moves[0..num_moves].to_vec()
+        } else {
+            vec![]
+        }
     }
 
+    pub fn instrument_unknown_game_state(&mut self, evaluation_player: usize) {
+        let unknown_player = (evaluation_player + 1) % self.players.len();
+
+        // Prevent the evaluation player from being given new tiles in future turns
+        self.players[evaluation_player].hand_capacity = 0;
+
+        // Prevent the NPC from making decisions based on the opponent's tiles,
+        // assume all valid plays.
+        self.players[unknown_player].hand = Hand("*".chars().collect());
+    }
+}
+
+// Evaluation functions
+impl Game {
     pub fn eval_board_progress(&self, player: usize) -> f32 {
         let mut score = 0.0;
 
@@ -168,8 +258,8 @@ impl Game {
     }
 
     pub fn eval_win(&self, player: usize) -> f32 {
-        if matches!(self.winner, Some(player)) {
-            1000.0
+        if matches!(self.winner, Some(p) if p == player) {
+            100000.0
         } else {
             0.0
         }
