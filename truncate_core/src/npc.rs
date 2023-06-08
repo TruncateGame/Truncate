@@ -156,8 +156,6 @@ impl Game {
         if !moves.is_empty() {
             moves.sort_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap());
 
-            println!("{moves:#?}");
-
             let num_moves = moves.len().max(num_moves);
             moves[0..num_moves].to_vec()
         } else {
