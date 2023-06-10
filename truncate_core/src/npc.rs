@@ -10,7 +10,7 @@ use crate::{
     messages::PlayerMessage,
     moves::Move,
     player::Hand,
-    reporting::Change,
+    reporting::{BoardChange, Change},
 };
 
 pub struct Arborist {
@@ -18,11 +18,15 @@ pub struct Arborist {
     prune: bool,
 }
 impl Arborist {
-    fn pruning() -> Self {
+    pub fn pruning() -> Self {
         Self {
             assessed: 0,
             prune: true,
         }
+    }
+
+    pub fn assessed(&self) -> usize {
+        self.assessed
     }
 
     fn exhaustive() -> Self {
@@ -57,8 +61,8 @@ impl Game {
             game.clone(),
             external_dictionary,
             depth,
-            f32::MIN,
-            f32::MAX,
+            f32::NEG_INFINITY,
+            f32::INFINITY,
             evaluation_player,
             arborist
         ) else {
@@ -107,9 +111,12 @@ impl Game {
             };
 
         if depth == 0 || game.winner.is_some() {
-            (game.static_eval(external_dictionary, for_player), None)
+            (
+                game.static_eval(external_dictionary, for_player, depth),
+                None,
+            )
         } else if game.next_player == for_player {
-            let mut max_score = f32::MIN;
+            let mut max_score = f32::NEG_INFINITY;
             let mut relevant_move = None;
 
             for (position, tile) in game.possible_moves() {
@@ -130,7 +137,7 @@ impl Game {
 
             (max_score, relevant_move)
         } else {
-            let mut min_score = f32::MAX;
+            let mut min_score = f32::INFINITY;
             let mut relevant_move = None;
 
             for (position, tile) in game.possible_moves() {
@@ -212,22 +219,35 @@ impl Game {
 // Evaluation functions
 impl Game {
     /// Top-most evaluation function for looking at the game and calculating a score
-    fn static_eval(&self, _external_dictionary: Option<&WordDict>, for_player: usize) -> f32 {
-        // TODO: Replace with a static board evaluation of all words
-        // let move_quality =
-        //     game.eval_position_quality(for_player, position, external_dictionary.unwrap());
+    pub fn static_eval(
+        &self,
+        external_dictionary: Option<&WordDict>,
+        for_player: usize,
+        depth: usize,
+    ) -> f32 {
+        let word_quality = if let Some(external_dictionary) = external_dictionary {
+            self.eval_word_quality(external_dictionary, for_player)
+        } else {
+            0.0
+        };
 
         let our_frontline = self.eval_board_frontline(for_player);
-        let our_progress = self.eval_board_positions(for_player) * 0.2;
-        let their_progress = self.eval_board_positions((for_player + 1) % self.players.len());
+        let their_frontline =
+            self.eval_board_frontline((for_player + 1) % self.players.len()) * 2.0;
+
+        let our_progress = self.eval_board_positions(for_player);
+        let their_progress = self.eval_board_positions((for_player + 1) % self.players.len()) * 2.0;
 
         let our_balance = self.eval_single_player_balance(for_player) * 1.5;
 
-        let win_score = self.eval_win(for_player);
+        let win_score = self.eval_win(for_player, depth);
 
-        let total_score = win_score /* + move_quality */ + our_frontline + our_progress
+        let total_score = win_score + word_quality + our_frontline + our_progress
+            - their_frontline
             - their_progress
             - our_balance;
+
+        // println!("win_score{win_score} + word_quality{word_quality} + our_frontline{our_frontline} + our_progress{our_progress} - their_progress{their_progress} - our_balance{our_balance}");
 
         total_score
     }
@@ -303,44 +323,53 @@ impl Game {
         }
     }
 
-    /// Are the words at the proposed position valid? How long and extensible are they?
-    fn eval_position_quality(
-        &self,
-        player: usize,
-        position: Coordinate,
-        external_dictionary: &WordDict,
-    ) -> f32 {
-        let (coords, _) = self.board.collect_combanants(player, position);
+    fn eval_word_quality(&self, external_dictionary: &WordDict, player: usize) -> f32 {
+        let mut assessed_tiles: HashSet<Coordinate> = HashSet::new();
+        let mut score = 0.0;
+        let mut num_words = 0;
 
-        if coords.is_empty() {
-            return 0.0;
+        for (y, row) in self.board.squares.iter().enumerate() {
+            for (x, sq) in row.iter().enumerate() {
+                if matches!(sq, Square::Occupied(p, _) if player == *p) {
+                    if assessed_tiles.contains(&Coordinate { x, y }) {
+                        continue;
+                    }
+
+                    let word_coords = self.board.get_words(Coordinate { x, y });
+                    for coords in &word_coords {
+                        assessed_tiles.extend(coords.iter());
+                    }
+                    let words = self
+                        .board
+                        .word_strings(&word_coords)
+                        .expect("There should be words from a tile");
+
+                    num_words += words.len();
+                    for word in words {
+                        if let Some(word_data) = external_dictionary.get(&word.to_lowercase()) {
+                            score += word.len() as f32
+                                + word.len().saturating_sub(2).pow(2) as f32
+                                + (word_data.extensions.min(25) as f32 / 100.0);
+                        } else {
+                            score -= word.len().pow(2) as f32;
+                        }
+                    }
+                }
+            }
         }
 
-        let words = self
-            .board
-            .word_strings(&coords)
-            .expect("This should have already been a valid turn");
-        let num_words = words.len() as f32;
-
-        let score: f32 = words
-            .into_iter()
-            .map(|word| {
-                if let Some(word_data) = external_dictionary.get(&word.to_lowercase()) {
-                    word.len() as f32 + (word_data.extensions.min(25) as f32 / 100.0)
-                } else {
-                    -3 as f32
-                }
-            })
-            .sum();
-
-        score / num_words
+        if num_words > 0 {
+            score / num_words as f32
+        } else {
+            0.0
+        }
     }
 
     /// Did someone win?
-    fn eval_win(&self, player: usize) -> f32 {
+    fn eval_win(&self, player: usize, depth: usize) -> f32 {
         match self.winner {
-            Some(p) if p == player => 100000.0,
-            Some(_) => -100000.0,
+            Some(p) if p == player => 10000.0 * (depth + 1) as f32,
+            Some(_) => -10000.0 * (depth + 1) as f32,
             None => 0.0,
         }
     }
@@ -430,7 +459,7 @@ mod tests {
             Game::best_move(&game, Some(&dict), depth, Some(&mut exhaustive_arbor));
 
         let mut pruned_arbor = Arborist::pruning();
-        let pruned_best_move = Game::best_move(&game, Some(&dict), 3, Some(&mut pruned_arbor));
+        let pruned_best_move = Game::best_move(&game, Some(&dict), depth, Some(&mut pruned_arbor));
 
         assert_eq!(
             pruned_best_move,
@@ -468,6 +497,47 @@ mod tests {
     }
 
     #[test]
+    fn generic_scoring_tests() {
+        let dict = dict();
+
+        let game_a = test_game(
+            r###"
+            ~~ ~~ ~~ |0 ~~ ~~ ~~
+            __ __ S0 O0 __ __ __
+            __ __ T0 __ __ __ __
+            __ __ R0 __ __ __ __
+            __ __ __ T1 __ H1 __
+            __ __ __ A1 __ A1 __
+            __ __ __ R1 A1 T1 __
+            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            "###,
+            "A",
+        );
+        let score_a = game_a.static_eval(Some(&dict), 1, 1);
+        let game_b = test_game(
+            r###"
+            ~~ ~~ ~~ |0 ~~ ~~ ~~
+            __ __ S0 O0 __ __ __
+            __ __ T0 __ __ __ __
+            __ __ R0 __ __ __ __
+            __ __ __ T1 __ __ __
+            __ __ __ A1 __ __ R1
+            __ __ __ R1 A1 T1 E1
+            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            "###,
+            "A",
+        );
+        let score_b = game_b.static_eval(Some(&dict), 1, 1);
+
+        insta::with_settings!({
+            description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
+            omit_expression => true
+        }, {
+            insta::assert_snapshot!(format!("A: {} / B: {}", score_a, score_b), @"A: 12.75 / B: 10.988094");
+        });
+    }
+
+    #[test]
     fn generic_npc_tests() {
         let dict = dict();
 
@@ -501,7 +571,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3595 possible leaves
-                  - 1748 after pruning
+                  - 1457 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -542,7 +612,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3650 possible leaves
-                  - 1342 after pruning
+                  - 1150 after pruning
                   - Move: Place E at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -583,7 +653,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3768 possible leaves
-                  - 2180 after pruning
+                  - 2186 after pruning
                   - Move: Place S at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -624,7 +694,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3813 possible leaves
-                  - 973 after pruning
+                  - 971 after pruning
                   - Move: Place A at (0, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -665,7 +735,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3784 possible leaves
-                  - 1344 after pruning
+                  - 1210 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -676,6 +746,53 @@ mod tests {
                 __ __ A1 __ __
                 R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
+                "###);
+            });
+        }
+
+        /* - - - - - - - - - - - - - - - - - */
+
+        {
+            let (board, result) = eval_npc_result(
+                "SEAT",
+                r###"
+                ~~ ~~ |0 ~~ ~~ ~~ ~~
+                __ __ R0 __ __ __ __
+                __ __ A0 __ __ __ __
+                __ __ O0 S0 __ __ __
+                __ __ C0 T0 __ __ __
+                __ __ __ A0 __ __ __
+                __ __ __ B0 __ __ __
+                __ __ I1 __ __ __ __
+                __ __ D1 A1 T1 E1 S1
+                __ __ E1 __ __ __ __
+                ~~ ~~ |1 ~~ ~~ ~~ ~~
+                "###,
+                2,
+                &dict,
+            );
+
+            insta::with_settings!({
+                description => board,
+                omit_expression => true
+            }, {
+                insta::assert_snapshot!(result, @r###"
+                Evaluating:
+                  - 672 possible leaves
+                  - 406 after pruning
+                  - Move: Place S at (4, 7)
+
+                ~~ ~~ |0 ~~ ~~ ~~ ~~
+                __ __ R0 __ __ __ __
+                __ __ A0 __ __ __ __
+                __ __ O0 S0 __ __ __
+                __ __ C0 T0 __ __ __
+                __ __ __ A0 __ __ __
+                __ __ __ B0 __ __ __
+                __ __ I1 __ S1 __ __
+                __ __ D1 A1 T1 E1 S1
+                __ __ E1 __ __ __ __
+                ~~ ~~ |1 ~~ ~~ ~~ ~~
                 "###);
             });
         }

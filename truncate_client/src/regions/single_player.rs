@@ -84,7 +84,12 @@ impl SinglePlayerState {
         self.next_response_at = None;
 
         if self.game.next_player != 0 {
-            next_msg = Some((1, Game::best_move(&self.game, Some(&self.dict), 2, None)));
+            let mut arb = truncate_core::npc::Arborist::pruning();
+            next_msg = Some((
+                1,
+                Game::best_move(&self.game, Some(&self.dict), 3, Some(&mut arb)),
+            ));
+            println!("Looked at {} leaves", arb.assessed());
         }
 
         let next_move = match next_msg {

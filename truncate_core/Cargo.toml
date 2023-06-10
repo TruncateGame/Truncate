@@ -17,6 +17,11 @@ instant = "0.1"
 
 [dev-dependencies]
 insta = { version = "1.29.0", features = ["yaml"] }
+criterion = "0.3"
 
 [profile.dev]
 opt-level = 3
+
+[[bench]]
+name = "board_evals"
+harness = false
