@@ -84,17 +84,17 @@ impl SinglePlayerState {
         self.next_response_at = None;
 
         if self.game.next_player != 0 {
-            let start = time::Instant::now();
+            // let start = time::Instant::now();
             let mut arb = truncate_core::npc::Arborist::pruning();
             next_msg = Some((
                 1,
                 Game::best_move(&self.game, Some(&self.dict), 3, Some(&mut arb)),
             ));
-            println!(
-                "Looked at {} leaves in {}ms",
-                arb.assessed(),
-                start.elapsed().whole_milliseconds()
-            );
+            // println!(
+            //     "Looked at {} leaves in {}ms",
+            //     arb.assessed(),
+            //     start.elapsed().whole_milliseconds()
+            // );
         }
 
         let next_move = match next_msg {
