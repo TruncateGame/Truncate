@@ -242,7 +242,7 @@ impl Game {
         let our_progress = self.eval_board_positions(for_player);
         let their_progress = self.eval_board_positions((for_player + 1) % self.players.len()) * 2.0;
 
-        let our_defense = self.eval_defense(for_player) * 2.0;
+        let our_defense = self.eval_defense(for_player) * 1.5;
 
         let win_score = self.eval_win(for_player, depth);
 
