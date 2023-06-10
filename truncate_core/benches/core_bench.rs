@@ -56,15 +56,19 @@ fn test_game(board: &str, hand: &str) -> Game {
 
 pub fn npc_benches(c: &mut Criterion) {
     let game = test_game(
+        // A board with some complexity,
+        // and that has #1 towns that can be attacked
         r###"
-        ~~ ~~ |0 ~~ ~~
-        __ S0 O0 __ __
-        __ T0 __ __ __
-        __ R0 __ __ Q1
-        __ __ T1 __ X1
-        __ __ A1 P1 T1
-        E1 A1 R1 __ __
-        ~~ ~~ |1 ~~ ~~
+        ~~ ~~ |0 ~~ ~~ ~~ ~~
+        #0 #0 O0 #0 #0 #0 #0
+        __ S0 O0 __ __ __ __
+        __ T0 __ __ __ __ __
+        __ R0 __ __ Q1 __ __
+        __ __ T1 __ X1 __ __
+        __ __ A1 P1 T1 __ __
+        E1 A1 R1 __ __ __ __
+        #1 #1 E1 #1 #1 #1 #1
+        ~~ ~~ |1 ~~ ~~ ~~ ~~
         "###,
         "SPACE",
     );
@@ -88,9 +92,7 @@ pub fn npc_benches(c: &mut Criterion) {
 
     c.bench_function("win_eval", |b| b.iter(|| game.eval_win(1, 1)));
 
-    c.bench_function("balance_eval", |b| {
-        b.iter(|| game.eval_single_player_balance(1))
-    });
+    c.bench_function("defense_eval", |b| b.iter(|| game.eval_defense(1)));
 
     c.bench_function("move_finding", |b| {
         b.iter(|| Game::best_move(&game, Some(&dict), 3, None))

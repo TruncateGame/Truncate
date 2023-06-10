@@ -242,14 +242,13 @@ impl Game {
         let our_progress = self.eval_board_positions(for_player);
         let their_progress = self.eval_board_positions((for_player + 1) % self.players.len()) * 2.0;
 
-        let our_balance = self.eval_single_player_balance(for_player) * 1.5;
+        let our_defense = self.eval_defense(for_player) * 2.0;
 
         let win_score = self.eval_win(for_player, depth);
 
-        let total_score = win_score + word_quality + our_frontline + our_progress
+        let total_score = win_score + word_quality + our_defense + our_frontline + our_progress
             - their_frontline
-            - their_progress
-            - our_balance;
+            - their_progress;
 
         // println!("win_score{win_score} + word_quality{word_quality} + our_frontline{our_frontline} + our_progress{our_progress} - their_progress{their_progress} - our_balance{our_balance}");
 
@@ -300,28 +299,25 @@ impl Game {
         score
     }
 
-    /// How balanced are <player>'s tiles, left to right?
-    pub fn eval_single_player_balance(&self, player: usize) -> f32 {
-        let mut left = 0;
-        let mut right = 0;
-        let mut count = 0;
-        let midpoint = self.board.squares[0].len() / 2;
+    pub fn eval_defense(&self, player: usize) -> f32 {
+        let towns = self.board.towns.clone();
+        let attacker = (player + 1) % self.players.len();
+        let max_score = self.board.width() + self.board.height();
+        let mut num_towns = 0;
 
-        for row in self.board.squares.iter() {
-            for (colnum, sq) in row.iter().enumerate() {
-                if matches!(sq, Square::Occupied(p, _) if player == *p) {
-                    count += 1;
-                    if colnum < midpoint {
-                        left += midpoint - colnum;
-                    } else if colnum > midpoint {
-                        right += colnum - midpoint;
-                    }
-                }
-            }
-        }
+        let score: usize = towns
+            .into_iter()
+            .filter(|town| matches!(self.board.get(*town), Ok(Square::Town(p)) if player == p))
+            .map(|town| {
+                num_towns += 1;
+                self.board
+                    .distance_from_attack(town, attacker)
+                    .unwrap_or(max_score)
+            })
+            .sum();
 
-        if count > 0 {
-            left.abs_diff(right) as f32 / count as f32
+        if num_towns > 0 {
+            score as f32 / num_towns as f32
         } else {
             0.0
         }
@@ -540,7 +536,46 @@ mod tests {
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
             omit_expression => true
         }, {
-            insta::assert_snapshot!(format!("A: {} / B: {}", score_a, score_b), @"A: 7.75 / B: 4.6547623");
+            insta::assert_snapshot!(format!("(Total score) A: {} / B: {}", score_a, score_b), @"(Total score) A: 7.75 / B: 4.6547623");
+        });
+    }
+
+    #[test]
+    fn defense_scoring_tests() {
+        let game_a = test_game(
+            r###"
+            ~~ ~~ ~~ |0 ~~ ~~ ~~
+            __ __ S0 O0 __ __ __
+            __ __ __ __ __ __ __
+            __ __ __ __ __ __ __
+            __ __ A1 T1 __ H1 __
+            __ __ __ A1 __ A1 __
+            #1 #1 __ R1 A1 T1 #1
+            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            "###,
+            "A",
+        );
+        let score_a = game_a.eval_defense(1);
+        let game_b = test_game(
+            r###"
+            ~~ ~~ ~~ |0 ~~ ~~ ~~
+            __ __ S0 O0 __ __ __
+            __ __ __ __ __ __ __
+            __ __ __ __ __ __ __
+            __ H1 A1 T1 __ H1 __
+            __ __ __ A1 __ A1 __
+            #1 #1 __ R1 A1 T1 #1
+            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            "###,
+            "A",
+        );
+        let score_b = game_b.eval_defense(1);
+
+        insta::with_settings!({
+            description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
+            omit_expression => true
+        }, {
+            insta::assert_snapshot!(format!("(Defense score) A: {} / B: {}", score_a, score_b), @"(Defense score) A: 9.333333 / B: 15");
         });
     }
 
