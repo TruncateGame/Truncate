@@ -501,7 +501,7 @@ impl Board {
             words[1].reverse();
         }
 
-        // 1 letter words don't count expect when there's only one tile, in which case it does count as a word
+        // 1 letter words don't count except when there's only one tile, in which case it does count as a word
         if words.iter().all(|w| w.len() == 1) {
             words
         } else {

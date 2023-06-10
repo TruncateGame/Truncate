@@ -1,8 +1,11 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::{collections::HashMap, hint::black_box};
+use std::{
+    collections::{HashMap, HashSet},
+    hint::black_box,
+};
 use truncate_core::{
     bag::TileBag,
-    board::Board,
+    board::{Board, Coordinate},
     game::Game,
     judge::{WordData, WordDict},
     player::{Hand, Player},
@@ -51,7 +54,7 @@ fn test_game(board: &str, hand: &str) -> Game {
     game
 }
 
-pub fn criterion_benchmark(c: &mut Criterion) {
+pub fn npc_benches(c: &mut Criterion) {
     let game = test_game(
         r###"
         ~~ ~~ |0 ~~ ~~
@@ -67,8 +70,26 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     );
     let dict = dict();
 
-    c.bench_function("static_board_eval", |b| {
+    c.bench_function("total_board_eval", |b| {
         b.iter(|| game.static_eval(Some(&dict), 1, 1))
+    });
+
+    c.bench_function("frontline_eval", |b| {
+        b.iter(|| game.eval_board_frontline(1))
+    });
+
+    c.bench_function("positions_eval", |b| {
+        b.iter(|| game.eval_board_positions(1))
+    });
+
+    c.bench_function("quality_eval", |b| {
+        b.iter(|| game.eval_word_quality(&dict, 1))
+    });
+
+    c.bench_function("win_eval", |b| b.iter(|| game.eval_win(1, 1)));
+
+    c.bench_function("balance_eval", |b| {
+        b.iter(|| game.eval_single_player_balance(1))
     });
 
     c.bench_function("move_finding", |b| {
@@ -94,5 +115,29 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, criterion_benchmark);
+pub fn board_benches(c: &mut Criterion) {
+    let board = Board::from_string(
+        r###"
+        ~~ ~~ |0 ~~ ~~
+        __ S0 O0 __ __
+        __ T0 __ __ __
+        __ R0 __ __ Q1
+        __ __ T1 __ X1
+        __ __ A1 P1 T1
+        E1 A1 R1 __ __
+        ~~ ~~ |1 ~~ ~~
+        "###,
+    );
+
+    c.bench_function("get_word_coordinates", |b| {
+        b.iter(|| board.get_words(Coordinate { x: 2, y: 5 }))
+    });
+
+    let coords = board.get_words(Coordinate { x: 2, y: 5 });
+    c.bench_function("get_word_strings", |b| {
+        b.iter(|| board.word_strings(&coords))
+    });
+}
+
+criterion_group!(benches, npc_benches, board_benches);
 criterion_main!(benches);

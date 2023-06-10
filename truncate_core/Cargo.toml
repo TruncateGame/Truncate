@@ -23,5 +23,5 @@ criterion = "0.3"
 opt-level = 3
 
 [[bench]]
-name = "board_evals"
+name = "core_bench"
 harness = false

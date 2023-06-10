@@ -257,7 +257,7 @@ impl Game {
     }
 
     /// How many <player> tiles are there, and how far down the board are they?
-    fn eval_board_positions(&self, player: usize) -> f32 {
+    pub fn eval_board_positions(&self, player: usize) -> f32 {
         let mut score = 0.0;
 
         for (rownum, row) in self.board.squares.iter().enumerate() {
@@ -278,7 +278,7 @@ impl Game {
     }
 
     /// How far forward are our furthest tiles?
-    fn eval_board_frontline(&self, player: usize) -> f32 {
+    pub fn eval_board_frontline(&self, player: usize) -> f32 {
         let mut score = 0.0;
 
         for (rownum, row) in self.board.squares.iter().enumerate() {
@@ -301,7 +301,7 @@ impl Game {
     }
 
     /// How balanced are <player>'s tiles, left to right?
-    fn eval_single_player_balance(&self, player: usize) -> f32 {
+    pub fn eval_single_player_balance(&self, player: usize) -> f32 {
         let mut left = 0;
         let mut right = 0;
         let mut count = 0;
@@ -327,7 +327,7 @@ impl Game {
         }
     }
 
-    fn eval_word_quality(&self, external_dictionary: &WordDict, player: usize) -> f32 {
+    pub fn eval_word_quality(&self, external_dictionary: &WordDict, player: usize) -> f32 {
         let mut assessed_tiles: HashSet<Coordinate> = HashSet::new();
         let mut score = 0.0;
         let mut num_words = 0;
@@ -340,9 +340,8 @@ impl Game {
                     }
 
                     let word_coords = self.board.get_words(Coordinate { x, y });
-                    for coords in &word_coords {
-                        assessed_tiles.extend(coords.iter());
-                    }
+                    assessed_tiles.extend(word_coords.iter().flatten());
+
                     let words = self
                         .board
                         .word_strings(&word_coords)
@@ -374,7 +373,7 @@ impl Game {
     }
 
     /// Did someone win?
-    fn eval_win(&self, player: usize, depth: usize) -> f32 {
+    pub fn eval_win(&self, player: usize, depth: usize) -> f32 {
         match self.winner {
             Some(p) if p == player => 10000.0 * (depth + 1) as f32,
             Some(_) => -10000.0 * (depth + 1) as f32,
