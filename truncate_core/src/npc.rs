@@ -161,14 +161,18 @@ impl Game {
     }
 
     fn possible_moves(&self) -> Vec<(Coordinate, char)> {
-        let playable_tiles: Vec<_> = self
+        let mut playable_tiles: Vec<_> = self
             .players
             .get(self.next_player)
             .unwrap()
             .hand
             .iter()
             .cloned()
+            .collect::<HashSet<_>>()
+            .into_iter()
             .collect();
+
+        playable_tiles.sort();
 
         let mut playable_squares = HashSet::new();
         for dock in &self.board.docks {
@@ -348,8 +352,12 @@ impl Game {
                     for word in words {
                         if let Some(word_data) = external_dictionary.get(&word.to_lowercase()) {
                             score += word.len() as f32
-                                + word.len().saturating_sub(2).pow(2) as f32
+                                + (word.len().saturating_sub(2) * 2) as f32
                                 + (word_data.extensions.min(25) as f32 / 100.0);
+
+                            if word.len() == 2 {
+                                score -= 2.0;
+                            }
                         } else {
                             score -= word.len().pow(2) as f32;
                         }
@@ -533,7 +541,7 @@ mod tests {
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
             omit_expression => true
         }, {
-            insta::assert_snapshot!(format!("A: {} / B: {}", score_a, score_b), @"A: 12.75 / B: 10.988094");
+            insta::assert_snapshot!(format!("A: {} / B: {}", score_a, score_b), @"A: 7.75 / B: 4.6547623");
         });
     }
 
@@ -571,7 +579,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3595 possible leaves
-                  - 1457 after pruning
+                  - 1461 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -612,7 +620,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3650 possible leaves
-                  - 1150 after pruning
+                  - 1085 after pruning
                   - Move: Place E at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -653,8 +661,8 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3768 possible leaves
-                  - 2186 after pruning
-                  - Move: Place S at (1, 3)
+                  - 2182 after pruning
+                  - Move: Place A at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
@@ -694,7 +702,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3813 possible leaves
-                  - 971 after pruning
+                  - 1048 after pruning
                   - Move: Place A at (0, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -735,7 +743,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 3784 possible leaves
-                  - 1210 after pruning
+                  - 1247 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -779,8 +787,8 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 672 possible leaves
-                  - 406 after pruning
-                  - Move: Place S at (4, 7)
+                  - 415 after pruning
+                  - Move: Place A at (4, 7)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -789,7 +797,7 @@ mod tests {
                 __ __ C0 T0 __ __ __
                 __ __ __ A0 __ __ __
                 __ __ __ B0 __ __ __
-                __ __ I1 __ S1 __ __
+                __ __ I1 __ A1 __ __
                 __ __ D1 A1 T1 E1 S1
                 __ __ E1 __ __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~

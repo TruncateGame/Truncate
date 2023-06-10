@@ -74,6 +74,24 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("move_finding", |b| {
         b.iter(|| Game::best_move(&game, Some(&dict), 3, None))
     });
+
+    let small_hand_game = test_game(
+        r###"
+        ~~ ~~ |0 ~~ ~~
+        __ S0 O0 __ __
+        __ T0 __ __ __
+        __ R0 __ __ Q1
+        __ __ T1 __ X1
+        __ __ A1 P1 T1
+        E1 A1 R1 __ __
+        ~~ ~~ |1 ~~ ~~
+        "###,
+        "****",
+    );
+
+    c.bench_function("monotile_move_finder", |b| {
+        b.iter(|| Game::best_move(&small_hand_game, Some(&dict), 3, None))
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);
