@@ -84,22 +84,8 @@ impl SinglePlayerState {
         self.next_response_at = None;
 
         if self.game.next_player != 0 {
-            next_msg = Some((1, Game::brute_force(&self.game, Some(&self.dict))));
+            next_msg = Some((1, Game::best_move(&self.game, Some(&self.dict), 2, None)));
         }
-
-        // A version of the above that includes a turn delay.
-        // TODO: Store time that the turn changes and use that instead, since we only have whole seconds here.
-        // TODO: Maybe only delay when attacks happened?
-        // if self.game.next_player != 0 {
-        //     let current_time = self.active_game.ctx.current_time.as_secs();
-        //     let turn_starts = self.game.players[self.game.next_player]
-        //         .turn_starts_at
-        //         .unwrap_or_default();
-
-        //     if current_time - turn_starts > 0 {
-        //         next_msg = Some((1, Game::brute_force(&self.game, Some(&self.dict))));
-        //     }
-        // }
 
         let next_move = match next_msg {
             Some((player, PlayerMessage::Place(position, tile))) => Some(Move::Place {

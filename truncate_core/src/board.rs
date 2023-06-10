@@ -644,8 +644,12 @@ impl Board {
         // Transform string into a board
         let mut squares: Vec<Vec<Square>> = vec![];
         for line in s.as_ref().split('\n') {
+            if line.chars().all(|c| c.is_whitespace()) {
+                continue;
+            };
             squares.push(
-                line.split(' ')
+                line.trim()
+                    .split(' ')
                     .map(|tile| {
                         let mut chars = tile.chars();
                         match chars.next() {
