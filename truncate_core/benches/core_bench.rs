@@ -1,13 +1,14 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::{
     collections::{HashMap, HashSet},
+    fmt::format,
     hint::black_box,
 };
 use truncate_core::{
     bag::TileBag,
     board::{Board, Coordinate},
     game::Game,
-    judge::{WordData, WordDict},
+    judge::{Judge, WordData, WordDict},
     player::{Hand, Player},
 };
 
@@ -70,7 +71,7 @@ pub fn npc_benches(c: &mut Criterion) {
         #1 #1 E1 #1 #1 #1 #1
         ~~ ~~ |1 ~~ ~~ ~~ ~~
         "###,
-        "SPACE",
+        "SPACERX",
     );
     let dict = dict();
 
@@ -95,7 +96,7 @@ pub fn npc_benches(c: &mut Criterion) {
     c.bench_function("defense_eval", |b| b.iter(|| game.eval_defense(1)));
 
     c.bench_function("move_finding", |b| {
-        b.iter(|| Game::best_move(&game, Some(&dict), 3, None))
+        b.iter(|| Game::best_move(&game, Some(&dict), 4, None))
     });
 
     let small_hand_game = test_game(
@@ -131,6 +132,10 @@ pub fn board_benches(c: &mut Criterion) {
         "###,
     );
 
+    c.bench_function("board_dfs", |b| {
+        b.iter(|| board.depth_first_search(Coordinate { x: 2, y: 6 }))
+    });
+
     c.bench_function("get_word_coordinates", |b| {
         b.iter(|| board.get_words(Coordinate { x: 2, y: 5 }))
     });
@@ -141,5 +146,22 @@ pub fn board_benches(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, npc_benches, board_benches);
+pub fn judge_benches(c: &mut Criterion) {
+    let dict = dict();
+    let mut judge = Judge::new(vec![]);
+    let alias = judge.set_alias("xvzaro".chars().collect());
+
+    let aliased_judge_word = format!("P{alias}RTITI{alias}N");
+
+    c.bench_function("judge_with_double_alias", |b| {
+        b.iter(|| judge.valid(&aliased_judge_word, Some(&dict), None))
+    });
+
+    let wildcard_judge_word = format!("PAR*ITION");
+    c.bench_function("judge_with_wildcard", |b| {
+        b.iter(|| judge.valid(&wildcard_judge_word, Some(&dict), None))
+    });
+}
+
+criterion_group!(benches, npc_benches, board_benches, judge_benches);
 criterion_main!(benches);

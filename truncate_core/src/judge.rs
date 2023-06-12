@@ -39,12 +39,14 @@ impl fmt::Display for Outcome {
 #[derive(Clone)]
 pub struct Judge {
     builtin_dictionary: WordDict,
+    aliases: HashMap<char, Vec<char>>,
 }
 
 impl Default for Judge {
     fn default() -> Self {
         Self {
             builtin_dictionary: HashMap::new(),
+            aliases: HashMap::new(),
         }
     }
 }
@@ -63,7 +65,23 @@ impl Judge {
         }
         Self {
             builtin_dictionary: dictionary,
+            aliases: HashMap::new(),
         }
+    }
+
+    pub fn set_alias(&mut self, alias_target: Vec<char>) -> char {
+        for p in ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'] {
+            if self.aliases.contains_key(&p) {
+                continue;
+            }
+            self.aliases.insert(p, alias_target);
+            return p;
+        }
+        panic!("Too many aliases!");
+    }
+
+    pub fn remove_aliases(&mut self) {
+        self.aliases.clear();
     }
 
     // A player wins if they touch an opponent's town
@@ -125,7 +143,7 @@ impl Judge {
             attackers: attackers
                 .iter()
                 .map(|w| {
-                    let valid = self.valid(w, external_dictionary);
+                    let valid = self.valid(w, external_dictionary, None);
                     BattleWord {
                         valid: Some(valid.is_some()),
                         meanings: None,
@@ -155,7 +173,7 @@ impl Judge {
         }
 
         for defense in &mut battle_report.defenders {
-            let valid = self.valid(&*defense.word, external_dictionary);
+            let valid = self.valid(&*defense.word, external_dictionary, None);
             if let Some(valid) = valid {
                 defense.word = valid;
                 defense.valid = Some(true);
@@ -204,33 +222,59 @@ impl Judge {
     }
 
     /// Returns the string that was matched if word was a wildcard
-    fn valid<S: AsRef<str>>(
+    pub fn valid<S: AsRef<str>>(
         &self,
         word: S,
         external_dictionary: Option<&WordDict>,
+        used_aliases: Option<HashMap<char, Vec<usize>>>,
     ) -> Option<String> {
         if word.as_ref().contains('¤') {
             return Some(word.as_ref().to_string().to_uppercase());
         }
+
+        // Handle the first matching alias we find (others will be handled in the next recursion)
+        for (alias, resolved) in &self.aliases {
+            if word.as_ref().contains(*alias) {
+                return resolved.iter().enumerate().find_map(|(i, c)| {
+                    let mut used = used_aliases.clone().unwrap_or_default();
+                    if used.get(c).map(|tiles| tiles.contains(&i)) == Some(true) {
+                        return None;
+                    }
+
+                    if let Some(used_alias) = used.get_mut(c) {
+                        used_alias.push(i);
+                    } else {
+                        used.insert(*c, vec![i]);
+                    }
+
+                    self.valid(
+                        word.as_ref().replacen(*alias, &c.to_string(), 1),
+                        external_dictionary,
+                        Some(used),
+                    )
+                });
+            }
+        }
+
         if word.as_ref().contains('*') {
             // Try all letters in the first wildcard spot
             // TODO: find a fun way to optimize this to not be 26^wildcard_count (regex?)
-            // TODO: return the validated word all the way to the client for info
-            (97..=122_u8).find_map(|c| {
+            return (97..=122_u8).find_map(|c| {
                 self.valid(
                     word.as_ref().replacen('*', &(c as char).to_string(), 1),
                     external_dictionary,
+                    used_aliases.clone(),
                 )
-            })
+            });
+        }
+
+        if external_dictionary
+            .unwrap_or(&self.builtin_dictionary)
+            .contains_key(&word.as_ref().to_lowercase())
+        {
+            Some(word.as_ref().to_string().to_uppercase())
         } else {
-            if external_dictionary
-                .unwrap_or(&self.builtin_dictionary)
-                .contains_key(&word.as_ref().to_lowercase())
-            {
-                Some(word.as_ref().to_string().to_uppercase())
-            } else {
-                None
-            }
+            None
         }
     }
 }
@@ -392,6 +436,93 @@ mod tests {
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
+        );
+    }
+
+    #[test]
+    fn aliases() {
+        let mut j = short_dict();
+
+        let a_or_b = j.set_alias(vec!['a', 'b']);
+        let b_or_c = j.set_alias(vec!['b', 'c']);
+
+        assert_eq!(
+            j.battle(
+                vec![format!("B{a_or_b}G").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
+        );
+        assert_eq!(
+            j.battle(
+                vec![format!("B{b_or_c}G").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
+        );
+        assert_eq!(
+            j.battle(
+                vec![format!("{b_or_c}{a_or_b}G").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
+        );
+    }
+
+    #[test]
+    fn multi_aliases() {
+        let mut j = short_dict();
+
+        let o_or_l = j.set_alias(vec!['o', 'l']);
+        let two_ls = j.set_alias(vec!['l', 'l']);
+
+        // We can't double-dip on a tile with an alias
+        assert_eq!(
+            j.battle(
+                vec![format!("JO{o_or_l}{o_or_l}Y").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
+        );
+        // But we can use multiple of the same
+        assert_eq!(
+            j.battle(
+                vec![format!("JO{two_ls}{two_ls}Y").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
+        );
+        // Or multiple that are different
+        assert_eq!(
+            j.battle(
+                vec![format!("J{o_or_l}L{o_or_l}Y").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
         );
     }
 

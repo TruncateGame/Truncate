@@ -61,6 +61,7 @@ impl Game {
             game.clone(),
             external_dictionary,
             depth,
+            depth,
             f32::NEG_INFINITY,
             f32::INFINITY,
             evaluation_player,
@@ -75,13 +76,14 @@ impl Game {
     fn minimax(
         mut game: Game,
         external_dictionary: Option<&WordDict>,
+        total_depth: usize,
         depth: usize,
         mut alpha: f32,
         mut beta: f32,
         for_player: usize,
         arborist: &mut Arborist,
     ) -> (f32, Option<(Coordinate, char)>) {
-        game.instrument_unknown_game_state(for_player);
+        game.instrument_unknown_game_state(for_player, total_depth, depth);
         let pruning = arborist.prune();
 
         let mut turn_score =
@@ -101,6 +103,7 @@ impl Game {
                 Game::minimax(
                     next_turn,
                     external_dictionary,
+                    total_depth,
                     depth - 1,
                     alpha,
                     beta,
@@ -208,15 +211,30 @@ impl Game {
         coords
     }
 
-    fn instrument_unknown_game_state(&mut self, evaluation_player: usize) {
-        let unknown_player = (evaluation_player + 1) % self.players.len();
+    fn instrument_unknown_game_state(
+        &mut self,
+        evaluation_player: usize,
+        total_depth: usize,
+        current_depth: usize,
+    ) {
+        let unknown_player_index = (evaluation_player + 1) % self.players.len();
+
+        let player = &mut self.players[evaluation_player];
 
         // Prevent the evaluation player from being given new tiles in future turns
-        self.players[evaluation_player].hand_capacity = 0;
+        player.hand_capacity = 0;
+
+        // If we're past the first layer,
+        // use a combo tile for the eval player to reduce permutations.
+        if current_depth == total_depth - 1 {
+            let alias = self.judge.set_alias(player.hand.0.clone());
+            // Add enough that using them doesn't cause them to run out.
+            player.hand = Hand(vec![alias; current_depth]);
+        }
 
         // Prevent the NPC from making decisions based on the opponent's tiles,
         // assume all valid plays.
-        self.players[unknown_player].hand = Hand("*".chars().collect());
+        self.players[unknown_player_index].hand = Hand(vec!['*']);
     }
 }
 
@@ -536,7 +554,7 @@ mod tests {
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
             omit_expression => true
         }, {
-            insta::assert_snapshot!(format!("(Total score) A: {} / B: {}", score_a, score_b), @"(Total score) A: 7.75 / B: 4.6547623");
+            insta::assert_snapshot!(format!("(Total score) A: {} / B: {}", score_a, score_b), @"(Total score) A: 9.25 / B: 6.583334");
         });
     }
 
@@ -612,8 +630,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 3595 possible leaves
-                  - 1461 after pruning
+                  - 1337 possible leaves
+                  - 672 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -653,16 +671,16 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 3650 possible leaves
-                  - 1085 after pruning
-                  - Move: Place E at (3, 5)
+                  - 1366 possible leaves
+                  - 559 after pruning
+                  - Move: Place A at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 __ A0 __ __ __
                 __ R0 __ __ __
                 __ __ T1 __ __
-                __ __ A1 E1 __
+                __ __ A1 A1 __
                 __ __ R1 __ __
                 ~~ ~~ |1 ~~ ~~
                 "###);
@@ -694,8 +712,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 3768 possible leaves
-                  - 2182 after pruning
+                  - 1384 possible leaves
+                  - 798 after pruning
                   - Move: Place A at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -735,8 +753,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 3813 possible leaves
-                  - 1048 after pruning
+                  - 1399 possible leaves
+                  - 639 after pruning
                   - Move: Place A at (0, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -776,8 +794,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 3784 possible leaves
-                  - 1247 after pruning
+                  - 1400 possible leaves
+                  - 452 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -796,7 +814,7 @@ mod tests {
 
         {
             let (board, result) = eval_npc_result(
-                "SEAT",
+                "MATERSK",
                 r###"
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -810,7 +828,7 @@ mod tests {
                 __ __ E1 __ __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~
                 "###,
-                2,
+                3,
                 &dict,
             );
 
@@ -820,8 +838,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 672 possible leaves
-                  - 415 after pruning
+                  - 150764 possible leaves
+                  - 15337 after pruning
                   - Move: Place A at (4, 7)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
