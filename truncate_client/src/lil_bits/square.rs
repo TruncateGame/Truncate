@@ -7,7 +7,7 @@ use truncate_core::board::Coordinate;
 
 use crate::{
     regions::active_game::GameCtx,
-    utils::{mapper::MappedBoard, Theme},
+    utils::{mapper::MappedBoard, Diaphanize, Lighten, Theme},
 };
 
 use super::{tile::TilePlayer, TileUI};
@@ -78,6 +78,16 @@ impl SquareUI {
                     ctx.theme.rounding,
                     Stroke::new(1.0, hex_color!("ffffff01")),
                 );
+            }
+
+            if let Some(squares) = ctx.highlight_squares.as_ref() {
+                if squares.contains(&self.coord) && ctx.current_time.subsec_millis() > 500 {
+                    ui.painter().rect_filled(
+                        rect.shrink(ctx.theme.tile_margin),
+                        ctx.theme.rounding,
+                        ctx.theme.selection.pastel().gamma_multiply(0.5),
+                    );
+                }
             }
 
             let is_hovered = ui.rect_contains_pointer(interact_rect);

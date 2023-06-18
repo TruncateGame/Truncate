@@ -18,6 +18,7 @@ pub struct TileUI {
     letter: char,
     player: TilePlayer,
     selected: bool,
+    highlighted: bool,
     active: bool,
     hovered: bool,
     ghost: bool,
@@ -35,6 +36,7 @@ impl TileUI {
             letter,
             player,
             selected: false,
+            highlighted: false,
             active: true,
             hovered: false,
             ghost: false,
@@ -49,6 +51,11 @@ impl TileUI {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    pub fn highlighted(mut self, highlighted: bool) -> Self {
+        self.highlighted = highlighted;
         self
     }
 
@@ -100,7 +107,9 @@ impl TileUI {
 
 impl TileUI {
     fn tile_color(&self, hovered: bool, theme: &Theme, ctx: &GameCtx) -> Color32 {
-        if self.won {
+        if self.highlighted && ctx.current_time.subsec_millis() > 500 {
+            theme.selection.pastel()
+        } else if self.won || self.selected {
             theme.selection
         } else if self.defeated || self.truncated || !self.active {
             theme.text
@@ -160,11 +169,7 @@ impl TileUI {
                 None
             };
 
-            let tile_color = if self.selected {
-                theme.selection
-            } else {
-                self.tile_color(hovered, &theme, ctx)
-            };
+            let tile_color = self.tile_color(hovered, &theme, ctx);
             let mapped_tile = if self.ghost {
                 MappedTile::new(None, Some(tile_color), coord, ctx.map_texture.clone())
             } else {

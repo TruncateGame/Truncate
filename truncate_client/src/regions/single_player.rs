@@ -18,7 +18,7 @@ pub static WORDNIK: &str = include_str!("../../../word_freqs/final_wordlist.txt"
 
 pub struct SinglePlayerState {
     game: Game,
-    active_game: ActiveGame,
+    pub active_game: ActiveGame,
     dict: WordDict,
     next_response_at: Option<Duration>,
     winner: Option<usize>,

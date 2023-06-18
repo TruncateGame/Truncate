@@ -133,6 +133,19 @@ impl eframe::App for OuterApplication {
                 app_inner::render(self, ui)
             });
 
-        ctx.request_repaint_after(std::time::Duration::from_millis(250));
+        if let Some(time) = match &self.game_status {
+            app_inner::GameStatus::Tutorial(g) => Some(g.active_game.ctx.current_time),
+            app_inner::GameStatus::SinglePlayer(g) => Some(g.active_game.ctx.current_time),
+            app_inner::GameStatus::Active(g) => Some(g.ctx.current_time),
+            _ => None,
+        } {
+            let subsec = time.subsec_millis();
+            // In-game animations should try align with the quarter-second tick,
+            // so we try to repaint around that tick to keep them looking consistent
+            let next_tick = 251 - (subsec % 250);
+            ctx.request_repaint_after(std::time::Duration::from_millis(next_tick as u64));
+        } else {
+            ctx.request_repaint_after(std::time::Duration::from_millis(1000));
+        }
     }
 }

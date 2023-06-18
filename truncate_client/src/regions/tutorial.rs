@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use eframe::egui;
-use epaint::{vec2, TextureHandle};
+use eframe::egui::{self, Layout, Order, RichText, ScrollArea};
+use epaint::{hex_color, vec2, Color32, TextureHandle};
 use serde::Deserialize;
 use truncate_core::{
     bag::TileBag,
@@ -14,7 +14,7 @@ use truncate_core::{
     rules::{GameRules, TileDistribution},
 };
 
-use crate::utils::Theme;
+use crate::utils::{text::TextHelper, Diaphanize, Theme};
 
 use super::active_game::ActiveGame;
 
@@ -92,7 +92,7 @@ impl PartialEq<Move> for TutorialStep {
 
 pub struct TutorialState {
     game: Game,
-    active_game: ActiveGame,
+    pub active_game: ActiveGame,
     stage: usize,
     tutorial: Tutorial,
 }
@@ -145,7 +145,7 @@ impl TutorialState {
             winner: None,
         };
 
-        let active_game = ActiveGame::new(
+        let mut active_game = ActiveGame::new(
             "TUTORIAL_01".into(),
             game.players.iter().map(Into::into).collect(),
             0,
@@ -155,6 +155,7 @@ impl TutorialState {
             map_texture,
             theme,
         );
+        active_game.ctx.timers_visible = false;
 
         Self {
             game,
@@ -182,47 +183,21 @@ impl TutorialState {
             self.game.start();
         }
 
-        let mut dialog_pos = ui.available_rect_before_wrap();
-        let max_width = f32::min(300.0, dialog_pos.width() * 0.8);
-        let top_left = dialog_pos.right_bottom() - vec2(max_width, 200.0);
-        dialog_pos.set_left(top_left.x);
-        dialog_pos.set_top(top_left.y);
-
-        // Render the dialog / helper
-        egui::Window::new("Tutorial")
-            .title_bar(false)
-            .vscroll(true)
-            .resizable(false)
-            .fixed_size([dialog_pos.width(), dialog_pos.height()])
-            .default_rect(dialog_pos)
-            .show(ui.ctx(), |ui| {
-                match current_step {
-                    Some(step) => match step {
-                        TutorialStep::OwnMove { description, .. } => {
-                            ui.label(description);
-                        }
-                        TutorialStep::ComputerMove {
-                            computer: action,
-                            description,
-                            ..
-                        } => {
-                            ui.label(description);
-                            if ui.button("Next").clicked() {
-                                next_move = Some(action_to_move(1, action));
-                            }
-                        }
-                        TutorialStep::Dialog { message } => {
-                            ui.label(message);
-                            if ui.button("Next").clicked() {
-                                self.stage += 1;
-                            }
-                        }
-                    },
-                    None => {
-                        ui.label("Tutorial complete!");
-                    }
-                };
-            });
+        if let Some(TutorialStep::OwnMove { you, .. }) = current_step {
+            let m = action_to_move(0, you);
+            match m {
+                Move::Place { tile, position, .. } => {
+                    self.active_game.ctx.highlight_tiles = Some(vec![tile]);
+                    self.active_game.ctx.highlight_squares = Some(vec![position]);
+                }
+                Move::Swap { positions, .. } => {
+                    self.active_game.ctx.highlight_squares = Some(positions.to_vec());
+                }
+            }
+        } else {
+            self.active_game.ctx.highlight_tiles = None;
+            self.active_game.ctx.highlight_squares = None;
+        }
 
         // Standard game helper
         if let Some(msg) = self.active_game.render(ui, theme, None) {
@@ -249,6 +224,99 @@ impl TutorialState {
                 // TODO: Handle player doing the wrong tutorial thing
                 println!("Expected {msg} to be {:?}", step);
             }
+        }
+
+        if let Some(mut dialog_pos) = self.active_game.ctx.hand_companion_rect {
+            let max_width = f32::min(600.0, dialog_pos.width());
+            let max_height = f32::min(200.0, dialog_pos.height());
+
+            dialog_pos = dialog_pos
+                .shrink2(vec2(
+                    (dialog_pos.width() - max_width) / 2.0,
+                    (dialog_pos.height() - max_height) / 2.0,
+                ))
+                .shrink(8.0);
+            let inner_dialog = dialog_pos.shrink(8.0);
+
+            let area = egui::Area::new(egui::Id::new("tutorial_layer"))
+                .movable(false)
+                .order(Order::Foreground)
+                .fixed_pos(dialog_pos.left_top());
+
+            let resp = area.show(ui.ctx(), |ui| {
+                ui.painter().rect_filled(
+                    dialog_pos,
+                    4.0,
+                    self.active_game.ctx.theme.water.gamma_multiply(0.75),
+                );
+                ui.expand_to_include_rect(dialog_pos);
+                ui.allocate_ui_at_rect(inner_dialog, |ui| {
+                    ui.expand_to_include_rect(inner_dialog);
+
+                    ScrollArea::new([false, true]).show(ui, |ui| {
+                        let tut_fz = 20.0;
+                        match current_step {
+                            Some(step) => match step {
+                                TutorialStep::OwnMove { description, .. } => {
+                                    ui.label(RichText::new(description).size(tut_fz));
+                                }
+                                TutorialStep::ComputerMove {
+                                    computer: action,
+                                    description,
+                                    ..
+                                } => {
+                                    ui.label(RichText::new(description).size(tut_fz));
+                                    let text = TextHelper::heavy("NEXT", 14.0, ui);
+                                    ui.with_layout(
+                                        Layout::centered_and_justified(
+                                            egui::Direction::LeftToRight,
+                                        ),
+                                        |ui| {
+                                            if text
+                                                .button(
+                                                    Color32::WHITE.diaphanize(),
+                                                    theme.text,
+                                                    &self.active_game.ctx.map_texture,
+                                                    ui,
+                                                )
+                                                .clicked()
+                                            {
+                                                next_move = Some(action_to_move(1, action));
+                                            }
+                                        },
+                                    );
+                                }
+                                TutorialStep::Dialog { message } => {
+                                    ui.label(RichText::new(message).size(tut_fz));
+
+                                    let text = TextHelper::heavy("NEXT", 14.0, ui);
+                                    ui.with_layout(
+                                        Layout::centered_and_justified(
+                                            egui::Direction::LeftToRight,
+                                        ),
+                                        |ui| {
+                                            if text
+                                                .button(
+                                                    Color32::WHITE.diaphanize(),
+                                                    theme.text,
+                                                    &self.active_game.ctx.map_texture,
+                                                    ui,
+                                                )
+                                                .clicked()
+                                            {
+                                                self.stage += 1;
+                                            }
+                                        },
+                                    );
+                                }
+                            },
+                            None => {
+                                ui.label("Tutorial complete!");
+                            }
+                        };
+                    });
+                });
+            });
         }
 
         if let Some(game_move) = next_move {

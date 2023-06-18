@@ -28,6 +28,7 @@ impl<'a> HandUI<'a> {
     pub fn render(self, ctx: &mut GameCtx, ui: &mut egui::Ui) {
         let mut rearrange = None;
         let mut next_selection = None;
+        let mut highlights = ctx.highlight_tiles.clone();
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
@@ -54,11 +55,23 @@ impl<'a> HandUI<'a> {
                         let tile_id = Id::new("Hand").with(i).with(char);
                         let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(tile_id));
 
+                        let highlight = if let Some(highlights) = highlights.as_mut() {
+                            if let Some(c) = highlights.iter().position(|c| c == char) {
+                                highlights.remove(c);
+                                true
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        };
+
                         let tile_response = TileUI::new(*char, TilePlayer::Own)
                             .id(tile_id)
                             .active(self.active)
                             .ghost(is_being_dragged)
                             .selected(Some(i) == ctx.selected_tile_in_hand)
+                            .highlighted(highlight)
                             .render(None, ui, ctx, None);
 
                         if tile_response.drag_started() {

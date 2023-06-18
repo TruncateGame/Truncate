@@ -43,6 +43,10 @@ pub struct GameCtx {
     pub board_zoom: f32,
     pub board_pan: Vec2,
     pub sidebar_visible: bool,
+    pub timers_visible: bool,
+    pub hand_companion_rect: Option<Rect>,
+    pub highlight_tiles: Option<Vec<char>>,
+    pub highlight_squares: Option<Vec<Coordinate>>,
 }
 
 #[derive(Clone)]
@@ -91,6 +95,10 @@ impl ActiveGame {
                 board_zoom: 1.0,
                 board_pan: vec2(0.0, 0.0),
                 sidebar_visible: true,
+                timers_visible: true,
+                hand_companion_rect: None,
+                highlight_tiles: None,
+                highlight_squares: None,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -107,17 +115,31 @@ impl ActiveGame {
             turn_reports: vec![],
         }
     }
+}
 
+impl ActiveGame {
     pub fn render_control_strip(
         &mut self,
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
     ) {
+        let control_anchor = if self.ctx.timers_visible {
+            vec2(0.0, 0.0)
+        } else {
+            vec2(0.0, -200.0)
+        };
+
+        if !self.ctx.timers_visible {
+            let mut companion_pos = ui.available_rect_before_wrap();
+            companion_pos.set_top(companion_pos.bottom() - 200.0);
+            self.ctx.hand_companion_rect = Some(companion_pos);
+        }
+
         let area = egui::Area::new(egui::Id::new("controls_layer"))
             .movable(false)
             .order(Order::Foreground)
-            .anchor(Align2::LEFT_BOTTOM, vec2(0.0, 0.0));
+            .anchor(Align2::LEFT_BOTTOM, control_anchor);
 
         let avail_width = ui.available_width();
 
@@ -135,47 +157,40 @@ impl ActiveGame {
 
                     ui.add_space(10.0);
 
-                    if let Some(player) = self
-                        .players
-                        .iter()
-                        .find(|p| p.index == self.ctx.player_number as usize)
-                    {
-                        TimerUI::new(player, self.ctx.current_time, &self.time_changes)
-                            .friend(true)
-                            .active(player.index == self.ctx.next_player_number as usize)
-                            .winner(winner.clone())
-                            .render(ui, theme, &mut self.ctx);
+                    if self.ctx.timers_visible {
+                        if let Some(player) = self
+                            .players
+                            .iter()
+                            .find(|p| p.index == self.ctx.player_number as usize)
+                        {
+                            TimerUI::new(player, self.ctx.current_time, &self.time_changes)
+                                .friend(true)
+                                .active(player.index == self.ctx.next_player_number as usize)
+                                .winner(winner.clone())
+                                .render(ui, theme, &mut self.ctx);
+                            ui.add_space(10.0);
+                        }
+
+                        if let Some(opponent) = self
+                            .players
+                            .iter()
+                            .find(|p| p.index != self.ctx.player_number as usize)
+                        {
+                            TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
+                                .friend(false)
+                                .active(opponent.index == self.ctx.next_player_number as usize)
+                                .winner(winner.clone())
+                                .render(ui, theme, &mut self.ctx);
+                            ui.add_space(10.0);
+                        }
+
                         ui.add_space(10.0);
                     }
-
-                    if let Some(opponent) = self
-                        .players
-                        .iter()
-                        .find(|p| p.index != self.ctx.player_number as usize)
-                    {
-                        TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
-                            .friend(false)
-                            .active(opponent.index == self.ctx.next_player_number as usize)
-                            .winner(winner.clone())
-                            .render(ui, theme, &mut self.ctx);
-                        ui.add_space(10.0);
-                    }
-
-                    ui.add_space(10.0);
                 },
             );
         });
         // TODO: Paint this to an appropriate layer, or do sizing within the area above and paint it there.
         // ui.painter().rect_filled(resp.response.rect, 0.0, hex_color!("#ff000088"));
-    }
-
-    pub fn render_mobile_sidebar(
-        &mut self,
-        ui: &mut egui::Ui,
-        theme: &Theme,
-        winner: Option<usize>,
-    ) {
-        /* TODO: Mobile sidebar that slides over the board */
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
