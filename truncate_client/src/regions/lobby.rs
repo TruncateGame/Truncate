@@ -1,6 +1,6 @@
 use epaint::{
     emath::{Align, Align2},
-    hex_color, vec2, Color32, TextureHandle, Vec2,
+    hex_color, vec2, Color32, Stroke, TextureHandle, Vec2,
 };
 use truncate_core::{
     board::Board,
@@ -32,6 +32,7 @@ pub struct Lobby {
     pub board: Board,
     pub room_code: RoomCode,
     pub players: Vec<LobbyPlayerMessage>,
+    pub player_index: u64,
     pub player_colors: Vec<Color32>,
     pub mapped_board: MappedBoard,
     pub map_texture: TextureHandle,
@@ -42,6 +43,7 @@ impl Lobby {
     pub fn new(
         room_code: RoomCode,
         players: Vec<LobbyPlayerMessage>,
+        player_index: u64,
         board: Board,
         map_texture: TextureHandle,
     ) -> Self {
@@ -53,6 +55,7 @@ impl Lobby {
             room_code,
             mapped_board: MappedBoard::new(&board, map_texture.clone(), false, &player_colors),
             players,
+            player_index,
             player_colors,
             map_texture,
             board,
@@ -73,9 +76,11 @@ impl Lobby {
             .order(Order::Foreground)
             .anchor(Align2::RIGHT_TOP, vec2(0.0, 0.0));
 
-        let mut outer_sidebar_area = ui.max_rect().shrink2(vec2(0.0, 8.0));
-        outer_sidebar_area.set_right(outer_sidebar_area.right() - 8.0);
-        let inner_sidebar_area = outer_sidebar_area.shrink(8.0);
+        let sidebar_padding = 8.0;
+
+        let mut outer_sidebar_area = ui.max_rect().shrink2(vec2(0.0, sidebar_padding));
+        outer_sidebar_area.set_right(outer_sidebar_area.right() - sidebar_padding);
+        let inner_sidebar_area = outer_sidebar_area.shrink(sidebar_padding);
 
         let resp = area.show(ui.ctx(), |ui| {
             ui.painter()
@@ -109,8 +114,46 @@ impl Lobby {
 
                     // ui.add_space(12.0);
 
+                    ui.label(RichText::new("Playing as:").color(Color32::WHITE));
+                    if let Some(player) = self.players.get_mut(self.player_index as usize) {
+                        let input = ui.add(
+                            egui::TextEdit::singleline(&mut player.name)
+                                .frame(false)
+                                .margin(egui::vec2(0.0, 0.0))
+                                .min_size(vec2(0.0, theme.letter_size * 0.75))
+                                .text_color(Color32::WHITE)
+                                .vertical_align(Align::BOTTOM)
+                                .font(egui::FontId::new(
+                                    theme.letter_size / 2.0,
+                                    egui::FontFamily::Name("Truncate-Heavy".into()),
+                                )),
+                        );
+
+                        if input.changed() {
+                            msg = Some(PlayerMessage::EditName(player.name.clone()));
+
+                            #[cfg(target_arch = "wasm32")]
+                            {
+                                let local_storage =
+                                    web_sys::window().unwrap().local_storage().unwrap().unwrap();
+                                local_storage
+                                    .set_item("truncate_name_history", &player.name)
+                                    .unwrap();
+                            }
+                        }
+
+                        ui.painter().rect_stroke(
+                            input.rect.expand2(vec2(4.0, 2.0)),
+                            2.0,
+                            Stroke::new(1.0, Color32::WHITE),
+                        );
+                    }
+
                     ui.label(RichText::new("Other Players in Lobby:").color(Color32::WHITE));
                     for player in &self.players {
+                        if player.index == self.player_index as usize {
+                            continue;
+                        }
                         ui.label(RichText::new(&player.name).color(Color32::WHITE).font(
                             egui::FontId::new(
                                 theme.letter_size / 2.0,

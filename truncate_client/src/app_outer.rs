@@ -59,6 +59,7 @@ impl OuterApplication {
         });
 
         let mut game_status = app_inner::GameStatus::None("".into(), None);
+        let mut player_name = "___AUTO___".to_string();
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -67,6 +68,10 @@ impl OuterApplication {
                 local_storage.get_item("truncate_active_token").unwrap()
             {
                 game_status = app_inner::GameStatus::None("".into(), Some(existing_game_token));
+            }
+
+            if let Some(existing_name) = local_storage.get_item("truncate_name_history").unwrap() {
+                player_name = existing_name.into();
             }
         }
 
@@ -97,7 +102,7 @@ impl OuterApplication {
         }
 
         Self {
-            name: "Mystery Player".into(),
+            name: player_name,
             theme,
             game_status,
             rx_game,

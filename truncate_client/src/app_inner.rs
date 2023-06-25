@@ -74,7 +74,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
         } else {
             send(PlayerMessage::JoinGame(
                 launched_room.clone(),
-                "Player X".into(),
+                "___AUTO___".into(),
             ));
             new_game_status = Some(GameStatus::PendingJoin(launched_room));
         }
@@ -175,7 +175,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
     while let Ok(msg) = recv() {
         match msg {
             GameMessage::Ping => {}
-            GameMessage::JoinedLobby(id, players, board, token) => {
+            GameMessage::JoinedLobby(player_index, id, players, board, token) => {
                 #[cfg(target_arch = "wasm32")]
                 {
                     let local_storage =
@@ -188,15 +188,15 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                 *game_status = GameStatus::PendingStart(Lobby::new(
                     id.to_uppercase(),
                     players,
+                    player_index,
                     board,
                     map_texture.clone(),
                 ))
             }
-            GameMessage::LobbyUpdate(id, players, board) => {
+            GameMessage::LobbyUpdate(player_index, id, players, board) => {
                 match game_status {
                     GameStatus::PendingStart(editor_state) => {
-                        // assert_eq!(game.room_code, room_code);
-                        // assert_eq!(game.player_number, player_number);
+                        // TODO: Assert that this message is for the correct lobby
                         editor_state.players = players;
                         editor_state.update_board(board);
                     }

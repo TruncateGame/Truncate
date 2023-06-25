@@ -13,7 +13,6 @@ use crate::definitions::WordDB;
 
 #[derive(Debug)]
 pub struct Player {
-    pub name: String,
     pub socket: Option<SocketAddr>,
 }
 
@@ -40,12 +39,25 @@ impl GameState {
         }
     }
 
-    pub fn add_player(&mut self, player: Player) -> Result<usize, ()> {
+    pub fn get_player_index(&self, player_addr: SocketAddr) -> Option<usize> {
+        if let Some((player_index, _)) = self
+            .players
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.socket == Some(player_addr))
+        {
+            Some(player_index)
+        } else {
+            None
+        }
+    }
+
+    pub fn add_player(&mut self, player: Player, name: String) -> Result<usize, ()> {
         if self.game.started_at.is_some() {
             return Err(()); // TODO: Error types
         }
         // TODO: Check player #
-        self.game.add_player(player.name.clone());
+        self.game.add_player(name);
         self.players.push(player);
         Ok(self.players.len() - 1)
     }
@@ -64,8 +76,8 @@ impl GameState {
     }
 
     pub fn rename_player(&mut self, socket: SocketAddr, name: String) -> Result<(), ()> {
-        if let Some(player) = self.players.iter_mut().find(|p| p.socket == Some(socket)) {
-            player.name = name;
+        if let Some(player_index) = self.get_player_index(socket) {
+            self.game.players[player_index].name = name;
             Ok(())
         } else {
             println!("Couldn't rename player. Nothing stored for player {socket}");
@@ -171,12 +183,7 @@ impl GameState {
     ) -> Vec<(&Player, GameMessage)> {
         let mut messages = Vec::with_capacity(self.players.len());
 
-        if let Some((player_index, _)) = self
-            .players
-            .iter()
-            .enumerate()
-            .find(|(_, p)| p.socket == Some(player))
-        {
+        if let Some(player_index) = self.get_player_index(player) {
             let words_db = words.lock().await;
             match self.game.play_turn(
                 Move::Place {
@@ -234,12 +241,7 @@ impl GameState {
     ) -> Vec<(&Player, GameMessage)> {
         let mut messages = Vec::with_capacity(self.players.len());
 
-        if let Some((player_index, _)) = self
-            .players
-            .iter()
-            .enumerate()
-            .find(|(_, p)| p.socket == Some(player))
-        {
+        if let Some(player_index) = self.get_player_index(player) {
             let words_db = words.lock().await;
             match self.game.play_turn(
                 Move::Swap {

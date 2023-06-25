@@ -48,13 +48,20 @@ async fn handle_player_msg(
     use PlayerMessage::*;
     match parsed_msg {
         Ping => { /* TODO: Track pings and notify the game when players disconnect */ }
-        NewGame(name) => {
+        NewGame(mut player_name) => {
             let new_game_id = word_map.lock().await.get_free_code();
             let mut game = GameState::new(new_game_id.clone());
-            game.add_player(Player {
-                name: name.clone(),
-                socket: Some(addr.clone()),
-            })
+
+            if &player_name == "___AUTO___" {
+                player_name = "Player 1".into();
+            }
+
+            game.add_player(
+                Player {
+                    socket: Some(addr.clone()),
+                },
+                player_name.clone(),
+            )
             .expect("Failed to add first player to game");
 
             let color = game.game.players[0].color;
@@ -75,9 +82,10 @@ async fn handle_player_msg(
 
             player_tx
                 .send(GameMessage::JoinedLobby(
+                    0,
                     new_game_id,
                     vec![LobbyPlayerMessage {
-                        name,
+                        name: player_name,
                         color,
                         index: 0,
                     }],
@@ -86,15 +94,21 @@ async fn handle_player_msg(
                 ))
                 .unwrap();
         }
-        JoinGame(room_code, player_name) => {
+        JoinGame(room_code, mut player_name) => {
             let code = room_code.to_ascii_lowercase();
             if let Some(mut existing_game) = game_map.get_mut(&code) {
                 active_map.insert(addr, code.clone());
 
-                if let Ok(player_index) = existing_game.add_player(Player {
-                    name: player_name,
-                    socket: Some(addr.clone()),
-                }) {
+                if &player_name == "___AUTO___" {
+                    player_name = format!("Player {}", existing_game.players.len() + 1);
+                }
+
+                if let Ok(player_index) = existing_game.add_player(
+                    Player {
+                        socket: Some(addr.clone()),
+                    },
+                    player_name.clone(),
+                ) {
                     let claims = Claims::with_custom_claims(
                         PlayerClaims {
                             player_index,
@@ -108,6 +122,7 @@ async fn handle_player_msg(
 
                     player_tx
                         .send(GameMessage::JoinedLobby(
+                            player_index as u64,
                             code.clone(),
                             existing_game.player_list(),
                             existing_game.game.board.clone(),
@@ -120,6 +135,7 @@ async fn handle_player_msg(
                         let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
 
                         peer.send(GameMessage::LobbyUpdate(
+                            player_index as u64,
                             code.clone(),
                             existing_game.player_list(),
                             existing_game.game.board.clone(),
@@ -172,6 +188,7 @@ async fn handle_player_msg(
                         } else {
                             player_tx
                                 .send(GameMessage::JoinedLobby(
+                                    player_index as u64,
                                     code.clone(),
                                     existing_game.player_list(),
                                     existing_game.game.board.clone(),
@@ -211,11 +228,16 @@ async fn handle_player_msg(
                     })
                     .collect();
 
+                let Some(player_index) = game_state.get_player_index(addr) else {
+                    todo!("Handle player editing the board without having a turn index");
+                };
+
                 for player in &game_state.players {
                     let Some(socket) = player.socket else { todo!("Handle disconnected player") };
                     let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
 
                     peer.send(GameMessage::LobbyUpdate(
+                        player_index as u64,
                         game_state.game_id.clone(),
                         player_list.clone(),
                         board.clone(),
@@ -240,11 +262,16 @@ async fn handle_player_msg(
                         })
                         .collect();
 
+                    let Some(player_index) = game_state.get_player_index(addr) else {
+                        unreachable!("Player just renamed themselves");
+                    };
+
                     for player in &game_state.players {
                         let Some(socket) = player.socket else { todo!("Handle disconnected player") };
                         let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
 
                         peer.send(GameMessage::LobbyUpdate(
+                            player_index as u64,
                             game_state.game_id.clone(),
                             player_list.clone(),
                             game_state.game.board.clone(),
