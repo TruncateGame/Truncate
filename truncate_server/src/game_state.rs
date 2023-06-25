@@ -1,44 +1,18 @@
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
+use tokio::sync::{Mutex, MutexGuard};
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
-    messages::{GameMessage, GamePlayerMessage, GameStateMessage},
+    messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
     moves::Move,
-    player::Hand,
     reporting::Change,
 };
 
-use crate::definitions::Definitions;
-
-async fn hydrate_change_definitions(definitions: &Definitions, changes: &mut Vec<Change>) {
-    for battle in changes.iter_mut().filter_map(|change| match change {
-        Change::Battle(battle) => Some(battle),
-        _ => None,
-    }) {
-        println!("Evaluating battle {battle:#?}");
-        for word in &mut battle
-            .attackers
-            .iter_mut()
-            .filter(|w| w.valid == Some(true))
-        {
-            println!("Hydrating word {word:#?}");
-            word.definition = definitions.get_word(&word.word).await;
-        }
-        for word in &mut battle
-            .defenders
-            .iter_mut()
-            .filter(|w| w.valid == Some(true))
-        {
-            println!("Hydrating word {word:#?}");
-            word.definition = definitions.get_word(&word.word).await;
-        }
-    }
-}
+use crate::definitions::WordDB;
 
 #[derive(Debug)]
 pub struct Player {
-    pub name: String,
     pub socket: Option<SocketAddr>,
 }
 
@@ -56,7 +30,7 @@ pub struct GameState {
 
 impl GameState {
     pub fn new(game_id: String) -> Self {
-        let game = Game::new(9, 9);
+        let game = Game::new(9, 11);
 
         Self {
             game_id,
@@ -65,12 +39,25 @@ impl GameState {
         }
     }
 
-    pub fn add_player(&mut self, player: Player) -> Result<usize, ()> {
+    pub fn get_player_index(&self, player_addr: SocketAddr) -> Option<usize> {
+        if let Some((player_index, _)) = self
+            .players
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.socket == Some(player_addr))
+        {
+            Some(player_index)
+        } else {
+            None
+        }
+    }
+
+    pub fn add_player(&mut self, player: Player, name: String) -> Result<usize, ()> {
         if self.game.started_at.is_some() {
             return Err(()); // TODO: Error types
         }
         // TODO: Check player #
-        self.game.add_player(player.name.clone());
+        self.game.add_player(name);
         self.players.push(player);
         Ok(self.players.len() - 1)
     }
@@ -82,22 +69,71 @@ impl GameState {
                 Ok(())
             }
             None => {
-                println!("Couldn't reconnext player. Nothign stored for player {index}");
+                println!("Couldn't reconnect player. Nothing stored for player {index}");
                 Err(())
             }
         }
     }
 
-    pub fn player_list(&self) -> Vec<String> {
-        self.players.iter().map(|p| p.name.clone()).collect()
+    pub fn rename_player(&mut self, socket: SocketAddr, name: String) -> Result<(), ()> {
+        if let Some(player_index) = self.get_player_index(socket) {
+            self.game.players[player_index].name = name;
+            Ok(())
+        } else {
+            println!("Couldn't rename player. Nothing stored for player {socket}");
+            Err(())
+        }
+    }
+
+    pub fn player_list(&self) -> Vec<LobbyPlayerMessage> {
+        self.game
+            .players
+            .iter()
+            .map(|p| LobbyPlayerMessage {
+                name: p.name.clone(),
+                index: p.index,
+                color: p.color,
+            })
+            .collect()
     }
 
     pub fn edit_board(&mut self, board: Board) {
         self.game.board = board;
     }
 
-    pub fn game_msg(&self, player_index: usize) -> GameStateMessage {
-        let (board, changes) = self.game.filter_game_to_player(player_index);
+    pub fn game_msg(
+        &self,
+        player_index: usize,
+        word_map: Option<&MutexGuard<'_, WordDB>>,
+    ) -> GameStateMessage {
+        let (board, mut changes) = self.game.filter_game_to_player(player_index);
+
+        if let Some(definitions) = word_map {
+            for battle in changes.iter_mut().filter_map(|change| match change {
+                Change::Battle(battle) => Some(battle),
+                _ => None,
+            }) {
+                for word in &mut battle
+                    .attackers
+                    .iter_mut()
+                    .filter(|w| w.valid == Some(true))
+                {
+                    if let Some(meanings) = definitions.get_word(&word.word.to_lowercase()) {
+                        word.meanings = Some(meanings.clone());
+                    }
+                }
+
+                for word in &mut battle
+                    .defenders
+                    .iter_mut()
+                    .filter(|w| w.valid == Some(true))
+                {
+                    if let Some(meanings) = definitions.get_word(&word.word.to_lowercase()) {
+                        word.meanings = Some(meanings.clone());
+                    }
+                }
+            }
+        }
 
         let hand = self
             .game
@@ -108,18 +144,7 @@ impl GameState {
 
         GameStateMessage {
             room_code: self.game_id.clone(),
-            players: self
-                .game
-                .players
-                .iter()
-                .map(|p| GamePlayerMessage {
-                    name: p.name.clone(),
-                    index: p.index,
-                    allotted_time: p.allotted_time,
-                    time_remaining: p.time_remaining,
-                    turn_starts_at: p.turn_starts_at,
-                })
-                .collect(),
+            players: self.game.players.iter().map(Into::into).collect(),
             player_number: player_index as u64,
             next_player_number: self.game.next() as u64,
             board,
@@ -128,9 +153,12 @@ impl GameState {
         }
     }
 
-    pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
+    pub async fn start(&mut self) -> Vec<(&Player, GameMessage)> {
         // TODO: Check correct # of players
+
+        // Trim off all edges and add one back for our land edges to show in the gui
         self.game.board.trim();
+
         self.game.start();
         let mut messages = Vec::with_capacity(self.players.len());
 
@@ -139,7 +167,7 @@ impl GameState {
         for (player_index, player) in self.players.iter().enumerate() {
             messages.push((
                 player.clone(),
-                GameMessage::StartedGame(self.game_msg(player_index)),
+                GameMessage::StartedGame(self.game_msg(player_index, None)),
             ));
         }
 
@@ -151,44 +179,37 @@ impl GameState {
         player: SocketAddr,
         position: Coordinate,
         tile: char,
+        words: Arc<Mutex<WordDB>>,
     ) -> Vec<(&Player, GameMessage)> {
         let mut messages = Vec::with_capacity(self.players.len());
 
-        if let Some((player_index, _)) = self
-            .players
-            .iter()
-            .enumerate()
-            .find(|(_, p)| p.socket == Some(player))
-        {
-            match self.game.play_turn(Move::Place {
-                player: player_index,
-                tile,
-                position,
-            }) {
+        if let Some(player_index) = self.get_player_index(player) {
+            let words_db = words.lock().await;
+            match self.game.play_turn(
+                Move::Place {
+                    player: player_index,
+                    tile,
+                    position,
+                },
+                Some(&words_db.valid_words),
+            ) {
                 Ok(Some(winner)) => {
-                    // TODO: Provide a way for the player to request a definition for a specific word,
-                    // rather than requesting them all every time.
-                    // hydrate_change_definitions(&Definitions::new(), &mut changes).await;
                     for (player_index, player) in self.players.iter().enumerate() {
-                        let (board, changes) = self.game.filter_game_to_player(player_index);
-
                         messages.push((
                             player.clone(),
-                            GameMessage::GameEnd(self.game_msg(player_index), winner as u64),
+                            GameMessage::GameEnd(
+                                self.game_msg(player_index, Some(&words_db)),
+                                winner as u64,
+                            ),
                         ));
                     }
                     return messages;
                 }
                 Ok(None) => {
-                    // TODO: Provide a way for the player to request a definition for a specific word,
-                    // rather than requesting them all every time.
-                    // hydrate_change_definitions(&Definitions::new(), &mut changes).await;
                     for (player_index, player) in self.players.iter().enumerate() {
-                        let (board, changes) = self.game.filter_game_to_player(player_index);
-
                         messages.push((
                             player.clone(),
-                            GameMessage::GameUpdate(self.game_msg(player_index)),
+                            GameMessage::GameUpdate(self.game_msg(player_index, Some(&words_db))),
                         ));
                     }
                     return messages;
@@ -211,42 +232,32 @@ impl GameState {
 
     // TODO: Combine method with play and pass in a `Move` type
     // (need to solve the player lookup first)
-    pub fn swap(
+    pub async fn swap(
         &mut self,
         player: SocketAddr,
         from: Coordinate,
         to: Coordinate,
+        words: Arc<Mutex<WordDB>>,
     ) -> Vec<(&Player, GameMessage)> {
         let mut messages = Vec::with_capacity(self.players.len());
 
-        if let Some((player_index, _)) = self
-            .players
-            .iter()
-            .enumerate()
-            .find(|(_, p)| p.socket == Some(player))
-        {
-            match self.game.play_turn(Move::Swap {
-                player: player_index,
-                positions: [from, to],
-            }) {
+        if let Some(player_index) = self.get_player_index(player) {
+            let words_db = words.lock().await;
+            match self.game.play_turn(
+                Move::Swap {
+                    player: player_index,
+                    positions: [from, to],
+                },
+                Some(&words_db.valid_words),
+            ) {
                 Ok(Some(_)) => {
                     unreachable!("Cannot win by swapping")
                 }
                 Ok(None) => {
-                    // TODO: Tidy
-                    let mut hands = (0..self.players.len()).map(|player| {
-                        self.game
-                            .get_player(player)
-                            .expect("Player was not dealt a hand")
-                            .hand
-                            .clone()
-                    });
                     for (player_index, player) in self.players.iter().enumerate() {
-                        let (board, changes) = self.game.filter_game_to_player(player_index);
-
                         messages.push((
                             player.clone(),
-                            GameMessage::GameUpdate(self.game_msg(player_index)),
+                            GameMessage::GameUpdate(self.game_msg(player_index, None)),
                         ));
                     }
 

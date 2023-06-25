@@ -1,13 +1,13 @@
-mod active_game;
+mod app_inner;
+mod app_outer;
 mod debug;
-mod game;
-mod game_client;
 mod lil_bits;
-mod theming;
+mod regions;
+mod utils;
 #[cfg(target_arch = "wasm32")]
 mod web_comms;
 
-use game_client::GameClient;
+use app_outer::OuterApplication;
 
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::{self, prelude::*};
@@ -33,7 +33,7 @@ impl WebHandle {
 
     #[wasm_bindgen]
     pub fn set_some_content_from_javasript(&mut self, _some_data: &str) {
-        let _app = self.handle.lock().app_mut::<GameClient>();
+        let _app = self.handle.lock().app_mut::<OuterApplication>();
         // _app.data = some_data;
     }
 }
@@ -53,6 +53,7 @@ pub fn init_wasm_hooks() {
 pub async fn start_separate(
     canvas_id: &str,
     server_url: &str,
+    room_code: String,
 ) -> Result<WebHandle, wasm_bindgen::JsValue> {
     let web_options = eframe::WebOptions::default();
 
@@ -79,7 +80,12 @@ pub async fn start_separate(
         web_options,
         Box::new(|cc| {
             tx_context.send(cc.egui_ctx.clone()).unwrap();
-            Box::new(GameClient::new(cc, rx_game, tx_player))
+            Box::new(OuterApplication::new(
+                cc,
+                rx_game,
+                tx_player,
+                Some(room_code),
+            ))
         }),
     )
     .await
@@ -92,7 +98,24 @@ pub async fn start_separate(
 /// You can add more callbacks like this if you want to call in to your code.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn start(canvas_id: &str, server_url: &str) -> Result<WebHandle, wasm_bindgen::JsValue> {
+pub async fn start(
+    canvas_id: &str,
+    server_url: &str,
+    room_code: &str,
+) -> Result<WebHandle, wasm_bindgen::JsValue> {
+    use web_sys::console;
+
     init_wasm_hooks();
-    start_separate(canvas_id, server_url).await
+
+    if let (Some(commit_msg), Some(commit_hash)) = (option_env!("TR_MSG"), option_env!("TR_COMMIT"))
+    {
+        console::log_1(&format!("Running \"{commit_msg}\"").into());
+        console::log_1(
+            &format!("https://github.com/TruncateGame/Truncate/commit/{commit_hash}").into(),
+        );
+    } else {
+        console::log_1(&format!("No tagged git commit for current release.").into());
+    }
+
+    start_separate(canvas_id, server_url, room_code.to_string()).await
 }

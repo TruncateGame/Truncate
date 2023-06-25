@@ -2,36 +2,33 @@ use eframe::{
     egui::{self, Layout},
     emath::Align,
 };
-use epaint::{Rect, Stroke};
+use epaint::{hex_color, vec2, Rect, Stroke, TextureHandle};
+use truncate_core::board::Coordinate;
 
-use crate::theming::Theme;
+use crate::{
+    regions::active_game::GameCtx,
+    utils::{mapper::MappedBoard, Diaphanize, Lighten, Theme},
+};
 
-use super::{character::CharacterOrient, tile::TilePlayer, CharacterUI, TileUI};
+use super::{tile::TilePlayer, TileUI};
 
 pub struct SquareUI {
-    decorated: bool,
+    coord: Coordinate,
     enabled: bool,
     empty: bool,
     selected: bool,
-    root: bool,
     overlay: Option<char>,
 }
 
 impl SquareUI {
-    pub fn new() -> Self {
+    pub fn new(coord: Coordinate) -> Self {
         Self {
-            decorated: true,
+            coord,
             enabled: true,
             empty: false,
             selected: false,
-            root: false,
             overlay: None,
         }
-    }
-
-    pub fn decorated(mut self, decorated: bool) -> Self {
-        self.decorated = decorated;
-        self
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -49,11 +46,6 @@ impl SquareUI {
         self
     }
 
-    pub fn root(mut self, root: bool) -> Self {
-        self.root = root;
-        self
-    }
-
     pub fn overlay(mut self, overlay: Option<char>) -> Self {
         self.overlay = overlay;
         self
@@ -62,14 +54,15 @@ impl SquareUI {
     pub fn render(
         &self,
         ui: &mut egui::Ui,
-        theme: &Theme,
-        contents: impl FnOnce(&mut egui::Ui, &Theme),
+        ctx: &mut GameCtx,
+        mapped_board: &MappedBoard,
+        contents: impl FnOnce(&mut egui::Ui, &mut GameCtx),
     ) -> (egui::Response, Rect) {
         let (rect, response) = ui.allocate_exact_size(
-            egui::vec2(theme.grid_size, theme.grid_size),
+            egui::vec2(ctx.theme.grid_size, ctx.theme.grid_size),
             egui::Sense::hover(),
         );
-        let interact_rect = rect.shrink(theme.tile_margin);
+        let interact_rect = rect.shrink(ctx.theme.tile_margin);
         let mut response = ui.interact(
             interact_rect,
             response.id.with("interact"),
@@ -77,18 +70,14 @@ impl SquareUI {
         );
 
         if ui.is_rect_visible(rect) {
-            if self.enabled {
-                if self.empty && self.selected {
-                    ui.painter()
-                        .rect_filled(rect, theme.rounding, theme.selection);
-                }
+            mapped_board.render_coord(self.coord, rect, ui);
 
-                if self.decorated {
-                    ui.painter()
-                        .rect_filled(rect, theme.rounding, theme.background);
-                    ui.painter()
-                        .rect_stroke(rect, 0.0, Stroke::new(1.0, theme.outlines));
-                }
+            if self.enabled {
+                ui.painter().rect_stroke(
+                    rect.shrink(ctx.theme.tile_margin),
+                    ctx.theme.rounding,
+                    Stroke::new(1.0, hex_color!("ffffff01")),
+                );
             }
 
             let is_hovered = ui.rect_contains_pointer(interact_rect);
@@ -96,35 +85,35 @@ impl SquareUI {
             let show_overlay = is_hovered && self.overlay.is_some();
             let show_contents = !self.empty || !is_hovered;
 
-            // TODO: Show/hide this so it doesn't clash with things like dead/truncated tiles
-            if self.root && !is_hovered {
-                CharacterUI::new('#', CharacterOrient::North).render_with_color(
-                    ui,
-                    rect.shrink(theme.tile_margin),
-                    theme,
-                    theme.selection,
-                );
-            }
-
             if show_contents && !show_overlay {
                 contents(
                     &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                    theme,
+                    ctx,
                 );
             }
 
             if is_hovered {
                 if let Some(overlay) = self.overlay {
                     response = TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
+                        None,
                         &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                        theme,
+                        ctx,
+                        None,
                     );
-                } else if self.empty && !ui.ctx().memory(|mem| mem.is_anything_being_dragged()) {
-                    ui.painter().rect_filled(
-                        rect.shrink(theme.tile_margin),
-                        theme.rounding,
-                        theme.outlines,
-                    );
+                }
+            }
+
+            if self.empty {
+                if let Some(squares) = ctx.highlight_squares.as_ref() {
+                    if squares.contains(&self.coord) && ctx.current_time.subsec_millis() > 500 {
+                        let mut highlight_rect = rect.shrink(ctx.theme.tile_margin);
+
+                        ui.painter().rect_filled(
+                            highlight_rect,
+                            ctx.theme.rounding,
+                            ctx.theme.selection.pastel().gamma_multiply(0.5),
+                        );
+                    }
                 }
             }
         }

@@ -1,5 +1,5 @@
 use std::fmt;
-use time::{Duration, OffsetDateTime};
+use time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -35,8 +35,18 @@ impl Hand {
         self.0.get(index)
     }
 
+    pub fn find(&self, tile: char) -> Option<usize> {
+        self.0.iter().position(|t| *t == tile)
+    }
+
     pub fn replace(&mut self, index: usize, tile: char) {
         self.0[index] = tile;
+    }
+
+    pub fn replace_tile(&mut self, from: char, to: char) {
+        if let Some(index) = self.find(from) {
+            self.replace(index, to);
+        }
     }
 
     pub fn add(&mut self, tile: char) {
@@ -59,10 +69,12 @@ pub struct Player {
     pub index: usize,
     pub hand: Hand,
     pub hand_capacity: usize,
-    pub allotted_time: Duration,
-    pub time_remaining: Duration,
-    pub turn_starts_at: Option<OffsetDateTime>,
+    pub allotted_time: Option<Duration>,
+    pub time_remaining: Option<Duration>,
+    pub turn_starts_at: Option<u64>,
+    pub swap_count: usize,
     pub penalties_incurred: usize,
+    pub color: (u8, u8, u8),
 }
 
 impl Player {
@@ -71,7 +83,8 @@ impl Player {
         index: usize,
         hand_capacity: usize,
         bag: &mut TileBag,
-        time_allowance: Duration,
+        time_allowance: Option<Duration>,
+        color: (u8, u8, u8),
     ) -> Self {
         Self {
             name,
@@ -81,7 +94,9 @@ impl Player {
             allotted_time: time_allowance,
             time_remaining: time_allowance,
             turn_starts_at: None,
+            swap_count: 0,
             penalties_incurred: 0,
+            color,
         }
     }
 
@@ -134,7 +149,8 @@ mod tests {
             0,
             7,
             &mut bag,
-            Duration::new(60, 0),
+            Some(Duration::new(60, 0)),
+            (255, 0, 0),
         );
         assert_eq!(player.hand.len(), 7);
         // Note, this relies on randomness, so could fail even though it generally passes

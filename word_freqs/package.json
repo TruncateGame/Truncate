@@ -1,0 +1,14 @@
+{
+  "name": "word-freqs",
+  "private": true,
+  "scripts": {
+    "start": "rm -f final_wordlist.txt && node build_freqs.js"
+  },
+  "license": "CC-BY-SA",
+  "dependencies": {
+    "jsonlines": "^0.1.1"
+  },
+  "devDependencies": {
+    "sqlite3": "^5.1.6"
+  }
+}

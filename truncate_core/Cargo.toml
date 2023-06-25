@@ -13,3 +13,15 @@ anyhow = "1.0"
 thiserror = "1.0"
 serde = { version = "1", features = ["derive"] }
 time = { version = "0.3", features = ["serde"] }
+instant = "0.1"
+
+[dev-dependencies]
+insta = { version = "1.29.0", features = ["yaml"] }
+criterion = "0.3"
+
+[profile.dev]
+opt-level = 3
+
+[[bench]]
+name = "core_bench"
+harness = false

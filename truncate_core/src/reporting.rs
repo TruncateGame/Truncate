@@ -72,9 +72,15 @@ impl fmt::Display for HandChange {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WordMeaning {
+    pub pos: String,
+    pub defs: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BattleWord {
     pub word: String,
-    pub definition: Option<String>,
+    pub meanings: Option<Vec<WordMeaning>>,
     pub valid: Option<bool>,
 }
 
@@ -121,10 +127,27 @@ impl fmt::Display for BattleReport {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TimeChange {
+    pub player: usize,
+    pub time_change: isize,
+    pub reason: String,
+}
+
+impl fmt::Display for TimeChange {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.time_change {
+            0..=isize::MAX => write!(f, "Player gained {} seconds", self.time_change),
+            _ => write!(f, "Player lost {} seconds", self.time_change),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Change {
     Board(BoardChange),
     Hand(HandChange),
     Battle(BattleReport),
+    Time(TimeChange),
 }
 
 impl fmt::Display for Change {
@@ -133,6 +156,7 @@ impl fmt::Display for Change {
             Change::Board(c) => write!(f, "{c}"),
             Change::Hand(c) => write!(f, "{c}"),
             Change::Battle(c) => write!(f, "{c}"),
+            Change::Time(c) => write!(f, "{c}"),
         }
     }
 }
@@ -181,6 +205,7 @@ pub(crate) fn filter_to_player(
                 }
             }
             Change::Battle(_) => true,
+            Change::Time(_) => true,
         })
         .cloned()
         .collect::<Vec<_>>()

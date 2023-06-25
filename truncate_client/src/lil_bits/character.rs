@@ -1,8 +1,8 @@
-use eframe::egui;
-use epaint::{Color32, TextShape};
+use eframe::egui::{self, Id};
+use epaint::{Color32, TextShape, Vec2};
 use std::f32;
 
-use crate::theming::Theme;
+use crate::{utils::glyph_meaure::GlyphMeasure, utils::*};
 
 pub enum CharacterOrient {
     North,
@@ -70,17 +70,17 @@ impl CharacterUI {
 impl CharacterUI {
     fn char_color(&self, theme: &Theme) -> Color32 {
         if self.ghost {
-            theme.friend.dark
+            theme.outlines
         } else if !self.active {
             theme.outlines
         } else if self.hovered || self.selected {
-            theme.text.dark
+            theme.text.darken()
         } else if self.defeated {
             theme.defeated
         } else if self.truncated {
-            theme.text.light
+            theme.text.lighten()
         } else {
-            theme.text.base
+            theme.text
         }
     }
 
@@ -105,31 +105,44 @@ impl CharacterUI {
             color,
         );
 
-        let (angle, pos, shift) = match self.orientation {
+        let charshift: Vec2 = ui.memory_mut(|mem| {
+            if let Some(measurement) = mem.data.get_temp(Id::from(self.letter.to_string())) {
+                return measurement;
+            }
+            let glyph_measure: GlyphMeasure = mem.data.get_temp(Id::null()).unwrap();
+            let measurement = glyph_measure.measure(self.letter);
+            mem.data
+                .insert_temp(Id::from(self.letter.to_string()), measurement);
+            measurement
+        });
+
+        let (angle, shift) = match self.orientation {
             CharacterOrient::North => (
                 0.0,
-                rect.left_top(),
                 egui::Vec2::new(
-                    (rect.width() - galley.size().x) * 0.5,
-                    theme.letter_size * -0.2,
+                    (rect.width() - galley.size().x) * 0.5 + charshift.x * theme.letter_size,
+                    (rect.height() - galley.mesh_bounds.height()) * 0.5
+                        + charshift.y * 2.0 * theme.letter_size,
                 ),
             ),
-            CharacterOrient::East => todo!("Render Sideways characters"),
+            CharacterOrient::East => unimplemented!("Render Sideways characters"),
             CharacterOrient::South => (
                 f32::consts::PI,
-                rect.right_bottom(),
                 egui::Vec2::new(
-                    (rect.width() - galley.size().x) * -0.5,
-                    theme.letter_size * 0.2,
+                    galley.size().x + (rect.width() - galley.size().x) * 0.5
+                        - charshift.x * theme.letter_size,
+                    galley.size().y
+                        + (rect.height() - galley.mesh_bounds.height()) * -0.5
+                        + charshift.y * 2.0 * theme.letter_size,
                 ),
             ),
-            CharacterOrient::West => todo!("Render Sideways characters"),
+            CharacterOrient::West => unimplemented!("Render Sideways characters"),
         };
 
         ui.painter().add(TextShape {
             angle,
             override_text_color: Some(color),
-            ..TextShape::new(pos + shift, galley)
+            ..TextShape::new(rect.left_top() + shift, galley)
         });
     }
 }

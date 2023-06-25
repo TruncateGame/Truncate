@@ -1,10 +1,12 @@
-use time::{Duration, OffsetDateTime};
+use std::collections::{HashMap, HashSet};
+
+use time::Duration;
 
 use crate::bag::TileBag;
 use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
-use crate::judge::Outcome;
-use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, HandChange};
+use crate::judge::{Outcome, WordDict};
+use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, TimeChange};
 use crate::rules::{self, GameRules};
 
 use super::board::Board;
@@ -13,7 +15,15 @@ use super::moves::Move;
 use super::player::Player;
 use super::reporting::Change;
 
-#[derive(Default)]
+pub const GAME_COLORS: [(u8, u8, u8); 5] = [
+    (80_u8, 167_u8, 232_u8),
+    (122_u8, 40_u8, 203_u8),
+    (253_u8, 197_u8, 245_u8),
+    (230_u8, 63_u8, 56_u8),
+    (246_u8, 174_u8, 45_u8),
+];
+
+#[derive(Default, Clone)]
 pub struct Game {
     pub rules: GameRules,
     pub players: Vec<Player>,
@@ -21,9 +31,17 @@ pub struct Game {
     pub bag: TileBag,
     pub judge: Judge,
     pub recent_changes: Vec<Change>,
-    pub started_at: Option<OffsetDateTime>,
+    pub started_at: Option<u64>,
     pub next_player: usize,
     pub winner: Option<usize>,
+}
+
+// TODO: Move this to a helper file somewhere
+fn now() -> u64 {
+    instant::SystemTime::now()
+        .duration_since(instant::SystemTime::UNIX_EPOCH)
+        .expect("Please don't play Truncate before 1970")
+        .as_secs()
 }
 
 impl Game {
@@ -55,7 +73,8 @@ impl Game {
             self.players.len(),
             self.rules.hand_size,
             &mut self.bag,
-            Duration::new(time_allowance as i64, 0), // TODO: un-hardcode the duration of turns
+            Some(Duration::new(time_allowance as i64, 0)),
+            GAME_COLORS[self.players.len()],
         ));
     }
 
@@ -65,12 +84,16 @@ impl Game {
     }
 
     pub fn start(&mut self) {
-        self.started_at = Some(OffsetDateTime::now_utc());
+        self.started_at = Some(now());
         // TODO: Lookup player by `index` field rather than vec position
-        self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
+        self.players[self.next_player].turn_starts_at = Some(now());
     }
 
-    pub fn play_turn(&mut self, next_move: Move) -> Result<Option<usize>, String> {
+    pub fn play_turn(
+        &mut self,
+        next_move: Move,
+        external_dictionary: Option<&WordDict>,
+    ) -> Result<Option<usize>, String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
         }
@@ -82,15 +105,16 @@ impl Game {
         if player != self.next_player {
             return Err("Only the next player can play".into());
         }
-        let turn_duration = OffsetDateTime::now_utc()
-            - self.players[player]
+        let turn_duration = now().checked_sub(
+            self.players[player]
                 .turn_starts_at
-                .expect("Player played without the time running");
-        if turn_duration.is_negative() {
+                .expect("Player played without the time running"),
+        );
+        let Some(turn_duration) = turn_duration else {
             return Err("Player's turn has not yet started".into());
-        }
+        };
 
-        self.recent_changes = match self.make_move(next_move) {
+        self.recent_changes = match self.make_move(next_move, external_dictionary) {
             Ok(changes) => changes,
             Err(msg) => {
                 println!("{}", msg);
@@ -103,40 +127,46 @@ impl Game {
             return Ok(Some(winner));
         }
 
-        self.next_player = (self.next_player + 1) % self.board.get_orientations().len(); // TODO: remove this hacky way to get the number of players
+        self.next_player = (self.next_player + 1) % self.players.len();
 
         let this_player = &mut self.players[player];
-        this_player.time_remaining -= turn_duration;
-        let mut apply_penalties = 0;
+        if let Some(time_remaining) = &mut this_player.time_remaining {
+            *time_remaining -= Duration::seconds(turn_duration as i64);
+            let mut apply_penalties = 0;
 
-        if this_player.time_remaining.is_negative() {
-            // TODO: Make the penalty period an option
-            let total_penalties = 1 + (this_player.time_remaining.whole_seconds() / -60) as usize; // usize cast as we guaranteed both are negative
-            println!("Player {player} now has {total_penalties} penalties");
-            apply_penalties = total_penalties - this_player.penalties_incurred;
-            println!("Player {player} needs {apply_penalties} to be applied");
-            this_player.penalties_incurred = total_penalties;
-        }
+            if time_remaining.is_negative() {
+                // TODO: Make the penalty period an option
+                let total_penalties = 1 + (time_remaining.whole_seconds() / -60) as usize; // usize cast as we guaranteed both are negative
+                println!("Player {player} now has {total_penalties} penalties");
+                apply_penalties = total_penalties - this_player.penalties_incurred;
+                println!("Player {player} needs {apply_penalties} to be applied");
+                this_player.penalties_incurred = total_penalties;
+            }
 
-        if apply_penalties > 0 {
-            for other_player in &mut self.players {
-                if other_player.index == player {
-                    continue;
-                }
-                for _ in 0..apply_penalties {
-                    println!("Player {} gets a free tile", other_player.name);
-                    self.recent_changes.push(other_player.add_special_tile('¤'));
+            if apply_penalties > 0 {
+                for other_player in &mut self.players {
+                    if other_player.index == player {
+                        continue;
+                    }
+                    for _ in 0..apply_penalties {
+                        println!("Player {} gets a free tile", other_player.name);
+                        self.recent_changes.push(other_player.add_special_tile('¤'));
+                    }
                 }
             }
         }
 
         self.players[player].turn_starts_at = None;
-        self.players[self.next_player].turn_starts_at = Some(OffsetDateTime::now_utc());
+        self.players[self.next_player].turn_starts_at = Some(now());
 
         Ok(None)
     }
 
-    pub fn make_move(&mut self, game_move: Move) -> Result<Vec<Change>, GamePlayError> {
+    pub fn make_move(
+        &mut self,
+        game_move: Move,
+        external_dictionary: Option<&WordDict>,
+    ) -> Result<Vec<Change>, GamePlayError> {
         let mut changes = vec![];
 
         match game_move {
@@ -149,16 +179,13 @@ impl Game {
                     return Err(GamePlayError::OccupiedPlace);
                 }
 
-                if position != self.board.get_root(player)?
-                    && !self
-                        .board
-                        .neighbouring_squares(position)
-                        .iter()
-                        .any(|&(_, square)| match square {
-                            Square::Occupied(p, _) => p == player,
-                            _ => false,
-                        })
-                {
+                if !self.board.neighbouring_squares(position).iter().any(
+                    |&(_, square)| match square {
+                        Square::Occupied(p, _) => p == player,
+                        Square::Dock(p) => p == player,
+                        _ => false,
+                    },
+                ) {
                     return Err(GamePlayError::NonAdjacentPlace);
                 }
 
@@ -167,11 +194,53 @@ impl Game {
                     detail: self.board.set(position, player, tile)?,
                     action: BoardChangeAction::Added,
                 }));
-                self.resolve_attack(player, position, &mut changes);
+                self.resolve_attack(player, position, external_dictionary, &mut changes);
+
+                self.players[player].swap_count = 0;
+
                 Ok(changes)
             }
-            Move::Swap { player, positions } => {
-                self.board.swap(player, positions, &self.rules.swapping)
+            Move::Swap {
+                player: player_index,
+                positions,
+            } => {
+                let mut swap_result =
+                    self.board
+                        .swap(player_index, positions, &self.rules.swapping)?;
+                let player = &mut self.players[player_index];
+
+                player.swap_count += 1;
+
+                if let Some(swap_rules) = match &self.rules.swapping {
+                    rules::Swapping::Contiguous(rules) => Some(rules),
+                    rules::Swapping::Universal(rules) => Some(rules),
+                    rules::Swapping::None => None,
+                } {
+                    let player_swaps = player.swap_count;
+                    if player_swaps > swap_rules.swap_threshold {
+                        let penalty_number = player_swaps - swap_rules.swap_threshold - 1;
+                        let penalty = swap_rules
+                            .penalties
+                            .get(penalty_number)
+                            .or_else(|| swap_rules.penalties.last());
+                        if let (Some(penalty), Some(time_remaining)) =
+                            (penalty, &mut player.time_remaining)
+                        {
+                            let time_change = -(*penalty as isize);
+                            *time_remaining += Duration::seconds(time_change as i64);
+                            swap_result.push(Change::Time(TimeChange {
+                                player: player_index,
+                                time_change,
+                                reason: format!(
+                                    "Lost time for {player_swaps} consecutive swap{}",
+                                    if player_swaps == 1 { "" } else { "s" }
+                                ),
+                            }))
+                        }
+                    }
+                }
+
+                Ok(swap_result)
             }
         }
     }
@@ -183,7 +252,13 @@ impl Game {
     //   - Weak and invalid defending words die
     //   - Any remaining defending letters adjacent to the attacking tile die
     //   - Defending tiles are truncated
-    fn resolve_attack(&mut self, player: usize, position: Coordinate, changes: &mut Vec<Change>) {
+    fn resolve_attack(
+        &mut self,
+        player: usize,
+        position: Coordinate,
+        external_dictionary: Option<&WordDict>,
+        changes: &mut Vec<Change>,
+    ) {
         let (attackers, defenders) = self.board.collect_combanants(player, position);
         let attacking_words = self
             .board
@@ -194,10 +269,12 @@ impl Game {
             .word_strings(&defenders)
             .expect("Words were just found and should be valid");
 
-        if let Some(battle) =
-            self.judge
-                .battle(attacking_words, defending_words, &self.rules.battle_rules)
-        {
+        if let Some(battle) = self.judge.battle(
+            attacking_words,
+            defending_words,
+            &self.rules.battle_rules,
+            external_dictionary,
+        ) {
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
                     changes.extend(defenders.iter().flatten().map(|coordinate| {

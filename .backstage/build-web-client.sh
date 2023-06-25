@@ -14,7 +14,7 @@ OPTIMIZE=false
 export RUSTFLAGS=--cfg=web_sys_unstable_apis
 
 # Clear output from old stuff:
-rm -f "web_client/${CRATE_NAME}_bg.wasm"
+rm -f "web_client/src/static/${CRATE_NAME}_bg.wasm"
 
 echo "Building rust…"
 BUILD=release
@@ -34,7 +34,7 @@ TARGET=`cargo metadata --format-version=1 | jq --raw-output .target_directory`
 echo "Generating JS bindings for wasm…"
 TARGET_NAME="${CRATE_NAME}.wasm"
 WASM_PATH="${TARGET}/wasm32-unknown-unknown/$BUILD/$TARGET_NAME"
-wasm-bindgen "${WASM_PATH}" --out-dir web_client --no-modules --no-typescript
+wasm-bindgen "${WASM_PATH}" --out-dir web_client/src/static --no-modules --no-typescript
 
 # if this fails with "error: cannot import from modules (`env`) with `--no-modules`", you can use:
 # wasm2wat target/wasm32-unknown-unknown/release/egui_demo_app.wasm | rg env
@@ -46,7 +46,11 @@ wasm-bindgen "${WASM_PATH}" --out-dir web_client --no-modules --no-typescript
 if [[ "${OPTIMIZE}" = true ]]; then
   echo "Optimizing wasm…"
   # to get wasm-opt:  apt/brew/dnf install binaryen
-  wasm-opt "docs/${CRATE_NAME}_bg.wasm" -O2 --fast-math -o "docs/${CRATE_NAME}_bg.wasm" # add -g to get debug symbols
+  wasm-opt "web_client/src/static/${CRATE_NAME}_bg.wasm" -O2 --fast-math -o "docs/${CRATE_NAME}_bg.wasm" # add -g to get debug symbols
 fi
 
-echo "Finished docs/${CRATE_NAME}_bg.wasm"
+echo "Finished web_client/src/static/${CRATE_NAME}_bg.wasm"
+
+(cd web_client/src && npm i && npm run build)
+
+echo "Finished building Eleventy site"

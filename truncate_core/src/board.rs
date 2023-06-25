@@ -1,6 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::fmt;
 use std::slice::Iter;
 
@@ -12,19 +12,17 @@ use crate::rules;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
-    South,
-    East,
+    NorthWest,
     North,
+    NorthEast,
+    East,
+    SouthEast,
+    South,
+    SouthWest,
     West,
 }
 
 impl Direction {
-    pub fn iter() -> Iter<'static, Direction> {
-        use Direction::*;
-        static DIRECTIONS: [Direction; 4] = [South, East, North, West];
-        DIRECTIONS.iter()
-    }
-
     // Returns whether vertical words should be read from top to bottom if played by a player on this side of the board
     fn read_top_to_bottom(self) -> bool {
         matches!(self, Direction::South) || matches!(self, Direction::West)
@@ -36,19 +34,26 @@ impl Direction {
     }
 
     pub fn opposite(self) -> Self {
+        use Direction::*;
+
         match self {
-            Direction::North => Direction::South,
-            Direction::South => Direction::North,
-            Direction::East => Direction::West,
-            Direction::West => Direction::East,
+            NorthWest => SouthEast,
+            North => South,
+            NorthEast => SouthWest,
+            East => West,
+            SouthEast => NorthWest,
+            South => North,
+            SouthWest => NorthEast,
+            West => East,
         }
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Board {
-    pub squares: Vec<Vec<Option<Square>>>,
-    pub roots: Vec<Coordinate>,
+    pub squares: Vec<Vec<Square>>,
+    pub docks: Vec<Coordinate>,
+    pub towns: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
                                   // TODO: Move orientations off the Board and have them tagged against specific players
 }
@@ -59,34 +64,91 @@ pub struct Board {
 //  - the roots are at empty squares
 
 impl Board {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(land_width: usize, land_height: usize) -> Self {
         // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
-        let roots = vec![
-            Coordinate {
-                x: width / 2 + width % 2 - 1,
-                y: 0,
-            },
-            Coordinate {
-                x: width / 2,
-                y: height + 1,
-            },
-        ];
+        // let roots = vec![
+        //     Coordinate {
+        //         x: land_width / 2 + land_width % 2 - 1,
+        //         y: 0,
+        //     },
+        //     Coordinate {
+        //         x: land_width / 2,
+        //         y: land_height + 1,
+        //     },
+        // ];
 
-        let mut squares = vec![vec![None; width]]; // Start with an unoccupiable row to house player 1's root
-        squares.extend(vec![vec![Some(Square::Empty); width]; height]); // Make the centre of the board empty
-        squares.extend(vec![vec![None; width]]); // Add an unoccupiable row to house player 2's root
-        squares[roots[0].y][roots[0].x] = Some(Square::Empty); // Create root square
-        squares[roots[1].y][roots[1].x] = Some(Square::Empty);
+        // Final board should have a ring of water around the land, in which to place the docks
+        let board_width = land_width + 2;
+        let board_height = land_height + 2;
 
-        Board {
+        // Create a slice of land with water on the edges
+        let mut land_row = vec![Square::Land; land_width];
+        land_row.insert(0, Square::Water);
+        land_row.push(Square::Water);
+
+        let mut squares = vec![vec![Square::Water; board_width]]; // Start with our north row of water
+        squares.extend(vec![land_row.clone(); land_height]); // Build out the centre land of the board
+        squares.extend(vec![vec![Square::Water; board_width]]); // Finish with a south row of water
+
+        let mut board = Board {
             squares,
-            roots,
+            docks: vec![],
+            towns: vec![], // TODO: populate
             orientations: vec![Direction::North, Direction::South],
+        };
+
+        let dock_x = board_width / 2;
+
+        let north_towns = (1..=land_width)
+            .filter(|x| *x != dock_x)
+            .map(|x| Coordinate { x, y: 1 });
+        for town in north_towns {
+            board
+                .set_square(town, Square::Town(0))
+                .expect("Town square should exist on the land");
         }
+        // North dock
+        board
+            .set_square(Coordinate { x: dock_x, y: 0 }, Square::Dock(0))
+            .expect("Dock square should exist in the sea");
+
+        let south_towns = (1..=land_width)
+            .filter(|x| *x != dock_x)
+            .map(|x| Coordinate {
+                x,
+                y: board_height - 2,
+            });
+        for town in south_towns {
+            board
+                .set_square(town, Square::Town(1))
+                .expect("Town square should exist on the land");
+        }
+        // South dock
+        board
+            .set_square(
+                Coordinate {
+                    x: dock_x,
+                    y: board_height - 1,
+                },
+                Square::Dock(1),
+            )
+            .expect("Dock square should exist in the sea");
+
+        board.cache_special_squares();
+
+        board
     }
 
     pub fn get_orientations(&self) -> &Vec<Direction> {
         &self.orientations
+    }
+
+    pub fn land_width(&self) -> usize {
+        unimplemented!("Need to calculate the playable dimensions")
+    }
+
+    pub fn land_height(&self) -> usize {
+        unimplemented!("Need to calculate the playable dimensions")
     }
 
     pub fn width(&self) -> usize {
@@ -97,34 +159,64 @@ impl Board {
         self.squares.len()
     }
 
+    pub fn towns(&self) -> Iter<Coordinate> {
+        self.towns.iter()
+    }
+
+    /// Adds water to all edges of the board
+    pub fn grow(&mut self) {
+        for row in &mut self.squares {
+            row.insert(0, Square::Water);
+            row.push(Square::Water);
+        }
+
+        self.squares.insert(0, vec![Square::Water; self.width()]);
+        self.squares.push(vec![Square::Water; self.width()]);
+
+        self.cache_special_squares();
+    }
+
     /// Trims edges containing only empty squares
     pub fn trim(&mut self) {
         let trim_top = self
             .squares
             .iter()
-            .position(|row| row.iter().any(|s| s.is_some()))
-            .unwrap_or_default();
+            .position(|row| {
+                row.iter()
+                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
 
         let trim_bottom = self
             .squares
             .iter()
             .rev()
-            .position(|row| row.iter().any(|s| s.is_some()))
-            .unwrap_or_default();
+            .position(|row| {
+                row.iter()
+                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
 
         let trim_left = (0..self.width())
-            .position(|i| self.squares.iter().any(|row| row[i].is_some()))
-            .unwrap_or_default();
+            .position(|i| {
+                self.squares
+                    .iter()
+                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
 
         let trim_right = (0..self.width())
             .rev()
-            .position(|i| self.squares.iter().any(|row| row[i].is_some()))
-            .unwrap_or_default();
-
-        for root in &mut self.roots {
-            root.x = root.x.saturating_sub(trim_left);
-            root.y = root.y.saturating_sub(trim_top);
-        }
+            .position(|i| {
+                self.squares
+                    .iter()
+                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
 
         for _ in 0..trim_top {
             self.squares.remove(0);
@@ -140,6 +232,31 @@ impl Board {
                 row.remove(row.len() - 1);
             }
         }
+        self.cache_special_squares();
+    }
+
+    pub fn cache_special_squares(&mut self) {
+        let rows = self.height();
+        let cols = self.width();
+        // TODO: Implement iterators for board and pull this out
+        let coords = (0..rows)
+            .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+            .map(|(x, y)| Coordinate { x, y });
+
+        self.docks.clear();
+        self.towns.clear();
+
+        for coord in coords {
+            match self.get(coord) {
+                Ok(Square::Water | Square::Land | Square::Occupied(_, _)) => {}
+                Ok(Square::Town(_)) => self.towns.push(coord),
+                Ok(Square::Dock(_)) => self.docks.push(coord),
+                Err(e) => {
+                    eprintln!("{e}");
+                    unreachable!("Iterating over the board should not return invalid positions")
+                }
+            }
+        }
     }
 
     pub fn get(&self, position: Coordinate) -> Result<Square, GamePlayError> {
@@ -148,10 +265,27 @@ impl Board {
             .get(position.y)
             .and_then(|row| row.get(position.x))
         {
-            Some(Some(square)) => Ok(*square),
-            Some(None) => Err(GamePlayError::InvalidPosition { position }),
+            Some(square) => Ok(*square),
             None => Err(GamePlayError::OutSideBoardDimensions { position }),
         }
+    }
+
+    pub fn set_square(
+        &mut self,
+        position: Coordinate,
+        new_square: Square,
+    ) -> Result<(), GamePlayError> {
+        let square = self
+            .squares
+            .get_mut(position.y)
+            .and_then(|row| row.get_mut(position.x));
+
+        let Some(square) = square else {
+            return Err(GamePlayError::OutSideBoardDimensions { position });
+        };
+
+        *square = new_square;
+        Ok(())
     }
 
     pub fn set(
@@ -160,7 +294,7 @@ impl Board {
         player: usize,
         value: char,
     ) -> Result<BoardChangeDetail, GamePlayError> {
-        if self.roots.get(player).is_none() {
+        if self.docks.get(player).is_none() {
             return Err(GamePlayError::NonExistentPlayer { index: player });
         }
 
@@ -169,14 +303,14 @@ impl Board {
             .get_mut(position.y)
             .and_then(|row| row.get_mut(position.x))
         {
-            Some(Some(square)) => {
+            Some(square) if matches!(square, Square::Land | Square::Occupied(_, _)) => {
                 *square = Square::Occupied(player, value);
                 Ok(BoardChangeDetail {
                     square: square.to_owned(),
                     coordinate: position,
                 })
             }
-            Some(None) => Err(GamePlayError::InvalidPosition { position }),
+            Some(_) => Err(GamePlayError::InvalidPosition { position }),
             None => Err(GamePlayError::OutSideBoardDimensions { position }),
         }
     }
@@ -192,7 +326,7 @@ impl Board {
         }
 
         match swap_rules {
-            rules::Swapping::Contiguous => {
+            rules::Swapping::Contiguous(_) => {
                 if self
                     .depth_first_search(positions[0])
                     .get(&positions[1])
@@ -201,7 +335,7 @@ impl Board {
                     return Err(GamePlayError::DisjointSwap);
                 }
             }
-            rules::Swapping::Universal => { /* All swaps are allowed */ }
+            rules::Swapping::Universal(_) => { /* All swaps are allowed */ }
             rules::Swapping::None => {
                 return Err(GamePlayError::NoSwapping);
             }
@@ -209,14 +343,15 @@ impl Board {
 
         let mut tiles = ['&'; 2];
         for (i, pos) in positions.iter().enumerate() {
+            use Square::*;
             match self.get(*pos)? {
-                Square::Empty => return Err(GamePlayError::UnoccupiedSwap),
-                Square::Occupied(owner, tile) => {
+                Occupied(owner, tile) => {
                     if owner != player {
                         return Err(GamePlayError::UnownedSwap);
                     }
                     tiles[i] = tile;
                 }
+                Water | Land | Town(_) | Dock(_) => return Err(GamePlayError::UnoccupiedSwap),
             };
         }
 
@@ -234,7 +369,7 @@ impl Board {
 
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
     pub fn clear(&mut self, position: Coordinate) -> Option<BoardChangeDetail> {
-        if let Some(Some(square)) = self
+        if let Some(square) = self
             .squares
             .get_mut(position.y as usize)
             .and_then(|y| y.get_mut(position.x as usize))
@@ -244,7 +379,7 @@ impl Board {
                     square: *square,
                     coordinate: position,
                 });
-                *square = Square::Empty;
+                *square = Square::Land;
                 return change;
             }
         }
@@ -252,11 +387,12 @@ impl Board {
     }
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
-        Direction::iter()
-            .filter_map(|delta| {
-                let neighbour_coordinate = position.add(*delta);
-                if let Ok(square) = self.get(neighbour_coordinate) {
-                    Some((neighbour_coordinate, square))
+        position
+            .neighbors_4()
+            .into_iter()
+            .filter_map(|pos| {
+                if let Ok(square) = self.get(pos) {
+                    Some((pos, square))
                 } else {
                     None
                 }
@@ -268,7 +404,7 @@ impl Board {
 impl Board {
     pub fn truncate(&mut self, bag: &mut TileBag) -> Vec<Change> {
         let mut attatched = HashSet::new();
-        for root in self.roots.iter() {
+        for root in self.docks.iter() {
             attatched.extend(self.depth_first_search(*root));
         }
 
@@ -296,19 +432,17 @@ impl Board {
             .collect()
     }
 
-    pub fn get_root(&self, player: usize) -> Result<Coordinate, GamePlayError> {
-        match self.roots.get(player) {
-            Some(player) => Ok(*player),
-            None => Err(GamePlayError::NonExistentPlayer { index: player }),
-        }
-    }
-
     // TODO: return iterator or rename since it doesn't matter that this is depth first when we return a HashSet
-    fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
+    pub fn depth_first_search(&self, position: Coordinate) -> HashSet<Coordinate> {
         let mut visited = HashSet::new();
 
         fn dfs(b: &Board, position: Coordinate, visited: &mut HashSet<Coordinate>) {
-            if let Ok(Square::Occupied(player, _)) = b.get(position) {
+            let player = match b.get(position) {
+                Ok(Square::Occupied(player, _)) => Some(player),
+                Ok(Square::Dock(player)) => Some(player),
+                _ => None,
+            };
+            if let Some(player) = player {
                 visited.insert(position);
                 for (position, square) in b.neighbouring_squares(position) {
                     if let Square::Occupied(neighbours_player, _) = square {
@@ -322,6 +456,43 @@ impl Board {
 
         dfs(self, position, &mut visited);
         visited
+    }
+
+    /// Manhattan distance from a point on the board to the closest
+    /// tile of a given player that has a path to attack
+    pub fn distance_from_attack(&self, position: Coordinate, attacker: usize) -> Option<usize> {
+        let mut visited = HashSet::new();
+        let defended = |sqs: &Vec<(Coordinate, Square)>| {
+            sqs.iter()
+                .any(|(_, n)| matches!(n, Square::Occupied(player, _) if *player != attacker))
+        };
+
+        let neighbors = self.neighbouring_squares(position);
+        let mut pts: VecDeque<_> = neighbors.iter().map(|n| (n.0, 0)).collect();
+
+        while !pts.is_empty() {
+            let (pt, dist) = pts.pop_front().unwrap();
+
+            if visited.contains(&pt) {
+                continue;
+            }
+            visited.insert(pt);
+
+            match self.get(pt) {
+                Ok(Square::Occupied(player, _)) if player == attacker => return Some(dist),
+                Ok(Square::Land) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    if defended(&neighbors) {
+                        // Square is defended.
+                        continue;
+                    }
+                    pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                _ => continue,
+            }
+        }
+
+        None
     }
 
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
@@ -367,7 +538,7 @@ impl Board {
             words[1].reverse();
         }
 
-        // 1 letter words don't count expect when there's only one tile, in which case it does count as a word
+        // 1 letter words don't count except when there's only one tile, in which case it does count as a word
         if words.iter().all(|w| w.len() == 1) {
             words
         } else {
@@ -399,17 +570,19 @@ impl Board {
         coordinates: &Vec<Vec<Coordinate>>,
     ) -> Result<Vec<String>, GamePlayError> {
         let mut err = None; // TODO: is this a reasonable error handling method? We can't return an Err from the function from within the closure passed to map.
+        use Square::*;
         let strings = coordinates
             .iter()
             .map(|word| {
                 word.iter()
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
-                            Square::Empty => {
+                            Water | Land | Town(_) | Dock(_) => {
+                                debug_assert!(false);
                                 err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
                             }
-                            Square::Occupied(_, letter) => letter,
+                            Occupied(_, letter) => letter,
                         },
                         Err(e) => {
                             err = Some(e);
@@ -424,27 +597,6 @@ impl Board {
             Err(err_string)
         } else {
             Ok(strings)
-        }
-    }
-
-    // Get the row just beside the edge
-    // TODO: Consider deleting once explicit win squares are implemented
-    pub fn get_near_edge(&self, side: Direction) -> Vec<Coordinate> {
-        match side {
-            Direction::North => (0..self.width()).map(|x| Coordinate { x, y: 1 }).collect(),
-            Direction::South => (0..self.width())
-                .map(|x| Coordinate {
-                    x,
-                    y: (self.height() - 2),
-                })
-                .collect(),
-            Direction::East => (0..self.width())
-                .map(|y| Coordinate {
-                    x: (self.width() - 2),
-                    y,
-                })
-                .collect(),
-            Direction::West => (0..self.width()).map(|y| Coordinate { x: 1, y }).collect(),
         }
     }
 
@@ -524,31 +676,89 @@ impl Default for Board {
     }
 }
 
+impl Board {
+    pub fn from_string<S: AsRef<str>>(s: S) -> Board {
+        // Transform string into a board
+        let mut squares: Vec<Vec<Square>> = vec![];
+        for line in s.as_ref().split('\n') {
+            if line.chars().all(|c| c.is_whitespace()) {
+                continue;
+            };
+            squares.push(
+                line.trim()
+                    .split(' ')
+                    .map(|tile| {
+                        let mut chars = tile.chars();
+                        match chars.next() {
+                            Some('~') => Square::Water,
+                            Some('_') => Square::Land,
+                            Some('|') => Square::Dock(
+                                chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize,
+                            ),
+                            Some('#') => Square::Town(
+                                chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize,
+                            ),
+                            Some(letter) => Square::Occupied(
+                                chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize,
+                                letter,
+                            ),
+                            _ => panic!("Couldn't build board from string"),
+                        }
+                    })
+                    .collect(),
+            );
+        }
+
+        // Make sure the board is an valid non-jagged grid
+        if squares
+            .iter()
+            .skip(1)
+            .any(|line| line.len() != squares[0].len())
+        {
+            panic!("Tried to make a jagged board");
+        }
+
+        let mut board = Board {
+            squares,
+            towns: vec![],
+            docks: vec![],
+            orientations: vec![Direction::North, Direction::South],
+        };
+        board.cache_special_squares();
+
+        board
+    }
+}
+
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}\nRoots: {}",
+            "{}",
             self.squares
                 .iter()
                 .map(|row| {
                     row.iter()
-                        .map(|opt| match opt {
-                            Some(sq) => sq.to_string(),
-                            None => " ".to_string(),
-                        })
+                        .map(|sq| sq.to_string())
                         .collect::<Vec<String>>()
                         .join(" ")
                 })
                 .enumerate()
                 .map(|(_line_number, line)| line)
                 .collect::<Vec<String>>()
-                .join("\n"),
-            self.roots
-                .iter()
-                .map(|r| format!("{r}"))
-                .collect::<Vec<_>>()
-                .join(" / ")
+                .join("\n")
         )
     }
 }
@@ -565,24 +775,48 @@ impl Coordinate {
     }
 
     pub fn add(self, direction: Direction) -> Coordinate {
-        match direction {
-            Direction::North => Coordinate {
-                x: self.x,
-                y: usize::wrapping_sub(self.y, 1), // We use the computer graphics convention of (0,0) in the top left
+        use Direction::*;
+
+        Coordinate {
+            x: match direction {
+                West | NorthWest | SouthWest => usize::wrapping_sub(self.x, 1),
+                East | NorthEast | SouthEast => self.x + 1,
+                North | South => self.x,
             },
-            Direction::South => Coordinate {
-                x: self.x,
-                y: self.y + 1,
-            },
-            Direction::East => Coordinate {
-                x: self.x + 1,
-                y: self.y,
-            },
-            Direction::West => Coordinate {
-                x: usize::wrapping_sub(self.x, 1),
-                y: self.y,
+            y: match direction {
+                North | NorthEast | NorthWest => usize::wrapping_sub(self.y, 1),
+                South | SouthEast | SouthWest => self.y + 1,
+                East | West => self.y,
             },
         }
+    }
+
+    /// Return coordinates of the horizontal and vertical neighbors, from north clockwise
+    pub fn neighbors_4(&self) -> [Coordinate; 4] {
+        use Direction::*;
+
+        [
+            self.add(North),
+            self.add(East),
+            self.add(South),
+            self.add(West),
+        ]
+    }
+
+    /// Return coordinates of the horizontal, vertical, and diagonal neighbors, from northwest clockwise
+    pub fn neighbors_8(&self) -> [Coordinate; 8] {
+        use Direction::*;
+
+        [
+            self.add(NorthWest),
+            self.add(North),
+            self.add(NorthEast),
+            self.add(East),
+            self.add(SouthEast),
+            self.add(South),
+            self.add(SouthWest),
+            self.add(West),
+        ]
     }
 }
 
@@ -600,220 +834,235 @@ impl std::cmp::PartialEq<(usize, usize)> for Coordinate {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Square {
-    Empty,
+    Water,
+    Land,
+    Town(usize),
+    Dock(usize),
     Occupied(usize, char),
 }
 
 impl fmt::Display for Square {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
-            Square::Empty => write!(f, "_"),
-            Square::Occupied(_, tile) => write!(f, "{}", tile),
+            Square::Water => write!(f, "~~"),
+            Square::Land => write!(f, "__"),
+            Square::Town(p) => write!(f, "#{p}"),
+            Square::Dock(p) => write!(f, "|{p}"),
+            Square::Occupied(p, tile) => write!(f, "{tile}{p}"),
         }
-    }
-}
-
-impl Square {
-    pub fn to_oriented_string(&self, orientations: &Vec<Direction>) -> String {
-        match &self {
-            Square::Empty => String::from("_"),
-            Square::Occupied(player, tile) => {
-                if *(orientations
-                    .get(*player)
-                    .expect("Should only pass valid players"))
-                    == Direction::North
-                {
-                    Self::flip(tile).to_string()
-                } else {
-                    tile.to_string()
-                }
-            }
-        }
-    }
-
-    fn flip(character: &char) -> char {
-        const FLIPPED: [char; 26] = [
-            // TODO: does this recompute every time, or is it created at compile time since it's a const?
-            '∀', 'ꓭ', 'Ͻ', 'ᗡ', 'Ǝ', 'ᖵ', '⅁', 'H', 'I', 'ᒋ', 'ꓘ', '⅂', 'ꟽ', 'N', 'O', 'Ԁ', 'Ꝺ',
-            'ꓤ', 'S', 'ꓕ', 'Ո', 'Ʌ', 'Ϻ', 'X', '⅄', 'Z',
-        ];
-        FLIPPED[(*character as usize) - 65]
     }
 }
 
 #[cfg(test)]
 pub mod tests {
+    use crate::rules::SwapPenalty;
+
     use super::*;
+
+    fn default_swap_rules() -> SwapPenalty {
+        SwapPenalty {
+            swap_threshold: 3,
+            penalties: vec![],
+        }
+    }
 
     #[test]
     fn makes_default_boards() {
         assert_eq!(
-            Board::new(3, 1).to_string(),
-            ["  _  ", "_ _ _", "  _  ", "Roots: (1, 0) / (1, 2)"].join("\n")
+            Board::new(3, 3).to_string(),
+            "~~ ~~ |0 ~~ ~~\n\
+             ~~ #0 __ #0 ~~\n\
+             ~~ __ __ __ ~~\n\
+             ~~ #1 __ #1 ~~\n\
+             ~~ ~~ |1 ~~ ~~"
         );
 
         assert_eq!(
             Board::new(3, 2).to_string(),
-            ["  _  ", "_ _ _", "_ _ _", "  _  ", "Roots: (1, 0) / (1, 3)"].join("\n")
+            "~~ ~~ |0 ~~ ~~\n\
+             ~~ #0 __ #0 ~~\n\
+             ~~ #1 __ #1 ~~\n\
+             ~~ ~~ |1 ~~ ~~"
+        );
+
+        // TODO: Balance uneven boards
+        assert_eq!(
+            Board::new(2, 2).to_string(),
+            "~~ ~~ |0 ~~\n\
+             ~~ #0 __ ~~\n\
+             ~~ #1 __ ~~\n\
+             ~~ ~~ |1 ~~"
         );
 
         assert_eq!(
-            Board::new(2, 1).to_string(),
-            ["_  ", "_ _", "  _", "Roots: (0, 0) / (1, 2)"].join("\n")
-        );
-
-        assert_eq!(
-            Board::new(5, 1).to_string(),
-            [
-                "    _    ",
-                "_ _ _ _ _",
-                "    _    ",
-                "Roots: (2, 0) / (2, 2)"
-            ]
-            .join("\n")
-        );
-
-        assert_eq!(
-            Board::new(6, 1).to_string(),
-            [
-                "    _      ",
-                "_ _ _ _ _ _",
-                "      _    ",
-                "Roots: (2, 0) / (3, 2)"
-            ]
-            .join("\n")
+            Board::new(5, 5).to_string(),
+            "~~ ~~ ~~ |0 ~~ ~~ ~~\n\
+             ~~ #0 #0 __ #0 #0 ~~\n\
+             ~~ __ __ __ __ __ ~~\n\
+             ~~ __ __ __ __ __ ~~\n\
+             ~~ __ __ __ __ __ ~~\n\
+             ~~ #1 #1 __ #1 #1 ~~\n\
+             ~~ ~~ ~~ |1 ~~ ~~ ~~"
         );
     }
 
     #[test]
     fn trim_board() {
-        fn assert_board_trim(before: (String, Coordinate), after: (String, Coordinate)) {
-            let mut b = from_string(before.0, vec![before.1], vec![Direction::South]).unwrap();
-
-            b.trim();
-
-            assert_eq!(b.to_string(), after.0);
-            assert_eq!(b.roots[0], after.1);
-        }
-
-        // Nothing to trim
-        assert_board_trim(
-            (
-                [
-                    "_ _ _ _ _",
-                    "_ _ R _ _",
-                    "_ W O R _",
-                    "_ _ S _ _",
-                    "_ _ _ _ _",
-                ]
-                .join("\n"),
-                Coordinate::new(2, 2),
-            ),
-            (
-                [
-                    "_ _ _ _ _",
-                    "_ _ R _ _",
-                    "_ W O R _",
-                    "_ _ S _ _",
-                    "_ _ _ _ _",
-                    "Roots: (2, 2)",
-                ]
-                .join("\n"),
-                Coordinate::new(2, 2),
-            ),
+        let mut b = Board::from_string(
+            "~~ ~~ |0 ~~ ~~\n\
+             __ __ __ __ __\n\
+             __ __ R0 __ __\n\
+             __ W0 O0 R0 __\n\
+             __ __ S0 __ __\n\
+             __ __ __ __ __",
+        );
+        b.trim();
+        assert_eq!(
+            b.to_string(),
+            "~~ ~~ |0 ~~ ~~\n\
+             __ __ __ __ __\n\
+             __ __ R0 __ __\n\
+             __ W0 O0 R0 __\n\
+             __ __ S0 __ __\n\
+             __ __ __ __ __",
+            "Don't trim docks or land"
         );
 
-        // Edges to trim
-        assert_board_trim(
-            (
-                [
-                    "         ",
-                    "  _ R _  ",
-                    "  W O R  ",
-                    "  _ S _  ",
-                    "         ",
-                ]
-                .join("\n"),
-                Coordinate::new(2, 1),
-            ),
-            (
-                ["_ R _", "W O R", "_ S _", "Roots: (1, 0)"].join("\n"),
-                Coordinate::new(1, 0),
-            ),
+        let mut b = Board::from_string(
+            "~~ ~~ ~~ ~~ ~~\n\
+             ~~ __ R0 __ ~~\n\
+             ~~ W0 O0 R0 ~~\n\
+             ~~ __ S0 __ ~~\n\
+             ~~ ~~ ~~ ~~ ~~",
+        );
+        b.trim();
+        assert_eq!(
+            b.to_string(),
+            "~~ ~~ ~~ ~~ ~~\n\
+             ~~ __ R0 __ ~~\n\
+             ~~ W0 O0 R0 ~~\n\
+             ~~ __ S0 __ ~~\n\
+             ~~ ~~ ~~ ~~ ~~",
+            "Leave an edge of water around the board"
         );
 
-        // Don't trim inners
-        assert_board_trim(
-            (
-                [
-                    "_ _ _   _",
-                    "_ _ R   _",
-                    "         ",
-                    "_ _ S   _",
-                    "         ",
-                ]
-                .join("\n"),
-                Coordinate::new(0, 0),
-            ),
-            (
-                [
-                    "_ _ _   _",
-                    "_ _ R   _",
-                    "         ",
-                    "_ _ S   _",
-                    "Roots: (0, 0)",
-                ]
-                .join("\n"),
-                Coordinate::new(0, 0),
-            ),
+        let mut b = Board::from_string(
+            "~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ ~~ |0 ~~ ~~ ~~\n\
+             ~~ ~~ __ R0 __ ~~ ~~\n\
+             ~~ ~~ W0 O0 R0 ~~ ~~\n\
+             ~~ ~~ __ S0 __ |1 ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~ ~~",
+        );
+        b.trim();
+        assert_eq!(
+            b.to_string(),
+            "~~ ~~ |0 ~~ ~~\n\
+             ~~ __ R0 __ ~~\n\
+             ~~ W0 O0 R0 ~~\n\
+             ~~ __ S0 __ |1\n\
+             ~~ ~~ ~~ ~~ ~~",
+            "Trim excess water"
+        );
+
+        let mut b = Board::from_string(
+            "__ __ __ ~~ __\n\
+             __ __ R0 ~~ __\n\
+             ~~ ~~ ~~ ~~ ~~\n\
+             __ __ S0 ~~ __\n\
+             ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ ~~ ~~ ~~",
+        );
+        b.trim();
+        assert_eq!(
+            b.to_string(),
+            "__ __ __ ~~ __\n\
+             __ __ R0 ~~ __\n\
+             ~~ ~~ ~~ ~~ ~~\n\
+             __ __ S0 ~~ __\n\
+             ~~ ~~ ~~ ~~ ~~",
+            "Don't trim inner empty columns or rows"
+        );
+
+        let mut b = Board::from_string(
+            "~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             |0 ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ __ R0 __ ~~ ~~\n\
+             ~~ ~~ W0 O0 R0 ~~ ~~\n\
+             ~~ ~~ __ S0 __ |0 ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ ~~ |1 ~~ ~~ ~~",
+        );
+        b.trim();
+        assert_eq!(
+            b.to_string(),
+            "~~ ~~ ~~ ~~ ~~\n\
+             ~~ __ R0 __ ~~\n\
+             ~~ W0 O0 R0 ~~\n\
+             ~~ __ S0 __ |0\n\
+             ~~ ~~ ~~ ~~ ~~",
+            "Do trim unconnected docks"
         );
     }
 
     #[test]
     fn width_height() {
         let b = Board::new(6, 1);
-        assert_eq!(b.width(), 6);
+        assert_eq!(b.width(), 8);
         assert_eq!(b.height(), 3);
     }
 
     #[test]
     fn getset_errors_out_of_bounds() {
-        let mut b = Board::new(1, 1); // Note, height is 3 from home rows
-        for position in [Coordinate { x: 1, y: 0 }, Coordinate { x: 0, y: 3 }] {
-            assert_eq!(
-                b.get(position),
-                Err(GamePlayError::OutSideBoardDimensions { position })
-            );
-            assert_eq!(
-                b.set(position, 0, 'a'),
-                Err(GamePlayError::OutSideBoardDimensions { position })
-            );
-        }
+        let mut b = Board::from_string(
+            "|0 __ __\n\
+             __ ~~ __\n\
+             __ __ __",
+        );
+
+        let position = Coordinate { x: 3, y: 1 };
+        assert_eq!(
+            b.get(position),
+            Err(GamePlayError::OutSideBoardDimensions { position })
+        );
+
+        let position = Coordinate { x: 1, y: 3 };
+        assert_eq!(
+            b.set(position, 0, 'a'),
+            Err(GamePlayError::OutSideBoardDimensions { position })
+        );
     }
 
     #[test]
     fn getset_errors_for_dead_squares() {
-        let mut b = Board::new(2, 1); // Note, height is 3 from home rows
+        let mut b = Board::from_string(
+            "__ |0 __\n\
+             __ ~~ __\n\
+             __ |1 __",
+        );
 
-        for position in [Coordinate { x: 1, y: 0 }, Coordinate { x: 0, y: 2 }] {
-            assert_eq!(
-                b.get(position),
-                Err(GamePlayError::InvalidPosition { position })
-            );
-            assert_eq!(
-                b.set(position, 0, 'a'),
-                Err(GamePlayError::InvalidPosition { position })
-            );
-        }
+        let position = Coordinate { x: 1, y: 1 };
+        assert_eq!(b.get(position), Ok(Square::Water));
+
+        let position = Coordinate { x: 1, y: 1 };
+        assert_eq!(
+            b.set(position, 0, 'a'),
+            Err(GamePlayError::InvalidPosition { position })
+        );
     }
 
     #[test]
     fn getset_handles_empty_squares() {
-        let mut b = Board::new(2, 1); // Note, height is 3 from home rows
-        assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Empty));
-        assert_eq!(b.get(Coordinate { x: 0, y: 1 }), Ok(Square::Empty));
-        assert_eq!(b.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
-        assert_eq!(b.get(Coordinate { x: 1, y: 2 }), Ok(Square::Empty));
+        let mut b = Board::from_string(
+            "__ |0 __\n\
+             __ |1 __",
+        );
+
+        assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Land));
+        assert_eq!(b.get(Coordinate { x: 0, y: 1 }), Ok(Square::Land));
+        assert_eq!(b.get(Coordinate { x: 2, y: 0 }), Ok(Square::Land));
+        assert_eq!(b.get(Coordinate { x: 2, y: 1 }), Ok(Square::Land));
 
         assert_eq!(
             b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
@@ -830,56 +1079,28 @@ pub mod tests {
             })
         );
         assert_eq!(
-            b.set(Coordinate { x: 1, y: 1 }, 0, 'a'),
+            b.set(Coordinate { x: 2, y: 0 }, 0, 'a'),
             Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'a'),
-                coordinate: Coordinate { x: 1, y: 1 },
+                coordinate: Coordinate { x: 2, y: 0 },
             })
         );
         assert_eq!(
-            b.set(Coordinate { x: 1, y: 2 }, 0, 'a'),
+            b.set(Coordinate { x: 2, y: 1 }, 0, 'a'),
             Ok(BoardChangeDetail {
                 square: Square::Occupied(0, 'a'),
-                coordinate: Coordinate { x: 1, y: 2 },
+                coordinate: Coordinate { x: 2, y: 1 },
             })
         );
     }
 
     #[test]
     fn set_requires_valid_player() {
-        let mut b = Board::new(2, 1);
-        assert_eq!(
-            b.set(Coordinate { x: 1, y: 2 }, 0, 'a'),
-            Ok(BoardChangeDetail {
-                square: Square::Occupied(0, 'a'),
-                coordinate: Coordinate { x: 1, y: 2 },
-            })
+        let mut b = Board::from_string(
+            "__ |0 __\n\
+             __ |1 __",
         );
-        assert_eq!(
-            b.set(Coordinate { x: 1, y: 2 }, 1, 'a'),
-            Ok(BoardChangeDetail {
-                square: Square::Occupied(1, 'a'),
-                coordinate: Coordinate { x: 1, y: 2 },
-            })
-        );
-        assert_eq!(
-            b.set(Coordinate { x: 1, y: 2 }, 2, 'a'),
-            Err(GamePlayError::NonExistentPlayer { index: 2 })
-        );
-        assert_eq!(
-            b.set(Coordinate { x: 1, y: 2 }, 3, 'a'),
-            Err(GamePlayError::NonExistentPlayer { index: 3 })
-        );
-        assert_eq!(
-            b.set(Coordinate { x: 1, y: 2 }, 100, 'a'),
-            Err(GamePlayError::NonExistentPlayer { index: 100 })
-        );
-    }
 
-    #[test]
-    fn set_changes_get() {
-        let mut b = Board::new(1, 1); // Note, height is 3 from home rows
-        assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Empty));
         assert_eq!(
             b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
             Ok(BoardChangeDetail {
@@ -888,21 +1109,59 @@ pub mod tests {
             })
         );
         assert_eq!(
-            b.get(Coordinate { x: 0, y: 0 }),
+            b.set(Coordinate { x: 0, y: 1 }, 1, 'a'),
+            Ok(BoardChangeDetail {
+                square: Square::Occupied(1, 'a'),
+                coordinate: Coordinate { x: 0, y: 1 },
+            })
+        );
+        assert_eq!(
+            b.set(Coordinate { x: 2, y: 0 }, 2, 'a'),
+            Err(GamePlayError::NonExistentPlayer { index: 2 })
+        );
+        assert_eq!(
+            b.set(Coordinate { x: 2, y: 0 }, 3, 'a'),
+            Err(GamePlayError::NonExistentPlayer { index: 3 })
+        );
+        assert_eq!(
+            b.set(Coordinate { x: 2, y: 0 }, 100, 'a'),
+            Err(GamePlayError::NonExistentPlayer { index: 100 })
+        );
+    }
+
+    #[test]
+    fn set_changes_get() {
+        let mut b = Board::new(3, 3); // Note, height is 3 from home rows
+        assert_eq!(b.get(Coordinate { x: 2, y: 2 }), Ok(Square::Land));
+        assert_eq!(
+            b.set(Coordinate { x: 2, y: 2 }, 0, 'a'),
+            Ok(BoardChangeDetail {
+                square: Square::Occupied(0, 'a'),
+                coordinate: Coordinate { x: 2, y: 2 },
+            })
+        );
+        assert_eq!(
+            b.get(Coordinate { x: 2, y: 2 }),
             Ok(Square::Occupied(0, 'a'))
         );
     }
 
     #[test]
     fn depth_first_search() {
-        let mut b = Board::new(3, 1);
+        let mut b = Board::from_string(
+            "~~ ~~ |0 ~~ ~~\n\
+             ~~ __ __ __ ~~\n\
+             ~~ __ __ __ ~~\n\
+             ~~ __ __ __ ~~\n\
+             ~~ ~~ |1 ~~ ~~",
+        );
 
         // Create a connected tree
         let parts = [
             Coordinate { x: 2, y: 1 },
             Coordinate { x: 1, y: 1 },
-            Coordinate { x: 1, y: 0 },
-            Coordinate { x: 0, y: 1 },
+            Coordinate { x: 1, y: 2 },
+            Coordinate { x: 1, y: 3 },
         ];
         let parts_set = HashSet::from(parts);
         for part in parts {
@@ -921,9 +1180,9 @@ pub mod tests {
             assert!(b.depth_first_search(part).is_superset(&parts_set));
         }
 
-        // Set the remaining unoccupied square on the board to be occupied by another player
-        let other = Coordinate { x: 1, y: 2 };
-        // WHen unoccupied it should give the empty set, when occupied, just itself
+        // Set a remaining unoccupied square on the board to be occupied by another player
+        let other = Coordinate { x: 2, y: 2 };
+        // When unoccupied it should give the empty set, when occupied, just itself
         assert!(b
             .depth_first_search(other)
             .iter()
@@ -946,47 +1205,97 @@ pub mod tests {
     }
 
     #[test]
+    fn attack_dist() {
+        let board = Board::from_string(
+            r###"
+            ~~ ~~ ~~ |0 ~~ ~~ ~~
+            #0 __ __ R0 __ __ __
+            __ __ __ A0 __ X0 __
+            __ __ A0 T0 E0 __ __
+            __ __ __ __ __ __ __
+            __ __ __ __ __ T1 __
+            __ __ __ __ E1 __ __
+            __ __ __ __ __ __ __
+            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            "###,
+        );
+
+        assert_eq!(
+            board.distance_from_attack(Coordinate { x: 0, y: 1 }, 1),
+            Some(8)
+        );
+
+        assert_eq!(
+            board.distance_from_attack(Coordinate { x: 1, y: 1 }, 1),
+            Some(9)
+        );
+
+        assert_eq!(
+            board.distance_from_attack(Coordinate { x: 2, y: 1 }, 1),
+            Some(10)
+        );
+
+        assert_eq!(
+            board.distance_from_attack(Coordinate { x: 6, y: 1 }, 1),
+            None
+        );
+
+        assert_eq!(
+            board.distance_from_attack(Coordinate { x: 6, y: 7 }, 0),
+            None
+        );
+
+        assert_eq!(
+            board.distance_from_attack(Coordinate { x: 3, y: 6 }, 0),
+            Some(2)
+        );
+    }
+
+    #[test]
     fn get_neighbours() {
-        // (0,0) (1,0) (2,0)
-        // (0,1) (1,1) (2,1)
-        // (0,2) (1,2) (2,2)
-        // (0,3) (1,3) (2,3)
-        // (0,4) (1,4) (2,4)
+        // (0,0) (1,0) (2,0) (3,0) (4,0)
+        // (0,1) (1,1) (2,1) (3,1) (4,1)
+        // (0,2) (1,2) (2,2) (3,2) (4,2)
+        // (0,3) (1,3) (2,3) (3,3) (4,3)
+        // (0,4) (1,4) (2,4) (3,4) (4,4)
         let b = Board::new(3, 3);
 
         assert_eq!(
             // TODO: should we allow you to find neighbours of an invalid square?
             b.neighbouring_squares(Coordinate { x: 0, y: 0 }),
             [
-                (Coordinate { x: 0, y: 1 }, Square::Empty),
-                (Coordinate { x: 1, y: 0 }, Square::Empty),
+                (Coordinate { x: 1, y: 0 }, Square::Water),
+                (Coordinate { x: 0, y: 1 }, Square::Water),
             ]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 0 }),
-            [(Coordinate { x: 1, y: 1 }, Square::Empty),]
-        );
-
-        assert_eq!(
-            b.neighbouring_squares(Coordinate { x: 1, y: 2 }),
             [
-                (Coordinate { x: 1, y: 3 }, Square::Empty),
-                (Coordinate { x: 2, y: 2 }, Square::Empty),
-                (Coordinate { x: 1, y: 1 }, Square::Empty),
-                (Coordinate { x: 0, y: 2 }, Square::Empty),
+                (Coordinate { x: 2, y: 0 }, Square::Dock(0)),
+                (Coordinate { x: 1, y: 1 }, Square::Town(0)),
+                (Coordinate { x: 0, y: 0 }, Square::Water),
             ]
         );
 
         assert_eq!(
-            b.neighbouring_squares(Coordinate { x: 1, y: 4 }),
-            [(Coordinate { x: 1, y: 3 }, Square::Empty),]
+            b.neighbouring_squares(Coordinate { x: 2, y: 2 }),
+            [
+                (Coordinate { x: 2, y: 1 }, Square::Land),
+                (Coordinate { x: 3, y: 2 }, Square::Land),
+                (Coordinate { x: 2, y: 3 }, Square::Land),
+                (Coordinate { x: 1, y: 2 }, Square::Land),
+            ]
         );
     }
 
     #[test]
     fn swap() {
-        let mut b = Board::new(3, 1);
+        let mut b = Board::from_string(
+            "__ __ __ |0\n\
+             __ __ __ __\n\
+             __ __ __ |1",
+        );
         let c0_1 = Coordinate { x: 0, y: 1 };
         let c1_1 = Coordinate { x: 1, y: 1 };
         let c2_1 = Coordinate { x: 2, y: 1 };
@@ -1015,7 +1324,11 @@ pub mod tests {
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'a')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(
-            b.swap(0, [c0_1, c1_1], &rules::Swapping::Contiguous),
+            b.swap(
+                0,
+                [c0_1, c1_1],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
@@ -1036,41 +1349,53 @@ pub mod tests {
         assert_eq!(b.get(c0_1), Ok(Square::Occupied(0, 'b')));
         assert_eq!(b.get(c1_1), Ok(Square::Occupied(0, 'a')));
         assert_eq!(
-            b.swap(0, [c0_1, c0_1], &rules::Swapping::Contiguous),
+            b.swap(
+                0,
+                [c0_1, c0_1],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Err(GamePlayError::SelfSwap)
         );
         assert_eq!(
-            b.swap(0, [c0_1, c2_1], &rules::Swapping::Contiguous),
+            b.swap(
+                0,
+                [c0_1, c2_1],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Err(GamePlayError::DisjointSwap)
         );
         assert_eq!(
-            b.swap(0, [c0_1, c2_1], &rules::Swapping::Universal),
+            b.swap(
+                0,
+                [c0_1, c2_1],
+                &rules::Swapping::Universal(default_swap_rules())
+            ),
             Err(GamePlayError::UnownedSwap)
         );
         assert_eq!(
-            b.swap(1, [c0_1, c1_1], &rules::Swapping::Contiguous),
+            b.swap(
+                1,
+                [c0_1, c1_1],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Err(GamePlayError::UnownedSwap)
         );
     }
 
     #[test]
     fn disjoint_swapping() {
-        let mut b = from_string(
-            [
-                "_ _ C _ _",
-                "_ _ R _ _",
-                "_ _ _ _ _",
-                "_ _ S _ _",
-                "_ _ S _ _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 0, y: 0 }],
-            vec![Direction::South],
-        )
-        .unwrap();
+        let mut b = Board::from_string(
+            "~~ ~~ |0 ~~ ~~\n\
+             __ __ C0 __ __\n\
+             __ __ R0 __ O0\n\
+             __ __ __ __ __\n\
+             __ __ S1 __ __\n\
+             __ __ S1 __ __\n\
+             ~~ ~~ |1 ~~ ~~",
+        );
 
-        let pos1 = Coordinate { x: 2, y: 1 };
-        let pos2 = Coordinate { x: 2, y: 3 };
+        let pos1 = Coordinate { x: 2, y: 2 };
+        let pos2 = Coordinate { x: 4, y: 2 };
 
         assert_eq!(
             b.swap(0, [pos1, pos2], &rules::Swapping::None),
@@ -1078,16 +1403,24 @@ pub mod tests {
         );
 
         assert_eq!(
-            b.swap(0, [pos1, pos2], &rules::Swapping::Contiguous),
+            b.swap(
+                0,
+                [pos1, pos2],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
             Err(GamePlayError::DisjointSwap)
         );
 
         assert_eq!(
-            b.swap(0, [pos1, pos2], &rules::Swapping::Universal),
+            b.swap(
+                0,
+                [pos1, pos2],
+                &rules::Swapping::Universal(default_swap_rules())
+            ),
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
-                        square: Square::Occupied(0, 'S'),
+                        square: Square::Occupied(0, 'O'),
                         coordinate: pos1,
                     },
                     action: BoardChangeAction::Swapped
@@ -1107,7 +1440,7 @@ pub mod tests {
     fn get_words() {
         // Should return an empty list of words for all points on an empty board, and for positions off the board
         let empty: Vec<Vec<Coordinate>> = vec![];
-        let b = Board::default();
+        let b = Board::new(3, 3);
         for x in 0..12 {
             for y in 0..12 {
                 assert_eq!(
@@ -1121,21 +1454,15 @@ pub mod tests {
         }
 
         // Gets two words in the middle of a cross
-        let b = from_string(
-            [
-                "_ _ C _ _",
-                "_ _ R _ _",
-                "S W O R D",
-                "_ _ S _ _",
-                "_ _ S _ _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 0, y: 0 }],
-            vec![Direction::South],
-        )
-        .unwrap();
-        let cross = ([0, 1, 2, 3, 4]).map(|y| Coordinate { x: 2, y }); // TODO: range
-        let sword = ([0, 1, 2, 3, 4]).map(|x| Coordinate { x, y: 2 }); // TODO: range
+        let b = Board::from_string(
+            "__ __ C0 __ __\n\
+             __ __ R0 __ __\n\
+             S0 W0 O0 R0 D0\n\
+             __ __ S0 __ __\n\
+             __ __ S0 __ __",
+        );
+        let cross = ([4, 3, 2, 1, 0]).map(|y| Coordinate { x: 2, y }); // TODO: range
+        let sword = ([4, 3, 2, 1, 0]).map(|x| Coordinate { x, y: 2 }); // TODO: range
         assert_eq!(b.get_words(Coordinate { x: 2, y: 2 }), vec![cross, sword]);
 
         let just_cross = ([0, 1, 3, 4]).map(|y| Coordinate { x: 2, y });
@@ -1148,370 +1475,98 @@ pub mod tests {
             assert_eq!(b.get_words(square), vec![sword]);
         }
 
-        // Doesn't cross other players
-        let mut b = from_string(
-            [
-                "_ _ C _ _",
-                "_ _ R _ _",
-                "_ _ O _ _",
-                "_ _ S _ _",
-                "_ _ S _ _",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 0, y: 0 }, Coordinate { x: 4, y: 4 }],
-            vec![Direction::South, Direction::North],
-        )
-        .unwrap();
+        // Don't cross other players
+        let b = Board::from_string(
+            "__ __ C0 __ __\n\
+             __ __ R0 __ __\n\
+             __ __ O1 __ __\n\
+             __ __ S0 __ __\n\
+             __ __ S0 __ __",
+        );
         assert_eq!(
             b.get(Coordinate { x: 2, y: 4 }),
             Ok(Square::Occupied(0, 'S'))
         );
         assert_eq!(
-            b.set(Coordinate { x: 3, y: 4 }, 1, 'O'),
-            Ok(BoardChangeDetail {
-                square: Square::Occupied(1, 'O'),
-                coordinate: Coordinate { x: 3, y: 4 },
-            })
+            b.get_words(Coordinate { x: 2, y: 4 }),
+            vec![[Coordinate { x: 2, y: 4 }, Coordinate { x: 2, y: 3 }]]
         );
-        assert_eq!(b.get_words(Coordinate { x: 2, y: 4 }), vec![cross]); // TODO: check coordinates
     }
 
     #[test]
     fn get_words_orientations() {
-        let corners = vec![
-            Coordinate { x: 0, y: 0 }, // Anti-clockwise from the top left
-            Coordinate { x: 0, y: 6 },
-            Coordinate { x: 6, y: 6 },
-            Coordinate { x: 6, y: 0 },
-        ];
-        let cc = corners.clone();
-
-        let b = from_string(
-            [
-                "N E Z _ G A N",
-                "A _ _ _ _ _ E",
-                "G _ _ _ _ _ Z",
-                "_ _ _ _ _ _ _",
-                "Z _ _ _ _ _ G",
-                "E _ _ _ _ _ A",
-                "N A G _ Z E N",
-            ]
-            .join("\n"),
-            corners,
-            vec![
-                Direction::West,
-                Direction::South,
-                Direction::East,
-                Direction::North,
-            ],
-        )
-        .unwrap();
-
-        for corner in cc {
-            let mut words = b.word_strings(&b.get_words(corner)).unwrap();
-            words.sort();
-            assert_eq!(words, vec!["NAG", "ZEN"]);
-        }
-    }
-
-    #[test]
-    fn get_near_edge() {
-        let b = Board::new(3, 1);
-        assert_eq!(
-            b.get_near_edge(Direction::North),
-            vec![
-                Coordinate { x: 0, y: 1 },
-                Coordinate { x: 1, y: 1 },
-                Coordinate { x: 2, y: 1 }
-            ]
+        let b = Board::from_string(
+            "~~ ~~ ~~ |0 ~~ ~~ ~~\n\
+             ~~ N0 U0 B0 #0 __ ~~\n\
+             ~~ E0 __ __ __ G1 ~~\n\
+             ~~ B0 __ __ __ A1 ~~\n\
+             ~~ __ #1 Z1 E1 N1 ~~\n\
+             ~~ ~~ ~~ |1 ~~ ~~ ~~",
         );
 
-        assert_eq!(
-            b.get_near_edge(Direction::South),
-            vec![
-                Coordinate { x: 0, y: 1 },
-                Coordinate { x: 1, y: 1 },
-                Coordinate { x: 2, y: 1 }
-            ]
-        );
-        assert_eq!(
-            b.get_near_edge(Direction::East),
-            vec![
-                Coordinate { y: 0, x: 1 },
-                Coordinate { y: 1, x: 1 },
-                Coordinate { y: 2, x: 1 }
-            ]
-        );
-
-        assert_eq!(
-            b.get_near_edge(Direction::West),
-            vec![
-                Coordinate { y: 0, x: 1 },
-                Coordinate { y: 1, x: 1 },
-                Coordinate { y: 2, x: 1 }
-            ]
-        );
-    }
-
-    #[test]
-    fn flipped() {
-        assert_eq!(Square::flip(&'A'), '∀');
-        assert_eq!(Square::flip(&'J'), 'ᒋ');
-        assert_eq!(Square::flip(&'Z'), 'Z');
-    }
-
-    pub fn from_string<'a>(
-        s: String,
-        roots: Vec<Coordinate>,
-        orientations: Vec<Direction>,
-    ) -> Result<Board, &'a str> {
-        if roots.len() != orientations.len() {
-            return Err("Every player needs a root and orientation");
-        }
-
-        // Transform string into a board
-        let mut squares: Vec<Vec<Option<Square>>> = vec![];
-        for line in s.split('\n') {
-            if line.chars().skip(1).step_by(2).any(|letter| letter != ' ') {
-                return Err("board strings should have spaces to separate each tile");
-            }
-
-            squares.push(
-                line.chars()
-                    .step_by(2)
-                    .map(|letter| match letter {
-                        ' ' => None,
-                        '_' => Some(Square::Empty),
-                        letter => Some(Square::Occupied(0, letter)),
-                    })
-                    .collect(),
-            );
-        }
-
-        // Make sure the board is an valid non-jagged grid
-        if squares
-            .iter()
-            .skip(1)
-            .any(|line| line.len() != squares[0].len())
         {
-            return Err("Unequal line lengths");
+            let mut words = b
+                .word_strings(&b.get_words(Coordinate { x: 1, y: 1 }))
+                .unwrap();
+            words.sort();
+            assert_eq!(words, vec!["BEN", "BUN"]);
         }
-
-        // Make sure letters connected to players' roots are owned by the player
-        let r = roots.clone(); // TODO: remove hack
-        let mut board = Board {
-            roots,
-            squares,
-            orientations,
-        };
-        for (player, root) in r.iter().enumerate() {
-            if player != 0 {
-                // All tiles are already owned by the first player by default
-                for square in board.depth_first_search(*root).iter() {
-                    if let Ok(Square::Occupied(_, value)) = board.get(*square) {
-                        board.set(*square, player, value).expect(
-                            "A coordinate returned from a DFS should always be valid and settable",
-                        );
-                    }
-                }
-            }
-        }
-
-        Ok(board)
-    }
-
-    #[test]
-    fn from_string_fails() {
-        assert_eq!(
-            from_string(
-                ["AXB"].join("\n"),
-                vec![Coordinate { x: 0, y: 0 }],
-                vec![Direction::North],
-            ),
-            Err("board strings should have spaces to separate each tile")
-        );
-    }
-
-    #[test]
-    fn from_string_succeeds() {
-        // Checks that our default boards come are the same after being stringified and parsed
-        let boards = [Board::default(), Board::new(34, 28)];
-        for b in boards {
-            assert_eq!(
-                from_string(
-                    b.to_string().split("\nRoots").next().unwrap().to_string(),
-                    b.roots.clone(),
-                    b.orientations.clone()
-                ),
-                Ok(b)
-            );
-        }
-
-        // Checks that various strings are the same when parsed and stringified
-        let strings = [
-            ["_ _ _", "_   _", "_ _ _"].join("\n"),
-            ["_ X _", "_   A", "V _ _"].join("\n"),
-            ["_ X _ _", "_ B A _", "V _ _ _", "  _ J _"].join("\n"),
-        ];
-        for s in strings {
-            let s1 = s.clone();
-            assert_eq!(
-                from_string(s, vec![Coordinate { x: 0, y: 0 }], vec![Direction::South])
-                    .unwrap()
-                    .to_string()
-                    .split("\nRoots")
-                    .next()
-                    .unwrap()
-                    .to_string(),
-                s1
-            );
-        }
-
-        // Checks that various complex boards have the correct players assigned to them
-        // Donut board
-        let top_left = Coordinate { x: 0, y: 0 };
-        let top_right = Coordinate { x: 4, y: 0 };
-        let bottom_left = Coordinate { x: 0, y: 4 };
-        let bottom_right = Coordinate { x: 4, y: 4 };
-        let dangling = Coordinate { x: 2, y: 3 };
-        let hole = Coordinate { x: 2, y: 2 };
-        let donut = from_string(
-            [
-                "A _ _ _ B",
-                "_ _ _ _ _",
-                "_ _   _ _",
-                "_ _ D _ _",
-                "C _ _ _ _",
-            ]
-            .join("\n"),
-            vec![top_left, top_right, bottom_left, bottom_right],
-            vec![Direction::North; 4],
-        )
-        .unwrap();
-        assert_eq!(donut.get(top_left), Ok(Square::Occupied(0, 'A')));
-        assert_eq!(donut.get(top_right), Ok(Square::Occupied(1, 'B')));
-        assert_eq!(donut.get(bottom_left), Ok(Square::Occupied(2, 'C')));
-        assert_eq!(
-            donut.get(hole),
-            Err(GamePlayError::InvalidPosition { position: hole })
-        );
-        assert_eq!(donut.get(dangling), Ok(Square::Occupied(0, 'D')));
-        assert_eq!(donut.get(Coordinate { x: 1, y: 1 }), Ok(Square::Empty));
-
-        // Complex trees
-        let player_1 = [
-            Coordinate { x: 2, y: 0 }, // First row
-            Coordinate { x: 0, y: 1 }, // Second row
-            Coordinate { x: 1, y: 1 },
-            Coordinate { x: 2, y: 1 },
-            Coordinate { x: 3, y: 1 },
-            Coordinate { x: 4, y: 1 },
-            Coordinate { x: 0, y: 2 }, // Third row
-            Coordinate { x: 0, y: 3 }, // Fourth row
-            Coordinate { x: 0, y: 4 }, // Fifth row
-            Coordinate { x: 1, y: 4 },
-            Coordinate { x: 0, y: 5 }, // Sixth row
-        ];
-        let player_2 = [
-            Coordinate { x: 2, y: 6 }, // Seventh row
-            Coordinate { x: 2, y: 5 }, // Sixth row
-            Coordinate { x: 3, y: 5 },
-            Coordinate { x: 3, y: 4 }, // Fifth row
-            Coordinate { x: 2, y: 3 }, // Fourth row
-            Coordinate { x: 3, y: 3 },
-            Coordinate { x: 4, y: 3 },
-        ];
-        let complex_tree = from_string(
-            [
-                "    A    ",
-                "A A A A A",
-                "A _ _ _ _",
-                "A _ B B B",
-                "A A _ B _",
-                "A _ B B _",
-                "    B    ",
-            ]
-            .join("\n"),
-            vec![player_1[0], player_2[0]],
-            vec![Direction::North; 2],
-        )
-        .unwrap();
-
-        for square in player_1 {
-            assert_eq!(complex_tree.get(square), Ok(Square::Occupied(0, 'A')));
-        }
-        for square in player_2 {
-            assert_eq!(complex_tree.get(square), Ok(Square::Occupied(1, 'B')));
+        {
+            let mut words = b
+                .word_strings(&b.get_words(Coordinate { x: 5, y: 4 }))
+                .unwrap();
+            words.sort();
+            assert_eq!(words, vec!["GAN", "ZEN"]);
         }
     }
 
     #[test]
     fn apply_fog_of_war() {
-        let board = from_string(
-            [
-                "    A    ",
-                "A A A A A",
-                "A _ _ A _",
-                "A _ _ _ _",
-                "A A _ B _",
-                "A _ B B _",
-                "    B    ",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 6 }],
-            vec![Direction::North; 2],
-        )
-        .unwrap();
+        let board = Board::from_string(
+            "~~ ~~ A0 ~~ ~~\n\
+             A0 A0 A0 A0 A0\n\
+             A0 __ __ A0 __\n\
+             A0 __ __ __ __\n\
+             A0 A0 __ B1 __\n\
+             A0 __ B1 B1 __\n\
+             ~~ ~~ B1 ~~ ~~",
+        );
 
         let foggy = board.fog_of_war(1);
         assert_eq!(
             foggy.to_string(),
-            [
-                "    _    ",
-                "A _ _ A _",
-                "A _ _ A _",
-                "A _ _ _ _",
-                "A A _ B _",
-                "A _ B B _",
-                "    B    ",
-                "Roots: (2, 0) / (2, 6)",
-            ]
-            .join("\n")
+            "~~ ~~ __ ~~ ~~\n\
+             A0 __ __ A0 __\n\
+             A0 __ __ A0 __\n\
+             A0 __ __ __ __\n\
+             A0 A0 __ B1 __\n\
+             A0 __ B1 B1 __\n\
+             ~~ ~~ B1 ~~ ~~",
         );
     }
 
     #[test]
     fn apply_disjoint_fog_of_war() {
-        let board = from_string(
-            [
-                "    A    ",
-                "A A A _ A",
-                "A _ _ A _",
-                "A _ _ _ _",
-                "_ B _ B _",
-                "_ B B B _",
-                "    B    ",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 2, y: 0 }, Coordinate { x: 2, y: 6 }],
-            vec![Direction::North; 2],
-        )
-        .unwrap();
+        let board = Board::from_string(
+            "~~ ~~ A0 ~~ ~~\n\
+             A0 A0 A0 __ A0\n\
+             A0 __ __ A0 __\n\
+             A0 __ __ __ __\n\
+             __ B1 __ B1 __\n\
+             __ B1 B1 B1 __\n\
+             ~~ ~~ B1 ~~ ~~",
+        );
 
         let foggy = board.fog_of_war(0);
         assert_eq!(
             foggy.to_string(),
-            [
-                "    A    ",
-                "A A A _ A",
-                "A _ _ A _",
-                "A _ _ _ _",
-                "_ B _ B _",
-                "_ B _ B _",
-                "    _    ",
-                "Roots: (2, 0) / (2, 6)",
-            ]
-            .join("\n")
+            "~~ ~~ A0 ~~ ~~\n\
+            A0 A0 A0 __ A0\n\
+            A0 __ __ A0 __\n\
+            A0 __ __ __ __\n\
+            __ B1 __ B1 __\n\
+            __ B1 __ B1 __\n\
+            ~~ ~~ __ ~~ ~~",
         );
     }
 }

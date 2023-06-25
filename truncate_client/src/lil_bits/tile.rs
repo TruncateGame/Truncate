@@ -1,19 +1,24 @@
-use eframe::egui::{self, Id, Margin};
-use epaint::{Color32, Stroke};
+use eframe::egui::{self, Id};
+use epaint::{Color32, TextureHandle};
+use truncate_core::board::Coordinate;
 
-use crate::theming::Theme;
+use crate::{
+    regions::active_game::GameCtx,
+    utils::{mapper::MappedTile, Darken, Lighten, Theme},
+};
 
 use super::{character::CharacterOrient, CharacterUI};
 
 pub enum TilePlayer {
     Own,
-    Enemy,
+    Enemy(usize),
 }
 
 pub struct TileUI {
     letter: char,
     player: TilePlayer,
     selected: bool,
+    highlighted: bool,
     active: bool,
     hovered: bool,
     ghost: bool,
@@ -31,6 +36,7 @@ impl TileUI {
             letter,
             player,
             selected: false,
+            highlighted: false,
             active: true,
             hovered: false,
             ghost: false,
@@ -45,6 +51,11 @@ impl TileUI {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    pub fn highlighted(mut self, highlighted: bool) -> Self {
+        self.highlighted = highlighted;
         self
     }
 
@@ -95,118 +106,114 @@ impl TileUI {
 }
 
 impl TileUI {
-    fn edge_color(&self, theme: &Theme) -> Color32 {
-        if self.won {
-            theme.selection_dark
-        } else if self.defeated || self.truncated || !self.active {
-            theme.text.dark
-        } else {
-            match self.player {
-                TilePlayer::Own => theme.friend.dark,
-                TilePlayer::Enemy => theme.enemy.dark,
-            }
-        }
-    }
-
-    fn tile_color(&self, hovered: bool, theme: &Theme) -> Color32 {
-        if self.won {
+    fn tile_color(&self, hovered: bool, theme: &Theme, ctx: &GameCtx) -> Color32 {
+        if self.highlighted && ctx.current_time.subsec_millis() > 500 {
+            theme.selection.pastel()
+        } else if self.won || self.selected {
             theme.selection
         } else if self.defeated || self.truncated || !self.active {
-            theme.text.base
+            theme.text
         } else {
             match (&self.player, hovered) {
-                (TilePlayer::Own, false) => theme.friend.base,
-                (TilePlayer::Own, true) => theme.friend.light,
-                (TilePlayer::Enemy, false) => theme.enemy.base,
-                (TilePlayer::Enemy, true) => theme.enemy.light,
+                (TilePlayer::Own, false) => ctx.player_colors[ctx.player_number as usize].pastel(),
+                (TilePlayer::Own, true) => ctx.player_colors[ctx.player_number as usize]
+                    .pastel()
+                    .lighten(),
+                (TilePlayer::Enemy(p), false) => ctx.player_colors[*p].pastel(),
+                (TilePlayer::Enemy(p), true) => ctx.player_colors[*p].pastel().lighten(),
             }
         }
     }
 
-    pub fn render(self, ui: &mut egui::Ui, theme: &Theme) -> egui::Response {
-        let frame = egui::Frame::none().inner_margin(Margin::same(theme.tile_margin));
-        frame
-            .show(ui, |ui| {
-                let tile_size = theme.grid_size - theme.tile_margin * 2.0;
-                let (mut rect, mut response) =
-                    ui.allocate_exact_size(egui::vec2(tile_size, tile_size), egui::Sense::click());
+    pub fn render(
+        self,
+        coord: Option<Coordinate>,
+        ui: &mut egui::Ui,
+        ctx: &mut GameCtx,
+        rescale: Option<f32>,
+    ) -> egui::Response {
+        let theme = rescale
+            .map(|v| ctx.theme.rescale(v))
+            .unwrap_or_else(|| ctx.theme.clone());
 
-                if let Some(id) = self.id {
-                    response = ui.interact(rect, id, egui::Sense::click_and_drag());
-                }
+        // TODO: Remove magic number somehow (currently 2px/16px for tile sprite border)
+        let tile_margin = theme.grid_size * 0.125;
 
-                let tile_hovered = self.hovered || response.hovered();
+        let (mut base_rect, _) = ui.allocate_exact_size(
+            egui::vec2(theme.grid_size, theme.grid_size),
+            egui::Sense::hover(),
+        );
 
-                if response.hovered() {
-                    if !self.ghost {
-                        rect = rect.translate(egui::vec2(0.0, theme.tile_margin * -0.5));
-                    }
-                    ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
-                }
+        let mut tile_rect = base_rect.shrink(tile_margin);
+        let mut response = ui.allocate_rect(tile_rect, egui::Sense::click());
 
-                let mut raised_rect = rect.clone();
-                raised_rect.set_height(tile_size - theme.tile_margin);
+        if let Some(id) = self.id {
+            response = ui.interact(tile_rect, id, egui::Sense::click_and_drag());
+        }
 
-                if ui.is_rect_visible(rect) {
-                    if self.ghost {
-                        ui.painter()
-                            .rect_filled(rect, theme.rounding, theme.background);
-                        ui.painter().rect_stroke(
-                            rect,
-                            theme.rounding,
-                            Stroke::new(1.0, self.edge_color(theme)),
-                        );
-                        ui.painter().rect_stroke(
-                            raised_rect,
-                            theme.rounding,
-                            Stroke::new(1.0, self.tile_color(tile_hovered, theme)),
-                        );
-                    } else {
-                        ui.painter()
-                            .rect_filled(rect, theme.rounding, self.edge_color(theme));
-                        ui.painter().rect_filled(
-                            raised_rect,
-                            theme.rounding,
-                            self.tile_color(tile_hovered, theme),
-                        );
-                    }
+        let hovered = response.hovered() || self.hovered;
+        if response.hovered() {
+            if !self.ghost {
+                base_rect = base_rect.translate(egui::vec2(0.0, tile_margin * -1.0));
+                tile_rect = tile_rect.translate(egui::vec2(0.0, tile_margin * -1.0));
+            }
+            ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+        }
 
-                    CharacterUI::new(
-                        self.letter,
-                        match self.player {
-                            TilePlayer::Own => CharacterOrient::North,
-                            TilePlayer::Enemy => CharacterOrient::South,
-                        },
-                    )
-                    .hovered(response.hovered())
-                    .selected(self.selected)
-                    .active(self.active)
-                    .ghost(self.ghost)
-                    .defeated(self.defeated)
-                    .truncated(self.truncated)
-                    .render(ui, raised_rect, theme);
+        if ui.is_rect_visible(base_rect) {
+            let outline = if self.added {
+                Some(theme.selection)
+            } else if self.modified {
+                Some(theme.modification)
+            } else {
+                None
+            };
 
-                    let outline = if self.selected {
-                        Some(theme.selection)
-                    } else if self.added {
-                        Some(theme.addition)
-                    } else if self.modified {
-                        Some(theme.modification)
-                    } else {
-                        None
-                    };
+            let tile_color = self.tile_color(hovered, &theme, ctx);
+            let mapped_tile = if self.ghost {
+                MappedTile::new(None, Some(tile_color), coord, ctx.map_texture.clone())
+            } else {
+                MappedTile::new(Some(tile_color), outline, coord, ctx.map_texture.clone())
+            };
+            mapped_tile.render(base_rect, ui);
 
-                    if let Some(outline) = outline {
-                        ui.painter().rect_stroke(
-                            rect.expand(theme.tile_margin * 0.5),
-                            theme.rounding * 1.3,
-                            Stroke::new(theme.tile_margin, outline),
-                        )
-                    }
-                }
+            let mut char_rect = tile_rect.clone();
+            char_rect.set_height(char_rect.height() - tile_margin * 0.5);
 
-                response
-            })
-            .inner
+            CharacterUI::new(
+                self.letter,
+                match self.player {
+                    TilePlayer::Own => CharacterOrient::North,
+                    TilePlayer::Enemy(_) => CharacterOrient::South,
+                },
+            )
+            .hovered(response.hovered())
+            .selected(self.selected)
+            .active(self.active)
+            .ghost(self.ghost)
+            .defeated(self.defeated)
+            .truncated(self.truncated)
+            .render(ui, char_rect, &theme);
+        }
+
+        // let outline = if self.selected {
+        //     Some(theme.selection)
+        // } else if self.added {
+        //     Some(theme.addition)
+        // } else if self.modified {
+        //     Some(theme.modification)
+        // } else {
+        //     None
+        // };
+
+        // if let Some(outline) = outline {
+        //     ui.painter().rect_stroke(
+        //         tile_rect.expand(theme.tile_margin * 0.5),
+        //         theme.rounding * 1.3,
+        //         Stroke::new(theme.tile_margin, outline),
+        //     )
+        // }
+
+        response
     }
 }

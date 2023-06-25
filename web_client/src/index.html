@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <!-- Disable zooming: -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg width='318' height='320' viewBox='0 0 318 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 300H268V290H278V280H288V260H298V240H288V260H278V270H258V280H60V270H40V260H30V240H20V260H30V280H40V290H50V300Z' fill='%23ADADAD'/%3E%3Cpath d='M60 20V30H40V40H30V60H20V240H30V260H40V270H60V280H258V270H278V260H288V240H298V60H288V40H278V30H258V20H60Z' fill='white'/%3E%3Cpath d='M135.75 230.75V91.25H89.25V68H228.75V91.25H182.25V230.75H135.75Z' fill='black'/%3E%3C/svg%3E%0A" />
+    <title>Truncate</title>
+    <style>
+        :root {
+            --water: #50a7e8;
+        }
+
+        @font-face {
+            font-family: Truncate;
+            src: url({{assets.font}});
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            /* Remove touch delay: */
+            touch-action: manipulation;
+        }
+
+        html,
+        body {
+            overflow: hidden;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100%;
+            height: 100%;
+            font-family: Truncate;
+        }
+
+        #splash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform: scale(0.5);
+            transform-origin: top left;
+            background-color: var(--water);
+            z-index: 1;
+        }
+
+        #truncate_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: top left;
+            background-color: var(--water);
+            z-index: 0;
+        }
+
+        #controls {
+            z-index: 2;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 400px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        @media (max-width: 900px) {
+            #controls {
+                justify-content: space-between;
+                align-items: flex-start;
+            }
+        }
+
+        #controls .sub {
+            display: flex;
+            gap: 10px;
+        }
+
+        @media (max-width: 900px) {
+            #controls .sub {
+                flex: 1;
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        #controls .split {
+            display: flex;
+            gap: 10px;
+        }
+
+
+        #controls button {
+            position: relative;
+            appearance: none;
+            border: 0;
+            background-color: #ffffffbb;
+            font-family: Truncate;
+            font-size: clamp(10px, 2vw, 13px);
+            padding: 10px clamp(15px, 4vw, 40px);
+            cursor: pointer;
+            border-radius: 4px 4px 6px 6px;
+            border-bottom: solid 2px #b9b9b9bb;
+            z-index: 3;
+            transition: transform .1s ease-in;
+        }
+
+        #controls input {
+            appearance: none;
+            border: 0;
+            background-color: #ffffffbb;
+            font-family: Truncate;
+            font-size: clamp(10px, 2vw, 14px);
+            padding: 11px 10px;
+            border-radius: 4px;
+            z-index: 3;
+            min-width: 200px;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 900px) {
+            #controls input {
+                width: 100%;
+            }
+        }
+
+        #controls button.thin {
+            padding: 10px 15px;
+        }
+
+        @media (max-width: 900px) {
+            #controls button.fill {
+                flex: 1;
+            }
+        }
+
+        #controls button:hover {
+            background-color: #ffffffff;
+            border-bottom: solid 2px #b9b9b9ff;
+            transform: translateY(-2px);
+        }
+
+        [data-stage] {
+            display: none !important;
+        }
+
+        [data-control-stage="root"] [data-stage="root"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="create"] [data-stage="create"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="join"] [data-stage="join"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="multi"] [data-stage="multi"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="error"] [data-stage="error"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="loading"] [data-stage="loading"] {
+            display: flex !important;
+        }
+
+        [data-control-stage="rejoin"] [data-stage="rejoin"] {
+            display: flex !important;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="splash"></canvas>
+    <canvas id="truncate_canvas"></canvas>
+
+    <div id="controls" data-control-stage="root">
+
+        <button data-stage="root" data-control="tutorial">TUTORIAL</button>
+        <button data-stage="root" data-control="to_create_game">PLAY GAME</button>
+
+        <div class="sub" data-stage="create">
+            <div class="split">
+                <button data-control="new_single" class="fill">SINGLE PLAYER</button>
+                <button data-control="to_multi_game" class="fill">MULTI PLAYER</button>
+            </div>
+        </div>
+
+        <div class="sub" data-stage="multi">
+            <div class="split">
+                <button data-control="to_join_game" class="fill">JOIN GAME</button>
+            </div>
+            <div class="split">
+                <button data-control="new_multi" class="fill">CREATE GAME</button>
+                <button type="button" data-control="cancel_multi" class="thin"
+                    aria-label="Cancel new game selection">X</button>
+            </div>
+        </div>
+
+        <div class="sub" data-stage="rejoin">
+            <div class="split">
+                <button data-control="rejoin" class="fill">REJOIN ACTIVE GAME</button>
+                <button type="button" data-control="cancel_rejoin" class="thin"
+                    aria-label="Cancel rejoining recent game">X</button>
+            </div>
+        </div>
+
+        <form class="sub" data-stage="join" action="javascript:void(0);">
+            <div class="split">
+                <input data-control="room_code" aria-label="Room code of an existing Truncate game" type="text"
+                    placeholder="ROOM CODE" />
+            </div>
+            <div class="split">
+                <button type="submit" data-control="join_game" class="fill">JOIN</button>
+                <button type="button" data-control="cancel_join" class="thin"
+                    aria-label="Cancel join game selection">X</button>
+            </div>
+        </form>
+
+        <p data-stage="error">An error occurred loading Truncate</p>
+        <p data-stage="loading">Loading...</p>
+    </div>
+
+    <audio id="tr_move" src="/static/move.mp3"></audio>
+
+    <script defer src="static/truncate_client.js?commit={{ env.environment }}"></script>
+    <script>
+        (function () {
+            const stage = (s) => controls.setAttribute("data-control-stage", s);
+            const control = (t) => document.querySelector(`[data-control="${t}"]`);
+
+            class TruncateRunner {
+                constructor() {
+                    this.errored = false;
+                    this.started = false;
+                    this.startFn = null;
+                    this.pendingCreate = null;
+                    this.pendingJoin = null;
+                    this.pendingRejoin = null;
+                }
+
+                make_ready(startFn) {
+                    this.startFn = startFn;
+                    this.try_start();
+                }
+
+                error(e) {
+                    this.errored = e;
+                    stage("error");
+                }
+
+                create_game() {
+                    this.pendingCreate = true;
+                    this.try_start();
+                }
+
+                join_game(code) {
+                    this.pendingJoin = code;
+                    this.try_start();
+                }
+
+                rejoin_game() {
+                    this.pendingRejoin = true;
+                    this.try_start();
+                }
+
+                try_start() {
+                    console.log("Trying to start Truncate...");
+                    if (this.errored || this.started) return;
+                    if (!this.startFn) {
+                        stage("loading");
+                        return;
+                    };
+
+                    if (this.pendingRejoin) {
+                        console.log(`Rejoining...`);
+                        this.startFn("__REJOIN__");
+                        this.register_start();
+                    } else if (this.pendingJoin && this.pendingJoin.length) {
+                        console.log(`Joining ${this.pendingJoin}...`);
+                        this.startFn(this.pendingJoin);
+                        this.register_start();
+                    } else if (this.pendingCreate) {
+                        console.log(`Creating a new game...`);
+                        this.startFn();
+                        this.register_start();
+                    }
+                }
+
+                register_start() {
+                    this.started = true;
+                    document.querySelector("#splash").style.display = "none";
+                    document.querySelector("#controls").style.display = "none";
+                    document.querySelector("#truncate_canvas").style.zIndex = "999";
+                    console.log(`Revealing the Truncate client...`);
+                }
+            }
+            const truncate_runner = new TruncateRunner();
+
+            {% include "noise.js" %}
+            const islander = get_islander();
+            islander.seed(Math.random());
+
+            const island_threshold = 0.4;
+            const town_threshold = 0.45;
+            const decor_threshold = 0.6;
+            const dock_neg_threshold = -0.7;
+
+            const TILES = JSON.parse(`{{ tiles | json }}`);
+            const TILEPACKS = {
+                GRASSES: [TILES.GRASS1, TILES.GRASS2, TILES.GRASS3, TILES.GRASS4],
+                HOUSES: [[TILES.HOUSE1, TILES.ROOF1], [TILES.HOUSE2, TILES.ROOF2], [TILES.HOUSE3, TILES.ROOF3], [TILES.HOUSE4, TILES.ROOF4]],
+                DECOR: [TILES.PLANTER1, TILES.PLANTER2, TILES.BUSH, TILES.WHEAT, TILES.WELL],
+            }
+
+            const canvas = document.getElementById("splash");
+            const controls = document.getElementById("controls");
+            let output_size, midpoint;
+            let mobile = false;
+
+            const refit = () => {
+                canvas.width = document.body.clientWidth * 2;
+                canvas.height = document.body.clientHeight * 2;
+                mobile = document.body.clientWidth < 900;
+
+                const calc_output = () => {
+                    let size = canvas.width / 20;
+                    size = Math.min(size, 64);
+                    return size - (size % 2);
+                }
+                const calc_midpoint = () => {
+                    let x = Math.round(canvas.width / 2);
+                    let y = Math.round(canvas.height / 2);
+                    return [x - (x % 2), y - (y % 2)];
+                }
+
+                output_size = calc_output();
+                midpoint = calc_midpoint();
+            }
+            refit();
+
+            const image = new Image();
+            image.src = "{{assets.tiles}}";
+
+            const paint = {
+                tile_size: 16,
+                tile: (index, x, y) => {
+                    let tile_pos = index * (paint.tile_size + 2);
+                    ctx.drawImage(
+                        image,
+                        tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                        x, y, output_size, output_size
+                    );
+                },
+                tiles: (indexes, x, y) => {
+                    for (let row_i = 0; row_i < indexes.length; row_i += 1) {
+                        const row = indexes[row_i];
+                        for (let column_i = 0; column_i < row.length; column_i += 1) {
+                            const tile = parseInt(row[column_i]);
+                            paint.tile(tile, x + column_i * output_size, y + row_i * output_size);
+                        }
+                    }
+                }
+            };
+
+            const pick = {
+                num: (seed) => {
+                    seed = Math.floor(seed * 50000);
+                    seed ^= seed << 13;
+                    seed ^= seed >> 7;
+                    seed ^= seed << 17;
+                    return Math.abs(seed) % 100;
+                },
+                grass: (seed) => {
+                    seed = pick.num(seed);
+                    return TILEPACKS.GRASSES[seed % TILEPACKS.GRASSES.length];
+                },
+                houses: (seed) => {
+                    if (seed < town_threshold) return [];
+
+                    const texs = [[], [], [], []];
+
+                    const house_seed = pick.num(seed + 4) % 100;
+                    let numhouses = 0;
+                    if (house_seed > 50) numhouses = 1;
+                    if (house_seed > 80) numhouses = 2;
+                    if (house_seed > 98) numhouses = 3;
+
+                    if (numhouses > 0 && seed > decor_threshold) {
+                        let decor_index = pick.num(seed + 123408);
+                        texs[pick.num(seed + 3442) % 4] = [TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length]];
+                    }
+                    for (let i = 0; i < numhouses; i += 1) {
+                        let house_index = pick.num(seed + i);
+                        texs[pick.num(seed + 18 * i) % 4] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                    }
+                    return texs;
+                }
+            }
+
+            const render = {
+                name: (name) => {
+                    name = name.toUpperCase();
+                    const name_width = name.length * (output_size * 2);
+                    const x = midpoint[0] - name_width / 2, y = midpoint[1] - output_size;
+
+                    ctx.font = `${output_size * 0.9}px Truncate`;
+                    ctx.textAlign = `center`;
+                    ctx.textBaseline = `middle`;
+
+                    // Tiles
+                    const tiles = name.split('');
+                    for (let c = 0; c < name.length * 2; c += 2) {
+                        paint.tiles([
+                            [TILES.GRASS1, TILES.GRASS1],
+                            [TILES.GRASS1, TILES.GRASS1]
+                        ], x + c * output_size, y);
+
+                        paint.tiles([[TILES.TILE_NW, TILES.TILE_NE], [TILES.TILE_SE, TILES.TILE_SW]], x + c * output_size, y);
+
+                        const tile = tiles.shift();
+                        const metric = ctx.measureText(tile);
+                        const shift = (metric.actualBoundingBoxLeft - metric.actualBoundingBoxRight) / 2;
+                        ctx.fillText(tile, x + c * output_size + output_size + shift, y + output_size - output_size * 0.03, output_size * 2);
+                    }
+
+                    return { x, y, name_width }
+                },
+
+                background: ({ x, y, seed, island, skip_render, empty }, neighbors) => {
+                    if (skip_render) return;
+
+                    if (island) {
+                        render.island(x, y, seed);
+                    } else {
+                        render.water_nw(x, y, neighbors[7], neighbors[0], neighbors[1]);
+                        render.water_ne(x + output_size, y, neighbors[1], neighbors[2], neighbors[3]);
+                        render.water_se(neighbors, x + output_size, y + output_size, neighbors[3], neighbors[4], neighbors[5]);
+                        render.water_sw(x, y + output_size, neighbors[5], neighbors[6], neighbors[7]);
+                        if (!empty) {
+                            render.dock(x, y, seed, neighbors);
+                        }
+                    }
+                },
+                island: (x, y, seed) => {
+                    paint.tiles([
+                        [pick.grass(seed), pick.grass(seed + 0.2)],
+                        [pick.grass(seed + 0.3), pick.grass(seed + 0.5)]
+                    ], x, y);
+
+                    const houses = pick.houses(seed);
+                    for (const tex of houses?.[0] ?? []) paint.tile(tex, x, y);
+                    for (const tex of houses?.[1] ?? []) paint.tile(tex, x + output_size, y);
+                    for (const tex of houses?.[2] ?? []) paint.tile(tex, x + output_size, y + output_size);
+                    for (const tex of houses?.[3] ?? []) paint.tile(tex, x, y + output_size);
+                },
+                dock: (x, y, seed, neighbors) => {
+                    if (seed > dock_neg_threshold) return;
+
+                    if (neighbors[1]) {
+                        paint.tiles([
+                            [TILES.DOCK_SOUTH_NW, TILES.DOCK_SOUTH_NE],
+                            [TILES.DOCK_SOUTH_SW, TILES.DOCK_SOUTH_SE]
+                        ], x, y);
+                    } else if (neighbors[5]) {
+                        paint.tiles([
+                            [TILES.DOCK_NORTH_NW, TILES.DOCK_NORTH_NE],
+                            [TILES.DOCK_NORTH_SW, TILES.DOCK_NORTH_SE]
+                        ], x, y);
+                    } else if (neighbors[3]) {
+                        paint.tiles([
+                            [TILES.DOCK_WEST_NW, TILES.DOCK_WEST_NE],
+                            [TILES.DOCK_WEST_SW, TILES.DOCK_WEST_SE]
+                        ], x, y);
+                    } else if (neighbors[7]) {
+                        paint.tiles([
+                            [TILES.DOCK_EAST_NW, TILES.DOCK_EAST_NE],
+                            [TILES.DOCK_EAST_SW, TILES.DOCK_EAST_SE]
+                        ], x, y);
+                    }
+                },
+                water_nw: (x, y, w, nw, n) => {
+                    if (w && n) paint.tile(TILES.WATER_NW, x, y);
+                    else if (w) paint.tile(TILES.WATER_W, x, y);
+                    else if (n) paint.tile(TILES.WATER_N, x, y);
+                    else if (nw) paint.tile(TILES.WATER_N_W, x, y);
+                },
+                water_ne: (x, y, n, ne, e) => {
+                    if (n && e) paint.tile(TILES.WATER_NE, x, y);
+                    else if (n) paint.tile(TILES.WATER_N, x, y);
+                    else if (e) paint.tile(TILES.WATER_E, x, y);
+                    else if (ne) paint.tile(TILES.WATER_N_E, x, y);
+                },
+                water_se: (neighbors, x, y, e, se, s) => {
+                    if (e && s) paint.tile(TILES.WATER_SE, x, y);
+                    else if (e) paint.tile(TILES.WATER_E, x, y);
+                    else if (s) paint.tile(TILES.WATER_S, x, y);
+                    else if (se) paint.tile(TILES.WATER_S_E, x, y);
+                },
+                water_sw: (x, y, s, sw, w) => {
+                    if (s && w) paint.tile(TILES.WATER_SW, x, y);
+                    else if (s) paint.tile(TILES.WATER_S, x, y);
+                    else if (w) paint.tile(TILES.WATER_W, x, y);
+                    else if (sw) paint.tile(TILES.WATER_S_W, x, y);
+                },
+            };
+
+            const ctx = canvas.getContext("2d");
+            const the_guts = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.imageSmoothingEnabled = false;
+                const logical_tile_size = output_size * 2;
+
+                const metrics = render.name("TRUNCATE");
+
+                const horiz_tile_count = Math.ceil(canvas.width / output_size);
+                const vert_tile_count = Math.ceil(canvas.height / output_size);
+                const tile_from_x = metrics.x - (canvas.width - (canvas.width % logical_tile_size));
+                const tile_from_y = metrics.y - (canvas.height - (canvas.height % logical_tile_size));
+
+                const island_map = [];
+                for (let col = 0; col < horiz_tile_count; col += 1) {
+                    island_map[col] = [];
+                    for (let row = 0; row < vert_tile_count; row += 1) {
+                        const seed = islander.simplex2(col, row);
+
+                        const tile_data = {
+                            x: tile_from_x + col * logical_tile_size,
+                            y: tile_from_y + row * logical_tile_size,
+                            seed,
+                            island: seed > island_threshold ? true : false,
+                            empty: false,
+                            skip_render: false
+                        };
+
+                        // Clear space around text
+                        const space_below = mobile ? 3 : 1;
+                        if (tile_data.x >= metrics.x - logical_tile_size
+                            && tile_data.x < metrics.x + metrics.name_width + logical_tile_size
+                            && tile_data.y >= metrics.y - logical_tile_size
+                            && tile_data.y < metrics.y + logical_tile_size * (2 + space_below)) {
+                            tile_data.island = false;
+                            tile_data.empty = true;
+                        }
+
+                        // Mark land behind text
+                        if (tile_data.x >= metrics.x
+                            && tile_data.x < metrics.x + metrics.name_width
+                            && tile_data.y >= metrics.y
+                            && tile_data.y < metrics.y + logical_tile_size) {
+                            tile_data.island = true;
+                            tile_data.skip_render = true;
+                        }
+
+                        island_map[col][row] = tile_data;
+                    }
+                }
+
+                // Clear single islands out
+                for (let col = 0; col < horiz_tile_count; col += 1) {
+                    for (let row = 0; row < vert_tile_count; row += 1) {
+                        if (!island_map[col + 1]?.[row]?.island
+                            && !island_map[col - 1]?.[row]?.island
+                            && !island_map[col]?.[row + 1]?.island
+                            && !island_map[col]?.[row - 1]?.island) {
+                            island_map[col][row].island = false;
+                        }
+                    }
+                }
+
+                // Render all background tiles
+                for (let col = 0; col < horiz_tile_count; col += 1) {
+                    for (let row = 0; row < vert_tile_count; row += 1) {
+                        const neighbors = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]].map(([x, y]) => {
+                            return island_map[col + x]?.[row + y]?.island ?? false;
+                        });
+                        render.background(island_map[col][row], neighbors);
+                    }
+                }
+
+                // Move HTML UI into position
+                const screen_x = metrics.x / 2, screen_y = metrics.y / 2;
+                const screen_tile = output_size / 2;
+
+                controls.style.left = `${screen_x}px`;
+                controls.style.top = `${screen_y + screen_tile * 3}px`;
+                controls.style.height = `${screen_tile * (mobile ? 5 : 2)}px`;
+                controls.style.width = `${metrics.name_width / 2}px`;
+            }
+
+            image.onload = function () {
+                the_guts();
+                window.addEventListener("resize", () => {
+                    refit();
+                    the_guts();
+                })
+            };
+
+            const existing_game_token = window.localStorage.getItem("truncate_active_token");
+            if (existing_game_token) {
+                stage("rejoin");
+            }
+
+            control("rejoin").addEventListener("click", e => {
+                truncate_runner.rejoin_game();
+            });
+            control("cancel_rejoin").addEventListener("click", e => {
+                stage("root");
+            });
+
+            control("to_multi_game").addEventListener("click", e => {
+                stage("multi");
+            });
+            control("cancel_multi").addEventListener("click", e => {
+                stage("root");
+            });
+            control("tutorial").addEventListener("click", e => {
+                truncate_runner.join_game("TUTORIAL_01");
+            });
+            control("to_create_game").addEventListener("click", e => {
+                stage("create");
+            });
+            control("new_single").addEventListener("click", e => {
+                truncate_runner.join_game("SINGLE_PLAYER");
+            });
+            control("new_multi").addEventListener("click", e => {
+                truncate_runner.create_game();
+            });
+            control("to_join_game").addEventListener("click", e => {
+                stage("join");
+                control("room_code").value = "";
+                control("room_code").focus();
+            });
+            control("cancel_join").addEventListener("click", e => {
+                stage("root");
+            });
+            control("room_code").addEventListener("keydown", e => {
+                if (e?.key === "Enter") {
+                    control("join_game").click();
+                }
+            });
+            control("join_game").addEventListener("click", e => {
+                const room = control("room_code").value;
+                if (!room) {
+                    control("room_code").setAttribute("placeholder", "REQUIRED!");
+                    setTimeout(() => {
+                        control("room_code").setAttribute("placeholder", "ROOM CODE");
+                    }, 500);
+                    return;
+                }
+
+                truncate_runner.join_game(room);
+
+                // HA code path:
+                // const url = new URL(window.location);
+                // url.pathname = room.toUpperCase();
+                // window.location = url;
+            });
+
+            (async function () {
+                while (typeof wasm_bindgen === "undefined") {
+                    await new Promise(r => setTimeout(r, 100));
+                }
+
+                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.environment }}")
+                    .then(on_wasm_loaded)
+                    .catch(on_wasm_error);
+
+                function on_wasm_loaded() {
+                    console.debug("Loaded Truncate webassembly");
+                    const default_server = window.location.host.includes("outpost") ? "wss://coup.truncate.town" : "wss://citadel.truncate.town";
+                    const local_server = window.location.host.includes("localhost") ? "ws://0.0.0.0:8080" : null;
+                    const server = new URLSearchParams(window.location.search).get("server") ?? local_server ?? default_server;
+
+                    if (server) {
+                        console.debug(`Connecting to the server ${server}`);
+                    } else {
+                        console.debug("Connecting to the builtin server");
+                    }
+
+                    truncate_runner.make_ready((room_code) => {
+                        window.__truncate_handle = wasm_bindgen.start("truncate_canvas", server, room_code ?? "");
+                    });
+
+                    console.debug("Truncate game initialized");
+                }
+
+                function on_wasm_error(error) {
+                    console.error("Failed to start: " + error);
+                    truncate_runner.error(error);
+                }
+            })();
+        })();
+    </script>
+</body>
+
+</html>

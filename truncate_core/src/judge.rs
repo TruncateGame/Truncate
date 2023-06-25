@@ -1,15 +1,23 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    error::GamePlayError,
     reporting::{BattleReport, BattleWord},
     rules,
 };
 
 use super::board::{Board, Square};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fmt::{self, Display},
 };
+
+#[derive(Clone)]
+pub struct WordData {
+    pub extensions: u32,
+    pub rel_freq: f32,
+}
+pub type WordDict = HashMap<String, WordData>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Outcome {
@@ -28,59 +36,88 @@ impl fmt::Display for Outcome {
     }
 }
 
+#[derive(Clone)]
 pub struct Judge {
-    dictionary: HashSet<String>,
+    builtin_dictionary: WordDict,
+    aliases: HashMap<char, Vec<char>>,
 }
-
-// TODO: Allow dictionary to be swapped out.
-// pub static DICT: &str = include_str!("../dictionary.txt");
-// pub static CSWDICT: &str = include_str!("../csw19.txt");
-pub static WORDNIK: &str = include_str!("../wordnik_wordlist.txt");
 
 impl Default for Judge {
     fn default() -> Self {
-        let mut dictionary = HashSet::new();
-
-        // for line in DICT.lines() {
-        //     dictionary.insert(line.to_lowercase());
-        // }
-
-        // let mut lines = CSWDICT.lines();
-        // lines.next(); // Skip copyright
-
-        let mut lines = WORDNIK.lines();
-        lines.next(); // Skip copyright
-
-        // TODO: Store definitions somewhere to return to the client
-        for line in lines {
-            dictionary.insert(line.to_string());
+        Self {
+            builtin_dictionary: HashMap::new(),
+            aliases: HashMap::new(),
         }
-        Self { dictionary }
     }
 }
 
 impl Judge {
-    pub fn new(words: Vec<&str>) -> Self {
-        let mut dictionary = HashSet::new();
+    pub fn new(words: Vec<String>) -> Self {
+        let mut dictionary = HashMap::new();
         for word in words {
-            dictionary.insert(word.to_lowercase());
+            dictionary.insert(
+                word.to_lowercase(),
+                WordData {
+                    extensions: 0,
+                    rel_freq: 0.0,
+                },
+            );
         }
-        Self { dictionary }
+        Self {
+            builtin_dictionary: dictionary,
+            aliases: HashMap::new(),
+        }
     }
 
-    // A player wins if they reach the opposite side of the board
+    pub fn set_alias(&mut self, alias_target: Vec<char>) -> char {
+        for p in ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'] {
+            if self.aliases.contains_key(&p) {
+                continue;
+            }
+            self.aliases.insert(p, alias_target);
+            return p;
+        }
+        panic!("Too many aliases!");
+    }
+
+    pub fn remove_aliases(&mut self) {
+        self.aliases.clear();
+    }
+
+    // A player wins if they touch an opponent's town
     // TODO: accept a config that chooses between different win conditions, like occupying enough quadrants
     // TODO: error (or possibly return a tie) if there are multiple winners - this assume turn based play
     // TODO: put this somewhere better, it conceptually works as a judge associated function, but it only uses values from the board
     pub fn winner(board: &Board) -> Option<usize> {
-        for (potential_winner, orientation) in board.get_orientations().iter().enumerate() {
-            for coordinate in board.get_near_edge(orientation.opposite()) {
-                if let Ok(Square::Occupied(occupier, _)) = board.get(coordinate) {
-                    if potential_winner == occupier {
-                        return Some(potential_winner);
-                    }
-                }
-            }
+        let win_squares = board
+            .towns()
+            .map(|town_coord| {
+                let Ok(Square::Town(owner)) = board.get(*town_coord) else {
+                panic!("The list of towns on the board should match valid squares");
+            };
+
+                (
+                    owner,
+                    town_coord
+                        .neighbors_4()
+                        .iter()
+                        .map(|win_coord| board.get(*win_coord))
+                        .flatten()
+                        .filter_map(|square| match square {
+                            Square::Occupied(tile_owner, _) if tile_owner != owner => {
+                                Some(tile_owner)
+                            }
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .filter(|(_, winning_squares)| !winning_squares.is_empty())
+            .collect::<Vec<_>>();
+
+        // TODO: Handle multiple entries in this array
+        if let Some((losing_town, winning_tiles)) = win_squares.first() {
+            return winning_tiles.first().cloned();
         }
         None
     }
@@ -95,6 +132,7 @@ impl Judge {
         attackers: Vec<S>,
         defenders: Vec<S>,
         battle_rules: &rules::BattleRules,
+        external_dictionary: Option<&WordDict>,
     ) -> Option<BattleReport> {
         // If there are no attackers or no defenders there is no battle
         if attackers.is_empty() || defenders.is_empty() {
@@ -105,10 +143,10 @@ impl Judge {
             attackers: attackers
                 .iter()
                 .map(|w| {
-                    let valid = self.valid(w);
+                    let valid = self.valid(w, external_dictionary, None);
                     BattleWord {
                         valid: Some(valid.is_some()),
-                        definition: None,
+                        meanings: None,
                         word: valid.unwrap_or_else(|| w.to_string()),
                     }
                 })
@@ -117,7 +155,7 @@ impl Judge {
                 .iter()
                 .map(|w| BattleWord {
                     word: w.to_string(),
-                    definition: None,
+                    meanings: None,
                     valid: None,
                 })
                 .collect(),
@@ -135,7 +173,7 @@ impl Judge {
         }
 
         for defense in &mut battle_report.defenders {
-            let valid = self.valid(&*defense.word);
+            let valid = self.valid(&*defense.word, external_dictionary, None);
             if let Some(valid) = valid {
                 defense.word = valid;
                 defense.valid = Some(true);
@@ -184,22 +222,59 @@ impl Judge {
     }
 
     /// Returns the string that was matched if word was a wildcard
-    fn valid<S: AsRef<str>>(&self, word: S) -> Option<String> {
+    pub fn valid<S: AsRef<str>>(
+        &self,
+        word: S,
+        external_dictionary: Option<&WordDict>,
+        used_aliases: Option<HashMap<char, Vec<usize>>>,
+    ) -> Option<String> {
         if word.as_ref().contains('¤') {
             return Some(word.as_ref().to_string().to_uppercase());
         }
+
+        // Handle the first matching alias we find (others will be handled in the next recursion)
+        for (alias, resolved) in &self.aliases {
+            if word.as_ref().contains(*alias) {
+                return resolved.iter().enumerate().find_map(|(i, c)| {
+                    let mut used = used_aliases.clone().unwrap_or_default();
+                    if used.get(c).map(|tiles| tiles.contains(&i)) == Some(true) {
+                        return None;
+                    }
+
+                    if let Some(used_alias) = used.get_mut(c) {
+                        used_alias.push(i);
+                    } else {
+                        used.insert(*c, vec![i]);
+                    }
+
+                    self.valid(
+                        word.as_ref().replacen(*alias, &c.to_string(), 1),
+                        external_dictionary,
+                        Some(used),
+                    )
+                });
+            }
+        }
+
         if word.as_ref().contains('*') {
             // Try all letters in the first wildcard spot
             // TODO: find a fun way to optimize this to not be 26^wildcard_count (regex?)
-            // TODO: return the validated word all the way to the client for info
-            (97..=122_u8)
-                .find_map(|c| self.valid(word.as_ref().replacen('*', &(c as char).to_string(), 1)))
+            return (97..=122_u8).find_map(|c| {
+                self.valid(
+                    word.as_ref().replacen('*', &(c as char).to_string(), 1),
+                    external_dictionary,
+                    used_aliases.clone(),
+                )
+            });
+        }
+
+        if external_dictionary
+            .unwrap_or(&self.builtin_dictionary)
+            .contains_key(&word.as_ref().to_lowercase())
+        {
+            Some(word.as_ref().to_string().to_uppercase())
         } else {
-            if self.dictionary.contains(&word.as_ref().to_lowercase()) {
-                Some(word.as_ref().to_string().to_uppercase())
-            } else {
-                None
-            }
+            None
         }
     }
 }
@@ -217,11 +292,11 @@ mod tests {
     #[test]
     fn no_battle_without_combatants() {
         let j = short_dict();
-        assert_eq!(j.battle(vec!["WORD"], vec![], &test_rules()), None);
-        assert_eq!(j.battle(vec![], vec!["WORD"], &test_rules()), None);
+        assert_eq!(j.battle(vec!["WORD"], vec![], &test_rules(), None), None);
+        assert_eq!(j.battle(vec![], vec!["WORD"], &test_rules(), None), None);
         // need to specify a generic here since the vecs are empty, only needed in test
         assert_eq!(
-            j.battle::<&'static str>(vec![], vec![], &test_rules()),
+            j.battle::<&'static str>(vec![], vec![], &test_rules(), None),
             None
         );
     }
@@ -230,31 +305,31 @@ mod tests {
     fn attacker_invalid() {
         let j = short_dict();
         assert_eq!(
-            j.battle(vec!["XYZ"], vec!["BIG"], &test_rules())
+            j.battle(vec!["XYZ"], vec!["BIG"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.battle(vec!["XYZXYZXYZ"], vec!["BIG"], &test_rules())
+            j.battle(vec!["XYZXYZXYZ"], vec!["BIG"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.battle(vec!["XYZ", "JOLLY"], vec!["BIG"], &test_rules())
+            j.battle(vec!["XYZ", "JOLLY"], vec!["BIG"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.battle(vec!["BIG", "XYZ"], vec!["BIG"], &test_rules())
+            j.battle(vec!["BIG", "XYZ"], vec!["BIG"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.battle(vec!["XYZ", "BIG"], vec!["BIG"], &test_rules())
+            j.battle(vec!["XYZ", "BIG"], vec!["BIG"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
@@ -265,25 +340,25 @@ mod tests {
     fn defender_invalid() {
         let j = short_dict();
         assert_eq!(
-            j.battle(vec!["BIG"], vec!["XYZ"], &test_rules())
+            j.battle(vec!["BIG"], vec!["XYZ"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.battle(vec!["BIG"], vec!["XYZXYZXYZ"], &test_rules())
+            j.battle(vec!["BIG"], vec!["XYZXYZXYZ"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.battle(vec!["BIG"], vec!["BIG", "XYZ"], &test_rules())
+            j.battle(vec!["BIG"], vec!["BIG", "XYZ"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::AttackerWins(vec![1])
         );
         assert_eq!(
-            j.battle(vec!["BIG"], vec!["XYZ", "BIG"], &test_rules())
+            j.battle(vec!["BIG"], vec!["XYZ", "BIG"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::AttackerWins(vec![0])
@@ -294,13 +369,13 @@ mod tests {
     fn attacker_weaker() {
         let j = short_dict();
         assert_eq!(
-            j.battle(vec!["JOLLY"], vec!["FOLK"], &test_rules())
+            j.battle(vec!["JOLLY"], vec!["FOLK"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.battle(vec!["JOLLY", "BIG"], vec!["FOLK"], &test_rules())
+            j.battle(vec!["JOLLY", "BIG"], vec!["FOLK"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
@@ -311,13 +386,13 @@ mod tests {
     fn defender_weaker() {
         let j = short_dict();
         assert_eq!(
-            j.battle(vec!["JOLLY"], vec!["FAT"], &test_rules())
+            j.battle(vec!["JOLLY"], vec!["FAT"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.battle(vec!["JOLLY", "BIG"], vec!["FAT"], &test_rules())
+            j.battle(vec!["JOLLY", "BIG"], vec!["FAT"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::AttackerWins(vec![0])
@@ -326,7 +401,8 @@ mod tests {
             j.battle(
                 vec!["JOLLY"],
                 vec!["FAT", "BIG", "JOLLY", "FOLK", "XYZXYZXYZ"],
-                &test_rules()
+                &test_rules(),
+                None
             )
             .unwrap()
             .outcome,
@@ -338,28 +414,115 @@ mod tests {
     fn wildcards() {
         let j = short_dict();
         assert_eq!(
-            j.battle(vec!["B*G"], vec!["XYZ"], &test_rules())
+            j.battle(vec!["B*G"], vec!["XYZ"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.battle(vec!["R*G"], vec!["XYZ"], &test_rules())
+            j.battle(vec!["R*G"], vec!["XYZ"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
         );
         assert_eq!(
-            j.battle(vec!["ARTS"], vec!["JALL*"], &test_rules())
+            j.battle(vec!["ARTS"], vec!["JALL*"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
-            j.battle(vec!["BAG"], vec!["JOLL*"], &test_rules())
+            j.battle(vec!["BAG"], vec!["JOLL*"], &test_rules(), None)
                 .unwrap()
                 .outcome,
             Outcome::DefenderWins
+        );
+    }
+
+    #[test]
+    fn aliases() {
+        let mut j = short_dict();
+
+        let a_or_b = j.set_alias(vec!['a', 'b']);
+        let b_or_c = j.set_alias(vec!['b', 'c']);
+
+        assert_eq!(
+            j.battle(
+                vec![format!("B{a_or_b}G").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
+        );
+        assert_eq!(
+            j.battle(
+                vec![format!("B{b_or_c}G").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
+        );
+        assert_eq!(
+            j.battle(
+                vec![format!("{b_or_c}{a_or_b}G").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
+        );
+    }
+
+    #[test]
+    fn multi_aliases() {
+        let mut j = short_dict();
+
+        let o_or_l = j.set_alias(vec!['o', 'l']);
+        let two_ls = j.set_alias(vec!['l', 'l']);
+
+        // We can't double-dip on a tile with an alias
+        assert_eq!(
+            j.battle(
+                vec![format!("JO{o_or_l}{o_or_l}Y").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
+        );
+        // But we can use multiple of the same
+        assert_eq!(
+            j.battle(
+                vec![format!("JO{two_ls}{two_ls}Y").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
+        );
+        // Or multiple that are different
+        assert_eq!(
+            j.battle(
+                vec![format!("J{o_or_l}L{o_or_l}Y").as_str()],
+                vec!["XYZ"],
+                &test_rules(),
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
         );
     }
 
@@ -367,32 +530,32 @@ mod tests {
     fn battle_report() {
         let j = short_dict();
         assert_eq!(
-            j.battle(vec!["B*G"], vec!["XYZ"], &test_rules()),
+            j.battle(vec!["B*G"], vec!["XYZ"], &test_rules(), None),
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "BAG".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(true)
                 }],
                 defenders: vec![BattleWord {
                     word: "XYZ".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(false)
                 }],
                 outcome: Outcome::AttackerWins(vec![0])
             })
         );
         assert_eq!(
-            j.battle(vec!["R*G"], vec!["XYZ"], &test_rules()),
+            j.battle(vec!["R*G"], vec!["XYZ"], &test_rules(), None),
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "R*G".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(false)
                 }],
                 defenders: vec![BattleWord {
                     word: "XYZ".into(),
-                    definition: None,
+                    meanings: None,
                     valid: None
                 }],
                 outcome: Outcome::DefenderWins
@@ -400,32 +563,32 @@ mod tests {
         );
 
         assert_eq!(
-            j.battle(vec!["ARTS"], vec!["JALL*"], &test_rules()),
+            j.battle(vec!["ARTS"], vec!["JALL*"], &test_rules(), None),
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "ARTS".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(true)
                 }],
                 defenders: vec![BattleWord {
                     word: "JALL*".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(false)
                 }],
                 outcome: Outcome::AttackerWins(vec![0])
             })
         );
         assert_eq!(
-            j.battle(vec!["BAG"], vec!["JOLL*"], &test_rules()),
+            j.battle(vec!["BAG"], vec!["JOLL*"], &test_rules(), None),
             Some(BattleReport {
                 attackers: vec![BattleWord {
                     word: "BAG".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(true)
                 }],
                 defenders: vec![BattleWord {
                     word: "JOLLY".into(),
-                    definition: None,
+                    meanings: None,
                     valid: Some(true)
                 }],
                 outcome: Outcome::DefenderWins
@@ -433,42 +596,49 @@ mod tests {
         );
     }
 
-    #[test]
-    fn main_dict() {
-        let j = Judge::default();
-        assert_eq!(j.valid("R*G"), Some("RAG".into()));
-        assert_eq!(j.valid("zyzzyva"), Some("ZYZZYVA".into()));
-        assert_eq!(j.valid("zyzzyvava"), None);
-        // Casing indepdendent
-        assert_eq!(j.valid("ZYZZYVA"), Some("ZYZZYVA".into()));
-    }
+    // #[test]
+    // fn main_dict() {
+    //     let j = Judge::default();
+    //     assert_eq!(j.valid("R*G", None), Some("RAG".into()));
+    //     assert_eq!(j.valid("zyzzyva", None), Some("ZYZZYVA".into()));
+    //     assert_eq!(j.valid("zyzzyvava", None), None);
+    //     // Casing indepdendent
+    //     assert_eq!(j.valid("ZYZZYVA", None), Some("ZYZZYVA".into()));
+    // }
 
-    #[test]
-    fn win_condition() {
-        let mut b = BoardUtils::from_string(
-            [
-                "    X    ",
-                "X X X _ _",
-                "X _ _ _ _",
-                "X _ _ _ _",
-                "_ _ _ _ _",
-                "    _    ",
-            ]
-            .join("\n"),
-            vec![Coordinate { x: 0, y: 0 }],
-            vec![Direction::North],
-        )
-        .unwrap();
+    // #[test]
+    // fn win_condition() {
+    //     let mut b = BoardUtils::from_string(
+    //         [
+    //             "    X    ",
+    //             "X X X _ _",
+    //             "X _ _ _ _",
+    //             "X _ _ _ _",
+    //             "_ _ _ _ _",
+    //             "    _    ",
+    //         ]
+    //         .join("\n"),
+    //         vec![Coordinate { x: 0, y: 0 }],
+    //         vec![Direction::North],
+    //     )
+    //     .unwrap();
 
-        assert_eq!(Judge::winner(&b), None);
-        b.set(Coordinate { x: 0, y: 4 }, 0, 'X').unwrap();
-        assert_eq!(Judge::winner(&b), Some(0));
-    }
+    //     assert_eq!(Judge::winner(&b), None);
+    //     b.set(Coordinate { x: 0, y: 4 }, 0, 'X').unwrap();
+    //     assert_eq!(Judge::winner(&b), Some(0));
+    // }
 
     // Utils
     pub fn short_dict() -> Judge {
         Judge::new(vec![
-            "BIG", "BAG", "FAT", "JOLLY", "AND", "SILLY", "FOLK", "ARTS",
+            "BIG".into(),
+            "BAG".into(),
+            "FAT".into(),
+            "JOLLY".into(),
+            "AND".into(),
+            "SILLY".into(),
+            "FOLK".into(),
+            "ARTS".into(),
         ]) // TODO: Collins 2018 list
     }
 }
