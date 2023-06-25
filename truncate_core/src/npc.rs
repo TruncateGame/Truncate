@@ -556,7 +556,7 @@ mod tests {
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
             omit_expression => true
         }, {
-            insta::assert_snapshot!(format!("(Total score) A: {} / B: {}", score_a, score_b), @"(Total score) A: 9.25 / B: 6.583334");
+            insta::assert_snapshot!(format!("(Total score) A: {} / B: {}", score_a, score_b), @"(Total score) A: 9.227806 / B: 6.5617027");
         });
     }
 
@@ -633,7 +633,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1337 possible leaves
-                  - 672 after pruning
+                  - 693 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -756,7 +756,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1399 possible leaves
-                  - 639 after pruning
+                  - 633 after pruning
                   - Move: Place A at (0, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -797,13 +797,13 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1400 possible leaves
-                  - 452 after pruning
-                  - Move: Place S at (2, 3)
+                  - 443 after pruning
+                  - Move: Place T at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
                 __ __ __ __ __
                 __ __ __ __ __
-                __ __ S1 __ __
+                __ __ T1 __ __
                 Q1 E1 E1 __ __
                 __ __ A1 __ __
                 R1 I1 T1 __ __
@@ -840,9 +840,9 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 150764 possible leaves
-                  - 15337 after pruning
-                  - Move: Place A at (4, 7)
+                  - 12345 possible leaves
+                  - 5356 after pruning
+                  - Move: Place T at (1, 7)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -851,7 +851,7 @@ mod tests {
                 __ __ C0 T0 __ __ __
                 __ __ __ A0 __ __ __
                 __ __ __ B0 __ __ __
-                __ __ I1 __ A1 __ __
+                __ T1 I1 __ __ __ __
                 __ __ D1 A1 T1 E1 S1
                 __ __ E1 __ __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~
