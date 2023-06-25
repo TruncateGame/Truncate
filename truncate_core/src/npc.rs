@@ -368,6 +368,8 @@ impl Game {
                                 + (word.len().saturating_sub(2) * 2) as f32
                                 + (word_data.extensions.min(25) as f32 / 100.0);
 
+                            score *= word_data.rel_freq;
+
                             if word.len() == 2 {
                                 score -= 2.0;
                             }
