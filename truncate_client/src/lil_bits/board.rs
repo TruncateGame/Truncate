@@ -259,6 +259,9 @@ impl<'a> BoardUI<'a> {
         })
         .inner;
 
+        let mut board_pos = board_frame.response.rect.clone();
+        let previous_state = (ctx.board_zoom, ctx.board_pan);
+
         if let Some(hover_pos) = board_frame.response.hover_pos() {
             // Move the drag focus to our board layer if it looks like a drag is starting.
             // NB: This is possible sensitive to the board being painted _last_ on our screen,
@@ -300,17 +303,23 @@ impl<'a> BoardUI<'a> {
             if capture_action {
                 // --- Zooming ---
                 if zoom_delta != 1.0 {
+                    
                     ctx.board_zoom *= zoom_delta;
+                    let diff = board_pos.size() - board_pos.size() * zoom_delta;
+                    board_pos.set_right(board_pos.right() - diff.x);
+                    board_pos.set_bottom(board_pos.bottom() - diff.y);
 
                     // Center the zoom around the cursor
                     let pointer_delta = hover_pos - ctx.board_pan;
                     let zoom_diff = zoom_delta - 1.0;
                     let zoom_pan_delta = pos2(pointer_delta.x * zoom_diff, pointer_delta.y * zoom_diff);
                     ctx.board_pan -= zoom_pan_delta.to_vec2();
+                    board_pos = board_pos.translate(-zoom_pan_delta.to_vec2());
                 }
                 // --- Panning ---
                 if scroll_delta != Vec2::ZERO {
                     ctx.board_pan += scroll_delta;
+                    board_pos = board_pos.translate(scroll_delta);
                 }
             }
         }
@@ -321,13 +330,24 @@ impl<'a> BoardUI<'a> {
         if ui.memory(|mem| mem.is_being_dragged(area_id.id)) {
             let pointer_delta = ui.ctx().input(|i| i.pointer.delta());
             ctx.board_pan += pointer_delta;
+            board_pos = board_pos.translate(pointer_delta);
         }
 
         // TODO: This is capturing gestures everywhere
         if let Some(touch) = ui.input(|i| i.multi_touch()) {
             ctx.board_zoom *= (touch.zoom_delta - 1.0) * 0.25 + 1.0;
             ctx.board_pan += touch.translation_delta;
+            board_pos = board_pos.translate(touch.translation_delta);
         }
+
+        let visible = board_pos.intersect(game_area);
+        if visible.width() < ctx.theme.grid_size * 2.0 || visible.height() < ctx.theme.grid_size * 2.0 {
+            ctx.board_zoom = previous_state.0;
+            ctx.board_pan = previous_state.1;
+        }
+
+
+        // let resolved_x = (self.board.width() * ctx.theme.grid_size * ctx.board_zoom) ctx.board_pan
 
         if let Some(new_selection) = next_selection {
             ctx.selected_square_on_board = new_selection;
