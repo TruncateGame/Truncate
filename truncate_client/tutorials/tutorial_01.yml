@@ -16,9 +16,12 @@ player_hand: ALIFIRM
 computer_hand: D
 
 dict:
-  WORD: "Word definition"
-  ANOTHER: "Word definition"
-  LAST: "Word definition"
+  TRAIL: "To follow behind (someone or something)"
+  IT: "The third-person singular personal pronoun used to refer to an inanimate object, abstract entity, or non-human living thing"
+  STRAIN: "A particular variety of a microbe, virus, or other organism"
+  TONERS: "Powder used in laser printers and photocopiers to form the text and images on the printed paper"
+  HERD: "A number of domestic animals assembled together under the watch or ownership of a keeper"
+  HIT: "To administer a blow to, directly or with a weapon or missile"
 
 steps:
 
@@ -97,3 +100,171 @@ steps:
       Now our opponent will most likely finish their root word...
     computer: "H -> 4,6"
     gets: "N"
+
+  - description: |-
+      . . .
+    you: "I -> 3,4"
+    gets: "M"
+
+  - description: |-
+      . . .
+    computer: "N -> 3,7"
+    gets: "O"
+
+  - description: |-
+      . . .
+    you: "R -> 2,4"
+    gets: "L"
+
+  - description: |-
+      . . .
+    computer: "O -> 2,7"
+    gets: "T"
+
+  - description: |-
+      . . .
+    you: "E -> 1,4"
+    gets: "E"
+
+  - description: |-
+      . . .
+    computer: "T -> 1,7"
+    gets: "I"
+
+  - description: |-
+      . . .
+    you: "M -> 1,5"
+    gets: "T"
+
+  - description: |-
+      . . .
+    computer: "I -> 5,6"
+    gets: "T"
+
+  - description: |-
+      . . .
+    you: "O -> 5,2"
+    gets: "S"
+
+  - description: |-
+      . . .
+    computer: "T -> 6,6"
+    gets: "A"
+
+  - description: |-
+      . . .
+    you: "L -> 3,2"
+    gets: "I"
+
+  - description: |-
+      . . .
+    computer: "A -> 6,5"
+    gets: "H"
+
+  - description: |-
+      . . .
+    you: "S -> 6,2"
+    gets: "R"
+
+  - description: |-
+      . . .
+    computer: "H -> 6,4"
+    gets: "E"
+
+  - description: |-
+      . . .
+    you: "2,4 -> 4,4"
+    gets: "_"
+
+  - description: |-
+      . . .
+    computer: "E -> 6,7"
+    gets: "R"
+
+  - description: |-
+      . . .
+    you: "T -> 4,5"
+    gets: "N"
+
+  - description: |-
+      . . .
+    computer: "R -> 5,7"
+    gets: "S"
+
+  - description: |-
+      . . .
+    you: "N -> 1,3"
+    gets: "A"
+
+  - description: |-
+      . . .
+    computer: "S -> 6,7"
+    gets: "I"
+
+  - description: |-
+      . . .
+    you: "4,1 -> 1,3"
+    gets: "_"
+
+  - description: |-
+      . . .
+    computer: "I -> 1,6"
+    gets: "T"
+
+  - description: |-
+      . . .
+    you: "S -> 4,6"
+    gets: "W"
+
+  - description: |-
+      . . .
+    computer: "T -> 4,9"
+    gets: "A"
+
+  - description: |-
+      . . .
+    you: "A -> 3,6"
+    gets: "P"
+
+  - description: |-
+      . . .
+    computer: "A -> 4,8"
+    gets: "M"
+
+  - description: |-
+      . . .
+    you: "W -> 2,6"
+    gets: "N"
+
+  - description: |-
+      . . .
+    computer: "M -> 5,8"
+    gets: "R"
+
+  - description: |-
+      . . .
+    you: "N -> 1,6"
+    gets: "I"
+
+  - description: |-
+      . . .
+    computer: "R -> 3,8"
+    gets: "P"
+
+  - description: |-
+      . . .
+    you: "I -> 1,7"
+    gets: "Q"
+
+  - description: |-
+      . . .
+    computer: "P -> 6,8"
+    gets: "T"
+
+  - description: |-
+      . . .
+    you: "P -> 1,8"
+    gets: "K"
+
+  - message: |-
+      Huzzah!

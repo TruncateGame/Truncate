@@ -190,6 +190,12 @@ impl<'a> BoardUI<'a> {
                                         }
                                     }
 
+                                    if let Some(squares) = ctx.highlight_squares.as_ref() {
+                                        if squares.contains(&coord) && ctx.current_time.subsec_millis() > 500 {
+                                            tile = tile.map(|t| t.highlighted(true));
+                                        }
+                                    }
+
                                     // TODO: Devise a way to show this tile in the place of the board_selected_tile
 
                                     let mut tile_clicked = false;

@@ -2,7 +2,7 @@ use eframe::{
     egui::{self, Layout},
     emath::Align,
 };
-use epaint::{hex_color, Rect, Stroke, TextureHandle};
+use epaint::{hex_color, vec2, Rect, Stroke, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::{
@@ -80,16 +80,6 @@ impl SquareUI {
                 );
             }
 
-            if let Some(squares) = ctx.highlight_squares.as_ref() {
-                if squares.contains(&self.coord) && ctx.current_time.subsec_millis() > 500 {
-                    ui.painter().rect_filled(
-                        rect.shrink(ctx.theme.tile_margin),
-                        ctx.theme.rounding,
-                        ctx.theme.selection.pastel().gamma_multiply(0.5),
-                    );
-                }
-            }
-
             let is_hovered = ui.rect_contains_pointer(interact_rect);
 
             let show_overlay = is_hovered && self.overlay.is_some();
@@ -110,6 +100,20 @@ impl SquareUI {
                         ctx,
                         None,
                     );
+                }
+            }
+
+            if self.empty {
+                if let Some(squares) = ctx.highlight_squares.as_ref() {
+                    if squares.contains(&self.coord) && ctx.current_time.subsec_millis() > 500 {
+                        let mut highlight_rect = rect.shrink(ctx.theme.tile_margin);
+
+                        ui.painter().rect_filled(
+                            highlight_rect,
+                            ctx.theme.rounding,
+                            ctx.theme.selection.pastel().gamma_multiply(0.5),
+                        );
+                    }
                 }
             }
         }

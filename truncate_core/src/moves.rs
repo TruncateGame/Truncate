@@ -6,7 +6,6 @@ use crate::error::GamePlayError;
 use crate::player::Player;
 use crate::reporting::Change;
 
-#[derive(PartialEq)]
 pub enum Move {
     // TODO: make Move a struct and make player a top level property of it
     Place {
@@ -18,6 +17,40 @@ pub enum Move {
         player: usize,
         positions: [Coordinate; 2],
     },
+}
+
+impl PartialEq for Move {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::Place {
+                    player: l_player,
+                    tile: l_tile,
+                    position: l_position,
+                },
+                Self::Place {
+                    player: r_player,
+                    tile: r_tile,
+                    position: r_position,
+                },
+            ) => l_player == r_player && l_tile == r_tile && l_position == r_position,
+            (
+                Self::Swap {
+                    player: l_player,
+                    positions: l_positions,
+                },
+                Self::Swap {
+                    player: r_player,
+                    positions: r_positions,
+                },
+            ) => {
+                l_player == r_player
+                    && (l_positions == r_positions
+                        || (l_positions[0] == r_positions[1] && l_positions[1] == r_positions[0]))
+            }
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
