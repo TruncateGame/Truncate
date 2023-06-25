@@ -2,7 +2,7 @@ name: Deploy to outpost/coup
 
 on:
   push:
-    branches: ["staging"]
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,21 +22,21 @@ jobs:
           fetch-depth: 1
       - uses: actions/checkout@v3
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy Backend to Coup
+      - name: Deploy Backend to Citadel
         run: |
           flyctl deploy \
           -c fly.citadel.toml \
-          -a truncate-coup \
+          -a truncate-citadel \
           --build-arg TR_COMMIT="$(git rev-parse HEAD)" \
           --build-arg TR_MSG="$(git log -1 --pretty=%B | head -n 1 | sed "s/\"/'/g")" \
           --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      - name: Deploy Frontend to Outpost
+      - name: Deploy Frontend to production
         run: |
           flyctl deploy \
           -c fly.client.toml \
-          -a truncate-outpost \
+          -a truncate-client \
           --build-arg TR_COMMIT="$(git rev-parse HEAD)" \
           --build-arg TR_MSG="$(git log -1 --pretty=%B | head -n 1 | sed "s/\"/'/g")" \
           --remote-only
