@@ -348,23 +348,6 @@ impl Game {
                             None
                         },
                     ));
-
-                    match self.board.get(position) {
-                        Ok(Square::Occupied(_, tile)) if tile == '¤' => {
-                            changes.push(
-                                self.board
-                                    .clear(position)
-                                    .map(|detail| {
-                                        Change::Board(BoardChange {
-                                            detail,
-                                            action: BoardChangeAction::Exploded,
-                                        })
-                                    })
-                                    .expect("Tile exists and should be removable"),
-                            );
-                        }
-                        _ => {}
-                    }
                 }
             }
             changes.push(Change::Battle(battle));
@@ -376,6 +359,23 @@ impl Game {
             }
             rules::Truncation::Larger => unimplemented!(),
             rules::Truncation::None => {}
+        }
+
+        match self.board.get(position) {
+            Ok(Square::Occupied(_, tile)) if tile == '¤' => {
+                changes.push(
+                    self.board
+                        .clear(position)
+                        .map(|detail| {
+                            Change::Board(BoardChange {
+                                detail,
+                                action: BoardChangeAction::Exploded,
+                            })
+                        })
+                        .expect("Tile exists and should be removable"),
+                );
+            }
+            _ => {}
         }
     }
 
