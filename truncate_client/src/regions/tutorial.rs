@@ -226,17 +226,11 @@ impl TutorialState {
             }
         }
 
-        if let Some(mut dialog_pos) = self.active_game.ctx.hand_companion_rect {
+        if let Some(dialog_pos) = self.active_game.ctx.hand_companion_rect {
             let max_width = f32::min(600.0, dialog_pos.width());
-            let max_height = f32::min(200.0, dialog_pos.height());
+            let dialog_padding_x = (dialog_pos.width() - max_width) / 2.0;
 
-            dialog_pos = dialog_pos
-                .shrink2(vec2(
-                    (dialog_pos.width() - max_width) / 2.0,
-                    (dialog_pos.height() - max_height) / 2.0,
-                ))
-                .shrink(8.0);
-            let inner_dialog = dialog_pos.shrink(8.0);
+            let inner_dialog = dialog_pos.shrink2(vec2(dialog_padding_x, 8.0));
 
             let area = egui::Area::new(egui::Id::new("tutorial_layer"))
                 .movable(false)
