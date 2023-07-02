@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use eframe::egui::{self, Layout, Order, RichText, ScrollArea};
 use epaint::{hex_color, vec2, Color32, TextureHandle};
+use instant::Duration;
 use serde::Deserialize;
 use truncate_core::{
     bag::TileBag,
@@ -165,7 +166,7 @@ impl TutorialState {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) {
+    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
         let current_step = self.tutorial.steps.get(self.stage);
         let mut next_move = None;
 
@@ -200,7 +201,7 @@ impl TutorialState {
         }
 
         // Standard game helper
-        if let Some(msg) = self.active_game.render(ui, theme, None) {
+        if let Some(msg) = self.active_game.render(ui, theme, None, current_time) {
             let Some(game_move) = (match msg {
                 PlayerMessage::Place(position, tile) => Some(Move::Place {
                     player: 0,

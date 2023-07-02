@@ -274,16 +274,9 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
+        current_time: Duration,
     ) -> Option<PlayerMessage> {
-        // We have to go through the instant crate as
-        // most std time functions are not implemented
-        // in Rust's wasm targets.
-        // instant::SystemTime::now() conditionally uses
-        // a js function on wasm targets, and otherwise aliases
-        // to the std SystemTime type.
-        self.ctx.current_time = instant::SystemTime::now()
-            .duration_since(instant::SystemTime::UNIX_EPOCH)
-            .expect("Please don't play Truncate earlier than 1970");
+        self.ctx.current_time = current_time;
 
         let mut game_space = ui.available_rect_before_wrap();
         let mut sidebar_space = game_space.clone();
