@@ -89,13 +89,13 @@ impl Default for GameRules {
     fn default() -> Self {
         Self {
             win_condition: WinCondition::Destination,
-            visibility: Visibility::Standard,
-            truncation: Truncation::Root,
+            visibility: Visibility::FogOfWar,
+            truncation: Truncation::None,
             timing: Timing::PerPlayer {
-                time_allowance: 600,
+                time_allowance: 20 * 60,
                 overtime_rule: OvertimeRule::FreeWildcard { period: 60 },
             },
-            hand_size: 7,
+            hand_size: 10,
             tile_distribution: TileDistribution::Standard,
             tile_bag_behaviour: TileBagBehaviour::Standard,
             battle_rules: BattleRules { length_delta: 2 },
