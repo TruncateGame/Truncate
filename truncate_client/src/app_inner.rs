@@ -1,9 +1,12 @@
-use eframe::egui;
+use eframe::egui::{self, Layout, Margin};
+use epaint::{vec2, Color32};
+use instant::Duration;
 use truncate_core::{messages::RoomCode, messages::Token};
 
 use crate::{
     regions::active_game::ActiveGame,
     regions::{lobby::Lobby, single_player::SinglePlayerState, tutorial::TutorialState},
+    utils::{text::TextHelper, Lighten},
 };
 
 use super::OuterApplication;
@@ -23,7 +26,7 @@ pub enum GameStatus {
     Concluded(ActiveGame, u64),
 }
 
-pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
+pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Duration) {
     let OuterApplication {
         name,
         theme,
@@ -141,16 +144,80 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
             }
         }
         GameStatus::Tutorial(tutorial) => {
-            tutorial.render(ui, theme);
+            tutorial.render(ui, theme, current_time);
         }
         GameStatus::SinglePlayer(sp) => {
-            sp.render(ui, theme);
+            sp.render(ui, theme, current_time);
         }
         GameStatus::PendingJoin(room_code) => {
             ui.label(format!("Waiting to join room {room_code}"));
+
+            let dot_count = (current_time.as_millis() / 500) % 4;
+            let mut dots = vec!["."; dot_count as usize];
+            dots.extend(vec![" "; 4 - dot_count as usize]);
+            let msg = format!("JOINING {room_code}{}", dots.join(""));
+
+            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let required_size = vec2(
+                msg_text.size().x,
+                msg_text.size().y + button_text.size().y * 2.0,
+            );
+
+            let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
+            let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
+            outer_frame.show(ui, |ui| {
+                msg_text.paint(Color32::WHITE, ui);
+                ui.add_space(8.0);
+                if button_text
+                    .button(
+                        theme.selection.lighten().lighten(),
+                        theme.text,
+                        &map_texture,
+                        ui,
+                    )
+                    .clicked()
+                {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        web_sys::window().unwrap().location().reload();
+                    }
+                }
+            });
         }
         GameStatus::PendingCreate => {
-            ui.label("Waiting for a new game to be created . . .");
+            let dot_count = (current_time.as_millis() / 500) % 4;
+            let mut dots = vec!["."; dot_count as usize];
+            dots.extend(vec![" "; 4 - dot_count as usize]);
+            let msg = format!("CREATING ROOM{}", dots.join(""));
+
+            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let required_size = vec2(
+                msg_text.size().x,
+                msg_text.size().y + button_text.size().y * 2.0,
+            );
+
+            let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
+            let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
+            outer_frame.show(ui, |ui| {
+                msg_text.paint(Color32::WHITE, ui);
+                ui.add_space(8.0);
+                if button_text
+                    .button(
+                        theme.selection.lighten().lighten(),
+                        theme.text,
+                        &map_texture,
+                        ui,
+                    )
+                    .clicked()
+                {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        web_sys::window().unwrap().location().reload();
+                    }
+                }
+            });
         }
         GameStatus::PendingStart(editor_state) => {
             if let Some(msg) = editor_state.render(ui, theme) {
@@ -158,12 +225,12 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
             }
         }
         GameStatus::Active(game) => {
-            if let Some(msg) = game.render(ui, theme, None) {
+            if let Some(msg) = game.render(ui, theme, None, current_time) {
                 send(msg);
             }
         }
         GameStatus::Concluded(game, winner) => {
-            game.render(ui, theme, Some(*winner as usize));
+            game.render(ui, theme, Some(*winner as usize), current_time);
             // render_board(game, ui);
             // TODO: Reset state and play again
         }
