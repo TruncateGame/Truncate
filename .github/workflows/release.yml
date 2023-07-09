@@ -2,7 +2,7 @@ name: Deploy to outpost/coup
 
 on:
   push:
-    branches: ["main"]
+    branches: ["production"]
 
 env:
   CARGO_TERM_COLOR: always
