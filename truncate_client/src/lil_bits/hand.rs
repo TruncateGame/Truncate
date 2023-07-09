@@ -72,7 +72,7 @@ impl<'a> HandUI<'a> {
                             .ghost(is_being_dragged)
                             .selected(Some(i) == ctx.selected_tile_in_hand)
                             .highlighted(highlight)
-                            .render(None, ui, ctx, None);
+                            .render(None, ui, ctx, true, None);
 
                         if tile_response.drag_started() {
                             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
@@ -118,7 +118,7 @@ impl<'a> HandUI<'a> {
                                         .selected(false)
                                         .hovered(true)
                                         .ghost(ctx.hovered_tile_on_board.is_some())
-                                        .render(None, ui, ctx, Some(bouncy_scale));
+                                        .render(None, ui, ctx, false, Some(bouncy_scale));
                                 })
                                 .response;
 

@@ -94,10 +94,11 @@ impl SquareUI {
 
             if is_hovered {
                 if let Some(overlay) = self.overlay {
-                    response = TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
+                    TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
                         None,
                         &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
                         ctx,
+                        false,
                         None,
                     );
                 }

@@ -130,6 +130,7 @@ impl TileUI {
         coord: Option<Coordinate>,
         ui: &mut egui::Ui,
         ctx: &mut GameCtx,
+        capture_clicks: bool,
         rescale: Option<f32>,
     ) -> egui::Response {
         let theme = rescale
@@ -145,7 +146,12 @@ impl TileUI {
         );
 
         let mut tile_rect = base_rect.shrink(tile_margin);
-        let mut response = ui.allocate_rect(tile_rect, egui::Sense::click());
+        let tile_sense = if capture_clicks {
+            egui::Sense::click()
+        } else {
+            egui::Sense::hover()
+        };
+        let mut response = ui.allocate_rect(tile_rect, tile_sense);
 
         if let Some(id) = self.id {
             response = ui.interact(tile_rect, id, egui::Sense::click_and_drag());
