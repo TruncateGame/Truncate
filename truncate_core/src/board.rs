@@ -611,7 +611,9 @@ impl Board {
             squares.map(|(x, y)| (Coordinate { x, y }, self.get(Coordinate { x, y })))
         {
             match square {
-                Ok(Square::Occupied(player, _)) if player == player_index => {
+                Ok(Square::Occupied(player, _)) | Ok(Square::Dock(player))
+                    if player == player_index =>
+                {
                     // TODO: Enumerate squares a given manhattan distance away, as this double counts
                     for (coord, square) in self
                         .neighbouring_squares(coord)
