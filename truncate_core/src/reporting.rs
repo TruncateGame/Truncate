@@ -168,11 +168,6 @@ pub(crate) fn filter_to_player(
     visibility: &rules::Visibility,
     winner: &Option<usize>,
 ) -> Vec<Change> {
-    // All visibility is restored when the game ends
-    if winner.is_some() {
-        return changes.clone();
-    }
-
     changes
         .iter()
         .filter(|change| match change {
@@ -189,6 +184,11 @@ pub(crate) fn filter_to_player(
                     },
                 action,
             }) => {
+                // All board visibility is restored when the game ends
+                if winner.is_some() {
+                    return true;
+                }
+
                 if action == &BoardChangeAction::Victorious
                     || action == &BoardChangeAction::Defeated
                     || action == &BoardChangeAction::Truncated
