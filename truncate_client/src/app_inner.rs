@@ -230,13 +230,22 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                 }
                 _ => todo!("Game update hit an unknown state"),
             },
-            GameMessage::GameEnd(state_message, winner) => match game_status {
-                GameStatus::Active(game) => {
-                    game.apply_new_state(state_message);
-                    *game_status = GameStatus::Concluded(game.clone(), winner);
+            GameMessage::GameEnd(state_message, winner) => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let local_storage =
+                        web_sys::window().unwrap().local_storage().unwrap().unwrap();
+                    local_storage.remove_item("truncate_active_token").unwrap();
                 }
-                _ => todo!("Game error hit an unknown state"),
-            },
+
+                match game_status {
+                    GameStatus::Active(game) => {
+                        game.apply_new_state(state_message);
+                        *game_status = GameStatus::Concluded(game.clone(), winner);
+                    }
+                    _ => todo!("Game error hit an unknown state"),
+                }
+            }
             GameMessage::GameError(_id, _num, err) => match game_status {
                 GameStatus::Active(game) => {
                     // assert_eq!(game.room_code, id);
