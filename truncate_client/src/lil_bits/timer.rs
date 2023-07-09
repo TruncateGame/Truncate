@@ -196,7 +196,7 @@ impl<'a> TimerUI<'a> {
                     ui.painter()
                         .rect_filled(penalty_bar, timer_rounding, hex_color!("#00ff00"));
                 } else {
-                    // TODO: Pin penalty bar to the right edge of timer
+                    penalty_bar = penalty_bar.translate(vec2(penalty_bar.width(), 0.0));
                     ui.painter()
                         .rect_filled(penalty_bar, timer_rounding, hex_color!("#ff0000"));
                 };
