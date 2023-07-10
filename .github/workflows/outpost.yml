@@ -4,6 +4,10 @@ on:
   push:
     branches: ["main"]
 
+concurrency:
+  group: staging_deploy
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
 
