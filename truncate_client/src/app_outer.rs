@@ -127,6 +127,16 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
 
 impl eframe::App for OuterApplication {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // We have to go through the instant crate as
+        // most std time functions are not implemented
+        // in Rust's wasm targets.
+        // instant::SystemTime::now() conditionally uses
+        // a js function on wasm targets, and otherwise aliases
+        // to the std SystemTime type.
+        let current_time = instant::SystemTime::now()
+            .duration_since(instant::SystemTime::UNIX_EPOCH)
+            .expect("Please don't play Truncate earlier than 1970");
+
         self.frame_history
             .on_new_frame(ctx.input(|i| i.time), _frame.info().cpu_usage);
 
@@ -135,22 +145,14 @@ impl eframe::App for OuterApplication {
             .show(ctx, |ui| {
                 // Show debug timings in-app
                 // self.frame_history.ui(ui);
-                app_inner::render(self, ui)
+                app_inner::render(self, ui, current_time)
             });
 
-        if let Some(time) = match &self.game_status {
-            app_inner::GameStatus::Tutorial(g) => Some(g.active_game.ctx.current_time),
-            app_inner::GameStatus::SinglePlayer(g) => Some(g.active_game.ctx.current_time),
-            app_inner::GameStatus::Active(g) => Some(g.ctx.current_time),
-            _ => None,
-        } {
-            let subsec = time.subsec_millis();
-            // In-game animations should try align with the quarter-second tick,
-            // so we try to repaint around that tick to keep them looking consistent
-            let next_tick = 251 - (subsec % 250);
-            ctx.request_repaint_after(std::time::Duration::from_millis(next_tick as u64));
-        } else {
-            ctx.request_repaint_after(std::time::Duration::from_millis(1000));
-        }
+        let subsec = current_time.subsec_millis();
+        // In-game animations should try align with the quarter-second tick,
+        // so we try to repaint around that tick to keep them looking consistent.
+        // (Adding an extra millisecond so we don't have to worry about `> 250` vs `>= 250`)
+        let next_tick = 251 - (subsec % 250);
+        ctx.request_repaint_after(std::time::Duration::from_millis(next_tick as u64));
     }
 }

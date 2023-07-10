@@ -8,7 +8,7 @@ use truncate_core::{
 };
 
 use eframe::{
-    egui::{self, Frame, Label, Layout, Margin, Order, RichText, ScrollArea, Sense},
+    egui::{self, Frame, Label, LayerId, Layout, Margin, Order, RichText, ScrollArea, Sense},
     emath::Align,
 };
 use hashbrown::HashMap;
@@ -44,6 +44,7 @@ pub struct GameCtx {
     pub board_pan: Vec2,
     pub sidebar_visible: bool,
     pub timers_visible: bool,
+    pub hand_total_rect: Option<Rect>,
     pub hand_companion_rect: Option<Rect>,
     pub highlight_tiles: Option<Vec<char>>,
     pub highlight_squares: Option<Vec<Coordinate>>,
@@ -97,6 +98,7 @@ impl ActiveGame {
                 sidebar_visible: true,
                 timers_visible: true,
                 hand_companion_rect: None,
+                hand_total_rect: None,
                 highlight_tiles: None,
                 highlight_squares: None,
             },
@@ -144,10 +146,20 @@ impl ActiveGame {
         let avail_width = ui.available_width();
 
         let resp = area.show(ui.ctx(), |ui| {
+            if let Some(bg_rect) = self.ctx.hand_total_rect {
+                ui.painter().clone().rect_filled(
+                    bg_rect,
+                    0.0,
+                    self.ctx.theme.water.gamma_multiply(0.75),
+                );
+            }
+
             ui.allocate_ui_with_layout(
                 vec2(avail_width, 10.0),
                 Layout::top_down(Align::LEFT),
                 |ui| {
+                    ui.add_space(10.0);
+
                     let (hand_alloc, _) =
                         ui.allocate_at_least(vec2(ui.available_width(), 50.0), Sense::hover());
                     let mut hand_ui = ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
@@ -189,8 +201,8 @@ impl ActiveGame {
                 },
             );
         });
-        // TODO: Paint this to an appropriate layer, or do sizing within the area above and paint it there.
-        // ui.painter().rect_filled(resp.response.rect, 0.0, hex_color!("#ff000088"));
+
+        self.ctx.hand_total_rect = Some(resp.response.rect);
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
@@ -274,16 +286,9 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
+        current_time: Duration,
     ) -> Option<PlayerMessage> {
-        // We have to go through the instant crate as
-        // most std time functions are not implemented
-        // in Rust's wasm targets.
-        // instant::SystemTime::now() conditionally uses
-        // a js function on wasm targets, and otherwise aliases
-        // to the std SystemTime type.
-        self.ctx.current_time = instant::SystemTime::now()
-            .duration_since(instant::SystemTime::UNIX_EPOCH)
-            .expect("Please don't play Truncate earlier than 1970");
+        self.ctx.current_time = current_time;
 
         let mut game_space = ui.available_rect_before_wrap();
         let mut sidebar_space = game_space.clone();

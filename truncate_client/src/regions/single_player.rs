@@ -65,11 +65,11 @@ impl SinglePlayerState {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) {
+    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
         // Standard game helper
         let mut next_msg = self
             .active_game
-            .render(ui, theme, self.winner)
+            .render(ui, theme, self.winner, current_time)
             .map(|msg| (0, msg));
 
         if self.winner.is_some() {

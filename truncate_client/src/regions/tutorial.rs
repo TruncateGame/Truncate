@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use eframe::egui::{self, Layout, Order, RichText, ScrollArea};
 use epaint::{hex_color, vec2, Color32, TextureHandle};
+use instant::Duration;
 use serde::Deserialize;
 use truncate_core::{
     bag::TileBag,
@@ -165,7 +166,7 @@ impl TutorialState {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) {
+    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
         let current_step = self.tutorial.steps.get(self.stage);
         let mut next_move = None;
 
@@ -200,7 +201,7 @@ impl TutorialState {
         }
 
         // Standard game helper
-        if let Some(msg) = self.active_game.render(ui, theme, None) {
+        if let Some(msg) = self.active_game.render(ui, theme, None, current_time) {
             let Some(game_move) = (match msg {
                 PlayerMessage::Place(position, tile) => Some(Move::Place {
                     player: 0,
@@ -226,17 +227,11 @@ impl TutorialState {
             }
         }
 
-        if let Some(mut dialog_pos) = self.active_game.ctx.hand_companion_rect {
+        if let Some(dialog_pos) = self.active_game.ctx.hand_companion_rect {
             let max_width = f32::min(600.0, dialog_pos.width());
-            let max_height = f32::min(200.0, dialog_pos.height());
+            let dialog_padding_x = (dialog_pos.width() - max_width) / 2.0;
 
-            dialog_pos = dialog_pos
-                .shrink2(vec2(
-                    (dialog_pos.width() - max_width) / 2.0,
-                    (dialog_pos.height() - max_height) / 2.0,
-                ))
-                .shrink(8.0);
-            let inner_dialog = dialog_pos.shrink(8.0);
+            let inner_dialog = dialog_pos.shrink2(vec2(dialog_padding_x, 8.0));
 
             let area = egui::Area::new(egui::Id::new("tutorial_layer"))
                 .movable(false)
