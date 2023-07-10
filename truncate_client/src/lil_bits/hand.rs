@@ -83,6 +83,7 @@ impl<'a> HandUI<'a> {
                                 });
                             }
                             next_selection = Some(None);
+                            ctx.dragging_tile = true;
                         } else if tile_response.drag_released() {
                             if let Some(HoveredRegion {
                                 coord: Some(coord), ..
@@ -90,6 +91,7 @@ impl<'a> HandUI<'a> {
                             {
                                 ctx.released_tile = Some((i, coord));
                             }
+                            ctx.dragging_tile = false;
                         }
 
                         if is_being_dragged {

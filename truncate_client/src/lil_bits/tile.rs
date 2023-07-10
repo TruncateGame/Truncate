@@ -157,8 +157,8 @@ impl TileUI {
             response = ui.interact(tile_rect, id, egui::Sense::click_and_drag());
         }
 
-        let hovered = response.hovered() || self.hovered;
-        if response.hovered() {
+        let hovered = (response.hovered() || self.hovered) && (!self.truncated && !self.defeated);
+        if hovered {
             if !self.ghost {
                 base_rect = base_rect.translate(egui::vec2(0.0, tile_margin * -1.0));
                 tile_rect = tile_rect.translate(egui::vec2(0.0, tile_margin * -1.0));
@@ -193,7 +193,7 @@ impl TileUI {
                     TilePlayer::Enemy(_) => CharacterOrient::South,
                 },
             )
-            .hovered(response.hovered())
+            .hovered(hovered)
             .selected(self.selected)
             .active(self.active)
             .ghost(self.ghost)
