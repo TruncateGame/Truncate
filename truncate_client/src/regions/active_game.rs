@@ -1,4 +1,4 @@
-use epaint::{emath::Align2, hex_color, vec2, Color32, Rect, Stroke, TextureHandle, Vec2};
+use epaint::{emath::Align2, hex_color, vec2, Color32, FontId, Rect, Stroke, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Square},
@@ -217,18 +217,31 @@ impl ActiveGame {
             .order(Order::Foreground)
             .anchor(Align2::RIGHT_TOP, vec2(0.0, 0.0));
 
-        let mut outer_sidebar_area = ui.max_rect().shrink2(vec2(0.0, 8.0));
+        let sidebar_alloc = ui.max_rect();
+        let mut outer_sidebar_area = sidebar_alloc.shrink2(vec2(0.0, 8.0));
         outer_sidebar_area.set_right(outer_sidebar_area.right() - 8.0);
         let inner_sidebar_area = outer_sidebar_area.shrink(8.0);
 
         let resp = area.show(ui.ctx(), |ui| {
-            ui.painter()
-                .rect_filled(outer_sidebar_area, 4.0, hex_color!("#111111aa"));
+            ui.painter().clone().rect_filled(
+                sidebar_alloc,
+                0.0,
+                self.ctx.theme.water.gamma_multiply(0.75),
+            );
 
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
+                ui.expand_to_include_rect(inner_sidebar_area);
                 ScrollArea::new([false, true]).show(ui, |ui| {
-                    ui.label(RichText::new("Game history").color(Color32::WHITE));
-                    ui.separator();
+                    let room = ui.painter().layout_no_wrap(
+                        "Game Info".into(),
+                        FontId::new(
+                            self.ctx.theme.letter_size / 2.0,
+                            egui::FontFamily::Name("Truncate-Heavy".into()),
+                        ),
+                        self.ctx.theme.text,
+                    );
+                    let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
+                    ui.painter().galley(r.min, room);
 
                     if let Some(error) = &self.ctx.error_msg {
                         ui.label(error);
@@ -236,47 +249,47 @@ impl ActiveGame {
                     }
 
                     for turn in self.turn_reports.iter() {
-                        for placement in turn.iter().filter_map(|change| match change {
-                            Change::Board(placement) => Some(placement),
-                            _ => None,
-                        }) {
-                            let Square::Occupied(player, tile) = placement.detail.square else {
-                                                continue;
-                                            };
-                            let Some(player) = self.players.get(player) else {
-                                                continue;
-                                            };
+                        // for placement in turn.iter().filter_map(|change| match change {
+                        //     Change::Board(placement) => Some(placement),
+                        //     _ => None,
+                        // }) {
+                        //     let Square::Occupied(player, tile) = placement.detail.square else {
+                        //                         continue;
+                        //                     };
+                        //     let Some(player) = self.players.get(player) else {
+                        //                         continue;
+                        //                     };
 
-                            match placement.action {
-                                truncate_core::reporting::BoardChangeAction::Added => {
-                                    ui.label(
-                                        RichText::new(format!(
-                                            "{} placed the tile {}",
-                                            player.name, tile
-                                        ))
-                                        .color(Color32::WHITE),
-                                    );
-                                }
-                                truncate_core::reporting::BoardChangeAction::Swapped => {
-                                    ui.label(
-                                        RichText::new(format!(
-                                            "{} swapped the tile {}",
-                                            player.name, tile
-                                        ))
-                                        .color(Color32::WHITE),
-                                    );
-                                }
-                                _ => {}
-                            }
-                        }
+                        //     match placement.action {
+                        //         truncate_core::reporting::BoardChangeAction::Added => {
+                        //             ui.label(
+                        //                 RichText::new(format!(
+                        //                     "{} placed the tile {}",
+                        //                     player.name, tile
+                        //                 ))
+                        //                 .color(Color32::WHITE),
+                        //             );
+                        //         }
+                        //         truncate_core::reporting::BoardChangeAction::Swapped => {
+                        //             ui.label(
+                        //                 RichText::new(format!(
+                        //                     "{} swapped the tile {}",
+                        //                     player.name, tile
+                        //                 ))
+                        //                 .color(Color32::WHITE),
+                        //             );
+                        //         }
+                        //         _ => {}
+                        //     }
+                        // }
 
                         for battle in turn.iter().filter_map(|change| match change {
                             Change::Battle(battle) => Some(battle),
                             _ => None,
                         }) {
                             BattleUI::new(battle).render(&mut self.ctx, ui);
+                            ui.add_space(15.0);
                         }
-                        ui.separator();
                     }
                 });
             });
