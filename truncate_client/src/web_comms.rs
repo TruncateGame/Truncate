@@ -4,7 +4,22 @@ use futures::channel::{mpsc, oneshot};
 use futures::SinkExt;
 use futures_util::{future, pin_mut, StreamExt};
 use truncate_core::messages::{GameMessage, PlayerMessage};
-use ws_stream_wasm::{WsMessage, WsMeta};
+use web_sys::console;
+use ws_stream_wasm::{WsMessage, WsMeta, WsStream};
+
+async fn websocket_connect(connect_addr: &String) -> Result<WsStream, ()> {
+    console::log_1(&format!("Connecting to {connect_addr}").into());
+
+    let Ok((_ws, wsio)) = WsMeta::connect(connect_addr, None)
+        .await else {
+            console::log_1(&"Failed to connect. . . .".into());
+            return Err(());
+        };
+
+    console::log_1(&"Connected".into());
+
+    Ok(wsio)
+}
 
 pub async fn connect(
     connect_addr: String,
@@ -13,61 +28,70 @@ pub async fn connect(
     rx_player: mpsc::Receiver<PlayerMessage>,
     rx_context: oneshot::Receiver<Context>,
 ) {
-    use web_sys::console;
-
     let mut context: Option<Context> = None;
-
-    console::log_1(&format!("Connecting to {connect_addr}").into());
-
-    let (_ws, wsio) = WsMeta::connect(connect_addr, None)
-        .await
-        .expect("assume the connection succeeds");
-
-    console::log_1(&"Connected".into());
-
     if let Ok(ctx) = rx_context.await {
         context = Some(ctx);
     }
 
-    let (outgoing, incoming) = wsio.split();
+    let mut outgoing_msg_stream = rx_player.map(|msg| {
+        if !matches!(msg, PlayerMessage::Ping) {
+            console::log_1(&format!("Sending {msg}").into());
+        }
+        WsMessage::Text(serde_json::to_string(&msg.clone()).unwrap())
+    });
 
-    let game_messages = {
-        incoming.for_each(|msg| async {
-            let parsed_msg: GameMessage = match msg {
-                WsMessage::Text(msg) => serde_json::from_str(&msg).expect("Was not valid JSON"),
-                WsMessage::Binary(msg) => serde_json::from_slice(&msg).expect("Was not valid JSON"),
-            };
+    loop {
+        console::log_1(&"Starting loop".into());
+        let Ok(wsio) = websocket_connect(&connect_addr).await else {
+            console::log_1(&"Failed, waiting 2000ms".into());
+            gloo_timers::future::TimeoutFuture::new(2000).await;
+            console::log_1(&"Ended wait, starting again".into());
+            continue;
+        };
+        console::log_1(&"In the good bit now".into());
 
-            if matches!(parsed_msg, GameMessage::Ping) {
-                _ = tx_player.clone().send(PlayerMessage::Ping).await;
-            } else {
-                console::log_1(&format!("Received {parsed_msg}").into());
-            }
+        let (mut outgoing, incoming) = wsio.split();
 
-            tx_game
-                .clone()
-                .send(parsed_msg)
-                .await
-                .expect("Message should have been able to go into the channel");
-            if let Some(context) = context.as_ref() {
-                context.request_repaint();
-            }
-        })
-    };
+        let game_messages = {
+            incoming.for_each(|msg| async {
+                let parsed_msg: GameMessage = match msg {
+                    WsMessage::Text(msg) => serde_json::from_str(&msg).expect("Was not valid JSON"),
+                    WsMessage::Binary(msg) => {
+                        serde_json::from_slice(&msg).expect("Was not valid JSON")
+                    }
+                };
 
-    let player_messages = {
-        rx_player
-            .map(|msg| {
-                if !matches!(msg, PlayerMessage::Ping) {
-                    console::log_1(&format!("Sending {msg}").into());
+                if matches!(parsed_msg, GameMessage::Ping) {
+                    _ = tx_player.clone().send(PlayerMessage::Ping).await;
+                } else {
+                    console::log_1(&format!("Received {parsed_msg}").into());
                 }
-                Ok(WsMessage::Text(
-                    serde_json::to_string(&msg.clone()).unwrap(),
-                ))
-            })
-            .forward(outgoing)
-    };
 
-    pin_mut!(game_messages, player_messages);
-    future::select(game_messages, player_messages).await;
+                tx_game
+                    .clone()
+                    .send(parsed_msg)
+                    .await
+                    .expect("Message should have been able to go into the channel");
+                if let Some(context) = context.as_ref() {
+                    context.request_repaint();
+                }
+            })
+        };
+
+        let player_messages = async {
+            loop {
+                let msg = outgoing_msg_stream.next().await;
+                if let Some(msg) = msg {
+                    if outgoing.send(msg).await.is_err() {
+                        continue;
+                    };
+                } else {
+                    panic!("Internal stream closed");
+                }
+            }
+        };
+
+        pin_mut!(game_messages, player_messages);
+        future::select(game_messages, player_messages).await;
+    }
 }
