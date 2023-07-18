@@ -89,8 +89,8 @@ impl Default for GameRules {
     fn default() -> Self {
         Self {
             win_condition: WinCondition::Destination,
-            visibility: Visibility::FogOfWar,
-            truncation: Truncation::None,
+            visibility: Visibility::Standard,
+            truncation: Truncation::Root,
             timing: Timing::PerPlayer {
                 time_allowance: 600,
                 overtime_rule: OvertimeRule::FreeWildcard { period: 60 },
