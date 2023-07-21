@@ -151,7 +151,7 @@ impl<'a> BattleUI<'a> {
                 ctx.theme.letter_size * 0.3,
                 egui::FontFamily::Name("Truncate-Heavy".into()),
             ),
-            hex_color!("#ffffff"),
+            ctx.theme.text,
         );
         battle_rect = battle_rect.union(paint_galleys(vec![galley], ui, false).rect);
         ui.add_space(5.0);
