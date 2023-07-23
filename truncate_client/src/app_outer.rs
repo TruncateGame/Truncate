@@ -18,6 +18,7 @@ pub struct OuterApplication {
     pub frame_history: debug::FrameHistory,
     pub map_texture: TextureHandle,
     pub launched_room: Option<String>,
+    pub error: Option<String>,
 }
 
 impl OuterApplication {
@@ -110,6 +111,7 @@ impl OuterApplication {
             frame_history: Default::default(),
             map_texture: load_map_texture(&cc.egui_ctx),
             launched_room: room_code,
+            error: None,
         }
     }
 }
