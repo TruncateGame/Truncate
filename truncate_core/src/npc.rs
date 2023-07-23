@@ -221,6 +221,9 @@ impl Game {
 
         let player = &mut self.players[evaluation_player];
 
+        // Remove timing concerns from the simulated turns
+        self.rules.battle_delay = 0;
+
         // Prevent the evaluation player from being given new tiles in future turns
         player.hand_capacity = 0;
 
