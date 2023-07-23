@@ -786,6 +786,11 @@
                 // window.location = url;
             });
 
+            let room_code = window.location.hash.substring(1);
+            if (room_code) {
+                truncate_runner.join_game(room_code);
+            }
+
             (async function () {
                 while (typeof wasm_bindgen === "undefined") {
                     await new Promise(r => setTimeout(r, 100));

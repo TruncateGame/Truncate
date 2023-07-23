@@ -36,6 +36,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         frame_history: _,
         map_texture,
         launched_room,
+        error,
     } = client;
 
     let mut send = |msg| {
@@ -155,7 +156,11 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let dot_count = (current_time.as_millis() / 500) % 4;
             let mut dots = vec!["."; dot_count as usize];
             dots.extend(vec![" "; 4 - dot_count as usize]);
-            let msg = format!("JOINING {room_code}{}", dots.join(""));
+            let msg = if let Some(error) = error {
+                error.clone()
+            } else {
+                format!("JOINING {room_code}{}", dots.join(""))
+            };
 
             let msg_text = TextHelper::heavy(&msg, 14.0, ui);
             let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
@@ -170,7 +175,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 msg_text.paint(Color32::WHITE, ui);
                 ui.add_space(8.0);
                 if button_text
-                    .button(
+                    .centered_button(
                         theme.selection.lighten().lighten(),
                         theme.text,
                         &map_texture,
@@ -180,7 +185,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 {
                     #[cfg(target_arch = "wasm32")]
                     {
-                        web_sys::window().unwrap().location().reload();
+                        _ = web_sys::window().unwrap().location().set_hash("");
+                        _ = web_sys::window().unwrap().location().reload();
                     }
                 }
             });
@@ -189,7 +195,11 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let dot_count = (current_time.as_millis() / 500) % 4;
             let mut dots = vec!["."; dot_count as usize];
             dots.extend(vec![" "; 4 - dot_count as usize]);
-            let msg = format!("CREATING ROOM{}", dots.join(""));
+            let msg = if let Some(error) = error {
+                error.clone()
+            } else {
+                format!("CREATING ROOM{}", dots.join(""))
+            };
 
             let msg_text = TextHelper::heavy(&msg, 14.0, ui);
             let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
@@ -204,7 +214,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 msg_text.paint(Color32::WHITE, ui);
                 ui.add_space(8.0);
                 if button_text
-                    .button(
+                    .centered_button(
                         theme.selection.lighten().lighten(),
                         theme.text,
                         &map_texture,
@@ -214,7 +224,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 {
                     #[cfg(target_arch = "wasm32")]
                     {
-                        web_sys::window().unwrap().location().reload();
+                        _ = web_sys::window().unwrap().location().set_hash("");
+                        _ = web_sys::window().unwrap().location().reload();
                     }
                 }
             });
@@ -321,8 +332,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 }
                 _ => todo!("Game error hit an unknown state"),
             },
-            GameMessage::GenericError(_err) => {
-                todo!("Handle generic errors")
+            GameMessage::GenericError(err) => {
+                *error = Some(err);
             }
         }
     }
