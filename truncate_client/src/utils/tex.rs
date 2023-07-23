@@ -75,7 +75,7 @@ const fn quad(nw_tile: usize, ne_tile: usize, se_tile: usize, sw_tile: usize) ->
 
 // TODO: Generate this impl with codegen from aseprite
 impl Tex {
-    pub const MAX_TILE: usize = 235;
+    pub const MAX_TILE: usize = 239;
 
     pub const NONE: Self = t(0);
     pub const DEBUG: Self = t(77);
@@ -132,6 +132,9 @@ impl Tex {
     pub const TILE_CRACK_3: TexQuad = quad(224, 225, 227, 226);
     pub const TILE_CRACK_4: TexQuad = quad(228, 229, 231, 230);
     pub const TILE_CRACK_5: TexQuad = quad(232, 233, 235, 234);
+
+    // Tile Remnants
+    pub const TILE_REMNANT: TexQuad = quad(236, 237, 238, 239);
 
     // Tiles for buttons
     pub const GAME_TILE_NW: Self = t(53);
@@ -317,9 +320,9 @@ impl Tex {
                 );
             }
             MappedTileVariant::Dead => {
-                for _ in 0..2 {
+                for i in 0..2 {
                     texs.push(
-                        match quickrand(seed) % 100 {
+                        match quickrand(seed + i) % 100 {
                             0..=19 => Self::TILE_CRACK_1,
                             20..=39 => Self::TILE_CRACK_2,
                             40..=59 => Self::TILE_CRACK_3,
@@ -329,6 +332,9 @@ impl Tex {
                         .tint(color.unwrap_or_default()),
                     );
                 }
+            }
+            MappedTileVariant::Gone => {
+                texs = vec![Self::TILE_REMNANT];
             }
         }
         texs

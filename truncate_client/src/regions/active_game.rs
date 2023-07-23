@@ -29,6 +29,7 @@ pub struct HoveredRegion {
 pub struct GameCtx {
     pub theme: Theme,
     pub current_time: Duration,
+    pub prev_to_next_turn: (Duration, Duration),
     pub qs_tick: u64,
     pub room_code: RoomCode,
     pub player_number: u64,
@@ -85,6 +86,7 @@ impl ActiveGame {
             ctx: GameCtx {
                 theme,
                 current_time: Duration::from_secs(0),
+                prev_to_next_turn: (Duration::from_secs(0), Duration::from_secs(0)),
                 qs_tick: 0,
                 room_code,
                 player_number,
@@ -396,6 +398,13 @@ impl ActiveGame {
         }
 
         self.ctx.next_player_number = next_player_number;
+        if let Some(GamePlayerMessage {
+            turn_starts_at: Some(time),
+            ..
+        }) = self.players.get(next_player_number as usize)
+        {
+            self.ctx.prev_to_next_turn = (self.ctx.current_time, Duration::from_secs(*time));
+        }
 
         self.board_changes.clear();
         for board_change in changes.iter().filter_map(|c| match c {

@@ -132,13 +132,36 @@ impl TileUI {
     }
 
     pub fn render(
-        self,
+        mut self,
         coord: Option<Coordinate>,
         ui: &mut egui::Ui,
         ctx: &mut GameCtx,
         capture_clicks: bool,
         rescale: Option<f32>,
     ) -> egui::Response {
+        let mut tile_gone = false;
+        if ctx.current_time > ctx.prev_to_next_turn.0 && ctx.current_time < ctx.prev_to_next_turn.1
+        {
+            let (from, to) = ctx.prev_to_next_turn;
+            let dur = ctx.current_time.saturating_sub(from);
+            let total = to.saturating_sub(from);
+            let proportion = dur.as_secs_f32() / total.as_secs_f32();
+            if proportion < 0.15 && self.defeated {
+                self.defeated = false;
+            }
+            if proportion < 0.5 && self.truncated {
+                self.truncated = false;
+            }
+            if proportion > 0.6 && self.defeated {
+                tile_gone = true;
+            }
+            if proportion > 0.75 && self.truncated {
+                tile_gone = true;
+            }
+        } else if self.defeated || self.truncated {
+            tile_gone = true;
+        }
+
         let theme = rescale
             .map(|v| ctx.theme.rescale(v))
             .unwrap_or_else(|| ctx.theme.clone());
@@ -182,7 +205,9 @@ impl TileUI {
             };
 
             let tile_color = self.tile_color(hovered, &theme, ctx);
-            let variant = if self.defeated {
+            let variant = if tile_gone {
+                MappedTileVariant::Gone
+            } else if self.defeated {
                 MappedTileVariant::Dead
             } else if self.truncated {
                 MappedTileVariant::Dying
@@ -224,6 +249,7 @@ impl TileUI {
             .ghost(self.ghost)
             .defeated(self.defeated)
             .truncated(self.truncated)
+            .gone(tile_gone)
             .render(ui, char_rect, &theme);
         }
 

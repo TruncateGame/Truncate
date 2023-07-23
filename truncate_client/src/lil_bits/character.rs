@@ -20,6 +20,7 @@ pub struct CharacterUI {
     ghost: bool,
     truncated: bool,
     defeated: bool,
+    gone: bool,
 }
 
 impl CharacterUI {
@@ -33,6 +34,7 @@ impl CharacterUI {
             ghost: false,
             truncated: false,
             defeated: false,
+            gone: false,
         }
     }
 
@@ -65,11 +67,18 @@ impl CharacterUI {
         self.defeated = defeated;
         self
     }
+
+    pub fn gone(mut self, gone: bool) -> Self {
+        self.gone = gone;
+        self
+    }
 }
 
 impl CharacterUI {
     fn char_color(&self, theme: &Theme) -> Color32 {
-        if self.ghost {
+        if self.gone {
+            theme.grass.darken().gamma_multiply(0.75)
+        } else if self.ghost {
             theme.outlines
         } else if !self.active {
             theme.outlines
@@ -92,10 +101,14 @@ impl CharacterUI {
     pub fn render_with_color(
         self,
         ui: &mut egui::Ui,
-        rect: egui::Rect,
+        mut rect: egui::Rect,
         theme: &Theme,
         color: Color32,
     ) {
+        if self.gone {
+            rect.set_top(rect.top() + rect.height() * 0.2);
+        }
+
         let galley = ui.painter().layout_no_wrap(
             self.letter.to_string(),
             egui::FontId::new(

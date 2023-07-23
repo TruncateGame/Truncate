@@ -168,6 +168,7 @@ pub enum MappedTileVariant {
     Healthy,
     Dying,
     Dead,
+    Gone,
 }
 
 #[derive(Clone)]
