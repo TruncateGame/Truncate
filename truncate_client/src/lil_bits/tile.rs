@@ -1,10 +1,13 @@
 use eframe::egui::{self, Id};
-use epaint::{Color32, TextureHandle};
+use epaint::{hex_color, Color32, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::{
     regions::active_game::GameCtx,
-    utils::{mapper::MappedTile, Darken, Lighten, Theme},
+    utils::{
+        mapper::{MappedTile, MappedTileVariant},
+        Darken, Diaphanize, Lighten, Theme,
+    },
 };
 
 use super::{character::CharacterOrient, CharacterUI};
@@ -111,16 +114,19 @@ impl TileUI {
             theme.selection.pastel()
         } else if self.won || self.selected {
             theme.selection
-        } else if self.defeated || self.truncated || !self.active {
-            theme.text
         } else {
-            match (&self.player, hovered) {
+            let color = match (&self.player, hovered) {
                 (TilePlayer::Own, false) => ctx.player_colors[ctx.player_number as usize].pastel(),
                 (TilePlayer::Own, true) => ctx.player_colors[ctx.player_number as usize]
                     .pastel()
                     .lighten(),
                 (TilePlayer::Enemy(p), false) => ctx.player_colors[*p].pastel(),
                 (TilePlayer::Enemy(p), true) => ctx.player_colors[*p].pastel().lighten(),
+            };
+            if self.defeated || self.truncated || !self.active {
+                color.pastel()
+            } else {
+                color
             }
         }
     }
@@ -176,10 +182,29 @@ impl TileUI {
             };
 
             let tile_color = self.tile_color(hovered, &theme, ctx);
-            let mapped_tile = if self.ghost {
-                MappedTile::new(None, Some(tile_color), coord, ctx.map_texture.clone())
+            let variant = if self.defeated {
+                MappedTileVariant::Dead
+            } else if self.truncated {
+                MappedTileVariant::Dying
             } else {
-                MappedTile::new(Some(tile_color), outline, coord, ctx.map_texture.clone())
+                MappedTileVariant::Healthy
+            };
+            let mapped_tile = if self.ghost {
+                MappedTile::new(
+                    variant,
+                    None,
+                    Some(tile_color),
+                    coord,
+                    ctx.map_texture.clone(),
+                )
+            } else {
+                MappedTile::new(
+                    variant,
+                    Some(tile_color),
+                    outline,
+                    coord,
+                    ctx.map_texture.clone(),
+                )
             };
             mapped_tile.render(base_rect, ui);
 

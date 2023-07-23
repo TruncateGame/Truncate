@@ -76,9 +76,9 @@ impl CharacterUI {
         } else if self.hovered || self.selected {
             theme.text.darken()
         } else if self.defeated {
-            theme.defeated
+            theme.text.gamma_multiply(0.75)
         } else if self.truncated {
-            theme.text.lighten()
+            theme.text.gamma_multiply(0.75)
         } else {
             theme.text
         }

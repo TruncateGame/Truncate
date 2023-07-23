@@ -80,7 +80,6 @@ impl MappedBoard {
                 self.incoming_wind += (off_target / 3).clamp(1, 20);
             }
 
-            println!("{} aiming for {}", self.incoming_wind, self.forecasted_wind);
             if self.inverted {
                 self.winds.push_front(self.incoming_wind);
             } else {
@@ -165,6 +164,13 @@ impl MappedBoard {
 }
 
 #[derive(Clone)]
+pub enum MappedTileVariant {
+    Healthy,
+    Dying,
+    Dead,
+}
+
+#[derive(Clone)]
 pub struct MappedTile {
     resolved_tex: Vec<TexQuad>,
     map_texture: TextureHandle,
@@ -172,13 +178,14 @@ pub struct MappedTile {
 
 impl MappedTile {
     pub fn new(
+        variant: MappedTileVariant,
         color: Option<Color32>,
         highlight: Option<Color32>,
         coord: Option<Coordinate>,
         map_texture: TextureHandle,
     ) -> Self {
         let resolved_tex = if let Some(coord) = coord {
-            Tex::board_game_tile(color, highlight, coord.x * 99 + coord.y)
+            Tex::board_game_tile(variant, color, highlight, coord.x * 99 + coord.y)
         } else {
             Tex::game_tile(color, highlight)
         };

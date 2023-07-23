@@ -9,7 +9,7 @@ use truncate_core::board::Square;
 
 use crate::regions::lobby::BoardEditingMode;
 
-use super::mapper::quickrand;
+use super::mapper::{quickrand, MappedTileVariant};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Tex {
@@ -75,7 +75,7 @@ const fn quad(nw_tile: usize, ne_tile: usize, se_tile: usize, sw_tile: usize) ->
 
 // TODO: Generate this impl with codegen from aseprite
 impl Tex {
-    pub const MAX_TILE: usize = 215;
+    pub const MAX_TILE: usize = 235;
 
     pub const NONE: Self = t(0);
     pub const DEBUG: Self = t(77);
@@ -125,6 +125,13 @@ impl Tex {
 
     // Tiles
     pub const GAME_TILE: TexQuad = quad(53, 54, 55, 56);
+
+    // Tile cracks
+    pub const TILE_CRACK_1: TexQuad = quad(216, 217, 219, 218);
+    pub const TILE_CRACK_2: TexQuad = quad(220, 221, 223, 222);
+    pub const TILE_CRACK_3: TexQuad = quad(224, 225, 227, 226);
+    pub const TILE_CRACK_4: TexQuad = quad(228, 229, 231, 230);
+    pub const TILE_CRACK_5: TexQuad = quad(232, 233, 235, 234);
 
     // Tiles for buttons
     pub const GAME_TILE_NW: Self = t(53);
@@ -273,6 +280,7 @@ impl Tex {
     }
 
     pub fn board_game_tile(
+        variant: MappedTileVariant,
         color: Option<Color32>,
         highlight: Option<Color32>,
         seed: usize,
@@ -294,6 +302,35 @@ impl Tex {
                 _ => Self::TILE_SW_GRASS4,
             },
         ]);
+        match variant {
+            MappedTileVariant::Healthy => {}
+            MappedTileVariant::Dying => {
+                texs.push(
+                    match quickrand(seed) % 100 {
+                        0..=19 => Self::TILE_CRACK_1,
+                        20..=39 => Self::TILE_CRACK_2,
+                        40..=59 => Self::TILE_CRACK_3,
+                        60..=79 => Self::TILE_CRACK_4,
+                        _ => Self::TILE_CRACK_5,
+                    }
+                    .tint(color.unwrap_or_default()),
+                );
+            }
+            MappedTileVariant::Dead => {
+                for _ in 0..2 {
+                    texs.push(
+                        match quickrand(seed) % 100 {
+                            0..=19 => Self::TILE_CRACK_1,
+                            20..=39 => Self::TILE_CRACK_2,
+                            40..=59 => Self::TILE_CRACK_3,
+                            60..=79 => Self::TILE_CRACK_4,
+                            _ => Self::TILE_CRACK_5,
+                        }
+                        .tint(color.unwrap_or_default()),
+                    );
+                }
+            }
+        }
         texs
     }
 
