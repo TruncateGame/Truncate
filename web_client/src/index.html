@@ -319,7 +319,7 @@
             const TILEPACKS = {
                 GRASSES: [TILES.GRASS1, TILES.GRASS2, TILES.GRASS3, TILES.GRASS4],
                 HOUSES: [[TILES.HOUSE1, TILES.ROOF1], [TILES.HOUSE2, TILES.ROOF2], [TILES.HOUSE3, TILES.ROOF3], [TILES.HOUSE4, TILES.ROOF4]],
-                DECOR: [TILES.PLANTER1, TILES.PLANTER2, TILES.BUSH, TILES.WHEAT, TILES.WELL],
+                DECOR: [[TILES.PLANTER1, TILES.PLANTER1_COLOR], [TILES.PLANTER2, TILES.PLANTER2_COLOR], [TILES.BUSH, TILES.BUSH_COLOR], [TILES.WHEAT, TILES.NONE], [TILES.WELL, TILES.NONE]],
             }
 
             const canvas = document.getElementById("splash");
@@ -353,32 +353,71 @@
 
             const paint = {
                 tile_size: 16,
-                tile: (index, x, y) => {
+                tinted: (index, x, y, tint) => {
                     let tile_pos = index * (paint.tile_size + 2);
-                    ctx.drawImage(
+
+                    const buffer = document.createElement('canvas');
+                    buffer.width = paint.tile_size;
+                    buffer.height = paint.tile_size;
+                    const btx = buffer.getContext('2d');
+
+                    btx.drawImage(
                         image,
                         tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                        0, 0, paint.tile_size, paint.tile_size
+                    );
+
+                    btx.fillStyle = tint;
+                    btx.globalCompositeOperation = 'multiply';
+                    btx.fillRect(0, 0, buffer.width, buffer.height);
+
+                    btx.globalCompositeOperation = 'destination-in';
+                    btx.drawImage(image,
+                        tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                        0, 0, paint.tile_size, paint.tile_size
+                    );
+
+                    ctx.drawImage(
+                        buffer,
+                        0, 0, buffer.width, buffer.height,
                         x, y, output_size, output_size
                     );
                 },
-                tiles: (indexes, x, y) => {
+                tile: (index, x, y, tint) => {
+                    if (tint) {
+                        paint.tinted(index, x, y, tint)
+                    } else if (Array.isArray(index)) {
+                        paint.tinted(index[0], x, y, index[1])
+                    } else {
+                        let tile_pos = index * (paint.tile_size + 2);
+                        ctx.drawImage(
+                            image,
+                            tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                            x, y, output_size, output_size
+                        );
+                    }
+                },
+                tiles: (indexes, x, y, tint) => {
                     for (let row_i = 0; row_i < indexes.length; row_i += 1) {
                         const row = indexes[row_i];
                         for (let column_i = 0; column_i < row.length; column_i += 1) {
                             const tile = parseInt(row[column_i]);
-                            paint.tile(tile, x + column_i * output_size, y + row_i * output_size);
+                            paint.tile(tile, x + column_i * output_size, y + row_i * output_size, tint);
                         }
                     }
-                }
+                },
             };
 
             const pick = {
+                color: (seed, lightness = 80) => {
+                    return `hsl(${pick.num(seed + 99) % 360},100%,${lightness}%)`;
+                },
                 num: (seed) => {
                     seed = Math.floor(seed * 50000);
                     seed ^= seed << 13;
                     seed ^= seed >> 7;
                     seed ^= seed << 17;
-                    return Math.abs(seed) % 100;
+                    return Math.abs(seed);
                 },
                 grass: (seed) => {
                     seed = pick.num(seed);
@@ -397,11 +436,15 @@
 
                     if (numhouses > 0 && seed > decor_threshold) {
                         let decor_index = pick.num(seed + 123408);
-                        texs[pick.num(seed + 3442) % 4] = [TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length]];
+                        let texindex = pick.num(seed + 3442) % 4;
+                        texs[texindex] = TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length];
+                        texs[texindex][2] = [texs[texindex][1], pick.color(seed, 60)];
                     }
                     for (let i = 0; i < numhouses; i += 1) {
                         let house_index = pick.num(seed + i);
-                        texs[pick.num(seed + 18 * i) % 4] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                        let texindex = pick.num(seed + 18 * i) % 4;
+                        texs[texindex] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                        texs[texindex][2] = [texs[texindex][1], pick.color(seed)];
                     }
                     return texs;
                 }
@@ -471,21 +514,37 @@
                             [TILES.DOCK_SOUTH_NW, TILES.DOCK_SOUTH_NE],
                             [TILES.DOCK_SOUTH_SW, TILES.DOCK_SOUTH_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_SOUTH_NW, TILES.SAIL_SOUTH_NE],
+                            [TILES.SAIL_SOUTH_SW, TILES.SAIL_SOUTH_SE]
+                        ], x, y, pick.color(seed));
                     } else if (neighbors[5]) {
                         paint.tiles([
                             [TILES.DOCK_NORTH_NW, TILES.DOCK_NORTH_NE],
                             [TILES.DOCK_NORTH_SW, TILES.DOCK_NORTH_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_NORTH_NW, TILES.SAIL_NORTH_NE],
+                            [TILES.SAIL_NORTH_SW, TILES.SAIL_NORTH_SE]
+                        ], x, y, pick.color(seed));
                     } else if (neighbors[3]) {
                         paint.tiles([
                             [TILES.DOCK_WEST_NW, TILES.DOCK_WEST_NE],
                             [TILES.DOCK_WEST_SW, TILES.DOCK_WEST_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_WEST_NW, TILES.SAIL_WEST_NE],
+                            [TILES.SAIL_WEST_SW, TILES.SAIL_WEST_SE]
+                        ], x, y, pick.color(seed));
                     } else if (neighbors[7]) {
                         paint.tiles([
                             [TILES.DOCK_EAST_NW, TILES.DOCK_EAST_NE],
                             [TILES.DOCK_EAST_SW, TILES.DOCK_EAST_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_EAST_NW, TILES.SAIL_EAST_NE],
+                            [TILES.SAIL_EAST_SW, TILES.SAIL_EAST_SE]
+                        ], x, y, pick.color(seed));
                     }
                 },
                 water_nw: (x, y, w, nw, n) => {
