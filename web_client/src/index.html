@@ -38,6 +38,10 @@
             font-family: Truncate;
         }
 
+        a {
+            color: #5088e8;
+        }
+
         #splash {
             position: absolute;
             top: 0;
@@ -102,12 +106,18 @@
             background-color: #ffffffbb;
             font-family: Truncate;
             font-size: clamp(10px, 2vw, 13px);
-            padding: 10px clamp(15px, 4vw, 40px);
+            padding: 10px clamp(15px, 4vw, 30px);
             cursor: pointer;
             border-radius: 4px 4px 6px 6px;
             border-bottom: solid 2px #b9b9b9bb;
             z-index: 3;
             transition: transform .1s ease-in;
+        }
+
+        #controls #about_control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
         }
 
         #controls input {
@@ -145,6 +155,75 @@
             transform: translateY(-2px);
         }
 
+        #about_truncate {
+            position: fixed;
+            z-index: 10;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            background: transparent;
+            border: none;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #about_truncate[open] {
+            display: flex;
+        }
+
+        #about_truncate .inner {
+            font-size: 14px;
+            position: relative;
+            width: calc(100% - clamp(20px, 8vw, 100px));
+            height: calc(100% - clamp(20px, 8vw, 100px));
+            max-width: 60ch;
+            background-color: #fff;
+            display: flex;
+            padding: clamp(10px, 2vw, 20px);
+            border: solid 4px black;
+            border-radius: 8px;
+        }
+
+        #about_truncate .content {
+            overflow-y: scroll;
+            padding-bottom: 100px;
+        }
+
+        #about_truncate h2 {
+            font-size: 14px;
+        }
+
+        #about_truncate form {
+            position: absolute;
+            bottom: 0px;
+            left: 0px;
+            width: 100%;
+            height: 80px;
+            background-color: #ffffffdd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        #about_truncate button {
+            border: solid 2px !important;
+        }
+
+        .game_credit {
+            margin-bottom: 8px;
+        }
+
+        .game_credit .sub {
+            font-size: 0.9em;
+            font-style: italic;
+            padding-left: 1em;
+            color: #888;
+        }
+
         [data-stage] {
             display: none !important;
         }
@@ -176,6 +255,10 @@
         [data-control-stage="rejoin"] [data-stage="rejoin"] {
             display: flex !important;
         }
+
+        [data-control-stage="about"] [data-stage="about"] {
+            display: flex !important;
+        }
     </style>
 </head>
 
@@ -185,13 +268,19 @@
 
     <div id="controls" data-control-stage="root">
 
+        <button data-stage="root" id="about_control" data-control="to_about">ABOUT + CREDITS</button>
+
         <button data-stage="root" data-control="tutorial">TUTORIAL</button>
         <button data-stage="root" data-control="to_create_game">PLAY GAME</button>
 
         <div class="sub" data-stage="create">
             <div class="split">
                 <button data-control="new_single" class="fill">SINGLE PLAYER</button>
+            </div>
+            <div class="split">
                 <button data-control="to_multi_game" class="fill">MULTI PLAYER</button>
+                <button type="button" data-control="cancel_to_root" class="thin"
+                    aria-label="Cancel play game selection">X</button>
             </div>
         </div>
 
@@ -201,7 +290,7 @@
             </div>
             <div class="split">
                 <button data-control="new_multi" class="fill">CREATE GAME</button>
-                <button type="button" data-control="cancel_multi" class="thin"
+                <button type="button" data-control="cancel_to_root" class="thin"
                     aria-label="Cancel new game selection">X</button>
             </div>
         </div>
@@ -209,7 +298,7 @@
         <div class="sub" data-stage="rejoin">
             <div class="split">
                 <button data-control="rejoin" class="fill">REJOIN ACTIVE GAME</button>
-                <button type="button" data-control="cancel_rejoin" class="thin"
+                <button type="button" data-control="cancel_to_root" class="thin"
                     aria-label="Cancel rejoining recent game">X</button>
             </div>
         </div>
@@ -221,13 +310,45 @@
             </div>
             <div class="split">
                 <button type="submit" data-control="join_game" class="fill">JOIN</button>
-                <button type="button" data-control="cancel_join" class="thin"
+                <button type="button" data-control="cancel_to_root" class="thin"
                     aria-label="Cancel join game selection">X</button>
             </div>
         </form>
 
         <p data-stage="error">An error occurred loading Truncate</p>
         <p data-stage="loading">Loading...</p>
+
+        <dialog id="about_truncate">
+            <div class="inner">
+                <div class="content">
+                    <p>Truncate was created by<br><a target="_blank" href="https://github.com/bglw/">Liam Bigelow</a>
+                        and
+                        <a target="_blank" href="https://github.com/BlakeMScurr/">Blake McAlevey-Scurr</a>.
+                    </p>
+                    <p>Truncate's client and server are both available as open-source code on GitHub at <a
+                            target="_blank" href="https://github.com/TruncateGame/Truncate">TruncateGame/Truncate</a>.
+                    </p>
+
+                    <h2>Many thanks to the art assets:</h2>
+                    {% include "credits.html" credits: credits.art_assets %}
+
+                    <h2>Many thanks to the audio assets:</h2>
+                    {% include "credits.html" credits: credits.audio_assets %}
+
+                    <h2>Many thanks to the font assets:</h2>
+                    {% include "credits.html" credits: credits.font_assets %}
+
+                    <h2>Many thanks to the notable open-source dependencies:</h2>
+                    {% include "credits.html" credits: credits.code_assets %}
+
+                    <h2>Many thanks to the word data sources:</h2>
+                    {% include "credits.html" credits: credits.data_assets %}
+                </div>
+                <form method="dialog">
+                    <button aria-label="Exit about dialog" data-control="cancel_to_root">CLOSE</button>
+                </form>
+            </div>
+        </dialog>
     </div>
 
     <audio id="tr_move" src="/static/move.mp3"></audio>
@@ -236,6 +357,7 @@
     <script>
         (function () {
             const stage = (s) => controls.setAttribute("data-control-stage", s);
+            const control_plural = (t) => document.querySelectorAll(`[data-control="${t}"]`);
             const control = (t) => document.querySelector(`[data-control="${t}"]`);
 
             class TruncateRunner {
@@ -610,18 +732,19 @@
                 stage("rejoin");
             }
 
+            control_plural("cancel_to_root").forEach(c => c.addEventListener("click", e => {
+                stage("root");
+            }));
+            control("to_about").addEventListener("click", e => {
+                stage("about");
+                document.querySelector("#about_truncate").showModal();
+            });
+
             control("rejoin").addEventListener("click", e => {
                 truncate_runner.rejoin_game();
             });
-            control("cancel_rejoin").addEventListener("click", e => {
-                stage("root");
-            });
-
             control("to_multi_game").addEventListener("click", e => {
                 stage("multi");
-            });
-            control("cancel_multi").addEventListener("click", e => {
-                stage("root");
             });
             control("tutorial").addEventListener("click", e => {
                 truncate_runner.join_game("TUTORIAL_01");
@@ -639,9 +762,6 @@
                 stage("join");
                 control("room_code").value = "";
                 control("room_code").focus();
-            });
-            control("cancel_join").addEventListener("click", e => {
-                stage("root");
             });
             control("room_code").addEventListener("keydown", e => {
                 if (e?.key === "Enter") {

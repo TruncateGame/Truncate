@@ -1,0 +1,22 @@
+<ul>
+    {% for credit in credits %}
+    <li class="game_credit">
+        {% if credit.url %}
+        <a target="_blank" href="{{ credit.url }}">{{ credit.name }}</a>
+        {% else %}
+        <span>{{ credit.name }}</span>
+        {% endif %}
+        {% if credit.author or credit.license %}
+        <br>
+        <span class="sub">
+            {% if credit.author %}
+            by <a target="_blank" href="{{ credit.author_url }}">{{ credit.author }}</a>
+            {% endif%}
+            {% if credit.license %}
+            under <a target="_blank" href="{{ credit.license_url }}">{{ credit.license }}</a>
+            {% endif %}
+        </span>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>
