@@ -1,4 +1,4 @@
-use epaint::{emath::Align2, hex_color, vec2, Color32, Rect, Stroke, TextureHandle, Vec2};
+use epaint::{emath::Align2, hex_color, vec2, Color32, FontId, Rect, Stroke, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Square},
@@ -15,7 +15,7 @@ use hashbrown::HashMap;
 
 use crate::{
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
-    utils::{mapper::MappedBoard, Theme},
+    utils::{mapper::MappedBoard, text::TextHelper, Diaphanize, Theme},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -50,6 +50,7 @@ pub struct GameCtx {
     pub hand_companion_rect: Option<Rect>,
     pub highlight_tiles: Option<Vec<char>>,
     pub highlight_squares: Option<Vec<Coordinate>>,
+    pub is_mobile: bool,
 }
 
 #[derive(Clone)]
@@ -99,12 +100,13 @@ impl ActiveGame {
                 player_colors: player_colors.clone(),
                 board_zoom: 1.0,
                 board_pan: vec2(0.0, 0.0),
-                sidebar_visible: true,
+                sidebar_visible: false,
                 timers_visible: true,
                 hand_companion_rect: None,
                 hand_total_rect: None,
                 highlight_tiles: None,
                 highlight_squares: None,
+                is_mobile: false,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -200,8 +202,24 @@ impl ActiveGame {
                             ui.add_space(10.0);
                         }
 
-                        ui.add_space(10.0);
+                        ui.add_space(5.0);
                     }
+
+                    if self.ctx.is_mobile {
+                        let text = TextHelper::heavy("VIEW INFO", 12.0, ui);
+                        if text
+                            .centered_button(
+                                Color32::WHITE.diaphanize(),
+                                theme.text,
+                                &self.ctx.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            self.ctx.sidebar_visible = true;
+                        }
+                    }
+                    ui.add_space(10.0);
                 },
             );
         });
@@ -210,7 +228,7 @@ impl ActiveGame {
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
-        if !self.ctx.sidebar_visible {
+        if self.ctx.is_mobile && !self.ctx.sidebar_visible {
             return;
         }
 
@@ -219,66 +237,84 @@ impl ActiveGame {
             .order(Order::Foreground)
             .anchor(Align2::RIGHT_TOP, vec2(0.0, 0.0));
 
-        let mut outer_sidebar_area = ui.max_rect().shrink2(vec2(0.0, 8.0));
+        let sidebar_alloc = ui.max_rect();
+        let mut outer_sidebar_area = sidebar_alloc.shrink2(vec2(0.0, 8.0));
         outer_sidebar_area.set_right(outer_sidebar_area.right() - 8.0);
         let inner_sidebar_area = outer_sidebar_area.shrink(8.0);
 
         let resp = area.show(ui.ctx(), |ui| {
-            ui.painter()
-                .rect_filled(outer_sidebar_area, 4.0, hex_color!("#111111aa"));
+            ui.painter().clone().rect_filled(
+                sidebar_alloc,
+                0.0,
+                self.ctx.theme.water.gamma_multiply(0.9),
+            );
 
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
+                ui.expand_to_include_rect(inner_sidebar_area);
+                if self.ctx.is_mobile {
+                    let text = TextHelper::heavy("CLOSE INFO", 12.0, ui);
+                    if text
+                        .centered_button(
+                            Color32::WHITE.diaphanize(),
+                            theme.text,
+                            &self.ctx.map_texture,
+                            ui,
+                        )
+                        .clicked()
+                    {
+                        self.ctx.sidebar_visible = false;
+                    }
+
+                    ui.add_space(10.0);
+                }
+
                 ScrollArea::new([false, true]).show(ui, |ui| {
-                    ui.label(RichText::new("Game history").color(Color32::WHITE));
-                    ui.separator();
+                    let room = ui.painter().layout_no_wrap(
+                        "Game Info".into(),
+                        FontId::new(
+                            self.ctx.theme.letter_size / 2.0,
+                            egui::FontFamily::Name("Truncate-Heavy".into()),
+                        ),
+                        self.ctx.theme.text,
+                    );
+                    let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
+                    ui.painter().galley(r.min, room);
+                    ui.add_space(15.0);
 
                     if let Some(error) = &self.ctx.error_msg {
                         ui.label(error);
                         ui.separator();
                     }
 
-                    for turn in self.turn_reports.iter() {
-                        for placement in turn.iter().filter_map(|change| match change {
-                            Change::Board(placement) => Some(placement),
-                            _ => None,
-                        }) {
-                            let Square::Occupied(player, tile) = placement.detail.square else {
-                                                continue;
-                                            };
-                            let Some(player) = self.players.get(player) else {
-                                                continue;
-                                            };
+                    let mut rendered_battles = 0;
+                    let label_font =
+                        FontId::new(8.0, egui::FontFamily::Name("Truncate-Heavy".into()));
 
-                            match placement.action {
-                                truncate_core::reporting::BoardChangeAction::Added => {
-                                    ui.label(
-                                        RichText::new(format!(
-                                            "{} placed the tile {}",
-                                            player.name, tile
-                                        ))
-                                        .color(Color32::WHITE),
-                                    );
-                                }
-                                truncate_core::reporting::BoardChangeAction::Swapped => {
-                                    ui.label(
-                                        RichText::new(format!(
-                                            "{} swapped the tile {}",
-                                            player.name, tile
-                                        ))
-                                        .color(Color32::WHITE),
-                                    );
-                                }
-                                _ => {}
-                            }
-                        }
-
+                    for turn in self.turn_reports.iter().rev() {
                         for battle in turn.iter().filter_map(|change| match change {
                             Change::Battle(battle) => Some(battle),
                             _ => None,
                         }) {
+                            if let Some(label) = if rendered_battles == 0 {
+                                Some("Latest Battle")
+                            } else if rendered_battles == 1 {
+                                Some("Previous Battles")
+                            } else {
+                                None
+                            } {
+                                let label = ui.painter().layout_no_wrap(
+                                    label.into(),
+                                    label_font.clone(),
+                                    self.ctx.theme.text,
+                                );
+                                let (r, _) = ui.allocate_at_least(label.size(), Sense::hover());
+                                ui.painter().galley(r.min, label);
+                            }
+
                             BattleUI::new(battle).render(&mut self.ctx, ui);
+                            rendered_battles += 1;
+                            ui.add_space(15.0);
                         }
-                        ui.separator();
                     }
                 });
             });
@@ -302,10 +338,13 @@ impl ActiveGame {
 
         let mut game_space = ui.available_rect_before_wrap();
         let mut sidebar_space = game_space.clone();
-        sidebar_space.set_left(sidebar_space.right() - 300.0);
 
         if ui.available_size().x >= self.ctx.theme.mobile_breakpoint {
+            self.ctx.is_mobile = false;
             game_space.set_right(game_space.right() - 300.0);
+            sidebar_space.set_left(sidebar_space.right() - 300.0);
+        } else {
+            self.ctx.is_mobile = true;
         }
 
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
