@@ -75,10 +75,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             send(PlayerMessage::NewGame(name.clone()));
             new_game_status = Some(GameStatus::PendingCreate);
         } else {
-            send(PlayerMessage::JoinGame(
-                launched_room.clone(),
-                "___AUTO___".into(),
-            ));
+            send(PlayerMessage::JoinGame(launched_room.clone(), name.clone()));
             new_game_status = Some(GameStatus::PendingJoin(launched_room));
         }
     }
