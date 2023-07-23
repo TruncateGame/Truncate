@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use eframe::egui;
 use epaint::{Color32, Rect, TextureHandle};
 use truncate_core::board::{Board, Coordinate, Square};
@@ -12,6 +14,10 @@ pub struct MappedBoard {
     map_texture: TextureHandle,
     map_seed: usize,
     inverted: bool, // TODO: Handle any transpose
+    last_tick: u64,
+    forecasted_wind: u8,
+    incoming_wind: u8,
+    winds: VecDeque<u8>,
 }
 
 impl MappedBoard {
@@ -30,7 +36,7 @@ impl MappedBoard {
         render_tex_quads(self.get(coord), rect, &self.map_texture, ui);
     }
 
-    pub fn remap(&mut self, board: &Board, player_colors: &Vec<Color32>) {
+    pub fn remap(&mut self, board: &Board, player_colors: &Vec<Color32>, tick: u64) {
         fn base_type(sq: &Square) -> BGTexType {
             match sq {
                 truncate_core::board::Square::Water => BGTexType::Water,
@@ -54,6 +60,31 @@ impl MappedBoard {
                     *player_colors.get(*owner).unwrap_or(&Color32::WHITE),
                 )),
                 Square::Occupied(_, _) => None,
+            }
+        }
+
+        if self.last_tick != tick {
+            self.last_tick = tick;
+            if self.inverted {
+                self.winds.pop_back();
+            } else {
+                self.winds.pop_front();
+            }
+
+            let off_target = self.incoming_wind.abs_diff(self.forecasted_wind);
+            if off_target == 0 {
+                self.forecasted_wind = (quickrand(tick as usize) % 100) as u8;
+            } else if self.incoming_wind > self.forecasted_wind {
+                self.incoming_wind -= (off_target / 3).clamp(1, 20);
+            } else {
+                self.incoming_wind += (off_target / 3).clamp(1, 20);
+            }
+
+            println!("{} aiming for {}", self.incoming_wind, self.forecasted_wind);
+            if self.inverted {
+                self.winds.push_front(self.incoming_wind);
+            } else {
+                self.winds.push_back(self.incoming_wind);
             }
         }
 
@@ -87,12 +118,17 @@ impl MappedBoard {
                         let tile_base_type = base_type(square);
                         let tile_layer_type = layer_type(square, &player_colors);
 
+                        let wind_at_coord =
+                            self.winds.get(colnum + rownum).cloned().unwrap_or_default();
+
                         Tex::terrain(
                             tile_base_type,
                             tile_layer_type.map(|l| l.0),
                             neighbor_base_types,
                             tile_layer_type.map(|l| l.1),
                             self.map_seed + (coord.x * coord.y + coord.y),
+                            tick,
+                            wind_at_coord,
                         )
                     })
                     .collect::<Vec<_>>()
@@ -116,9 +152,13 @@ impl MappedBoard {
             map_texture,
             map_seed: (secs % 100000) as usize,
             inverted: invert,
+            last_tick: 0,
+            forecasted_wind: 0,
+            incoming_wind: 0,
+            winds: vec![0; board.width() + board.height()].into(),
         };
 
-        mapper.remap(board, player_colors);
+        mapper.remap(board, player_colors, 0);
 
         mapper
     }
@@ -152,4 +192,11 @@ impl MappedTile {
     pub fn render(&self, rect: Rect, ui: &mut egui::Ui) {
         render_tex_quads(&self.resolved_tex, rect, &self.map_texture, ui);
     }
+}
+
+pub fn quickrand(mut n: usize) -> usize {
+    n ^= n << 13;
+    n ^= n >> 7;
+    n ^= n << 17;
+    n % 100
 }

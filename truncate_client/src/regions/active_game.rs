@@ -29,6 +29,7 @@ pub struct HoveredRegion {
 pub struct GameCtx {
     pub theme: Theme,
     pub current_time: Duration,
+    pub qs_tick: u64,
     pub room_code: RoomCode,
     pub player_number: u64,
     pub next_player_number: u64,
@@ -83,6 +84,7 @@ impl ActiveGame {
             ctx: GameCtx {
                 theme,
                 current_time: Duration::from_secs(0),
+                qs_tick: 0,
                 room_code,
                 player_number,
                 next_player_number,
@@ -291,6 +293,12 @@ impl ActiveGame {
         current_time: Duration,
     ) -> Option<PlayerMessage> {
         self.ctx.current_time = current_time;
+        let cur_tick = current_time.as_secs() * 4 + current_time.subsec_millis() as u64 / 250;
+        if cur_tick > self.ctx.qs_tick {
+            self.ctx.qs_tick = cur_tick;
+            self.mapped_board
+                .remap(&self.board, &self.ctx.player_colors, self.ctx.qs_tick);
+        }
 
         let mut game_space = ui.available_rect_before_wrap();
         let mut sidebar_space = game_space.clone();

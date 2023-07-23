@@ -64,7 +64,7 @@ impl Lobby {
     }
 
     pub fn update_board(&mut self, board: Board) {
-        self.mapped_board.remap(&board, &self.player_colors);
+        self.mapped_board.remap(&board, &self.player_colors, 0);
         self.board = board;
     }
 
