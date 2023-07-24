@@ -238,9 +238,11 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         }
         GameStatus::Concluded(game, winner) => {
-            game.render(ui, theme, Some(*winner as usize), current_time);
-            // render_board(game, ui);
-            // TODO: Reset state and play again
+            if let Some(PlayerMessage::Rematch) =
+                game.render(ui, theme, Some(*winner as usize), current_time)
+            {
+                send(PlayerMessage::Rematch);
+            }
         }
     }
     if let Some(new_game_status) = new_game_status {

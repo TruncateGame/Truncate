@@ -24,6 +24,7 @@ pub enum PlayerMessage {
     StartGame,
     Place(Coordinate, char),
     Swap(Coordinate, Coordinate),
+    Rematch,
 }
 
 impl fmt::Display for PlayerMessage {
@@ -40,6 +41,7 @@ impl fmt::Display for PlayerMessage {
             PlayerMessage::StartGame => write!(f, "Start the game"),
             PlayerMessage::Place(coord, tile) => write!(f, "Place {} at {}", tile, coord),
             PlayerMessage::Swap(a, b) => write!(f, "Swap the tiles at {} and {}", a, b),
+            PlayerMessage::Rematch => write!(f, "Rematch!"),
         }
     }
 }

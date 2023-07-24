@@ -15,7 +15,7 @@ use hashbrown::HashMap;
 
 use crate::{
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
-    utils::{mapper::MappedBoard, text::TextHelper, Diaphanize, Theme},
+    utils::{mapper::MappedBoard, text::TextHelper, Diaphanize, Lighten, Theme},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -129,7 +129,9 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
-    ) {
+    ) -> Option<PlayerMessage> {
+        let mut msg = None;
+
         let control_anchor = if self.ctx.timers_visible {
             vec2(0.0, 0.0)
         } else {
@@ -163,6 +165,21 @@ impl ActiveGame {
                 Layout::top_down(Align::LEFT),
                 |ui| {
                     ui.add_space(10.0);
+
+                    if winner.is_some() {
+                        let text = TextHelper::heavy("REMATCH", 12.0, ui);
+                        if text
+                            .centered_button(
+                                theme.selection.lighten().lighten(),
+                                theme.text,
+                                &self.ctx.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            msg = Some(PlayerMessage::Rematch);
+                        }
+                    }
 
                     let (hand_alloc, _) =
                         ui.allocate_at_least(vec2(ui.available_width(), 50.0), Sense::hover());
@@ -223,6 +240,8 @@ impl ActiveGame {
         });
 
         self.ctx.hand_total_rect = Some(resp.response.rect);
+
+        msg
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
@@ -340,19 +359,21 @@ impl ActiveGame {
         }
 
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
-        self.render_control_strip(&mut game_space_ui, theme, winner);
+        let control_player_message = self.render_control_strip(&mut game_space_ui, theme, winner);
 
         let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
         self.render_sidebar(&mut sidebar_space_ui, theme, winner);
 
-        let player_message = BoardUI::new(&self.board).render(
-            &self.hand,
-            &self.board_changes,
-            winner.clone(),
-            &mut self.ctx,
-            &mut game_space_ui,
-            &self.mapped_board,
-        );
+        let player_message = BoardUI::new(&self.board)
+            .render(
+                &self.hand,
+                &self.board_changes,
+                winner.clone(),
+                &mut self.ctx,
+                &mut game_space_ui,
+                &self.mapped_board,
+            )
+            .or(control_player_message);
 
         player_message
     }
