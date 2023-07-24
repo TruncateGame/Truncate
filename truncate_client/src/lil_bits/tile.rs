@@ -30,6 +30,7 @@ pub struct TileUI {
     defeated: bool,
     truncated: bool,
     won: bool,
+    victor: bool,
     id: Option<Id>,
 }
 
@@ -48,6 +49,7 @@ impl TileUI {
             defeated: false,
             truncated: false,
             won: false,
+            victor: false,
             id: None,
         }
     }
@@ -102,6 +104,11 @@ impl TileUI {
         self
     }
 
+    pub fn victor(mut self, victor: bool) -> Self {
+        self.victor = victor;
+        self
+    }
+
     pub fn id(mut self, id: Id) -> Self {
         self.id = Some(id);
         self
@@ -112,7 +119,7 @@ impl TileUI {
     fn tile_color(&self, hovered: bool, theme: &Theme, ctx: &GameCtx) -> Color32 {
         if self.highlighted && ctx.current_time.subsec_millis() > 500 {
             theme.selection.pastel()
-        } else if self.won || self.selected {
+        } else if self.won || self.selected || self.victor {
             theme.selection
         } else {
             let color = match (&self.player, hovered) {
@@ -160,6 +167,8 @@ impl TileUI {
             }
         } else if self.defeated || self.truncated {
             tile_gone = true;
+        } else {
+            self.victor = false;
         }
 
         let theme = rescale

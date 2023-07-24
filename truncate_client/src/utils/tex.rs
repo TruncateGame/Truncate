@@ -75,7 +75,7 @@ const fn quad(nw_tile: usize, ne_tile: usize, se_tile: usize, sw_tile: usize) ->
 
 // TODO: Generate this impl with codegen from aseprite
 impl Tex {
-    pub const MAX_TILE: usize = 239;
+    pub const MAX_TILE: usize = 247;
 
     pub const NONE: Self = t(0);
     pub const DEBUG: Self = t(77);
@@ -134,7 +134,9 @@ impl Tex {
     pub const TILE_CRACK_5: TexQuad = quad(232, 233, 235, 234);
 
     // Tile Remnants
-    pub const TILE_REMNANT: TexQuad = quad(236, 237, 238, 239);
+    pub const TILE_REMNANT_1: TexQuad = quad(236, 237, 238, 239);
+    pub const TILE_REMNANT_2: TexQuad = quad(240, 241, 242, 243);
+    pub const TILE_REMNANT_3: TexQuad = quad(244, 245, 246, 247);
 
     // Tiles for buttons
     pub const GAME_TILE_NW: Self = t(53);
@@ -292,13 +294,13 @@ impl Tex {
         texs.push([
             Self::NONE,
             Self::NONE,
-            match quickrand(seed) {
+            match quickrand(seed) % 100 {
                 0..=25 => Self::TILE_SE_GRASS1,
                 26..=50 => Self::TILE_SE_GRASS2,
                 51..=75 => Self::TILE_SE_GRASS3,
                 _ => Self::TILE_SE_GRASS4,
             },
-            match quickrand(seed + 678) {
+            match quickrand(seed + 678) % 100 {
                 0..=25 => Self::TILE_SW_GRASS1,
                 26..=50 => Self::TILE_SW_GRASS2,
                 51..=75 => Self::TILE_SW_GRASS3,
@@ -334,7 +336,28 @@ impl Tex {
                 }
             }
             MappedTileVariant::Gone => {
-                texs = vec![Self::TILE_REMNANT];
+                texs = vec![[
+                    match quickrand(seed + 345) % 100 {
+                        0..=33 => Self::TILE_REMNANT_1[0],
+                        34..=66 => Self::TILE_REMNANT_2[0],
+                        _ => Self::TILE_REMNANT_3[0],
+                    },
+                    match quickrand(seed + 757) % 100 {
+                        0..=33 => Self::TILE_REMNANT_1[1],
+                        34..=66 => Self::TILE_REMNANT_2[1],
+                        _ => Self::TILE_REMNANT_3[1],
+                    },
+                    match quickrand(seed + 8447) % 100 {
+                        0..=33 => Self::TILE_REMNANT_1[2],
+                        34..=66 => Self::TILE_REMNANT_2[2],
+                        _ => Self::TILE_REMNANT_3[2],
+                    },
+                    match quickrand(seed + 477387) % 100 {
+                        0..=33 => Self::TILE_REMNANT_1[3],
+                        34..=66 => Self::TILE_REMNANT_2[3],
+                        _ => Self::TILE_REMNANT_3[3],
+                    },
+                ]];
             }
         }
         texs
