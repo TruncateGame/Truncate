@@ -321,6 +321,74 @@ async fn handle_player_msg(
                 todo!("Handle player not being enrolled in a game");
             }
         }
+        Rematch => {
+            if let Some(mut game_state) = get_current_game(addr) {
+                if game_state.game.winner.is_none() {
+                    player_tx
+                        .send(GameMessage::GenericError(
+                            "Cannot rematch unfinished game".into(),
+                        ))
+                        .unwrap();
+                } else {
+                    let new_game_id = word_map.lock().await.get_free_code();
+                    let mut game = GameState::new(new_game_id.clone());
+
+                    let mut next_board = game_state.game.board.clone();
+                    next_board.reset();
+                    game.game.board = next_board;
+
+                    let mut next_sockets = game_state.players.clone();
+                    next_sockets.rotate_left(1);
+                    game_state.players = vec![];
+
+                    let mut next_players = game_state.game.players.clone();
+                    next_players.rotate_left(1);
+                    for (i, player) in next_players.into_iter().enumerate() {
+                        game.add_player(
+                            next_sockets
+                                .get(i)
+                                .expect("All players rejoining have a socket")
+                                .clone(),
+                            player.name,
+                        )
+                        .expect("Failed to add player to game");
+                    }
+
+                    game_map.insert(new_game_id.clone(), game);
+
+                    let Some(existing_game) = game_map.get(&new_game_id) else {
+                        panic!("what");
+                    };
+
+                    for (i, player) in existing_game.players.iter().enumerate() {
+                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                        let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+
+                        active_map.insert(socket, new_game_id.clone());
+
+                        let claims = Claims::with_custom_claims(
+                            PlayerClaims {
+                                player_index: i,
+                                room_code: new_game_id.clone(),
+                            },
+                            Duration::from_days(7), // TODO: Determine game expiration time
+                        );
+                        let token = jwt_key
+                            .authenticate(claims)
+                            .expect("Claims should be serializable");
+
+                        peer.send(GameMessage::JoinedLobby(
+                            i as u64,
+                            new_game_id.clone(),
+                            existing_game.player_list(),
+                            existing_game.game.board.clone(),
+                            token,
+                        ))
+                        .unwrap();
+                    }
+                }
+            }
+        }
     }
 
     Ok(())

@@ -11,7 +11,7 @@ use truncate_core::{
 
 use crate::definitions::WordDB;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Player {
     pub socket: Option<SocketAddr>,
 }
@@ -166,7 +166,7 @@ impl GameState {
         // For cases where players reconnect and game.hands[0] is players[1] etc
         for (player_index, player) in self.players.iter().enumerate() {
             messages.push((
-                player.clone(),
+                player,
                 GameMessage::StartedGame(self.game_msg(player_index, None)),
             ));
         }
@@ -196,7 +196,7 @@ impl GameState {
                 Ok(Some(winner)) => {
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
-                            player.clone(),
+                            player,
                             GameMessage::GameEnd(
                                 self.game_msg(player_index, Some(&words_db)),
                                 winner as u64,
@@ -208,7 +208,7 @@ impl GameState {
                 Ok(None) => {
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
-                            player.clone(),
+                            player,
                             GameMessage::GameUpdate(self.game_msg(player_index, Some(&words_db))),
                         ));
                     }
@@ -256,7 +256,7 @@ impl GameState {
                 Ok(None) => {
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
-                            player.clone(),
+                            player,
                             GameMessage::GameUpdate(self.game_msg(player_index, None)),
                         ));
                     }

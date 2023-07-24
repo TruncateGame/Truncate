@@ -238,9 +238,11 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         }
         GameStatus::Concluded(game, winner) => {
-            game.render(ui, theme, Some(*winner as usize), current_time);
-            // render_board(game, ui);
-            // TODO: Reset state and play again
+            if let Some(PlayerMessage::Rematch) =
+                game.render(ui, theme, Some(*winner as usize), current_time)
+            {
+                send(PlayerMessage::Rematch);
+            }
         }
     }
     if let Some(new_game_status) = new_game_status {
@@ -258,6 +260,12 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     local_storage
                         .set_item("truncate_active_token", &token)
                         .unwrap();
+
+                    // If we're joining a lobby, update the URL to match
+                    _ = web_sys::window()
+                        .unwrap()
+                        .location()
+                        .set_hash(id.to_uppercase().as_str());
                 }
 
                 *game_status = GameStatus::PendingStart(Lobby::new(
