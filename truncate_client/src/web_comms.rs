@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use eframe::egui::Context;
 use eframe::web_sys;
 use futures::channel::{mpsc, oneshot};
@@ -33,10 +35,19 @@ pub async fn connect(
         context = Some(ctx);
     }
 
+    let most_recent_token: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+
     let mut outgoing_msg_stream = rx_player.map(|msg| {
         if !matches!(msg, PlayerMessage::Ping) {
             console::log_1(&format!("Sending {msg}").into());
         }
+
+        // Store a token that we're interacting with, in case we need to
+        // recreate the connection.
+        if let PlayerMessage::RejoinGame(token) = &msg {
+            *most_recent_token.lock().unwrap() = Some(token.to_string());
+        }
+
         WsMessage::Text(serde_json::to_string(&msg.clone()).unwrap())
     });
 
@@ -52,6 +63,16 @@ pub async fn connect(
 
         let (mut outgoing, incoming) = wsio.split();
 
+        if let Some(token) = most_recent_token.lock().unwrap().clone() {
+            console::log_1(&"Attempting to reconnect to a game".into());
+            let reconnection_msg = PlayerMessage::RejoinGame(token);
+            let encoded_reconnection_msg =
+                WsMessage::Text(serde_json::to_string(&reconnection_msg).unwrap());
+            if outgoing.send(encoded_reconnection_msg).await.is_err() {
+                continue;
+            };
+        }
+
         let game_messages = {
             incoming.for_each(|msg| async {
                 let parsed_msg: GameMessage = match msg {
@@ -65,6 +86,12 @@ pub async fn connect(
                     _ = tx_player.clone().send(PlayerMessage::Ping).await;
                 } else {
                     console::log_1(&format!("Received {parsed_msg}").into());
+                }
+
+                // Store a token that we're interacting with, in case we need to
+                // recreate the connection.
+                if let GameMessage::JoinedLobby(_, _, _, _, token) = &parsed_msg {
+                    *most_recent_token.lock().unwrap() = Some(token.to_string());
                 }
 
                 tx_game
