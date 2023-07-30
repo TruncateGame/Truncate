@@ -131,8 +131,8 @@ async fn handle_player_msg(
                         .unwrap();
 
                     for player in &existing_game.players {
-                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
-                        let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+                        let Some(socket) = player.socket else { continue };
+                        let Some(peer) = peer_map.get(&socket) else { continue };
 
                         peer.send(GameMessage::LobbyUpdate(
                             player_index as u64,
@@ -233,8 +233,8 @@ async fn handle_player_msg(
                 };
 
                 for player in &game_state.players {
-                    let Some(socket) = player.socket else { todo!("Handle disconnected player") };
-                    let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+                    let Some(socket) = player.socket else { continue };
+                    let Some(peer) = peer_map.get(&socket) else { continue };
 
                     peer.send(GameMessage::LobbyUpdate(
                         player_index as u64,
@@ -267,8 +267,8 @@ async fn handle_player_msg(
                     };
 
                     for player in &game_state.players {
-                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
-                        let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+                        let Some(socket) = player.socket else { continue };
+                        let Some(peer) = peer_map.get(&socket) else { continue };
 
                         peer.send(GameMessage::LobbyUpdate(
                             player_index as u64,
@@ -286,8 +286,8 @@ async fn handle_player_msg(
         StartGame => {
             if let Some(mut game_state) = get_current_game(addr) {
                 for (player, message) in game_state.start().await {
-                    let Some(socket) = player.socket else { todo!("Handle disconnected player") };
-                    let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+                    let Some(socket) = player.socket else { continue };
+                    let Some(peer) = peer_map.get(&socket) else { continue };
 
                     peer.send(message).unwrap();
                 }
@@ -298,8 +298,8 @@ async fn handle_player_msg(
         Place(position, tile) => {
             if let Some(mut game_state) = get_current_game(addr) {
                 for (player, message) in game_state.play(addr, position, tile, word_map).await {
-                    let Some(socket) = player.socket else { todo!("Handle disconnected player") };
-                    let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+                    let Some(socket) = player.socket else { continue };
+                    let Some(peer) = peer_map.get(&socket) else { continue };
 
                     peer.send(message).unwrap();
                 }
@@ -311,8 +311,8 @@ async fn handle_player_msg(
         Swap(from, to) => {
             if let Some(mut game_state) = get_current_game(addr) {
                 for (player, message) in game_state.swap(addr, from, to, word_map).await {
-                    let Some(socket) = player.socket else { todo!("Handle disconnected player") };
-                    let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+                    let Some(socket) = player.socket else { continue };
+                    let Some(peer) = peer_map.get(&socket) else { continue };
 
                     peer.send(message).unwrap();
                 }
@@ -361,8 +361,8 @@ async fn handle_player_msg(
                     };
 
                     for (i, player) in existing_game.players.iter().enumerate() {
-                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
-                        let Some(peer) = peer_map.get(&socket) else { todo!("Handle disconnected player") };
+                        let Some(socket) = player.socket else { continue };
+                        let Some(peer) = peer_map.get(&socket) else { continue };
 
                         active_map.insert(socket, new_game_id.clone());
 
