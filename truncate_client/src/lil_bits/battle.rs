@@ -41,7 +41,7 @@ fn get_galleys<'a>(
         .flat_map(|w| {
             [
                 ui.painter().layout_no_wrap(
-                    w.word.clone(),
+                    w.resolved_word.clone(),
                     FontId::new(
                         ctx.theme.letter_size * 0.75,
                         egui::FontFamily::Name("Truncate-Heavy".into()),

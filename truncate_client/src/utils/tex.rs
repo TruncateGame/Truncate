@@ -478,7 +478,7 @@ impl Tex {
             ) => Some(Self::ISLAND),
             (
                 BoardEditingMode::Land | BoardEditingMode::Dock(_),
-                Square::Land | Square::Town(_),
+                Square::Land | Square::Town { .. },
             ) => Some(Self::LAKE),
             _ => None,
         }

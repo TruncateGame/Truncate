@@ -1,9 +1,16 @@
 // TODO: Maximum consecutive swaps / stalemate rule
 
 #[derive(Clone)]
+pub enum TownDefense {
+    BeatenByContact,
+    BeatenByValidity,
+    BeatenWithDefenseStrength(usize),
+}
+
+#[derive(Clone)]
 pub enum WinCondition {
-    Destination, // TODO: Implement
-    Elimination, // TODO: Implement
+    Destination { town_defense: TownDefense }, // TODO: Implement
+    Elimination,                               // TODO: Implement
 }
 
 #[derive(Clone)]
@@ -88,7 +95,9 @@ pub struct GameRules {
 impl Default for GameRules {
     fn default() -> Self {
         Self {
-            win_condition: WinCondition::Destination,
+            win_condition: WinCondition::Destination {
+                town_defense: TownDefense::BeatenWithDefenseStrength(0),
+            },
             visibility: Visibility::Standard,
             truncation: Truncation::Root,
             timing: Timing::PerPlayer {

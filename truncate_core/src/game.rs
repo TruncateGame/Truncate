@@ -273,12 +273,17 @@ impl Game {
             attacking_words,
             defending_words,
             &self.rules.battle_rules,
+            &self.rules.win_condition,
             external_dictionary,
         ) {
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
+                    let mut all_defenders_are_towns = true;
                     changes.extend(defenders.iter().flatten().map(|coordinate| {
                         let square = self.board.get(*coordinate).expect("Tile just attacked");
+                        if matches!(square, Square::Occupied(_, _)) {
+                            all_defenders_are_towns = false;
+                        }
                         Change::Board(BoardChange {
                             detail: BoardChangeDetail {
                                 square,
@@ -288,18 +293,32 @@ impl Game {
                         })
                     }));
 
-                    let squares = attackers.into_iter().flat_map(|word| word.into_iter());
-                    changes.extend(squares.flat_map(|square| {
-                        if let Ok(Square::Occupied(_, letter)) = self.board.get(square) {
-                            self.bag.return_tile(letter);
+                    let mut remove_attackers = true;
+
+                    // When in BeatenByValidity mode, tiles can touch towns without being removed from the board.
+                    if matches!(
+                        &self.rules.win_condition,
+                        rules::WinCondition::Destination {
+                            town_defense: rules::TownDefense::BeatenByValidity
                         }
-                        self.board.clear(square).map(|detail| {
-                            Change::Board(BoardChange {
-                                detail,
-                                action: BoardChangeAction::Defeated,
+                    ) {
+                        remove_attackers = false;
+                    }
+
+                    if remove_attackers {
+                        let squares = attackers.into_iter().flat_map(|word| word.into_iter());
+                        changes.extend(squares.flat_map(|square| {
+                            if let Ok(Square::Occupied(_, letter)) = self.board.get(square) {
+                                self.bag.return_tile(letter);
+                            }
+                            self.board.clear(square).map(|detail| {
+                                Change::Board(BoardChange {
+                                    detail,
+                                    action: BoardChangeAction::Defeated,
+                                })
                             })
-                        })
-                    }));
+                        }));
+                    }
                 }
                 Outcome::AttackerWins(losers) => {
                     changes.extend(attackers.iter().flatten().map(|coordinate| {
@@ -320,9 +339,22 @@ impl Game {
                         defender.into_iter()
                     });
                     changes.extend(squares.flat_map(|square| {
-                        if let Ok(Square::Occupied(_, letter)) = self.board.get(*square) {
-                            self.bag.return_tile(letter);
+                        match self.board.get(*square) {
+                            Ok(Square::Occupied(_, letter)) => {
+                                self.bag.return_tile(letter);
+                            }
+                            Ok(Square::Town { player, .. }) => {
+                                self.board.set_square(
+                                    *square,
+                                    Square::Town {
+                                        player,
+                                        defeated: true,
+                                    },
+                                );
+                            }
+                            _ => {}
                         }
+
                         self.board.clear(*square).map(|detail| {
                             Change::Board(BoardChange {
                                 detail,

@@ -325,7 +325,7 @@ impl Game {
 
         let score: usize = towns
             .into_iter()
-            .filter(|town| matches!(self.board.get(*town), Ok(Square::Town(p)) if player == p))
+            .filter(|town| matches!(self.board.get(*town), Ok(Square::Town{player: p, ..}) if player == p))
             .map(|town| {
                 num_towns += 1;
                 self.board
