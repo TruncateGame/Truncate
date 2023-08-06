@@ -9,6 +9,11 @@
     <link rel="icon" type="image/svg+xml"
         href="data:image/svg+xml,%3Csvg width='318' height='320' viewBox='0 0 318 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 300H268V290H278V280H288V260H298V240H288V260H278V270H258V280H60V270H40V260H30V240H20V260H30V280H40V290H50V300Z' fill='%23ADADAD'/%3E%3Cpath d='M60 20V30H40V40H30V60H20V240H30V260H40V270H60V280H258V270H278V260H288V240H298V60H288V40H278V30H258V20H60Z' fill='white'/%3E%3Cpath d='M135.75 230.75V91.25H89.25V68H228.75V91.25H182.25V230.75H135.75Z' fill='black'/%3E%3C/svg%3E%0A" />
     <title>Truncate</title>
+
+    <!-- Fathom - beautiful, simple website analytics -->
+    <script src="https://cdn.usefathom.com/script.js" data-site="{{ env.analytics_id }}" defer></script>
+    <!-- / Fathom -->
+
     <style>
         :root {
             --water: #50a7e8;
@@ -353,7 +358,7 @@
 
     <audio id="tr_move" src="/static/move.mp3"></audio>
 
-    <script defer src="static/truncate_client.js?commit={{ env.environment }}"></script>
+    <script defer src="static/truncate_client.js?commit={{ env.commit }}"></script>
     <script>
         (function () {
             const stage = (s) => controls.setAttribute("data-control-stage", s);
@@ -796,7 +801,7 @@
                     await new Promise(r => setTimeout(r, 100));
                 }
 
-                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.environment }}")
+                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.commit }}")
                     .then(on_wasm_loaded)
                     .catch(on_wasm_error);
 
