@@ -16,6 +16,7 @@ pub struct SquareUI {
     coord: Coordinate,
     enabled: bool,
     empty: bool,
+    playable: bool,
     selected: bool,
     overlay: Option<char>,
 }
@@ -26,6 +27,7 @@ impl SquareUI {
             coord,
             enabled: true,
             empty: false,
+            playable: false,
             selected: false,
             overlay: None,
         }
@@ -38,6 +40,11 @@ impl SquareUI {
 
     pub fn empty(mut self, empty: bool) -> Self {
         self.empty = empty;
+        self
+    }
+
+    pub fn playable(mut self, playable: bool) -> Self {
+        self.playable = playable;
         self
     }
 
@@ -81,26 +88,26 @@ impl SquareUI {
             }
 
             let is_hovered = ui.rect_contains_pointer(interact_rect);
-
+            let is_hovered_with_drag = is_hovered && ctx.dragging_tile;
             let show_overlay = is_hovered && self.overlay.is_some();
-            let show_contents = !self.empty || !is_hovered;
 
-            if show_contents && !show_overlay {
+            if (show_overlay || is_hovered_with_drag)
+                && (self.empty || ctx.selected_square_on_board.is_some())
+            {
+                if let Some(overlay) = self.overlay {
+                    TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
+                        None,
+                        &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
+                        ctx,
+                        false,
+                        None,
+                    );
+                }
+            } else {
                 contents(
                     &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
                     ctx,
                 );
-            }
-
-            if is_hovered {
-                if let Some(overlay) = self.overlay {
-                    response = TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
-                        None,
-                        &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                        ctx,
-                        None,
-                    );
-                }
             }
 
             if self.empty {

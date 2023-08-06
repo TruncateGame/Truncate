@@ -37,6 +37,7 @@ pub struct Lobby {
     pub mapped_board: MappedBoard,
     pub map_texture: TextureHandle,
     pub editing_mode: BoardEditingMode,
+    pub copied_code: bool,
 }
 
 impl Lobby {
@@ -60,11 +61,12 @@ impl Lobby {
             map_texture,
             board,
             editing_mode: BoardEditingMode::None,
+            copied_code: false,
         }
     }
 
     pub fn update_board(&mut self, board: Board) {
-        self.mapped_board.remap(&board, &self.player_colors);
+        self.mapped_board.remap(&board, &self.player_colors, 0);
         self.board = board;
     }
 
@@ -95,14 +97,46 @@ impl Lobby {
                         text.paint(Color32::WHITE, ui);
                     });
 
+                    if self.players.len() == 1 {
+                        if self.copied_code {
+                            let text = TextHelper::heavy("Copied link", 10.0, ui);
+                            text.paint(Color32::WHITE, ui);
+                        }
+
+                        let text = TextHelper::heavy("COPY GAME LINK", 14.0, ui);
+                        if text
+                            .full_button(
+                                theme.selection.lighten().lighten(),
+                                theme.text,
+                                &self.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            #[cfg(target_arch = "wasm32")]
+                            {
+                                let host = web_sys::window()
+                                    .unwrap()
+                                    .location()
+                                    .host()
+                                    .unwrap_or_else(|_| "truncate.town".into());
+                                ui.output_mut(|o| {
+                                    o.copied_text = format!("https://{host}/#{}", &self.room_code);
+                                });
+                                self.copied_code = true;
+                            }
+                        }
+                    }
+
+                    let start_button_color = if self.players.len() > 1 {
+                        theme.selection.lighten().lighten()
+                    } else {
+                        theme.text.lighten().lighten()
+                    };
+
                     let text = TextHelper::heavy("START GAME", 14.0, ui);
                     if text
-                        .full_button(
-                            theme.selection.lighten().lighten(),
-                            theme.text,
-                            &self.map_texture,
-                            ui,
-                        )
+                        .full_button(start_button_color, theme.text, &self.map_texture, ui)
                         .clicked()
                     {
                         msg = Some(PlayerMessage::StartGame);

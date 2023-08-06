@@ -1,4 +1,4 @@
-use epaint::{emath::Align2, hex_color, vec2, Color32, Rect, Stroke, TextureHandle, Vec2};
+use epaint::{emath::Align2, hex_color, vec2, Color32, FontId, Rect, Stroke, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Square},
@@ -8,14 +8,14 @@ use truncate_core::{
 };
 
 use eframe::{
-    egui::{self, Frame, Label, Layout, Margin, Order, RichText, ScrollArea, Sense},
+    egui::{self, Frame, Label, LayerId, Layout, Margin, Order, RichText, ScrollArea, Sense},
     emath::Align,
 };
 use hashbrown::HashMap;
 
 use crate::{
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
-    utils::{mapper::MappedBoard, Theme},
+    utils::{mapper::MappedBoard, text::TextHelper, Diaphanize, Lighten, Theme},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -29,10 +29,13 @@ pub struct HoveredRegion {
 pub struct GameCtx {
     pub theme: Theme,
     pub current_time: Duration,
+    pub prev_to_next_turn: (Duration, Duration),
+    pub qs_tick: u64,
     pub room_code: RoomCode,
     pub player_number: u64,
     pub next_player_number: u64,
     pub selected_tile_in_hand: Option<usize>,
+    pub dragging_tile: bool,
     pub released_tile: Option<(usize, Coordinate)>,
     pub selected_square_on_board: Option<Coordinate>,
     pub hovered_tile_on_board: Option<HoveredRegion>,
@@ -44,9 +47,11 @@ pub struct GameCtx {
     pub board_pan: Vec2,
     pub sidebar_visible: bool,
     pub timers_visible: bool,
+    pub hand_total_rect: Option<Rect>,
     pub hand_companion_rect: Option<Rect>,
     pub highlight_tiles: Option<Vec<char>>,
     pub highlight_squares: Option<Vec<Coordinate>>,
+    pub is_mobile: bool,
 }
 
 #[derive(Clone)]
@@ -81,6 +86,8 @@ impl ActiveGame {
             ctx: GameCtx {
                 theme,
                 current_time: Duration::from_secs(0),
+                prev_to_next_turn: (Duration::from_secs(0), Duration::from_secs(0)),
+                qs_tick: 0,
                 room_code,
                 player_number,
                 next_player_number,
@@ -88,17 +95,20 @@ impl ActiveGame {
                 released_tile: None,
                 selected_square_on_board: None,
                 hovered_tile_on_board: None,
+                dragging_tile: false,
                 playing_tile: None,
                 error_msg: None,
                 map_texture: map_texture.clone(),
                 player_colors: player_colors.clone(),
                 board_zoom: 1.0,
                 board_pan: vec2(0.0, 0.0),
-                sidebar_visible: true,
+                sidebar_visible: false,
                 timers_visible: true,
                 hand_companion_rect: None,
+                hand_total_rect: None,
                 highlight_tiles: None,
                 highlight_squares: None,
+                is_mobile: false,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -123,7 +133,9 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
-    ) {
+    ) -> Option<PlayerMessage> {
+        let mut msg = None;
+
         let control_anchor = if self.ctx.timers_visible {
             vec2(0.0, 0.0)
         } else {
@@ -144,10 +156,35 @@ impl ActiveGame {
         let avail_width = ui.available_width();
 
         let resp = area.show(ui.ctx(), |ui| {
+            if let Some(bg_rect) = self.ctx.hand_total_rect {
+                ui.painter().clone().rect_filled(
+                    bg_rect,
+                    0.0,
+                    self.ctx.theme.water.gamma_multiply(0.75),
+                );
+            }
+
             ui.allocate_ui_with_layout(
                 vec2(avail_width, 10.0),
                 Layout::top_down(Align::LEFT),
                 |ui| {
+                    ui.add_space(10.0);
+
+                    if winner.is_some() {
+                        let text = TextHelper::heavy("REMATCH", 12.0, ui);
+                        if text
+                            .centered_button(
+                                theme.selection.lighten().lighten(),
+                                theme.text,
+                                &self.ctx.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            msg = Some(PlayerMessage::Rematch);
+                        }
+                    }
+
                     let (hand_alloc, _) =
                         ui.allocate_at_least(vec2(ui.available_width(), 50.0), Sense::hover());
                     let mut hand_ui = ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
@@ -184,17 +221,35 @@ impl ActiveGame {
                             ui.add_space(10.0);
                         }
 
-                        ui.add_space(10.0);
+                        ui.add_space(5.0);
                     }
+
+                    if self.ctx.is_mobile {
+                        let text = TextHelper::heavy("VIEW INFO", 12.0, ui);
+                        if text
+                            .centered_button(
+                                Color32::WHITE.diaphanize(),
+                                theme.text,
+                                &self.ctx.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            self.ctx.sidebar_visible = true;
+                        }
+                    }
+                    ui.add_space(10.0);
                 },
             );
         });
-        // TODO: Paint this to an appropriate layer, or do sizing within the area above and paint it there.
-        // ui.painter().rect_filled(resp.response.rect, 0.0, hex_color!("#ff000088"));
+
+        self.ctx.hand_total_rect = Some(resp.response.rect);
+
+        msg
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
-        if !self.ctx.sidebar_visible {
+        if self.ctx.is_mobile && !self.ctx.sidebar_visible {
             return;
         }
 
@@ -203,66 +258,84 @@ impl ActiveGame {
             .order(Order::Foreground)
             .anchor(Align2::RIGHT_TOP, vec2(0.0, 0.0));
 
-        let mut outer_sidebar_area = ui.max_rect().shrink2(vec2(0.0, 8.0));
+        let sidebar_alloc = ui.max_rect();
+        let mut outer_sidebar_area = sidebar_alloc.shrink2(vec2(0.0, 8.0));
         outer_sidebar_area.set_right(outer_sidebar_area.right() - 8.0);
         let inner_sidebar_area = outer_sidebar_area.shrink(8.0);
 
         let resp = area.show(ui.ctx(), |ui| {
-            ui.painter()
-                .rect_filled(outer_sidebar_area, 4.0, hex_color!("#111111aa"));
+            ui.painter().clone().rect_filled(
+                sidebar_alloc,
+                0.0,
+                self.ctx.theme.water.gamma_multiply(0.9),
+            );
 
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
+                ui.expand_to_include_rect(inner_sidebar_area);
+                if self.ctx.is_mobile {
+                    let text = TextHelper::heavy("CLOSE INFO", 12.0, ui);
+                    if text
+                        .centered_button(
+                            Color32::WHITE.diaphanize(),
+                            theme.text,
+                            &self.ctx.map_texture,
+                            ui,
+                        )
+                        .clicked()
+                    {
+                        self.ctx.sidebar_visible = false;
+                    }
+
+                    ui.add_space(10.0);
+                }
+
                 ScrollArea::new([false, true]).show(ui, |ui| {
-                    ui.label(RichText::new("Game history").color(Color32::WHITE));
-                    ui.separator();
+                    let room = ui.painter().layout_no_wrap(
+                        "Game Info".into(),
+                        FontId::new(
+                            self.ctx.theme.letter_size / 2.0,
+                            egui::FontFamily::Name("Truncate-Heavy".into()),
+                        ),
+                        self.ctx.theme.text,
+                    );
+                    let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
+                    ui.painter().galley(r.min, room);
+                    ui.add_space(15.0);
 
                     if let Some(error) = &self.ctx.error_msg {
                         ui.label(error);
                         ui.separator();
                     }
 
-                    for turn in self.turn_reports.iter() {
-                        for placement in turn.iter().filter_map(|change| match change {
-                            Change::Board(placement) => Some(placement),
-                            _ => None,
-                        }) {
-                            let Square::Occupied(player, tile) = placement.detail.square else {
-                                                continue;
-                                            };
-                            let Some(player) = self.players.get(player) else {
-                                                continue;
-                                            };
+                    let mut rendered_battles = 0;
+                    let label_font =
+                        FontId::new(8.0, egui::FontFamily::Name("Truncate-Heavy".into()));
 
-                            match placement.action {
-                                truncate_core::reporting::BoardChangeAction::Added => {
-                                    ui.label(
-                                        RichText::new(format!(
-                                            "{} placed the tile {}",
-                                            player.name, tile
-                                        ))
-                                        .color(Color32::WHITE),
-                                    );
-                                }
-                                truncate_core::reporting::BoardChangeAction::Swapped => {
-                                    ui.label(
-                                        RichText::new(format!(
-                                            "{} swapped the tile {}",
-                                            player.name, tile
-                                        ))
-                                        .color(Color32::WHITE),
-                                    );
-                                }
-                                _ => {}
-                            }
-                        }
-
+                    for turn in self.turn_reports.iter().rev() {
                         for battle in turn.iter().filter_map(|change| match change {
                             Change::Battle(battle) => Some(battle),
                             _ => None,
                         }) {
+                            if let Some(label) = if rendered_battles == 0 {
+                                Some("Latest Battle")
+                            } else if rendered_battles == 1 {
+                                Some("Previous Battles")
+                            } else {
+                                None
+                            } {
+                                let label = ui.painter().layout_no_wrap(
+                                    label.into(),
+                                    label_font.clone(),
+                                    self.ctx.theme.text,
+                                );
+                                let (r, _) = ui.allocate_at_least(label.size(), Sense::hover());
+                                ui.painter().galley(r.min, label);
+                            }
+
                             BattleUI::new(battle).render(&mut self.ctx, ui);
+                            rendered_battles += 1;
+                            ui.add_space(15.0);
                         }
-                        ui.separator();
                     }
                 });
             });
@@ -274,39 +347,43 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
+        current_time: Duration,
     ) -> Option<PlayerMessage> {
-        // We have to go through the instant crate as
-        // most std time functions are not implemented
-        // in Rust's wasm targets.
-        // instant::SystemTime::now() conditionally uses
-        // a js function on wasm targets, and otherwise aliases
-        // to the std SystemTime type.
-        self.ctx.current_time = instant::SystemTime::now()
-            .duration_since(instant::SystemTime::UNIX_EPOCH)
-            .expect("Please don't play Truncate earlier than 1970");
+        self.ctx.current_time = current_time;
+        let cur_tick = current_time.as_secs() * 4 + current_time.subsec_millis() as u64 / 250;
+        if cur_tick > self.ctx.qs_tick {
+            self.ctx.qs_tick = cur_tick;
+            self.mapped_board
+                .remap(&self.board, &self.ctx.player_colors, self.ctx.qs_tick);
+        }
 
         let mut game_space = ui.available_rect_before_wrap();
         let mut sidebar_space = game_space.clone();
-        sidebar_space.set_left(sidebar_space.right() - 300.0);
 
         if ui.available_size().x >= self.ctx.theme.mobile_breakpoint {
+            self.ctx.is_mobile = false;
             game_space.set_right(game_space.right() - 300.0);
+            sidebar_space.set_left(sidebar_space.right() - 300.0);
+        } else {
+            self.ctx.is_mobile = true;
         }
 
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
-        self.render_control_strip(&mut game_space_ui, theme, winner);
+        let control_player_message = self.render_control_strip(&mut game_space_ui, theme, winner);
 
         let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
         self.render_sidebar(&mut sidebar_space_ui, theme, winner);
 
-        let player_message = BoardUI::new(&self.board).render(
-            &self.hand,
-            &self.board_changes,
-            winner.clone(),
-            &mut self.ctx,
-            &mut game_space_ui,
-            &self.mapped_board,
-        );
+        let player_message = BoardUI::new(&self.board)
+            .render(
+                &self.hand,
+                &self.board_changes,
+                winner.clone(),
+                &mut self.ctx,
+                &mut game_space_ui,
+                &self.mapped_board,
+            )
+            .or(control_player_message);
 
         player_message
     }
@@ -342,6 +419,13 @@ impl ActiveGame {
         }
 
         self.ctx.next_player_number = next_player_number;
+        if let Some(GamePlayerMessage {
+            turn_starts_at: Some(time),
+            ..
+        }) = self.players.get(next_player_number as usize)
+        {
+            self.ctx.prev_to_next_turn = (self.ctx.current_time, Duration::from_secs(*time));
+        }
 
         self.board_changes.clear();
         for board_change in changes.iter().filter_map(|c| match c {

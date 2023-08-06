@@ -67,7 +67,17 @@ impl<'a> TextHelper<'a> {
         map_texture: &TextureHandle,
         ui: &mut egui::Ui,
     ) -> egui::Response {
-        self.paint_button(true, button_color, text_color, map_texture, ui)
+        self.paint_button(true, false, button_color, text_color, map_texture, ui)
+    }
+
+    pub fn centered_button(
+        self,
+        button_color: Color32,
+        text_color: Color32,
+        map_texture: &TextureHandle,
+        ui: &mut egui::Ui,
+    ) -> egui::Response {
+        self.paint_button(false, true, button_color, text_color, map_texture, ui)
     }
 
     pub fn button(
@@ -77,12 +87,13 @@ impl<'a> TextHelper<'a> {
         map_texture: &TextureHandle,
         ui: &mut egui::Ui,
     ) -> egui::Response {
-        self.paint_button(false, button_color, text_color, map_texture, ui)
+        self.paint_button(false, false, button_color, text_color, map_texture, ui)
     }
 
     fn paint_button(
         self,
         full_width: bool,
+        centered: bool,
         button_color: Color32,
         text_color: Color32,
         map_texture: &TextureHandle,
@@ -103,8 +114,16 @@ impl<'a> TextHelper<'a> {
         };
 
         let button_tile_size = button_width / (button_texs.len() / 2) as f32;
-        let (mut button_rect, button_resp) =
-            ui.allocate_exact_size(vec2(button_width, button_tile_size * 2.0), Sense::click());
+        let (mut button_rect, button_resp) = if centered {
+            ui.horizontal(|ui| {
+                let centered_offset = (ui.available_width() - button_width) * 0.5;
+                ui.add_space(centered_offset);
+                ui.allocate_exact_size(vec2(button_width, button_tile_size * 2.0), Sense::click())
+            })
+            .inner
+        } else {
+            ui.allocate_exact_size(vec2(button_width, button_tile_size * 2.0), Sense::click())
+        };
 
         if button_resp.hovered() {
             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);

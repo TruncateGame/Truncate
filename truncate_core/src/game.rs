@@ -157,7 +157,16 @@ impl Game {
         }
 
         self.players[player].turn_starts_at = None;
-        self.players[self.next_player].turn_starts_at = Some(now());
+
+        if self
+            .recent_changes
+            .iter()
+            .any(|c| matches!(c, Change::Battle(_)))
+        {
+            self.players[self.next_player].turn_starts_at = Some(now() + self.rules.battle_delay);
+        } else {
+            self.players[self.next_player].turn_starts_at = Some(now());
+        }
 
         Ok(None)
     }
@@ -348,23 +357,6 @@ impl Game {
                             None
                         },
                     ));
-
-                    match self.board.get(position) {
-                        Ok(Square::Occupied(_, tile)) if tile == '¤' => {
-                            changes.push(
-                                self.board
-                                    .clear(position)
-                                    .map(|detail| {
-                                        Change::Board(BoardChange {
-                                            detail,
-                                            action: BoardChangeAction::Exploded,
-                                        })
-                                    })
-                                    .expect("Tile exists and should be removable"),
-                            );
-                        }
-                        _ => {}
-                    }
                 }
             }
             changes.push(Change::Battle(battle));
@@ -376,6 +368,23 @@ impl Game {
             }
             rules::Truncation::Larger => unimplemented!(),
             rules::Truncation::None => {}
+        }
+
+        match self.board.get(position) {
+            Ok(Square::Occupied(_, tile)) if tile == '¤' => {
+                changes.push(
+                    self.board
+                        .clear(position)
+                        .map(|detail| {
+                            Change::Board(BoardChange {
+                                detail,
+                                action: BoardChangeAction::Exploded,
+                            })
+                        })
+                        .expect("Tile exists and should be removable"),
+                );
+            }
+            _ => {}
         }
     }
 

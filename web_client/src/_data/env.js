@@ -1,5 +1,6 @@
 module.exports = function () {
     return {
-        environment: process.env.TR_COMMIT || "local"
+        commit: process.env.TR_COMMIT || "local",
+        analytics_id: "YAAFZLJM",
     };
 };

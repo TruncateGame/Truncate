@@ -1,9 +1,12 @@
-use eframe::egui;
+use eframe::egui::{self, Layout, Margin};
+use epaint::{vec2, Color32};
+use instant::Duration;
 use truncate_core::{messages::RoomCode, messages::Token};
 
 use crate::{
     regions::active_game::ActiveGame,
     regions::{lobby::Lobby, single_player::SinglePlayerState, tutorial::TutorialState},
+    utils::{text::TextHelper, Lighten},
 };
 
 use super::OuterApplication;
@@ -23,7 +26,7 @@ pub enum GameStatus {
     Concluded(ActiveGame, u64),
 }
 
-pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
+pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Duration) {
     let OuterApplication {
         name,
         theme,
@@ -33,6 +36,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
         frame_history: _,
         map_texture,
         launched_room,
+        error,
     } = client;
 
     let mut send = |msg| {
@@ -72,10 +76,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
             send(PlayerMessage::NewGame(name.clone()));
             new_game_status = Some(GameStatus::PendingCreate);
         } else {
-            send(PlayerMessage::JoinGame(
-                launched_room.clone(),
-                "___AUTO___".into(),
-            ));
+            send(PlayerMessage::JoinGame(launched_room.clone(), name.clone()));
             new_game_status = Some(GameStatus::PendingJoin(launched_room));
         }
     }
@@ -141,16 +142,90 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
             }
         }
         GameStatus::Tutorial(tutorial) => {
-            tutorial.render(ui, theme);
+            tutorial.render(ui, theme, current_time);
         }
         GameStatus::SinglePlayer(sp) => {
-            sp.render(ui, theme);
+            sp.render(ui, theme, current_time);
         }
         GameStatus::PendingJoin(room_code) => {
             ui.label(format!("Waiting to join room {room_code}"));
+
+            let dot_count = (current_time.as_millis() / 500) % 4;
+            let mut dots = vec!["."; dot_count as usize];
+            dots.extend(vec![" "; 4 - dot_count as usize]);
+            let msg = if let Some(error) = error {
+                error.clone()
+            } else {
+                format!("JOINING {room_code}{}", dots.join(""))
+            };
+
+            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let required_size = vec2(
+                msg_text.size().x,
+                msg_text.size().y + button_text.size().y * 2.0,
+            );
+
+            let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
+            let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
+            outer_frame.show(ui, |ui| {
+                msg_text.paint(Color32::WHITE, ui);
+                ui.add_space(8.0);
+                if button_text
+                    .centered_button(
+                        theme.selection.lighten().lighten(),
+                        theme.text,
+                        &map_texture,
+                        ui,
+                    )
+                    .clicked()
+                {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        _ = web_sys::window().unwrap().location().set_hash("");
+                        _ = web_sys::window().unwrap().location().reload();
+                    }
+                }
+            });
         }
         GameStatus::PendingCreate => {
-            ui.label("Waiting for a new game to be created . . .");
+            let dot_count = (current_time.as_millis() / 500) % 4;
+            let mut dots = vec!["."; dot_count as usize];
+            dots.extend(vec![" "; 4 - dot_count as usize]);
+            let msg = if let Some(error) = error {
+                error.clone()
+            } else {
+                format!("CREATING ROOM{}", dots.join(""))
+            };
+
+            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let required_size = vec2(
+                msg_text.size().x,
+                msg_text.size().y + button_text.size().y * 2.0,
+            );
+
+            let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
+            let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
+            outer_frame.show(ui, |ui| {
+                msg_text.paint(Color32::WHITE, ui);
+                ui.add_space(8.0);
+                if button_text
+                    .centered_button(
+                        theme.selection.lighten().lighten(),
+                        theme.text,
+                        &map_texture,
+                        ui,
+                    )
+                    .clicked()
+                {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        _ = web_sys::window().unwrap().location().set_hash("");
+                        _ = web_sys::window().unwrap().location().reload();
+                    }
+                }
+            });
         }
         GameStatus::PendingStart(editor_state) => {
             if let Some(msg) = editor_state.render(ui, theme) {
@@ -158,14 +233,16 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
             }
         }
         GameStatus::Active(game) => {
-            if let Some(msg) = game.render(ui, theme, None) {
+            if let Some(msg) = game.render(ui, theme, None, current_time) {
                 send(msg);
             }
         }
         GameStatus::Concluded(game, winner) => {
-            game.render(ui, theme, Some(*winner as usize));
-            // render_board(game, ui);
-            // TODO: Reset state and play again
+            if let Some(PlayerMessage::Rematch) =
+                game.render(ui, theme, Some(*winner as usize), current_time)
+            {
+                send(PlayerMessage::Rematch);
+            }
         }
     }
     if let Some(new_game_status) = new_game_status {
@@ -183,6 +260,12 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                     local_storage
                         .set_item("truncate_active_token", &token)
                         .unwrap();
+
+                    // If we're joining a lobby, update the URL to match
+                    _ = web_sys::window()
+                        .unwrap()
+                        .location()
+                        .set_hash(id.to_uppercase().as_str());
                 }
 
                 *game_status = GameStatus::PendingStart(Lobby::new(
@@ -230,13 +313,22 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                 }
                 _ => todo!("Game update hit an unknown state"),
             },
-            GameMessage::GameEnd(state_message, winner) => match game_status {
-                GameStatus::Active(game) => {
-                    game.apply_new_state(state_message);
-                    *game_status = GameStatus::Concluded(game.clone(), winner);
+            GameMessage::GameEnd(state_message, winner) => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let local_storage =
+                        web_sys::window().unwrap().local_storage().unwrap().unwrap();
+                    local_storage.remove_item("truncate_active_token").unwrap();
                 }
-                _ => todo!("Game error hit an unknown state"),
-            },
+
+                match game_status {
+                    GameStatus::Active(game) => {
+                        game.apply_new_state(state_message);
+                        *game_status = GameStatus::Concluded(game.clone(), winner);
+                    }
+                    _ => todo!("Game error hit an unknown state"),
+                }
+            }
             GameMessage::GameError(_id, _num, err) => match game_status {
                 GameStatus::Active(game) => {
                     // assert_eq!(game.room_code, id);
@@ -245,8 +337,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui) {
                 }
                 _ => todo!("Game error hit an unknown state"),
             },
-            GameMessage::GenericError(_err) => {
-                todo!("Handle generic errors")
+            GameMessage::GenericError(err) => {
+                *error = Some(err);
             }
         }
     }

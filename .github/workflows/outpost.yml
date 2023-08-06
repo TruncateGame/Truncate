@@ -2,7 +2,11 @@ name: Deploy to outpost/coup
 
 on:
   push:
-    branches: ["staging"]
+    branches: ["main"]
+
+concurrency:
+  group: staging_deploy
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always

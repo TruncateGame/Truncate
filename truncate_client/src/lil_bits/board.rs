@@ -151,7 +151,7 @@ impl<'a> BoardUI<'a> {
                                                             .defeated(true)
                                                     },
                                                 ),
-                                            (BoardChangeAction::Victorious, Some(tile)) => Some(tile.won(true)),
+                                            (BoardChangeAction::Victorious, Some(tile)) => Some(tile.victor(true)),
                                             (BoardChangeAction::Victorious, None) =>
                                                 match change.detail.square {
                                                     Water | Land | Town(_) | Dock(_) => None,
@@ -161,7 +161,7 @@ impl<'a> BoardUI<'a> {
                                                     |(player, char)| {
                                                         TileUI::new(char, calc_tile_player(&player))
                                                             .selected(is_selected)
-                                                            .won(true)
+                                                            .victor(true)
                                                     },
                                                 ),
                                             _ => {
@@ -198,7 +198,6 @@ impl<'a> BoardUI<'a> {
 
                                     // TODO: Devise a way to show this tile in the place of the board_selected_tile
 
-                                    let mut tile_clicked = false;
                                     let (square_response, outer_rect) = SquareUI::new(coord)
                                         .enabled(matches!(square, Square::Land | Square::Occupied(_, _)))
                                         .empty(matches!(square, Square::Land))
@@ -206,7 +205,7 @@ impl<'a> BoardUI<'a> {
                                         .overlay(overlay)
                                         .render(ui, ctx, &mapped_board, |ui, ctx| {
                                             if let Some(tile) = tile {
-                                                tile_clicked = tile.render(Some(coord), ui, ctx, None).clicked();
+                                                tile.render(Some(coord), ui, ctx, false, None);
                                             }
                                         });
                                     if matches!(square, Square::Land | Square::Occupied(_, _)) {
@@ -217,7 +216,7 @@ impl<'a> BoardUI<'a> {
                                             });
                                         }
 
-                                        if square_response.clicked() || tile_clicked {
+                                        if square_response.clicked() {
                                             if let Some(tile) = ctx.selected_tile_in_hand {
                                                 msg =
                                                     Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));

@@ -9,6 +9,11 @@
     <link rel="icon" type="image/svg+xml"
         href="data:image/svg+xml,%3Csvg width='318' height='320' viewBox='0 0 318 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 300H268V290H278V280H288V260H298V240H288V260H278V270H258V280H60V270H40V260H30V240H20V260H30V280H40V290H50V300Z' fill='%23ADADAD'/%3E%3Cpath d='M60 20V30H40V40H30V60H20V240H30V260H40V270H60V280H258V270H278V260H288V240H298V60H288V40H278V30H258V20H60Z' fill='white'/%3E%3Cpath d='M135.75 230.75V91.25H89.25V68H228.75V91.25H182.25V230.75H135.75Z' fill='black'/%3E%3C/svg%3E%0A" />
     <title>Truncate</title>
+
+    <!-- Fathom - beautiful, simple website analytics -->
+    <script src="https://cdn.usefathom.com/script.js" data-site="{{ env.analytics_id }}" defer></script>
+    <!-- / Fathom -->
+
     <style>
         :root {
             --water: #50a7e8;
@@ -36,6 +41,10 @@
             width: 100%;
             height: 100%;
             font-family: Truncate;
+        }
+
+        a {
+            color: #5088e8;
         }
 
         #splash {
@@ -102,12 +111,18 @@
             background-color: #ffffffbb;
             font-family: Truncate;
             font-size: clamp(10px, 2vw, 13px);
-            padding: 10px clamp(15px, 4vw, 40px);
+            padding: 10px clamp(15px, 4vw, 30px);
             cursor: pointer;
             border-radius: 4px 4px 6px 6px;
             border-bottom: solid 2px #b9b9b9bb;
             z-index: 3;
             transition: transform .1s ease-in;
+        }
+
+        #controls #about_control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
         }
 
         #controls input {
@@ -145,6 +160,75 @@
             transform: translateY(-2px);
         }
 
+        #about_truncate {
+            position: fixed;
+            z-index: 10;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            background: transparent;
+            border: none;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #about_truncate[open] {
+            display: flex;
+        }
+
+        #about_truncate .inner {
+            font-size: 14px;
+            position: relative;
+            width: calc(100% - clamp(20px, 8vw, 100px));
+            height: calc(100% - clamp(20px, 8vw, 100px));
+            max-width: 60ch;
+            background-color: #fff;
+            display: flex;
+            padding: clamp(10px, 2vw, 20px);
+            border: solid 4px black;
+            border-radius: 8px;
+        }
+
+        #about_truncate .content {
+            overflow-y: scroll;
+            padding-bottom: 100px;
+        }
+
+        #about_truncate h2 {
+            font-size: 14px;
+        }
+
+        #about_truncate form {
+            position: absolute;
+            bottom: 0px;
+            left: 0px;
+            width: 100%;
+            height: 80px;
+            background-color: #ffffffdd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        #about_truncate button {
+            border: solid 2px !important;
+        }
+
+        .game_credit {
+            margin-bottom: 8px;
+        }
+
+        .game_credit .sub {
+            font-size: 0.9em;
+            font-style: italic;
+            padding-left: 1em;
+            color: #888;
+        }
+
         [data-stage] {
             display: none !important;
         }
@@ -176,6 +260,10 @@
         [data-control-stage="rejoin"] [data-stage="rejoin"] {
             display: flex !important;
         }
+
+        [data-control-stage="about"] [data-stage="about"] {
+            display: flex !important;
+        }
     </style>
 </head>
 
@@ -185,13 +273,19 @@
 
     <div id="controls" data-control-stage="root">
 
+        <button data-stage="root" id="about_control" data-control="to_about">ABOUT + CREDITS</button>
+
         <button data-stage="root" data-control="tutorial">TUTORIAL</button>
         <button data-stage="root" data-control="to_create_game">PLAY GAME</button>
 
         <div class="sub" data-stage="create">
             <div class="split">
                 <button data-control="new_single" class="fill">SINGLE PLAYER</button>
+            </div>
+            <div class="split">
                 <button data-control="to_multi_game" class="fill">MULTI PLAYER</button>
+                <button type="button" data-control="cancel_to_root" class="thin"
+                    aria-label="Cancel play game selection">X</button>
             </div>
         </div>
 
@@ -201,7 +295,7 @@
             </div>
             <div class="split">
                 <button data-control="new_multi" class="fill">CREATE GAME</button>
-                <button type="button" data-control="cancel_multi" class="thin"
+                <button type="button" data-control="cancel_to_root" class="thin"
                     aria-label="Cancel new game selection">X</button>
             </div>
         </div>
@@ -209,7 +303,7 @@
         <div class="sub" data-stage="rejoin">
             <div class="split">
                 <button data-control="rejoin" class="fill">REJOIN ACTIVE GAME</button>
-                <button type="button" data-control="cancel_rejoin" class="thin"
+                <button type="button" data-control="cancel_to_root" class="thin"
                     aria-label="Cancel rejoining recent game">X</button>
             </div>
         </div>
@@ -221,21 +315,54 @@
             </div>
             <div class="split">
                 <button type="submit" data-control="join_game" class="fill">JOIN</button>
-                <button type="button" data-control="cancel_join" class="thin"
+                <button type="button" data-control="cancel_to_root" class="thin"
                     aria-label="Cancel join game selection">X</button>
             </div>
         </form>
 
         <p data-stage="error">An error occurred loading Truncate</p>
         <p data-stage="loading">Loading...</p>
+
+        <dialog id="about_truncate">
+            <div class="inner">
+                <div class="content">
+                    <p>Truncate was created by<br><a target="_blank" href="https://github.com/bglw/">Liam Bigelow</a>
+                        and
+                        <a target="_blank" href="https://github.com/BlakeMScurr/">Blake McAlevey-Scurr</a>.
+                    </p>
+                    <p>Truncate's client and server are both available as open-source code on GitHub at <a
+                            target="_blank" href="https://github.com/TruncateGame/Truncate">TruncateGame/Truncate</a>.
+                    </p>
+
+                    <h2>Many thanks to the art assets:</h2>
+                    {% include "credits.html" credits: credits.art_assets %}
+
+                    <h2>Many thanks to the audio assets:</h2>
+                    {% include "credits.html" credits: credits.audio_assets %}
+
+                    <h2>Many thanks to the font assets:</h2>
+                    {% include "credits.html" credits: credits.font_assets %}
+
+                    <h2>Many thanks to the notable open-source dependencies:</h2>
+                    {% include "credits.html" credits: credits.code_assets %}
+
+                    <h2>Many thanks to the word data sources:</h2>
+                    {% include "credits.html" credits: credits.data_assets %}
+                </div>
+                <form method="dialog">
+                    <button aria-label="Exit about dialog" data-control="cancel_to_root">CLOSE</button>
+                </form>
+            </div>
+        </dialog>
     </div>
 
     <audio id="tr_move" src="/static/move.mp3"></audio>
 
-    <script defer src="static/truncate_client.js?commit={{ env.environment }}"></script>
+    <script defer src="static/truncate_client.js?commit={{ env.commit }}"></script>
     <script>
         (function () {
             const stage = (s) => controls.setAttribute("data-control-stage", s);
+            const control_plural = (t) => document.querySelectorAll(`[data-control="${t}"]`);
             const control = (t) => document.querySelector(`[data-control="${t}"]`);
 
             class TruncateRunner {
@@ -319,7 +446,7 @@
             const TILEPACKS = {
                 GRASSES: [TILES.GRASS1, TILES.GRASS2, TILES.GRASS3, TILES.GRASS4],
                 HOUSES: [[TILES.HOUSE1, TILES.ROOF1], [TILES.HOUSE2, TILES.ROOF2], [TILES.HOUSE3, TILES.ROOF3], [TILES.HOUSE4, TILES.ROOF4]],
-                DECOR: [TILES.PLANTER1, TILES.PLANTER2, TILES.BUSH, TILES.WHEAT, TILES.WELL],
+                DECOR: [[TILES.PLANTER1, TILES.PLANTER1_COLOR], [TILES.PLANTER2, TILES.PLANTER2_COLOR], [TILES.BUSH, TILES.BUSH_COLOR], [TILES.WHEAT, TILES.NONE], [TILES.WELL, TILES.NONE]],
             }
 
             const canvas = document.getElementById("splash");
@@ -353,32 +480,71 @@
 
             const paint = {
                 tile_size: 16,
-                tile: (index, x, y) => {
+                tinted: (index, x, y, tint) => {
                     let tile_pos = index * (paint.tile_size + 2);
-                    ctx.drawImage(
+
+                    const buffer = document.createElement('canvas');
+                    buffer.width = paint.tile_size;
+                    buffer.height = paint.tile_size;
+                    const btx = buffer.getContext('2d');
+
+                    btx.drawImage(
                         image,
                         tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                        0, 0, paint.tile_size, paint.tile_size
+                    );
+
+                    btx.fillStyle = tint;
+                    btx.globalCompositeOperation = 'multiply';
+                    btx.fillRect(0, 0, buffer.width, buffer.height);
+
+                    btx.globalCompositeOperation = 'destination-in';
+                    btx.drawImage(image,
+                        tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                        0, 0, paint.tile_size, paint.tile_size
+                    );
+
+                    ctx.drawImage(
+                        buffer,
+                        0, 0, buffer.width, buffer.height,
                         x, y, output_size, output_size
                     );
                 },
-                tiles: (indexes, x, y) => {
+                tile: (index, x, y, tint) => {
+                    if (tint) {
+                        paint.tinted(index, x, y, tint)
+                    } else if (Array.isArray(index)) {
+                        paint.tinted(index[0], x, y, index[1])
+                    } else {
+                        let tile_pos = index * (paint.tile_size + 2);
+                        ctx.drawImage(
+                            image,
+                            tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                            x, y, output_size, output_size
+                        );
+                    }
+                },
+                tiles: (indexes, x, y, tint) => {
                     for (let row_i = 0; row_i < indexes.length; row_i += 1) {
                         const row = indexes[row_i];
                         for (let column_i = 0; column_i < row.length; column_i += 1) {
                             const tile = parseInt(row[column_i]);
-                            paint.tile(tile, x + column_i * output_size, y + row_i * output_size);
+                            paint.tile(tile, x + column_i * output_size, y + row_i * output_size, tint);
                         }
                     }
-                }
+                },
             };
 
             const pick = {
+                color: (seed, lightness = 80) => {
+                    return `hsl(${pick.num(seed + 99) % 360},100%,${lightness}%)`;
+                },
                 num: (seed) => {
                     seed = Math.floor(seed * 50000);
                     seed ^= seed << 13;
                     seed ^= seed >> 7;
                     seed ^= seed << 17;
-                    return Math.abs(seed) % 100;
+                    return Math.abs(seed);
                 },
                 grass: (seed) => {
                     seed = pick.num(seed);
@@ -397,11 +563,15 @@
 
                     if (numhouses > 0 && seed > decor_threshold) {
                         let decor_index = pick.num(seed + 123408);
-                        texs[pick.num(seed + 3442) % 4] = [TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length]];
+                        let texindex = pick.num(seed + 3442) % 4;
+                        texs[texindex] = TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length];
+                        texs[texindex][2] = [texs[texindex][1], pick.color(seed, 60)];
                     }
                     for (let i = 0; i < numhouses; i += 1) {
                         let house_index = pick.num(seed + i);
-                        texs[pick.num(seed + 18 * i) % 4] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                        let texindex = pick.num(seed + 18 * i) % 4;
+                        texs[texindex] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                        texs[texindex][2] = [texs[texindex][1], pick.color(seed)];
                     }
                     return texs;
                 }
@@ -471,21 +641,37 @@
                             [TILES.DOCK_SOUTH_NW, TILES.DOCK_SOUTH_NE],
                             [TILES.DOCK_SOUTH_SW, TILES.DOCK_SOUTH_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_SOUTH_NW, TILES.SAIL_SOUTH_NE],
+                            [TILES.SAIL_SOUTH_SW, TILES.SAIL_SOUTH_SE]
+                        ], x, y, pick.color(seed));
                     } else if (neighbors[5]) {
                         paint.tiles([
                             [TILES.DOCK_NORTH_NW, TILES.DOCK_NORTH_NE],
                             [TILES.DOCK_NORTH_SW, TILES.DOCK_NORTH_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_NORTH_NW, TILES.SAIL_NORTH_NE],
+                            [TILES.SAIL_NORTH_SW, TILES.SAIL_NORTH_SE]
+                        ], x, y, pick.color(seed));
                     } else if (neighbors[3]) {
                         paint.tiles([
                             [TILES.DOCK_WEST_NW, TILES.DOCK_WEST_NE],
                             [TILES.DOCK_WEST_SW, TILES.DOCK_WEST_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_WEST_NW, TILES.SAIL_WEST_NE],
+                            [TILES.SAIL_WEST_SW, TILES.SAIL_WEST_SE]
+                        ], x, y, pick.color(seed));
                     } else if (neighbors[7]) {
                         paint.tiles([
                             [TILES.DOCK_EAST_NW, TILES.DOCK_EAST_NE],
                             [TILES.DOCK_EAST_SW, TILES.DOCK_EAST_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_EAST_NW, TILES.SAIL_EAST_NE],
+                            [TILES.SAIL_EAST_SW, TILES.SAIL_EAST_SE]
+                        ], x, y, pick.color(seed));
                     }
                 },
                 water_nw: (x, y, w, nw, n) => {
@@ -610,18 +796,19 @@
                 stage("rejoin");
             }
 
+            control_plural("cancel_to_root").forEach(c => c.addEventListener("click", e => {
+                stage("root");
+            }));
+            control("to_about").addEventListener("click", e => {
+                stage("about");
+                document.querySelector("#about_truncate").showModal();
+            });
+
             control("rejoin").addEventListener("click", e => {
                 truncate_runner.rejoin_game();
             });
-            control("cancel_rejoin").addEventListener("click", e => {
-                stage("root");
-            });
-
             control("to_multi_game").addEventListener("click", e => {
                 stage("multi");
-            });
-            control("cancel_multi").addEventListener("click", e => {
-                stage("root");
             });
             control("tutorial").addEventListener("click", e => {
                 truncate_runner.join_game("TUTORIAL_01");
@@ -639,9 +826,6 @@
                 stage("join");
                 control("room_code").value = "";
                 control("room_code").focus();
-            });
-            control("cancel_join").addEventListener("click", e => {
-                stage("root");
             });
             control("room_code").addEventListener("keydown", e => {
                 if (e?.key === "Enter") {
@@ -666,12 +850,17 @@
                 // window.location = url;
             });
 
+            let room_code = window.location.hash.substring(1);
+            if (room_code) {
+                truncate_runner.join_game(room_code);
+            }
+
             (async function () {
                 while (typeof wasm_bindgen === "undefined") {
                     await new Promise(r => setTimeout(r, 100));
                 }
 
-                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.environment }}")
+                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.commit }}")
                     .then(on_wasm_loaded)
                     .catch(on_wasm_error);
 

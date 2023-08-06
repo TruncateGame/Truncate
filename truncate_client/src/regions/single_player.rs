@@ -65,11 +65,11 @@ impl SinglePlayerState {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) {
+    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
         // Standard game helper
         let mut next_msg = self
             .active_game
-            .render(ui, theme, self.winner)
+            .render(ui, theme, self.winner, current_time)
             .map(|msg| (0, msg));
 
         if self.winner.is_some() {
@@ -84,17 +84,26 @@ impl SinglePlayerState {
         self.next_response_at = None;
 
         if self.game.next_player != 0 {
-            // let start = time::Instant::now();
-            let mut arb = truncate_core::npc::Arborist::pruning();
-            next_msg = Some((
-                1,
-                Game::best_move(&self.game, Some(&self.dict), 3, Some(&mut arb)),
-            ));
-            // println!(
-            //     "Looked at {} leaves in {}ms",
-            //     arb.assessed(),
-            //     start.elapsed().whole_milliseconds()
-            // );
+            if let Some(turn_starts_at) = self
+                .game
+                .get_player(self.game.next_player)
+                .unwrap()
+                .turn_starts_at
+            {
+                if turn_starts_at <= current_time.as_secs() {
+                    // let start = time::Instant::now();
+                    let mut arb = truncate_core::npc::Arborist::pruning();
+                    next_msg = Some((
+                        1,
+                        Game::best_move(&self.game, Some(&self.dict), 3, Some(&mut arb)),
+                    ));
+                    // println!(
+                    //     "Looked at {} leaves in {}ms",
+                    //     arb.assessed(),
+                    //     start.elapsed().whole_milliseconds()
+                    // );
+                }
+            }
         }
 
         let next_move = match next_msg {

@@ -69,7 +69,7 @@ impl<'a> TimerUI<'a> {
         }
     }
 
-    fn human_time(seconds: i64) -> String {
+    fn human_time(seconds: i64, absolute: bool) -> String {
         let abs_secs = seconds.abs();
         let h_minutes = abs_secs / 60;
         let h_seconds = abs_secs % 60;
@@ -80,8 +80,10 @@ impl<'a> TimerUI<'a> {
             format!("{h_seconds}s")
         };
 
-        if seconds.is_negative() {
-            time_string.extend(" overtime".chars());
+        if !absolute {
+            if seconds.is_negative() {
+                time_string.extend(" overtime".chars());
+            }
         }
 
         time_string
@@ -105,7 +107,7 @@ impl<'a> TimerUI<'a> {
                 if let Some(elapsed) = elapsed {
                     if let Some(time) = self.player.time_remaining {
                         self.time = time - Duration::seconds(elapsed as i64);
-                        format!("{}", TimerUI::human_time(self.time.whole_seconds()))
+                        format!("{}", TimerUI::human_time(self.time.whole_seconds(), false))
                     } else {
                         format!("Playing")
                     }
@@ -113,16 +115,16 @@ impl<'a> TimerUI<'a> {
                     let starts_in = (next_turn.saturating_sub(now) as i64) * -1;
                     if let Some(time) = self.player.time_remaining {
                         self.time = time;
-                        format!("Wait {}", TimerUI::human_time(starts_in))
+                        format!("Wait {}", TimerUI::human_time(starts_in, true))
                     } else {
-                        format!("Wait {}", TimerUI::human_time(starts_in))
+                        format!("Wait {}", TimerUI::human_time(starts_in, true))
                     }
                 }
             }
             None => {
                 if let Some(time) = self.player.time_remaining {
                     self.time = time;
-                    format!("{}", TimerUI::human_time(self.time.whole_seconds()))
+                    format!("{}", TimerUI::human_time(self.time.whole_seconds(), false))
                 } else {
                     format!("")
                 }
@@ -196,7 +198,7 @@ impl<'a> TimerUI<'a> {
                     ui.painter()
                         .rect_filled(penalty_bar, timer_rounding, hex_color!("#00ff00"));
                 } else {
-                    // TODO: Pin penalty bar to the right edge of timer
+                    penalty_bar = penalty_bar.translate(vec2(penalty_bar.width(), 0.0));
                     ui.painter()
                         .rect_filled(penalty_bar, timer_rounding, hex_color!("#ff0000"));
                 };

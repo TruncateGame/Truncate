@@ -1,10 +1,13 @@
 use eframe::egui::{self, Id};
-use epaint::{Color32, TextureHandle};
+use epaint::{hex_color, Color32, TextureHandle};
 use truncate_core::board::Coordinate;
 
 use crate::{
     regions::active_game::GameCtx,
-    utils::{mapper::MappedTile, Darken, Lighten, Theme},
+    utils::{
+        mapper::{MappedTile, MappedTileVariant},
+        Darken, Diaphanize, Lighten, Theme,
+    },
 };
 
 use super::{character::CharacterOrient, CharacterUI};
@@ -27,6 +30,7 @@ pub struct TileUI {
     defeated: bool,
     truncated: bool,
     won: bool,
+    victor: bool,
     id: Option<Id>,
 }
 
@@ -45,6 +49,7 @@ impl TileUI {
             defeated: false,
             truncated: false,
             won: false,
+            victor: false,
             id: None,
         }
     }
@@ -99,6 +104,11 @@ impl TileUI {
         self
     }
 
+    pub fn victor(mut self, victor: bool) -> Self {
+        self.victor = victor;
+        self
+    }
+
     pub fn id(mut self, id: Id) -> Self {
         self.id = Some(id);
         self
@@ -109,29 +119,58 @@ impl TileUI {
     fn tile_color(&self, hovered: bool, theme: &Theme, ctx: &GameCtx) -> Color32 {
         if self.highlighted && ctx.current_time.subsec_millis() > 500 {
             theme.selection.pastel()
-        } else if self.won || self.selected {
+        } else if self.won || self.selected || self.victor {
             theme.selection
-        } else if self.defeated || self.truncated || !self.active {
-            theme.text
         } else {
-            match (&self.player, hovered) {
+            let color = match (&self.player, hovered) {
                 (TilePlayer::Own, false) => ctx.player_colors[ctx.player_number as usize].pastel(),
                 (TilePlayer::Own, true) => ctx.player_colors[ctx.player_number as usize]
                     .pastel()
                     .lighten(),
                 (TilePlayer::Enemy(p), false) => ctx.player_colors[*p].pastel(),
                 (TilePlayer::Enemy(p), true) => ctx.player_colors[*p].pastel().lighten(),
+            };
+            if self.defeated || self.truncated || !self.active {
+                color.pastel()
+            } else {
+                color
             }
         }
     }
 
     pub fn render(
-        self,
+        mut self,
         coord: Option<Coordinate>,
         ui: &mut egui::Ui,
         ctx: &mut GameCtx,
+        capture_clicks: bool,
         rescale: Option<f32>,
     ) -> egui::Response {
+        let mut tile_gone = false;
+        if ctx.current_time > ctx.prev_to_next_turn.0 && ctx.current_time < ctx.prev_to_next_turn.1
+        {
+            let (from, to) = ctx.prev_to_next_turn;
+            let dur = ctx.current_time.saturating_sub(from);
+            let total = to.saturating_sub(from);
+            let proportion = dur.as_secs_f32() / total.as_secs_f32();
+            if proportion < 0.15 && self.defeated {
+                self.defeated = false;
+            }
+            if proportion < 0.5 && self.truncated {
+                self.truncated = false;
+            }
+            if proportion > 0.6 && self.defeated {
+                tile_gone = true;
+            }
+            if proportion > 0.75 && self.truncated {
+                tile_gone = true;
+            }
+        } else if self.defeated || self.truncated {
+            tile_gone = true;
+        } else {
+            self.victor = false;
+        }
+
         let theme = rescale
             .map(|v| ctx.theme.rescale(v))
             .unwrap_or_else(|| ctx.theme.clone());
@@ -145,14 +184,19 @@ impl TileUI {
         );
 
         let mut tile_rect = base_rect.shrink(tile_margin);
-        let mut response = ui.allocate_rect(tile_rect, egui::Sense::click());
+        let tile_sense = if capture_clicks {
+            egui::Sense::click()
+        } else {
+            egui::Sense::hover()
+        };
+        let mut response = ui.allocate_rect(tile_rect, tile_sense);
 
         if let Some(id) = self.id {
             response = ui.interact(tile_rect, id, egui::Sense::click_and_drag());
         }
 
-        let hovered = response.hovered() || self.hovered;
-        if response.hovered() {
+        let hovered = (response.hovered() || self.hovered) && (!self.truncated && !self.defeated);
+        if hovered {
             if !self.ghost {
                 base_rect = base_rect.translate(egui::vec2(0.0, tile_margin * -1.0));
                 tile_rect = tile_rect.translate(egui::vec2(0.0, tile_margin * -1.0));
@@ -170,10 +214,31 @@ impl TileUI {
             };
 
             let tile_color = self.tile_color(hovered, &theme, ctx);
-            let mapped_tile = if self.ghost {
-                MappedTile::new(None, Some(tile_color), coord, ctx.map_texture.clone())
+            let variant = if tile_gone {
+                MappedTileVariant::Gone
+            } else if self.defeated {
+                MappedTileVariant::Dead
+            } else if self.truncated {
+                MappedTileVariant::Dying
             } else {
-                MappedTile::new(Some(tile_color), outline, coord, ctx.map_texture.clone())
+                MappedTileVariant::Healthy
+            };
+            let mapped_tile = if self.ghost {
+                MappedTile::new(
+                    variant,
+                    None,
+                    Some(tile_color),
+                    coord,
+                    ctx.map_texture.clone(),
+                )
+            } else {
+                MappedTile::new(
+                    variant,
+                    Some(tile_color),
+                    outline,
+                    coord,
+                    ctx.map_texture.clone(),
+                )
             };
             mapped_tile.render(base_rect, ui);
 
@@ -187,12 +252,13 @@ impl TileUI {
                     TilePlayer::Enemy(_) => CharacterOrient::South,
                 },
             )
-            .hovered(response.hovered())
+            .hovered(hovered)
             .selected(self.selected)
             .active(self.active)
             .ghost(self.ghost)
             .defeated(self.defeated)
             .truncated(self.truncated)
+            .gone(tile_gone)
             .render(ui, char_rect, &theme);
         }
 

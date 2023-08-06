@@ -270,6 +270,20 @@ impl Board {
         }
     }
 
+    pub fn get_mut<'a>(
+        &'a mut self,
+        position: Coordinate,
+    ) -> Result<&'a mut Square, GamePlayError> {
+        match self
+            .squares
+            .get_mut(position.y)
+            .and_then(|row| row.get_mut(position.x))
+        {
+            Some(square) => Ok(square),
+            None => Err(GamePlayError::OutSideBoardDimensions { position }),
+        }
+    }
+
     pub fn set_square(
         &mut self,
         position: Coordinate,
@@ -384,6 +398,26 @@ impl Board {
             }
         }
         None
+    }
+
+    pub fn reset(&mut self) {
+        let rows = self.height();
+        let cols = self.width();
+        // TODO: Implement iterators for board and pull this out
+        let coords = (0..rows)
+            .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+            .map(|(x, y)| Coordinate { x, y });
+
+        for coord in coords {
+            match self.get_mut(coord) {
+                Ok(sq) if matches!(sq, Square::Occupied(_, _)) => *sq = Square::Land,
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("{e}");
+                    unreachable!("Iterating over the board should not return invalid positions")
+                }
+            }
+        }
     }
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
@@ -611,7 +645,9 @@ impl Board {
             squares.map(|(x, y)| (Coordinate { x, y }, self.get(Coordinate { x, y })))
         {
             match square {
-                Ok(Square::Occupied(player, _)) if player == player_index => {
+                Ok(Square::Occupied(player, _)) | Ok(Square::Dock(player))
+                    if player == player_index =>
+                {
                     // TODO: Enumerate squares a given manhattan distance away, as this double counts
                     for (coord, square) in self
                         .neighbouring_squares(coord)

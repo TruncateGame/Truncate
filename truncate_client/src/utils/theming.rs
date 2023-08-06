@@ -6,6 +6,7 @@ use epaint::{hex_color, Color32, Hsva};
 #[derive(Debug, Clone)]
 pub struct Theme {
     pub water: Color32,
+    pub grass: Color32,
     pub enemy: Color32,
     pub text: Color32,
     pub selection: Color32,
@@ -25,6 +26,7 @@ impl Default for Theme {
     fn default() -> Self {
         Self {
             water: hex_color!("#50A7E8"),
+            grass: hex_color!("#7BCB69"),
             enemy: hex_color!("#F7BDB6"),
             text: hex_color!("#333333"),
             selection: hex_color!("#D78D1D"),
