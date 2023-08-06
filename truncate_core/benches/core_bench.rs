@@ -10,6 +10,7 @@ use truncate_core::{
     game::Game,
     judge::{Judge, WordData, WordDict},
     player::{Hand, Player},
+    rules,
 };
 
 pub static TESTING_DICT: &str = include_str!("../../word_freqs/final_wordlist.txt");
@@ -152,14 +153,17 @@ pub fn judge_benches(c: &mut Criterion) {
     let alias = judge.set_alias("xvzaro".chars().collect());
 
     let aliased_judge_word = format!("P{alias}RTITI{alias}N");
+    let win_condition = rules::WinCondition::Destination {
+        town_defense: rules::TownDefense::BeatenWithDefenseStrength(0),
+    };
 
     c.bench_function("judge_with_double_alias", |b| {
-        b.iter(|| judge.valid(&aliased_judge_word, Some(&dict), None))
+        b.iter(|| judge.valid(&aliased_judge_word, &win_condition, Some(&dict), None))
     });
 
     let wildcard_judge_word = format!("PAR*ITION");
     c.bench_function("judge_with_wildcard", |b| {
-        b.iter(|| judge.valid(&wildcard_judge_word, Some(&dict), None))
+        b.iter(|| judge.valid(&wildcard_judge_word, &win_condition, Some(&dict), None))
     });
 }
 

@@ -96,15 +96,25 @@ impl<'a> EditorUI<'a> {
                                     (EditorDrag::MakeLand, Square::Water | Square::Dock(_)) => {
                                         modify_pos = Some((coord, Square::Land))
                                     }
-                                    (EditorDrag::RemoveLand, Square::Land | Square::Town(_)) => {
-                                        modify_pos = Some((coord, Square::Water))
-                                    }
+                                    (
+                                        EditorDrag::RemoveLand,
+                                        Square::Land | Square::Town { .. },
+                                    ) => modify_pos = Some((coord, Square::Water)),
                                     (EditorDrag::MakeTown(player), _) => {
-                                        modify_pos = Some((coord, Square::Town(player)))
+                                        modify_pos = Some((
+                                            coord,
+                                            Square::Town {
+                                                player,
+                                                defeated: false,
+                                            },
+                                        ))
                                     }
-                                    (EditorDrag::RemoveTown(player), Square::Town(sq_player))
-                                        if player == *sq_player =>
-                                    {
+                                    (
+                                        EditorDrag::RemoveTown(player),
+                                        Square::Town {
+                                            player: sq_player, ..
+                                        },
+                                    ) if player == *sq_player => {
                                         modify_pos = Some((coord, Square::Land))
                                     }
                                     (EditorDrag::MakeDock(player), _) => {
@@ -129,15 +139,15 @@ impl<'a> EditorUI<'a> {
                                         ),
                                         BoardEditingMode::Land => match square {
                                             Square::Water | Square::Dock(_) => EditorDrag::MakeLand,
-                                            Square::Land | Square::Town(_) => {
+                                            Square::Land | Square::Town { .. } => {
                                                 EditorDrag::RemoveLand
                                             }
                                             Square::Occupied(_, _) => unreachable!(),
                                         },
                                         BoardEditingMode::Town(editing_player) => match square {
-                                            Square::Town(sq_player)
-                                                if sq_player == editing_player =>
-                                            {
+                                            Square::Town {
+                                                player: sq_player, ..
+                                            } if sq_player == editing_player => {
                                                 EditorDrag::RemoveTown(*editing_player)
                                             }
                                             _ => EditorDrag::MakeTown(*editing_player),
@@ -193,11 +203,17 @@ impl<'a> EditorUI<'a> {
                 // TODO: Player mirroring won't work for >2 players
                 let mirrored_state = match new_state {
                     Square::Water | Square::Land => new_state,
-                    Square::Town(p) => {
+                    Square::Town { player: p, .. } => {
                         if p == 0 {
-                            Square::Town(1)
+                            Square::Town {
+                                player: 1,
+                                defeated: false,
+                            }
                         } else {
-                            Square::Town(0)
+                            Square::Town {
+                                player: 0,
+                                defeated: false,
+                            }
                         }
                     }
                     Square::Dock(p) => {

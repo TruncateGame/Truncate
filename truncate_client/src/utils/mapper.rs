@@ -41,7 +41,7 @@ impl MappedBoard {
             match sq {
                 truncate_core::board::Square::Water => BGTexType::Water,
                 truncate_core::board::Square::Land => BGTexType::Land,
-                truncate_core::board::Square::Town(_) => BGTexType::Land,
+                truncate_core::board::Square::Town { .. } => BGTexType::Land,
                 truncate_core::board::Square::Dock(_) => BGTexType::Water,
                 truncate_core::board::Square::Occupied(_, _) => BGTexType::Land,
             }
@@ -51,13 +51,13 @@ impl MappedBoard {
             match sq {
                 Square::Water => None,
                 Square::Land => None,
-                Square::Town(owner) => Some((
+                Square::Town { player, .. } => Some((
                     FGTexType::Town,
-                    *player_colors.get(*owner).unwrap_or(&Color32::WHITE),
+                    *player_colors.get(*player).unwrap_or(&Color32::WHITE),
                 )),
-                Square::Dock(owner) => Some((
+                Square::Dock(player) => Some((
                     FGTexType::Dock,
-                    *player_colors.get(*owner).unwrap_or(&Color32::WHITE),
+                    *player_colors.get(*player).unwrap_or(&Color32::WHITE),
                 )),
                 Square::Occupied(_, _) => None,
             }

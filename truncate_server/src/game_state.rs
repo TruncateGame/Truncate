@@ -118,7 +118,8 @@ impl GameState {
                     .iter_mut()
                     .filter(|w| w.valid == Some(true))
                 {
-                    if let Some(meanings) = definitions.get_word(&word.word.to_lowercase()) {
+                    if let Some(meanings) = definitions.get_word(&word.resolved_word.to_lowercase())
+                    {
                         word.meanings = Some(meanings.clone());
                     }
                 }
@@ -128,7 +129,8 @@ impl GameState {
                     .iter_mut()
                     .filter(|w| w.valid == Some(true))
                 {
-                    if let Some(meanings) = definitions.get_word(&word.word.to_lowercase()) {
+                    if let Some(meanings) = definitions.get_word(&word.resolved_word.to_lowercase())
+                    {
                         word.meanings = Some(meanings.clone());
                     }
                 }
