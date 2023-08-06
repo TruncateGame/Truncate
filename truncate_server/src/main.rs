@@ -32,7 +32,7 @@ async fn handle_player_msg(
     let (peer_map, game_map, active_map, word_map) = maps;
     let player_tx = peer_map.get(&addr).expect("TODO: Refactor");
 
-    let parsed_msg: PlayerMessage =
+    let mut parsed_msg: PlayerMessage =
         serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
     if !matches!(parsed_msg, PlayerMessage::Ping) {
         println!("Received a message from {addr}: {}", parsed_msg);
@@ -46,6 +46,23 @@ async fn handle_player_msg(
     };
 
     use PlayerMessage::*;
+    // If player is joining a room that they have a token for,
+    // rejoin using that token instead.
+    // TODO: Handle corner case when room code is reused and they're very unlucky
+    if let JoinGame(joining_room_code, _, Some(token)) = &parsed_msg {
+        let Ok(claims) = jwt_key.verify_token::<PlayerClaims>(&token, None) else {
+            player_tx
+                .send(GameMessage::GenericError("Invalid Token".into()))
+                .unwrap();
+            return Ok(());
+        };
+        let PlayerClaims { room_code, .. } = claims.custom;
+
+        if joining_room_code.to_uppercase() == room_code.to_uppercase() {
+            parsed_msg = PlayerMessage::RejoinGame(token.clone());
+        }
+    }
+
     match parsed_msg {
         Ping => { /* TODO: Track pings and notify the game when players disconnect */ }
         NewGame(mut player_name) => {
@@ -94,7 +111,7 @@ async fn handle_player_msg(
                 ))
                 .unwrap();
         }
-        JoinGame(room_code, mut player_name) => {
+        JoinGame(room_code, mut player_name, _) => {
             let code = room_code.to_ascii_lowercase();
             if let Some(mut existing_game) = game_map.get_mut(&code) {
                 active_map.insert(addr, code.clone());
