@@ -151,7 +151,7 @@ impl<'a> BoardUI<'a> {
                                                             .defeated(true)
                                                     },
                                                 ),
-                                            (BoardChangeAction::Victorious, Some(tile)) => Some(tile.won(true)),
+                                            (BoardChangeAction::Victorious, Some(tile)) => Some(tile.victor(true)),
                                             (BoardChangeAction::Victorious, None) =>
                                                 match change.detail.square {
                                                     Water | Land | Town(_) | Dock(_) => None,
@@ -161,7 +161,7 @@ impl<'a> BoardUI<'a> {
                                                     |(player, char)| {
                                                         TileUI::new(char, calc_tile_player(&player))
                                                             .selected(is_selected)
-                                                            .won(true)
+                                                            .victor(true)
                                                     },
                                                 ),
                                             _ => {

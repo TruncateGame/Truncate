@@ -157,7 +157,16 @@ impl Game {
         }
 
         self.players[player].turn_starts_at = None;
-        self.players[self.next_player].turn_starts_at = Some(now());
+
+        if self
+            .recent_changes
+            .iter()
+            .any(|c| matches!(c, Change::Battle(_)))
+        {
+            self.players[self.next_player].turn_starts_at = Some(now() + self.rules.battle_delay);
+        } else {
+            self.players[self.next_player].turn_starts_at = Some(now());
+        }
 
         Ok(None)
     }

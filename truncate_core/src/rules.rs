@@ -83,6 +83,7 @@ pub struct GameRules {
     pub tile_bag_behaviour: TileBagBehaviour,
     pub battle_rules: BattleRules,
     pub swapping: Swapping,
+    pub battle_delay: u64,
 }
 
 impl Default for GameRules {
@@ -103,6 +104,7 @@ impl Default for GameRules {
                 swap_threshold: 2,
                 penalties: vec![5, 10, 30, 60, 120, 240],
             }),
+            battle_delay: 2,
         }
     }
 }
