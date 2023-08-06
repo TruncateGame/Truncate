@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Debug};
 use time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,7 @@ pub type Token = String;
 pub enum PlayerMessage {
     Ping,
     NewGame(String),
-    JoinGame(RoomCode, String),
+    JoinGame(RoomCode, String, Option<Token>),
     RejoinGame(Token),
     EditBoard(Board),
     EditName(String),
@@ -32,7 +32,12 @@ impl fmt::Display for PlayerMessage {
         match self {
             PlayerMessage::Ping => write!(f, "Player ping"),
             PlayerMessage::NewGame(name) => write!(f, "Create a new game as player {}", name),
-            PlayerMessage::JoinGame(room, name) => write!(f, "Join game {room} as player {}", name),
+            PlayerMessage::JoinGame(room, name, token) => {
+                write!(
+                    f,
+                    "Join game {room} as player {name}, but also maybe with token {token:#?}"
+                )
+            }
             PlayerMessage::RejoinGame(token) => {
                 write!(f, "Player wants to rejoin a game using the token {}", token)
             }
