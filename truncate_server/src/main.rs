@@ -593,6 +593,23 @@ async fn main() -> Result<(), IoError> {
 
     tokio::spawn(ping_peers(server_state.clone()));
 
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(10));
+        let deadlocks = parking_lot::deadlock::check_deadlock();
+        if deadlocks.is_empty() {
+            continue;
+        }
+
+        println!("{} deadlocks detected", deadlocks.len());
+        for (i, threads) in deadlocks.iter().enumerate() {
+            println!("Deadlock #{}", i);
+            for t in threads {
+                println!("Thread Id {:#?}", t.thread_id());
+                println!("{:#?}", t.backtrace());
+            }
+        }
+    });
+
     while let Ok((stream, addr)) = listener.accept().await {
         tokio::spawn(handle_connection(
             server_state.clone(),
