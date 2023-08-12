@@ -1,39 +1,39 @@
 // TODO: Maximum consecutive swaps / stalemate rule
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum TownDefense {
     BeatenByContact,
     BeatenByValidity,
     BeatenWithDefenseStrength(usize),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum WinCondition {
     Destination { town_defense: TownDefense }, // TODO: Implement
     Elimination,                               // TODO: Implement
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Visibility {
     Standard,
     FogOfWar,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Truncation {
     Root,
     Larger, // TODO: Implement
     None,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum OvertimeRule {
     FreeWildcard { period: usize },                   // TODO: Implement
     RemoveTiles { period: usize, phase_time: usize }, // TODO: Implement
     Elimination,                                      // TODO: Implement
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Timing {
     PerPlayer {
         time_allowance: usize,
@@ -50,36 +50,36 @@ pub enum Timing {
     None, // TODO: Implement
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum TileDistribution {
     Standard,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum TileBagBehaviour {
     Standard, // TODO: Implement
     Infinite, // TODO: Implement
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BattleRules {
     pub length_delta: isize,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Swapping {
     Contiguous(SwapPenalty),
     Universal(SwapPenalty),
     None,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SwapPenalty {
     pub swap_threshold: usize,
     pub penalties: Vec<usize>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct GameRules {
     pub win_condition: WinCondition,
     pub visibility: Visibility,

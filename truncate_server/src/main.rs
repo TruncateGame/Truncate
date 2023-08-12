@@ -38,24 +38,30 @@ impl ServerState {
 
     fn add_new_game(&self, game_id: &String, game_state: GameManager) -> Arc<Mutex<GameManager>> {
         let game = Arc::new(Mutex::new(game_state));
+        let game_id = game_id.to_lowercase();
 
-        self.games.lock().insert(game_id.clone(), Arc::clone(&game));
+        self.games.lock().insert(game_id, Arc::clone(&game));
 
         game
     }
 
     fn attach_player_to_game(&self, addr: &SocketAddr, game_id: &String) {
         let mut assignments = self.assignments.lock();
-        assignments.insert(*addr, game_id.clone());
+        let game_id = game_id.to_lowercase();
+        println!("Assigning {addr} to {game_id}");
+        assignments.insert(*addr, game_id);
     }
 
     fn get_game_by_code(&self, game_id: &String) -> Option<Arc<Mutex<GameManager>>> {
-        self.games.lock().get(game_id).map(Arc::clone)
+        let game_id = game_id.to_lowercase();
+        self.games.lock().get(&game_id).map(Arc::clone)
     }
 
     fn get_game_by_player(&self, addr: &SocketAddr) -> Option<Arc<Mutex<GameManager>>> {
         let assignments = self.assignments.lock();
+        println!("Getting game for {addr}");
         let game_id = assignments.get(addr)?;
+        println!("{addr} is assigned to game {game_id}");
         self.games.lock().get(game_id).map(Arc::clone)
     }
 
@@ -100,14 +106,14 @@ async fn handle_player_msg(
     // rejoin using that token instead.
     // TODO: Handle corner case when room code is reused and they're very unlucky
     if let JoinGame(joining_room_code, _, Some(token)) = &parsed_msg {
-        let Ok(claims) = jwt_key.verify_token::<PlayerClaims>(&token, None) else {
-            server_state.send_to_player(&player_addr, GameMessage::GenericError("Invalid Token".into())).unwrap();
-            return Ok(());
-        };
-        let PlayerClaims { room_code, .. } = claims.custom;
-
-        if joining_room_code.to_uppercase() == room_code.to_uppercase() {
-            parsed_msg = PlayerMessage::RejoinGame(token.clone());
+        if let Ok(JWTClaims {
+            custom: PlayerClaims { room_code, .. },
+            ..
+        }) = jwt_key.verify_token::<PlayerClaims>(&token, None)
+        {
+            if joining_room_code.to_uppercase() == room_code.to_uppercase() {
+                parsed_msg = PlayerMessage::RejoinGame(token.clone());
+            }
         }
     }
 
@@ -424,8 +430,8 @@ async fn handle_player_msg(
         }
         Rematch => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
-                let mut game_manager = existing_game.lock();
-                if game_manager.core_game.winner.is_none() {
+                let mut existing_game_manager = existing_game.lock();
+                if existing_game_manager.core_game.winner.is_none() {
                     server_state
                         .send_to_player(
                             &player_addr,
@@ -434,32 +440,33 @@ async fn handle_player_msg(
                         .unwrap();
                 } else {
                     let new_game_id = server_state.game_code();
-                    let mut game = GameManager::new(new_game_id.clone());
+                    let mut new_game = GameManager::new(new_game_id.clone());
 
-                    let mut next_board = game_manager.core_game.board.clone();
+                    let mut next_board = existing_game_manager.core_game.board.clone();
                     next_board.reset();
-                    game.core_game.board = next_board;
+                    new_game.core_game.board = next_board;
 
-                    let mut next_sockets = game_manager.players.clone();
+                    let mut next_sockets = existing_game_manager.players.clone();
                     next_sockets.rotate_left(1);
-                    game_manager.players = vec![];
+                    existing_game_manager.players = vec![];
 
-                    let mut next_players = game_manager.core_game.players.clone();
+                    let mut next_players = existing_game_manager.core_game.players.clone();
                     next_players.rotate_left(1);
                     for (i, player) in next_players.into_iter().enumerate() {
-                        game.add_player(
-                            next_sockets
-                                .get(i)
-                                .expect("All players rejoining have a socket")
-                                .clone(),
-                            player.name,
-                        )
-                        .expect("Failed to add player to game");
+                        new_game
+                            .add_player(
+                                next_sockets
+                                    .get(i)
+                                    .expect("All players rejoining have a socket")
+                                    .clone(),
+                                player.name,
+                            )
+                            .expect("Failed to add player to game");
                     }
 
-                    drop(game_manager); // Done with the old game, don't accidentally use it.
+                    drop(existing_game_manager); // Done with the old game, don't accidentally use it.
 
-                    let new_game = server_state.add_new_game(&new_game_id, game);
+                    let new_game = server_state.add_new_game(&new_game_id, new_game);
                     let new_game_manager = new_game.lock();
 
                     for (i, player) in new_game_manager.players.iter().enumerate() {
