@@ -171,7 +171,7 @@ impl ActiveGame {
                     ui.add_space(10.0);
 
                     if winner.is_some() {
-                        let text = TextHelper::heavy("REMATCH", 12.0, ui);
+                        let text = TextHelper::heavy("REMATCH", 12.0, None, ui);
                         if text
                             .centered_button(
                                 theme.selection.lighten().lighten(),
@@ -225,7 +225,7 @@ impl ActiveGame {
                     }
 
                     if self.ctx.is_mobile {
-                        let text = TextHelper::heavy("VIEW INFO", 12.0, ui);
+                        let text = TextHelper::heavy("VIEW INFO", 12.0, None, ui);
                         if text
                             .centered_button(
                                 Color32::WHITE.diaphanize(),
@@ -273,7 +273,7 @@ impl ActiveGame {
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
                 ui.expand_to_include_rect(inner_sidebar_area);
                 if self.ctx.is_mobile {
-                    let text = TextHelper::heavy("CLOSE INFO", 12.0, ui);
+                    let text = TextHelper::heavy("CLOSE INFO", 12.0, None, ui);
                     if text
                         .centered_button(
                             Color32::WHITE.diaphanize(),

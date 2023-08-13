@@ -143,12 +143,12 @@ impl<'a> TimerUI<'a> {
         ui.allocate_rect(inner_timer_rect, Sense::hover());
 
         // Render the player name in the top left
-        let text = TextHelper::heavy(&self.player.name, font_z, ui);
+        let text = TextHelper::heavy(&self.player.name, font_z, None, ui);
         let name_size = text.size();
         text.paint_at(inner_timer_rect.left_top(), timer_color, ui);
 
         let time_string = self.calculate_time();
-        let text = TextHelper::heavy(&time_string, font_z, ui);
+        let text = TextHelper::heavy(&time_string, font_z, None, ui);
         let time_size = text.size();
 
         // Render the remaining time in the top left,
