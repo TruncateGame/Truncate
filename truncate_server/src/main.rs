@@ -17,7 +17,7 @@ use tungstenite::protocol::Message;
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
 use game_state::GameManager;
-use truncate_core::messages::{GameMessage, LobbyPlayerMessage, PlayerMessage};
+use truncate_core::messages::{GameMessage, GameStateMessage, LobbyPlayerMessage, PlayerMessage};
 
 #[derive(Clone)]
 struct ServerState {
@@ -535,6 +535,26 @@ async fn handle_connection(
                 if !matches!(msg, GameMessage::Ping) {
                     println!("Sending message: {msg}");
                 }
+
+                match &msg {
+                    GameMessage::GameUpdate(GameStateMessage {
+                        room_code,
+                        players,
+                        next_player_number,
+                        ..
+                    }) => {
+                        let next_player = &players[*next_player_number as usize];
+                        if let Some(time_remaining) = next_player.time_remaining {
+                            tokio::spawn(check_game_over(
+                                room_code.clone(),
+                                time_remaining.whole_milliseconds(),
+                                server_state.clone(),
+                            ));
+                        }
+                    }
+                    _ => {}
+                }
+
                 Ok(Message::Text(serde_json::to_string(&msg).unwrap()))
             })
             .forward(outgoing)
@@ -546,6 +566,32 @@ async fn handle_connection(
     println!("{} disconnected", &addr);
     let mut peer_map = server_state.peers.lock();
     peer_map.remove(&addr);
+}
+
+async fn check_game_over(game_id: String, check_in_ms: i128, server_state: ServerState) {
+    if check_in_ms.is_negative() {
+        return;
+    }
+    tokio::time::sleep(Duration::from_millis(check_in_ms as u64 + 10).into()).await;
+
+    let mut game_map = server_state.games.lock();
+    let Some(existing_game) = game_map.get_mut(&game_id) else {
+        return;
+    };
+    let mut game_manager = existing_game.lock();
+    game_manager.core_game.calculate_game_over();
+
+    if let Some(winner) = game_manager.core_game.winner {
+        for (player_index, player) in game_manager.players.iter().enumerate() {
+            let Some(socket) = player.socket else { continue };
+            server_state
+                .send_to_player(
+                    &socket,
+                    GameMessage::GameEnd(game_manager.game_msg(player_index, None), winner as u64),
+                )
+                .unwrap();
+        }
+    }
 }
 
 async fn ping_peers(server_state: ServerState) {

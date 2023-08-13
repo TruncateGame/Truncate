@@ -7,7 +7,7 @@ use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
 use crate::judge::{Outcome, WordDict};
 use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, TimeChange};
-use crate::rules::{self, GameRules};
+use crate::rules::{self, GameRules, OvertimeRule};
 
 use super::board::Board;
 use super::judge::Judge;
@@ -89,6 +89,47 @@ impl Game {
         self.players[self.next_player].turn_starts_at = Some(now());
     }
 
+    pub fn any_player_is_overtime(&self) -> Option<usize> {
+        let mut most_overtime_player: Option<(Duration, usize)> = None;
+
+        for (player_number, player) in self.players.iter().enumerate() {
+            let Some(mut time_remaining) = player.time_remaining else {
+                continue;
+            };
+            if let Some(elapsed_time) = player.turn_starts_at {
+                time_remaining -= Duration::seconds(elapsed_time as i64);
+            }
+
+            if time_remaining.is_negative() {
+                match most_overtime_player {
+                    Some((duration, _)) if time_remaining < duration => {
+                        most_overtime_player = Some((time_remaining, player_number))
+                    }
+                    None => most_overtime_player = Some((time_remaining, player_number)),
+                    _ => {}
+                }
+            }
+        }
+
+        most_overtime_player.map(|(_, player_number)| player_number)
+    }
+
+    pub fn calculate_game_over(&mut self) {
+        let overtime_rule = match &self.rules.timing {
+            rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
+            _ => None,
+        };
+        if matches!(overtime_rule, Some(OvertimeRule::Elimination)) {
+            match self.any_player_is_overtime() {
+                Some(overtime_player) => {
+                    self.board.defeat_player(overtime_player);
+                    self.winner = Some((overtime_player + 1) % 2);
+                }
+                _ => {}
+            }
+        }
+    }
+
     pub fn play_turn(
         &mut self,
         next_move: Move,
@@ -98,6 +139,11 @@ impl Game {
             return Err("Game is already over".into());
         }
 
+        self.calculate_game_over();
+        if self.winner.is_some() {
+            return Ok(self.winner);
+        }
+
         let player = match next_move {
             Move::Place { player, .. } => player,
             Move::Swap { player, .. } => player,
@@ -105,6 +151,7 @@ impl Game {
         if player != self.next_player {
             return Err("Only the next player can play".into());
         }
+
         let turn_duration = now().checked_sub(
             self.players[player]
                 .turn_starts_at

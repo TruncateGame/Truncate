@@ -437,6 +437,24 @@ impl Board {
         }
     }
 
+    pub fn defeat_player(&mut self, player_to_defeat: usize) {
+        let towns = self.towns.clone();
+        for town in towns {
+            let Ok(sq) = self.get_mut(town) else {
+                continue;
+            };
+            match sq {
+                Square::Town { player, .. } if *player == player_to_defeat => {
+                    *sq = Square::Town {
+                        player: player_to_defeat,
+                        defeated: true,
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
         position
             .neighbors_4()
