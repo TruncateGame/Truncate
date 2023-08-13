@@ -55,7 +55,7 @@ impl<'a> EditorUI<'a> {
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        let (margin, theme) = theme.calc_rescale(
+        let (_, margin, theme) = theme.calc_rescale(
             &ui.available_rect_before_wrap(),
             self.board.width(),
             self.board.height(),

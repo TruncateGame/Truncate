@@ -52,7 +52,7 @@ impl Theme {
         board_height: usize,
         scale_bounds: Range<f32>,
         pad_by: (usize, usize),
-    ) -> (Margin, Self) {
+    ) -> ((f32, f32), Margin, Self) {
         let mut ideal_grid = avail_space.width() / (board_width + pad_by.0) as f32;
         let y_space = avail_space.height() / (board_height + pad_by.1) as f32;
         if y_space < ideal_grid {
@@ -66,6 +66,7 @@ impl Theme {
         let height = (board_height) as f32 * (self.grid_size * scale);
 
         (
+            (width, height),
             Margin::symmetric(
                 (avail_space.width() - width) / 2.0,
                 (avail_space.height() - height) / 2.0,
