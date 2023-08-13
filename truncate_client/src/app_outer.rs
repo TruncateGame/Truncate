@@ -46,7 +46,7 @@ impl OuterApplication {
         {
             fonts.font_data.insert(
                 "pixel".into(),
-                egui::FontData::from_static(include_bytes!("../font/PixelOperator.ttf")),
+                egui::FontData::from_static(include_bytes!("../font/Micro-Six.ttf")),
             );
             fonts
                 .families
