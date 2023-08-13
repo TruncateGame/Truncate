@@ -421,13 +421,18 @@ impl Board {
             .map(|(x, y)| Coordinate { x, y });
 
         for coord in coords {
-            match self.get_mut(coord) {
-                Ok(sq) if matches!(sq, Square::Occupied(_, _)) => *sq = Square::Land,
-                Ok(_) => {}
-                Err(e) => {
-                    eprintln!("{e}");
-                    unreachable!("Iterating over the board should not return invalid positions")
+            let Ok(sq) = self.get_mut(coord) else {
+                unreachable!("Iterating over the board should not return invalid positions");
+            };
+            match sq {
+                Square::Occupied(_, _) => *sq = Square::Land,
+                Square::Town { player, .. } => {
+                    *sq = Square::Town {
+                        player: player.clone(),
+                        defeated: false,
+                    }
                 }
+                _ => {}
             }
         }
     }

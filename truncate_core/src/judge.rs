@@ -12,7 +12,7 @@ use std::{
     fmt::{self, Display},
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct WordData {
     pub extensions: u32,
     pub rel_freq: f32,
@@ -36,7 +36,7 @@ impl fmt::Display for Outcome {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Judge {
     builtin_dictionary: WordDict,
     aliases: HashMap<char, Vec<char>>,
