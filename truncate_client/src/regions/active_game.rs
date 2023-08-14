@@ -137,16 +137,17 @@ impl ActiveGame {
         winner: Option<usize>,
     ) -> (Rect, Option<PlayerMessage>) {
         let mut msg = None;
+        let companion_space = 220.0;
 
         let control_anchor = if self.ctx.timers_visible {
             vec2(0.0, 0.0)
         } else {
-            vec2(0.0, -200.0)
+            vec2(0.0, -companion_space)
         };
 
         if !self.ctx.timers_visible {
             let mut companion_pos = ui.available_rect_before_wrap();
-            companion_pos.set_top(companion_pos.bottom() - 200.0);
+            companion_pos.set_top(companion_pos.bottom() - companion_space);
             self.ctx.hand_companion_rect = Some(companion_pos);
         }
 

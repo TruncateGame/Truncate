@@ -234,7 +234,7 @@ impl TutorialState {
         }
 
         if let Some(dialog_pos) = self.active_game.ctx.hand_companion_rect {
-            let max_width = f32::min(600.0, dialog_pos.width());
+            let max_width = f32::min(700.0, dialog_pos.width());
             let dialog_padding_x = (dialog_pos.width() - max_width) / 2.0;
 
             let inner_dialog = dialog_pos.shrink2(vec2(dialog_padding_x, 8.0));
@@ -254,7 +254,7 @@ impl TutorialState {
                 ui.allocate_ui_at_rect(inner_dialog, |ui| {
                     ui.expand_to_include_rect(inner_dialog);
 
-                    let tut_fz = 16.0;
+                    let tut_fz = 18.0;
                     let button_spacing = 60.0;
                     let time_in_stage = (current_time - self.stage_changed_at).as_secs_f32();
 
@@ -395,7 +395,7 @@ impl TutorialState {
                             }
                         },
                         None => {
-                            ui.label("Tutorial complete!");
+                            // TODO: Tutorial complete screen, back to menu
                         }
                     };
                 });
