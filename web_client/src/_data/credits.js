@@ -62,10 +62,10 @@ module.exports = function () {
         "license_url": "http://scripts.sil.org/OFL"
       },
       {
-        "name": "Micro Six",
-        "url": "https://ggbot.itch.io/micro-six-font",
-        "author": "GGBotNet",
-        "author_url": "https://www.ggbot.net/fonts/",
+        "name": "Cute Prop",
+        "url": "https://retro-pixel-font.takwolf.com/",
+        "author": "TakWolf",
+        "author_url": "https://takwolf.com/",
         "license": "OFL",
         "license_url": "http://scripts.sil.org/OFL"
       }
