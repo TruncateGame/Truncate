@@ -62,10 +62,10 @@ module.exports = function () {
         "license_url": "http://scripts.sil.org/OFL"
       },
       {
-        "name": "Pixel Operator",
-        "url": "https://www.dafont.com/pixel-operator.font",
-        "author": "Jayvee Enaguas",
-        "author_url": "https://www.dafont.com/jayvee-d-enaguas.d2725",
+        "name": "Micro Six",
+        "url": "https://ggbot.itch.io/micro-six-font",
+        "author": "GGBotNet",
+        "author_url": "https://www.ggbot.net/fonts/",
         "license": "OFL",
         "license_url": "http://scripts.sil.org/OFL"
       }

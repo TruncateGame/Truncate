@@ -172,8 +172,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 format!("JOINING {room_code}{}", dots.join(""))
             };
 
-            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
-            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let msg_text = TextHelper::heavy(&msg, 14.0, None, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, None, ui);
             let required_size = vec2(
                 msg_text.size().x,
                 msg_text.size().y + button_text.size().y * 2.0,
@@ -211,8 +211,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 format!("CREATING ROOM{}", dots.join(""))
             };
 
-            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
-            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let msg_text = TextHelper::heavy(&msg, 14.0, None, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, None, ui);
             let required_size = vec2(
                 msg_text.size().x,
                 msg_text.size().y + button_text.size().y * 2.0,
