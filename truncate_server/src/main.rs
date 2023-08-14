@@ -536,15 +536,24 @@ async fn handle_connection(
                     println!("Sending message: {msg}");
                 }
 
+                println!("Checking the game message");
                 match &msg {
                     GameMessage::GameUpdate(GameStateMessage {
                         room_code,
                         players,
                         next_player_number,
                         ..
+                    })
+                    | GameMessage::StartedGame(GameStateMessage {
+                        room_code,
+                        players,
+                        next_player_number,
+                        ..
                     }) => {
+                        println!("The message is a game update");
                         let next_player = &players[*next_player_number as usize];
                         if let Some(time_remaining) = next_player.time_remaining {
+                            println!("Some player has {time_remaining} time left");
                             tokio::spawn(check_game_over(
                                 room_code.clone(),
                                 time_remaining.whole_milliseconds(),
@@ -569,26 +578,35 @@ async fn handle_connection(
 }
 
 async fn check_game_over(game_id: String, check_in_ms: i128, server_state: ServerState) {
+    println!("[GAME CHECKER] Queueing an end game check in {check_in_ms}ms");
     if check_in_ms.is_negative() {
         return;
     }
+    println!("[GAME CHECKER] Sleeping. . .");
     tokio::time::sleep(Duration::from_millis(check_in_ms as u64 + 10).into()).await;
+    println!("[GAME CHECKER] Awaking after {check_in_ms}");
 
     let mut game_map = server_state.games.lock();
     let Some(existing_game) = game_map.get_mut(&game_id) else {
+        println!("[GAME CHECKER] Game not found for {game_id}, exiting");
         return;
     };
+    println!("[GAME CHECKER] Game found for {game_id}");
     let mut game_manager = existing_game.lock();
     game_manager.core_game.calculate_game_over();
+    println!(
+        "[GAME CHECKER] Checked game, winner is: {:?}",
+        game_manager.core_game.winner
+    );
 
     if let Some(winner) = game_manager.core_game.winner {
         for (player_index, player) in game_manager.players.iter().enumerate() {
             let Some(socket) = player.socket else { continue };
+            let mut end_game_msg = game_manager.game_msg(player_index, None);
+            // Don't send any of the latest battles or hand changes
+            end_game_msg.changes = vec![];
             server_state
-                .send_to_player(
-                    &socket,
-                    GameMessage::GameEnd(game_manager.game_msg(player_index, None), winner as u64),
-                )
+                .send_to_player(&socket, GameMessage::GameEnd(end_game_msg, winner as u64))
                 .unwrap();
         }
     }

@@ -339,7 +339,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                         game.apply_new_state(state_message);
                         *game_status = GameStatus::Concluded(game.clone(), winner);
                     }
-                    _ => todo!("Game error hit an unknown state"),
+                    _ => {}
                 }
             }
             GameMessage::GameError(_id, _num, err) => match game_status {
@@ -348,7 +348,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     // assert_eq!(game.player_number, num);
                     game.ctx.error_msg = Some(err);
                 }
-                _ => todo!("Game error hit an unknown state"),
+                _ => {}
             },
             GameMessage::GenericError(err) => {
                 *error = Some(err);
