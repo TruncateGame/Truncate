@@ -210,7 +210,7 @@ async fn handle_player_msg(
                         .unwrap();
 
                     for player in &game_manager.players {
-                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                        let Some(socket) = player.socket else { continue };
 
                         server_state
                             .send_to_player(
@@ -334,7 +334,7 @@ async fn handle_player_msg(
                 };
 
                 for player in &game_manager.players {
-                    let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                    let Some(socket) = player.socket else { continue };
                     server_state
                         .send_to_player(
                             &socket,
@@ -371,7 +371,7 @@ async fn handle_player_msg(
                     };
 
                     for player in &game_manager.players {
-                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                        let Some(socket) = player.socket else { continue };
                         server_state
                             .send_to_player(
                                 &socket,
@@ -393,7 +393,7 @@ async fn handle_player_msg(
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
                 let mut game_manager = existing_game.lock();
                 for (player, message) in game_manager.start() {
-                    let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                    let Some(socket) = player.socket else { continue };
                     server_state.send_to_player(&socket, message).unwrap();
                 }
             } else {
@@ -406,7 +406,7 @@ async fn handle_player_msg(
                 for (player, message) in
                     game_manager.play(player_addr, position, tile, server_state.words())
                 {
-                    let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                    let Some(socket) = player.socket else { continue };
                     server_state.send_to_player(&socket, message).unwrap();
                 }
                 // TODO: Error handling flow
@@ -420,7 +420,7 @@ async fn handle_player_msg(
                 for (player, message) in
                     game_manager.swap(player_addr, from, to, server_state.words())
                 {
-                    let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                    let Some(socket) = player.socket else { continue };
                     server_state.send_to_player(&socket, message).unwrap();
                 }
                 // TODO: Error handling flow
@@ -470,7 +470,7 @@ async fn handle_player_msg(
                     let new_game_manager = new_game.lock();
 
                     for (i, player) in new_game_manager.players.iter().enumerate() {
-                        let Some(socket) = player.socket else { todo!("Handle disconnected player") };
+                        let Some(socket) = player.socket else { continue };
 
                         server_state.attach_player_to_game(&socket, &new_game_id);
 
