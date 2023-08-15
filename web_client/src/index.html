@@ -9,6 +9,11 @@
     <link rel="icon" type="image/svg+xml"
         href="data:image/svg+xml,%3Csvg width='318' height='320' viewBox='0 0 318 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 300H268V290H278V280H288V260H298V240H288V260H278V270H258V280H60V270H40V260H30V240H20V260H30V280H40V290H50V300Z' fill='%23ADADAD'/%3E%3Cpath d='M60 20V30H40V40H30V60H20V240H30V260H40V270H60V280H258V270H278V260H288V240H298V60H288V40H278V30H258V20H60Z' fill='white'/%3E%3Cpath d='M135.75 230.75V91.25H89.25V68H228.75V91.25H182.25V230.75H135.75Z' fill='black'/%3E%3C/svg%3E%0A" />
     <title>Truncate</title>
+
+    <!-- Fathom - beautiful, simple website analytics -->
+    <script src="https://cdn.usefathom.com/script.js" data-site="{{ env.analytics_id }}" defer></script>
+    <!-- / Fathom -->
+
     <style>
         :root {
             --water: #50a7e8;
@@ -298,7 +303,7 @@
         <div class="sub" data-stage="rejoin">
             <div class="split">
                 <button data-control="rejoin" class="fill">REJOIN ACTIVE GAME</button>
-                <button type="button" data-control="cancel_to_root" class="thin"
+                <button type="button" data-control="cancel_rejoin" class="thin"
                     aria-label="Cancel rejoining recent game">X</button>
             </div>
         </div>
@@ -353,7 +358,7 @@
 
     <audio id="tr_move" src="/static/move.mp3"></audio>
 
-    <script defer src="static/truncate_client.js?commit={{ env.environment }}"></script>
+    <script defer src="static/truncate_client.js?commit={{ env.commit }}"></script>
     <script>
         (function () {
             const stage = (s) => controls.setAttribute("data-control-stage", s);
@@ -441,7 +446,7 @@
             const TILEPACKS = {
                 GRASSES: [TILES.GRASS1, TILES.GRASS2, TILES.GRASS3, TILES.GRASS4],
                 HOUSES: [[TILES.HOUSE1, TILES.ROOF1], [TILES.HOUSE2, TILES.ROOF2], [TILES.HOUSE3, TILES.ROOF3], [TILES.HOUSE4, TILES.ROOF4]],
-                DECOR: [TILES.PLANTER1, TILES.PLANTER2, TILES.BUSH, TILES.WHEAT, TILES.WELL],
+                DECOR: [[TILES.PLANTER1, TILES.PLANTER1_COLOR], [TILES.PLANTER2, TILES.PLANTER2_COLOR], [TILES.BUSH, TILES.BUSH_COLOR], [TILES.WHEAT, TILES.NONE], [TILES.WELL, TILES.NONE]],
             }
 
             const canvas = document.getElementById("splash");
@@ -475,32 +480,71 @@
 
             const paint = {
                 tile_size: 16,
-                tile: (index, x, y) => {
+                tinted: (index, x, y, tint) => {
                     let tile_pos = index * (paint.tile_size + 2);
-                    ctx.drawImage(
+
+                    const buffer = document.createElement('canvas');
+                    buffer.width = paint.tile_size;
+                    buffer.height = paint.tile_size;
+                    const btx = buffer.getContext('2d');
+
+                    btx.drawImage(
                         image,
                         tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                        0, 0, paint.tile_size, paint.tile_size
+                    );
+
+                    btx.fillStyle = tint;
+                    btx.globalCompositeOperation = 'multiply';
+                    btx.fillRect(0, 0, buffer.width, buffer.height);
+
+                    btx.globalCompositeOperation = 'destination-in';
+                    btx.drawImage(image,
+                        tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                        0, 0, paint.tile_size, paint.tile_size
+                    );
+
+                    ctx.drawImage(
+                        buffer,
+                        0, 0, buffer.width, buffer.height,
                         x, y, output_size, output_size
                     );
                 },
-                tiles: (indexes, x, y) => {
+                tile: (index, x, y, tint) => {
+                    if (tint) {
+                        paint.tinted(index, x, y, tint)
+                    } else if (Array.isArray(index)) {
+                        paint.tinted(index[0], x, y, index[1])
+                    } else {
+                        let tile_pos = index * (paint.tile_size + 2);
+                        ctx.drawImage(
+                            image,
+                            tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                            x, y, output_size, output_size
+                        );
+                    }
+                },
+                tiles: (indexes, x, y, tint) => {
                     for (let row_i = 0; row_i < indexes.length; row_i += 1) {
                         const row = indexes[row_i];
                         for (let column_i = 0; column_i < row.length; column_i += 1) {
                             const tile = parseInt(row[column_i]);
-                            paint.tile(tile, x + column_i * output_size, y + row_i * output_size);
+                            paint.tile(tile, x + column_i * output_size, y + row_i * output_size, tint);
                         }
                     }
-                }
+                },
             };
 
             const pick = {
+                color: (seed, lightness = 80) => {
+                    return `hsl(${pick.num(seed + 99) % 360},100%,${lightness}%)`;
+                },
                 num: (seed) => {
                     seed = Math.floor(seed * 50000);
                     seed ^= seed << 13;
                     seed ^= seed >> 7;
                     seed ^= seed << 17;
-                    return Math.abs(seed) % 100;
+                    return Math.abs(seed);
                 },
                 grass: (seed) => {
                     seed = pick.num(seed);
@@ -519,11 +563,15 @@
 
                     if (numhouses > 0 && seed > decor_threshold) {
                         let decor_index = pick.num(seed + 123408);
-                        texs[pick.num(seed + 3442) % 4] = [TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length]];
+                        let texindex = pick.num(seed + 3442) % 4;
+                        texs[texindex] = TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length];
+                        texs[texindex][2] = [texs[texindex][1], pick.color(seed, 60)];
                     }
                     for (let i = 0; i < numhouses; i += 1) {
                         let house_index = pick.num(seed + i);
-                        texs[pick.num(seed + 18 * i) % 4] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                        let texindex = pick.num(seed + 18 * i) % 4;
+                        texs[texindex] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                        texs[texindex][2] = [texs[texindex][1], pick.color(seed)];
                     }
                     return texs;
                 }
@@ -593,21 +641,37 @@
                             [TILES.DOCK_SOUTH_NW, TILES.DOCK_SOUTH_NE],
                             [TILES.DOCK_SOUTH_SW, TILES.DOCK_SOUTH_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_SOUTH_NW, TILES.SAIL_SOUTH_NE],
+                            [TILES.SAIL_SOUTH_SW, TILES.SAIL_SOUTH_SE]
+                        ], x, y, pick.color(seed));
                     } else if (neighbors[5]) {
                         paint.tiles([
                             [TILES.DOCK_NORTH_NW, TILES.DOCK_NORTH_NE],
                             [TILES.DOCK_NORTH_SW, TILES.DOCK_NORTH_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_NORTH_NW, TILES.SAIL_NORTH_NE],
+                            [TILES.SAIL_NORTH_SW, TILES.SAIL_NORTH_SE]
+                        ], x, y, pick.color(seed));
                     } else if (neighbors[3]) {
                         paint.tiles([
                             [TILES.DOCK_WEST_NW, TILES.DOCK_WEST_NE],
                             [TILES.DOCK_WEST_SW, TILES.DOCK_WEST_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_WEST_NW, TILES.SAIL_WEST_NE],
+                            [TILES.SAIL_WEST_SW, TILES.SAIL_WEST_SE]
+                        ], x, y, pick.color(seed));
                     } else if (neighbors[7]) {
                         paint.tiles([
                             [TILES.DOCK_EAST_NW, TILES.DOCK_EAST_NE],
                             [TILES.DOCK_EAST_SW, TILES.DOCK_EAST_SE]
                         ], x, y);
+                        paint.tiles([
+                            [TILES.SAIL_EAST_NW, TILES.SAIL_EAST_NE],
+                            [TILES.SAIL_EAST_SW, TILES.SAIL_EAST_SE]
+                        ], x, y, pick.color(seed));
                     }
                 },
                 water_nw: (x, y, w, nw, n) => {
@@ -729,33 +793,47 @@
 
             const existing_game_token = window.localStorage.getItem("truncate_active_token");
             if (existing_game_token) {
+                window.addEventListener('load', (event) => {
+                    window?.fathom?.trackGoal?.("{{ env.analytics_events.PROMPT_REJOIN }}", 0);
+                });
                 stage("rejoin");
             }
 
             control_plural("cancel_to_root").forEach(c => c.addEventListener("click", e => {
                 stage("root");
             }));
+            control("cancel_rejoin").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.CANCEL_REJOIN }}", 0);
+                stage("root");
+            });
             control("to_about").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.VIEW_CREDITS }}", 0);
                 stage("about");
                 document.querySelector("#about_truncate").showModal();
             });
 
             control("rejoin").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.REJOIN }}", 0);
                 truncate_runner.rejoin_game();
             });
             control("to_multi_game").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.MULTI_PLAYER }}", 0);
                 stage("multi");
             });
             control("tutorial").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.START_TUTORIAL }}", 0);
                 truncate_runner.join_game("TUTORIAL_01");
             });
             control("to_create_game").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.PLAY_GAME }}", 0);
                 stage("create");
             });
             control("new_single").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.START_SOLO }}", 0);
                 truncate_runner.join_game("SINGLE_PLAYER");
             });
             control("new_multi").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.START_MULTI }}", 0);
                 truncate_runner.create_game();
             });
             control("to_join_game").addEventListener("click", e => {
@@ -777,6 +855,7 @@
                     }, 500);
                     return;
                 }
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.JOIN_ROOM }}", 0);
 
                 truncate_runner.join_game(room);
 
@@ -788,6 +867,7 @@
 
             let room_code = window.location.hash.substring(1);
             if (room_code) {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.JOIN_BY_LINK }}", 0);
                 truncate_runner.join_game(room_code);
             }
 
@@ -796,12 +876,13 @@
                     await new Promise(r => setTimeout(r, 100));
                 }
 
-                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.environment }}")
+                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.commit }}")
                     .then(on_wasm_loaded)
                     .catch(on_wasm_error);
 
                 function on_wasm_loaded() {
                     console.debug("Loaded Truncate webassembly");
+                    window?.fathom?.trackGoal?.("{{ env.analytics_events.LOADED_TRUNCATE }}", 0);
                     const default_server = window.location.host.includes("outpost") ? "wss://coup.truncate.town" : "wss://citadel.truncate.town";
                     const local_server = window.location.host.includes("localhost") ? "ws://0.0.0.0:8080" : null;
                     const server = new URLSearchParams(window.location.search).get("server") ?? local_server ?? default_server;
@@ -821,6 +902,7 @@
 
                 function on_wasm_error(error) {
                     console.error("Failed to start: " + error);
+                    window?.fathom?.trackGoal?.("{{ env.analytics_events.ERRORED_TRUNCATE }}", 0);
                     truncate_runner.error(error);
                 }
             })();

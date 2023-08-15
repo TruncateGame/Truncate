@@ -221,6 +221,9 @@ impl Game {
 
         let player = &mut self.players[evaluation_player];
 
+        // Remove timing concerns from the simulated turns
+        self.rules.battle_delay = 0;
+
         // Prevent the evaluation player from being given new tiles in future turns
         player.hand_capacity = 0;
 
@@ -325,7 +328,7 @@ impl Game {
 
         let score: usize = towns
             .into_iter()
-            .filter(|town| matches!(self.board.get(*town), Ok(Square::Town(p)) if player == p))
+            .filter(|town| matches!(self.board.get(*town), Ok(Square::Town{player: p, ..}) if player == p))
             .map(|town| {
                 num_towns += 1;
                 self.board

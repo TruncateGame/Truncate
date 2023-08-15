@@ -596,6 +596,116 @@ mod tests {
     }
 
     #[test]
+    fn resolve_win() {
+        let b = Board::from_string(
+            "__ __ S0 |0 __\n\
+             __ __ T0 __ __\n\
+             __ A0 R0 __ __\n\
+             D0 B0 __ X1 __\n\
+             N0 __ __ X1 __\n\
+             __ __ X1 X1 __\n\
+             #1 #1 |1 #1 #1",
+        );
+        let mut bag = TileUtils::trivial_bag();
+        let players = vec![
+            Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
+        ];
+
+        let mut game = Game {
+            board: b,
+            bag,
+            players,
+            judge: short_dict(),
+            ..Game::new(3, 1)
+        };
+        game.start();
+
+        _ = game.play_turn(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 0, y: 5 },
+            },
+            None,
+        );
+
+        assert_eq!(
+            game.board.to_string(),
+            "__ __ S0 |0 __\n\
+             __ __ T0 __ __\n\
+             __ A0 R0 __ __\n\
+             D0 B0 __ X1 __\n\
+             N0 __ __ X1 __\n\
+             A0 __ X1 X1 __\n\
+             ⊭1 #1 |1 #1 #1",
+        );
+        assert_eq!(
+            game.board.get(Coordinate { x: 0, y: 6 }).unwrap(),
+            Square::Town {
+                player: 1,
+                defeated: true
+            }
+        );
+        assert_eq!(game.winner, Some(0));
+    }
+
+    #[test]
+    fn resolve_failed_win() {
+        let b = Board::from_string(
+            "__ __ S0 |0 __\n\
+             __ __ T0 __ __\n\
+             __ A0 R0 __ __\n\
+             G0 B0 __ X1 __\n\
+             N0 __ __ X1 __\n\
+             __ __ X1 X1 __\n\
+             #1 #1 |1 #1 #1",
+        );
+        let mut bag = TileUtils::trivial_bag();
+        let players = vec![
+            Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
+        ];
+
+        let mut game = Game {
+            board: b,
+            bag,
+            players,
+            judge: short_dict(),
+            ..Game::new(3, 1)
+        };
+        game.start();
+
+        _ = game.play_turn(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 0, y: 5 },
+            },
+            None,
+        );
+
+        assert_eq!(
+            game.board.to_string(),
+            "__ __ S0 |0 __\n\
+             __ __ T0 __ __\n\
+             __ A0 R0 __ __\n\
+             __ B0 __ X1 __\n\
+             __ __ __ X1 __\n\
+             __ __ X1 X1 __\n\
+             #1 #1 |1 #1 #1",
+        );
+        assert_eq!(
+            game.board.get(Coordinate { x: 0, y: 6 }).unwrap(),
+            Square::Town {
+                player: 1,
+                defeated: false
+            }
+        );
+        assert_eq!(game.winner, None);
+    }
+
+    #[test]
     fn resolve_noop() {
         let b = Board::from_string(
             "~~ |0 __ ~~ ~~\n\

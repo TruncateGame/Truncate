@@ -76,7 +76,18 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             send(PlayerMessage::NewGame(name.clone()));
             new_game_status = Some(GameStatus::PendingCreate);
         } else {
-            send(PlayerMessage::JoinGame(launched_room.clone(), name.clone()));
+            let token = if let GameStatus::None(_, token) = game_status {
+                token.clone()
+            } else {
+                None
+            };
+
+            send(PlayerMessage::JoinGame(
+                launched_room.clone(),
+                name.clone(),
+                token,
+            ));
+
             new_game_status = Some(GameStatus::PendingJoin(launched_room));
         }
     }
@@ -129,7 +140,11 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             ui.horizontal(|ui| {
                 ui.text_edit_singleline(room_code);
                 if ui.button("Join Game").clicked() {
-                    send(PlayerMessage::JoinGame(room_code.clone(), name.clone()));
+                    send(PlayerMessage::JoinGame(
+                        room_code.clone(),
+                        name.clone(),
+                        token.clone(),
+                    ));
                     new_game_status = Some(GameStatus::PendingJoin(room_code.clone()));
                 }
             });
@@ -148,8 +163,6 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             sp.render(ui, theme, current_time);
         }
         GameStatus::PendingJoin(room_code) => {
-            ui.label(format!("Waiting to join room {room_code}"));
-
             let dot_count = (current_time.as_millis() / 500) % 4;
             let mut dots = vec!["."; dot_count as usize];
             dots.extend(vec![" "; 4 - dot_count as usize]);
@@ -159,8 +172,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 format!("JOINING {room_code}{}", dots.join(""))
             };
 
-            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
-            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let msg_text = TextHelper::heavy(&msg, 14.0, None, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, None, ui);
             let required_size = vec2(
                 msg_text.size().x,
                 msg_text.size().y + button_text.size().y * 2.0,
@@ -198,8 +211,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 format!("CREATING ROOM{}", dots.join(""))
             };
 
-            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
-            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let msg_text = TextHelper::heavy(&msg, 14.0, None, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, None, ui);
             let required_size = vec2(
                 msg_text.size().x,
                 msg_text.size().y + button_text.size().y * 2.0,

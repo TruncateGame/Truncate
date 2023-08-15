@@ -79,7 +79,8 @@ pub struct WordMeaning {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BattleWord {
-    pub word: String,
+    pub original_word: String,
+    pub resolved_word: String,
     pub meanings: Option<Vec<WordMeaning>>,
     pub valid: Option<bool>,
 }
@@ -89,7 +90,7 @@ impl fmt::Display for BattleWord {
         write!(
             f,
             "{} ({})",
-            self.word,
+            self.resolved_word,
             match self.valid {
                 Some(true) => "Valid",
                 Some(false) => "Invalid",

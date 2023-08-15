@@ -104,7 +104,13 @@ impl Board {
             .map(|x| Coordinate { x, y: 1 });
         for town in north_towns {
             board
-                .set_square(town, Square::Town(0))
+                .set_square(
+                    town,
+                    Square::Town {
+                        player: 0,
+                        defeated: false,
+                    },
+                )
                 .expect("Town square should exist on the land");
         }
         // North dock
@@ -120,7 +126,13 @@ impl Board {
             });
         for town in south_towns {
             board
-                .set_square(town, Square::Town(1))
+                .set_square(
+                    town,
+                    Square::Town {
+                        player: 1,
+                        defeated: false,
+                    },
+                )
                 .expect("Town square should exist on the land");
         }
         // South dock
@@ -249,7 +261,7 @@ impl Board {
         for coord in coords {
             match self.get(coord) {
                 Ok(Square::Water | Square::Land | Square::Occupied(_, _)) => {}
-                Ok(Square::Town(_)) => self.towns.push(coord),
+                Ok(Square::Town { .. }) => self.towns.push(coord),
                 Ok(Square::Dock(_)) => self.docks.push(coord),
                 Err(e) => {
                     eprintln!("{e}");
@@ -365,7 +377,7 @@ impl Board {
                     }
                     tiles[i] = tile;
                 }
-                Water | Land | Town(_) | Dock(_) => return Err(GamePlayError::UnoccupiedSwap),
+                Water | Land | Town { .. } | Dock(_) => return Err(GamePlayError::UnoccupiedSwap),
             };
         }
 
@@ -409,13 +421,18 @@ impl Board {
             .map(|(x, y)| Coordinate { x, y });
 
         for coord in coords {
-            match self.get_mut(coord) {
-                Ok(sq) if matches!(sq, Square::Occupied(_, _)) => *sq = Square::Land,
-                Ok(_) => {}
-                Err(e) => {
-                    eprintln!("{e}");
-                    unreachable!("Iterating over the board should not return invalid positions")
+            let Ok(sq) = self.get_mut(coord) else {
+                unreachable!("Iterating over the board should not return invalid positions");
+            };
+            match sq {
+                Square::Occupied(_, _) => *sq = Square::Land,
+                Square::Town { player, .. } => {
+                    *sq = Square::Town {
+                        player: player.clone(),
+                        defeated: false,
+                    }
                 }
+                _ => {}
             }
         }
     }
@@ -533,6 +550,7 @@ impl Board {
         let mut words: Vec<Vec<Coordinate>> = Vec::new();
         let owner = match self.get(position) {
             Ok(Square::Occupied(player, _)) => player,
+            Ok(Square::Town { .. }) => return vec![vec![position]],
             _ => return words,
         };
 
@@ -592,6 +610,10 @@ impl Board {
             .iter()
             .filter(|(_, square)| match square {
                 Square::Occupied(adjacent_player, _) => player != *adjacent_player,
+                Square::Town {
+                    player: adjacent_player,
+                    defeated,
+                } => player != *adjacent_player && !defeated,
                 _ => false,
             })
             .flat_map(|(position, _)| self.get_words(*position))
@@ -611,11 +633,12 @@ impl Board {
                 word.iter()
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
-                            Water | Land | Town(_) | Dock(_) => {
+                            Water | Land | Dock(_) => {
                                 debug_assert!(false);
                                 err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
                             }
+                            Town { .. } => '#',
                             Occupied(_, letter) => letter,
                         },
                         Err(e) => {
@@ -735,13 +758,14 @@ impl Board {
                                     .to_digit(10)
                                     .unwrap() as usize,
                             ),
-                            Some('#') => Square::Town(
-                                chars
+                            Some('#') => Square::Town {
+                                player: chars
                                     .next()
                                     .expect("Square needs player")
                                     .to_digit(10)
                                     .unwrap() as usize,
-                            ),
+                                defeated: false,
+                            },
                             Some(letter) => Square::Occupied(
                                 chars
                                     .next()
@@ -872,7 +896,7 @@ impl std::cmp::PartialEq<(usize, usize)> for Coordinate {
 pub enum Square {
     Water,
     Land,
-    Town(usize),
+    Town { player: usize, defeated: bool },
     Dock(usize),
     Occupied(usize, char),
 }
@@ -882,7 +906,14 @@ impl fmt::Display for Square {
         match &self {
             Square::Water => write!(f, "~~"),
             Square::Land => write!(f, "__"),
-            Square::Town(p) => write!(f, "#{p}"),
+            Square::Town {
+                player: p,
+                defeated: false,
+            } => write!(f, "#{p}"),
+            Square::Town {
+                player: p,
+                defeated: true,
+            } => write!(f, "⊭{p}"),
             Square::Dock(p) => write!(f, "|{p}"),
             Square::Occupied(p, tile) => write!(f, "{tile}{p}"),
         }
@@ -1309,7 +1340,13 @@ pub mod tests {
             b.neighbouring_squares(Coordinate { x: 1, y: 0 }),
             [
                 (Coordinate { x: 2, y: 0 }, Square::Dock(0)),
-                (Coordinate { x: 1, y: 1 }, Square::Town(0)),
+                (
+                    Coordinate { x: 1, y: 1 },
+                    Square::Town {
+                        player: 0,
+                        defeated: false
+                    }
+                ),
                 (Coordinate { x: 0, y: 0 }, Square::Water),
             ]
         );
@@ -1479,13 +1516,18 @@ pub mod tests {
         let b = Board::new(3, 3);
         for x in 0..12 {
             for y in 0..12 {
-                assert_eq!(
-                    b.get_words(Coordinate {
-                        x: usize::wrapping_sub(x, 2),
-                        y: usize::wrapping_sub(y, 2)
-                    }),
-                    empty
-                );
+                let coord = Coordinate {
+                    x: usize::wrapping_sub(x, 2),
+                    y: usize::wrapping_sub(y, 2),
+                };
+                match b.get(coord) {
+                    Ok(Square::Town { .. }) => {
+                        assert_eq!(b.get_words(coord), vec![vec![coord]]);
+                    }
+                    _ => {
+                        assert_eq!(b.get_words(coord), empty);
+                    }
+                }
             }
         }
 

@@ -66,7 +66,7 @@ impl Lobby {
     }
 
     pub fn update_board(&mut self, board: Board) {
-        self.mapped_board.remap(&board, &self.player_colors);
+        self.mapped_board.remap(&board, &self.player_colors, 0);
         self.board = board;
     }
 
@@ -93,17 +93,17 @@ impl Lobby {
                 ScrollArea::new([false, true]).show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(RichText::new("Room Code:").color(Color32::WHITE));
-                        let text = TextHelper::heavy(&self.room_code, 14.0, ui);
+                        let text = TextHelper::heavy(&self.room_code, 14.0, None, ui);
                         text.paint(Color32::WHITE, ui);
                     });
 
                     if self.players.len() == 1 {
                         if self.copied_code {
-                            let text = TextHelper::heavy("Copied link", 10.0, ui);
+                            let text = TextHelper::heavy("Copied link", 10.0, None, ui);
                             text.paint(Color32::WHITE, ui);
                         }
 
-                        let text = TextHelper::heavy("COPY GAME LINK", 14.0, ui);
+                        let text = TextHelper::heavy("COPY GAME LINK", 14.0, None, ui);
                         if text
                             .full_button(
                                 theme.selection.lighten().lighten(),
@@ -134,7 +134,7 @@ impl Lobby {
                         theme.text.lighten().lighten()
                     };
 
-                    let text = TextHelper::heavy("START GAME", 14.0, ui);
+                    let text = TextHelper::heavy("START GAME", 14.0, None, ui);
                     if text
                         .full_button(start_button_color, theme.text, &self.map_texture, ui)
                         .clicked()
@@ -199,7 +199,7 @@ impl Lobby {
                     ui.add_space(32.0);
 
                     if matches!(self.editing_mode, BoardEditingMode::None) {
-                        let text = TextHelper::heavy("EDIT BOARD", 10.0, ui);
+                        let text = TextHelper::heavy("EDIT BOARD", 10.0, None, ui);
                         if text
                             .button(
                                 Color32::WHITE.diaphanize(),
@@ -272,7 +272,7 @@ impl Lobby {
 
                         ui.label(RichText::new("Actions").color(Color32::WHITE));
 
-                        let text = TextHelper::heavy("GROW BOARD", 10.0, ui);
+                        let text = TextHelper::heavy("GROW BOARD", 10.0, None, ui);
                         if text
                             .button(Color32::WHITE, theme.text, &self.map_texture, ui)
                             .clicked()
@@ -281,7 +281,7 @@ impl Lobby {
                             msg = Some(PlayerMessage::EditBoard(self.board.clone()));
                         }
 
-                        let text = TextHelper::heavy("STOP EDITING BOARD", 10.0, ui);
+                        let text = TextHelper::heavy("STOP EDITING BOARD", 10.0, None, ui);
                         if text
                             .button(
                                 Color32::RED.lighten().lighten().lighten(),

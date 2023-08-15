@@ -1,8 +1,15 @@
+use std::{
+    collections::VecDeque,
+    ops::{Range, RangeInclusive},
+};
+
 use eframe::egui;
 use epaint::{pos2, vec2, Color32, Mesh, Rect, Shape, TextureHandle, TextureId};
 use truncate_core::board::Square;
 
 use crate::regions::lobby::BoardEditingMode;
+
+use super::mapper::{quickrand, MappedTileVariant};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Tex {
@@ -24,150 +31,225 @@ pub enum FGTexType {
     Dock,
 }
 
+// Wind levels
+macro_rules! calm {
+    () => {
+        0..=56
+    };
+}
+macro_rules! breeze {
+    () => {
+        57..=69
+    };
+}
+macro_rules! wind {
+    () => {
+        70..=85
+    };
+}
+
+const fn t(tile: usize) -> Tex {
+    Tex { tile, tint: None }
+}
+
+const fn quad(nw_tile: usize, ne_tile: usize, se_tile: usize, sw_tile: usize) -> [Tex; 4] {
+    [
+        Tex {
+            tile: nw_tile,
+            tint: None,
+        },
+        Tex {
+            tile: ne_tile,
+            tint: None,
+        },
+        Tex {
+            tile: se_tile,
+            tint: None,
+        },
+        Tex {
+            tile: sw_tile,
+            tint: None,
+        },
+    ]
+}
+
 // TODO: Generate this impl with codegen from aseprite
 impl Tex {
-    const fn single(tile: usize) -> Self {
-        Self { tile, tint: None }
-    }
+    pub const MAX_TILE: usize = 256;
 
-    const fn quad(nw_tile: usize, ne_tile: usize, se_tile: usize, sw_tile: usize) -> [Self; 4] {
-        [
-            Self {
-                tile: nw_tile,
-                tint: None,
-            },
-            Self {
-                tile: ne_tile,
-                tint: None,
-            },
-            Self {
-                tile: se_tile,
-                tint: None,
-            },
-            Self {
-                tile: sw_tile,
-                tint: None,
-            },
-        ]
-    }
+    pub const NONE: Self = t(0);
+    pub const DEBUG: Self = t(77);
 
-    pub const MAX_TILE: usize = 148;
+    pub const GRASS1: Self = t(21);
+    pub const GRASS2: Self = t(22);
+    pub const GRASS3: Self = t(23);
+    pub const GRASS4: Self = t(24);
 
-    pub const NONE: Self = Tex::single(0);
-    pub const DEBUG: Self = Tex::single(77);
+    pub const GRASS1_WIND0: Self = t(157);
+    pub const GRASS2_WIND0: Self = t(158);
+    pub const GRASS3_WIND0: Self = t(159);
+    pub const GRASS4_WIND0: Self = t(160);
 
-    pub const GRASS1: Self = Tex::single(21);
-    pub const GRASS2: Self = Tex::single(22);
-    pub const GRASS3: Self = Tex::single(23);
-    pub const GRASS4: Self = Tex::single(24);
+    pub const GRASS1_WIND1: Self = t(149);
+    pub const GRASS2_WIND1: Self = t(150);
+    pub const GRASS3_WIND1: Self = t(151);
+    pub const GRASS4_WIND1: Self = t(152);
 
-    pub const WATER: Self = Tex::single(8);
+    pub const GRASS1_WIND2: Self = t(153);
+    pub const GRASS2_WIND2: Self = t(154);
+    pub const GRASS3_WIND2: Self = t(155);
+    pub const GRASS4_WIND2: Self = t(156);
+
+    pub const WATER: Self = t(8);
 
     // Water with land on one edge
-    pub const LAND_SE: Self = Tex::single(4);
-    pub const LAND_S: Self = Tex::single(5);
-    pub const LAND_SW: Self = Tex::single(6);
-    pub const LAND_W: Self = Tex::single(11);
-    pub const LAND_NW: Self = Tex::single(17);
-    pub const LAND_N: Self = Tex::single(16);
-    pub const LAND_NE: Self = Tex::single(15);
-    pub const LAND_E: Self = Tex::single(10);
+    pub const LAND_SE: Self = t(4);
+    pub const LAND_S: Self = t(5);
+    pub const LAND_SW: Self = t(6);
+    pub const LAND_W: Self = t(11);
+    pub const LAND_NW: Self = t(17);
+    pub const LAND_N: Self = t(16);
+    pub const LAND_NE: Self = t(15);
+    pub const LAND_E: Self = t(10);
 
     // Water with land on two edges
-    pub const LAND_N_E: Self = Tex::single(25);
-    pub const LAND_S_E: Self = Tex::single(18);
-    pub const LAND_S_W: Self = Tex::single(19);
-    pub const LAND_N_W: Self = Tex::single(26);
+    pub const LAND_N_E: Self = t(25);
+    pub const LAND_S_E: Self = t(18);
+    pub const LAND_S_W: Self = t(19);
+    pub const LAND_N_W: Self = t(26);
 
     // Transparent island in water
-    pub const ISLAND: TexQuad = Tex::quad(69, 70, 72, 71);
+    pub const ISLAND: TexQuad = quad(69, 70, 72, 71);
     // Transparent lake on land
-    pub const LAKE: TexQuad = Tex::quad(73, 74, 76, 75);
+    pub const LAKE: TexQuad = quad(73, 74, 76, 75);
 
     // Tiles
-    pub const GAME_TILE: TexQuad = Tex::quad(53, 54, 55, 56);
+    pub const GAME_TILE: TexQuad = quad(53, 54, 55, 56);
+
+    // Tile cracks
+    pub const TILE_CRACK_1: TexQuad = quad(216, 217, 219, 218);
+    pub const TILE_CRACK_2: TexQuad = quad(220, 221, 223, 222);
+    pub const TILE_CRACK_3: TexQuad = quad(224, 225, 227, 226);
+    pub const TILE_CRACK_4: TexQuad = quad(228, 229, 231, 230);
+    pub const TILE_CRACK_5: TexQuad = quad(232, 233, 235, 234);
+
+    // Tile Remnants
+    pub const TILE_REMNANT_1: TexQuad = quad(236, 237, 238, 239);
+    pub const TILE_REMNANT_2: TexQuad = quad(240, 241, 242, 243);
+    pub const TILE_REMNANT_3: TexQuad = quad(244, 245, 246, 247);
 
     // Tiles for buttons
-    pub const GAME_TILE_NW: Self = Tex::single(53);
-    pub const GAME_TILE_SW: Self = Tex::single(56);
-    pub const GAME_TILE_N: Self = Tex::single(147);
-    pub const GAME_TILE_S: Self = Tex::single(148);
-    pub const GAME_TILE_NE: Self = Tex::single(54);
-    pub const GAME_TILE_SE: Self = Tex::single(55);
+    pub const GAME_TILE_NW: Self = t(53);
+    pub const GAME_TILE_SW: Self = t(56);
+    pub const GAME_TILE_N: Self = t(147);
+    pub const GAME_TILE_S: Self = t(148);
+    pub const GAME_TILE_NE: Self = t(54);
+    pub const GAME_TILE_SE: Self = t(55);
 
     // Highlight rings for tiles
-    pub const HIGHLIGHT: TexQuad = Tex::quad(65, 66, 68, 67);
+    pub const HIGHLIGHT: TexQuad = quad(65, 66, 68, 67);
 
     // Grass cover over tiles
-    pub const TILE_SE_GRASS1: Self = Tex::single(58);
-    pub const TILE_SE_GRASS2: Self = Tex::single(60);
-    pub const TILE_SE_GRASS3: Self = Tex::single(62);
-    pub const TILE_SE_GRASS4: Self = Tex::single(64);
+    pub const TILE_SE_GRASS1: Self = t(58);
+    pub const TILE_SE_GRASS2: Self = t(60);
+    pub const TILE_SE_GRASS3: Self = t(62);
+    pub const TILE_SE_GRASS4: Self = t(64);
 
-    pub const TILE_SW_GRASS1: Self = Tex::single(57);
-    pub const TILE_SW_GRASS2: Self = Tex::single(59);
-    pub const TILE_SW_GRASS3: Self = Tex::single(61);
-    pub const TILE_SW_GRASS4: Self = Tex::single(63);
+    pub const TILE_SW_GRASS1: Self = t(57);
+    pub const TILE_SW_GRASS2: Self = t(59);
+    pub const TILE_SW_GRASS3: Self = t(61);
+    pub const TILE_SW_GRASS4: Self = t(63);
 
     // HOUSES
-    pub const HOUSE1: Self = Tex::single(36);
-    pub const HOUSE2: Self = Tex::single(37);
-    pub const HOUSE3: Self = Tex::single(38);
-    pub const HOUSE4: Self = Tex::single(39);
+    pub const HOUSE1: Self = t(36);
+    pub const HOUSE2: Self = t(37);
+    pub const HOUSE3: Self = t(38);
+    pub const HOUSE4: Self = t(39);
 
     // ROOFS
-    pub const ROOF1: Self = Tex::single(32);
-    pub const ROOF2: Self = Tex::single(33);
-    pub const ROOF3: Self = Tex::single(34);
-    pub const ROOF4: Self = Tex::single(35);
+    pub const ROOF1: Self = t(32);
+    pub const ROOF2: Self = t(33);
+    pub const ROOF3: Self = t(34);
+    pub const ROOF4: Self = t(35);
+
+    // SMOKES
+    pub const ROOF1_SMOKE: [Self; 5] = [t(185), t(186), t(187), t(188), t(189)];
+    pub const ROOF1_SMOKE_WIND0: [Self; 5] = [t(190), t(191), t(192), t(193), t(194)];
+    pub const ROOF1_SMOKE_WIND1: [Self; 5] = [t(195), t(196), t(197), t(198), t(199)];
+
+    pub const ROOF2_SMOKE: [Self; 5] = [t(200), t(201), t(202), t(203), t(204)];
+    pub const ROOF2_SMOKE_WIND0: [Self; 5] = [t(205), t(206), t(207), t(208), t(209)];
+    pub const ROOF2_SMOKE_WIND1: [Self; 5] = [t(210), t(211), t(212), t(213), t(214)];
 
     // DOCKS
-    pub const DOCK_NORTH: TexQuad = Tex::quad(79, 81, 82, 80);
-    pub const DOCK_NORTH_SAIL: TexQuad = Tex::quad(95, 96, 0, 0);
+    pub const DOCK_NORTH: TexQuad = quad(79, 81, 82, 80);
+    pub const DOCK_NORTH_SAIL: TexQuad = quad(95, 96, 0, 0);
+    pub const DOCK_NORTH_SAIL_WIND0: TexQuad = quad(161, 162, 0, 0);
+    pub const DOCK_NORTH_SAIL_WIND1: TexQuad = quad(163, 164, 0, 0);
 
-    pub const DOCK_EAST: TexQuad = Tex::quad(87, 88, 90, 89);
-    pub const DOCK_EAST_SAIL: TexQuad = Tex::quad(99, 100, 108, 107);
+    pub const DOCK_EAST: TexQuad = quad(87, 88, 90, 89);
+    pub const DOCK_EAST_SAIL: TexQuad = quad(99, 100, 108, 107);
+    pub const DOCK_EAST_SAIL_WIND0: TexQuad = quad(168, 169, 182, 170);
+    pub const DOCK_EAST_SAIL_WIND1: TexQuad = quad(171, 172, 173, 183);
 
-    pub const DOCK_SOUTH: TexQuad = Tex::quad(83, 85, 86, 84);
-    pub const DOCK_SOUTH_SAIL: TexQuad = Tex::quad(97, 0, 0, 105);
+    pub const DOCK_SOUTH: TexQuad = quad(83, 85, 86, 84);
+    pub const DOCK_SOUTH_SAIL: TexQuad = quad(97, 0, 0, 105);
+    pub const DOCK_SOUTH_SAIL_WIND0: TexQuad = quad(165, 0, 0, 184);
+    pub const DOCK_SOUTH_SAIL_WIND1: TexQuad = quad(166, 0, 0, 167);
 
-    pub const DOCK_WEST: TexQuad = Tex::quad(91, 92, 94, 93);
-    pub const DOCK_WEST_SAIL: TexQuad = Tex::quad(101, 102, 0, 0);
+    pub const DOCK_WEST: TexQuad = quad(91, 92, 94, 93);
+    pub const DOCK_WEST_SAIL: TexQuad = quad(101, 102, 0, 0);
+    pub const DOCK_WEST_SAIL_WIND0: TexQuad = quad(174, 175, 0, 0);
+    pub const DOCK_WEST_SAIL_WIND1: TexQuad = quad(176, 177, 0, 0);
 
-    pub const DOCK_DISCONNECTED: TexQuad = Tex::quad(139, 140, 142, 141);
-    pub const DOCK_DISCONNECTED_SAIL: TexQuad = Tex::quad(143, 144, 146, 145);
+    pub const DOCK_DISCONNECTED: TexQuad = quad(139, 140, 142, 141);
+    pub const DOCK_DISCONNECTED_SAIL: TexQuad = quad(143, 144, 146, 145);
+    pub const DOCK_DISCONNECTED_SAIL_WIND0: TexQuad = quad(178, 179, 0, 0);
+    pub const DOCK_DISCONNECTED_SAIL_WIND1: TexQuad = quad(180, 181, 0, 0);
 
     // PATHS
-    pub const PATH1: Self = Tex::single(40);
-    pub const PATH2: Self = Tex::single(41);
-    pub const PATH3: Self = Tex::single(42);
-    pub const PATH4: Self = Tex::single(43);
-    pub const PATH5: Self = Tex::single(44);
-    pub const PATH6: Self = Tex::single(45);
-    pub const PATH7: Self = Tex::single(46);
-    pub const PATH8: Self = Tex::single(47);
-    pub const PATH9: Self = Tex::single(48);
+    pub const PATH1: Self = t(40);
+    pub const PATH2: Self = t(41);
+    pub const PATH3: Self = t(42);
+    pub const PATH4: Self = t(43);
+    pub const PATH5: Self = t(44);
+    pub const PATH6: Self = t(45);
+    pub const PATH7: Self = t(46);
+    pub const PATH8: Self = t(47);
+    pub const PATH9: Self = t(48);
 
     // DECOR
-    pub const DECOR_PLANTER1: Self = Tex::single(111);
-    pub const DECOR_PLANTER1_COLOR: Self = Tex::single(116);
-    pub const DECOR_PLANTER2: Self = Tex::single(112);
-    pub const DECOR_PLANTER2_COLOR: Self = Tex::single(117);
-    pub const DECOR_BUSH: Self = Tex::single(113);
-    pub const DECOR_BUSH_COLOR: Self = Tex::single(118);
-    pub const DECOR_WHEAT: Self = Tex::single(114);
+    pub const DECOR_PLANTER1: Self = t(111);
+    pub const DECOR_PLANTER1_COLOR: Self = t(116);
+    pub const DECOR_PLANTER2: Self = t(112);
+    pub const DECOR_PLANTER2_COLOR: Self = t(117);
+    pub const DECOR_BUSH: Self = t(113);
+    pub const DECOR_BUSH_COLOR: Self = t(118);
+    pub const DECOR_WHEAT: Self = t(114);
+    pub const DECOR_WHEAT_WIND0: Self = t(215);
     pub const DECOR_WHEAT_COLOR: Self = Self::NONE;
-    pub const DECOR_WELL: Self = Tex::single(115);
+    pub const DECOR_WELL: Self = t(115);
     pub const DECOR_WELL_COLOR: Self = Self::NONE;
 
     // BUTTONS
-    pub const BUTTON_TOWN: TexQuad = Tex::quad(119, 120, 126, 125);
-    pub const BUTTON_TOWN_COLOR: TexQuad = Tex::quad(131, 132, 134, 133);
+    pub const BUTTON_TOWN: TexQuad = quad(119, 120, 126, 125);
+    pub const BUTTON_TOWN_COLOR: TexQuad = quad(131, 132, 134, 133);
 
-    pub const BUTTON_DOCK: TexQuad = Tex::quad(121, 122, 128, 127);
-    pub const BUTTON_DOCK_COLOR: TexQuad = Tex::quad(135, 136, 138, 137);
+    pub const BUTTON_DOCK: TexQuad = quad(121, 122, 128, 127);
+    pub const BUTTON_DOCK_COLOR: TexQuad = quad(135, 136, 138, 137);
 
-    pub const BUTTON_LAND: TexQuad = Tex::quad(123, 124, 130, 129);
+    pub const BUTTON_LAND: TexQuad = quad(123, 124, 130, 129);
+
+    // Dialog
+    pub const DIALOG_NW: Self = t(248);
+    pub const DIALOG_N: Self = t(249);
+    pub const DIALOG_NE: Self = t(250);
+    pub const DIALOG_E: Self = t(253);
+    pub const DIALOG_SE: Self = t(256);
+    pub const DIALOG_S: Self = t(255);
+    pub const DIALOG_SW: Self = t(254);
+    pub const DIALOG_W: Self = t(251);
+    pub const DIALOG_CENTER: Self = t(252);
 }
 
 pub trait Tint {
@@ -199,6 +281,17 @@ impl Tint for Vec<Tex> {
     }
 }
 
+impl Tint for Vec<Vec<Tex>> {
+    fn tint(mut self, color: Color32) -> Self {
+        for row in &mut self {
+            for tex in row {
+                tex.tint = Some(color);
+            }
+        }
+        self
+    }
+}
+
 impl Tex {
     pub fn game_tile(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
         let mut tex = vec![];
@@ -214,6 +307,7 @@ impl Tex {
     }
 
     pub fn board_game_tile(
+        variant: MappedTileVariant,
         color: Option<Color32>,
         highlight: Option<Color32>,
         seed: usize,
@@ -222,19 +316,72 @@ impl Tex {
         texs.push([
             Self::NONE,
             Self::NONE,
-            match quickrand(seed) {
+            match quickrand(seed) % 100 {
                 0..=25 => Self::TILE_SE_GRASS1,
                 26..=50 => Self::TILE_SE_GRASS2,
                 51..=75 => Self::TILE_SE_GRASS3,
                 _ => Self::TILE_SE_GRASS4,
             },
-            match quickrand(seed + 678) {
+            match quickrand(seed + 678) % 100 {
                 0..=25 => Self::TILE_SW_GRASS1,
                 26..=50 => Self::TILE_SW_GRASS2,
                 51..=75 => Self::TILE_SW_GRASS3,
                 _ => Self::TILE_SW_GRASS4,
             },
         ]);
+        match variant {
+            MappedTileVariant::Healthy => {}
+            MappedTileVariant::Dying => {
+                texs.push(
+                    match quickrand(seed) % 100 {
+                        0..=19 => Self::TILE_CRACK_1,
+                        20..=39 => Self::TILE_CRACK_2,
+                        40..=59 => Self::TILE_CRACK_3,
+                        60..=79 => Self::TILE_CRACK_4,
+                        _ => Self::TILE_CRACK_5,
+                    }
+                    .tint(color.unwrap_or_default()),
+                );
+            }
+            MappedTileVariant::Dead => {
+                for i in 0..2 {
+                    texs.push(
+                        match quickrand(seed + i) % 100 {
+                            0..=19 => Self::TILE_CRACK_1,
+                            20..=39 => Self::TILE_CRACK_2,
+                            40..=59 => Self::TILE_CRACK_3,
+                            60..=79 => Self::TILE_CRACK_4,
+                            _ => Self::TILE_CRACK_5,
+                        }
+                        .tint(color.unwrap_or_default()),
+                    );
+                }
+            }
+            MappedTileVariant::Gone => {
+                texs = vec![[
+                    match quickrand(seed + 345) % 100 {
+                        0..=33 => Self::TILE_REMNANT_1[0],
+                        34..=66 => Self::TILE_REMNANT_2[0],
+                        _ => Self::TILE_REMNANT_3[0],
+                    },
+                    match quickrand(seed + 757) % 100 {
+                        0..=33 => Self::TILE_REMNANT_1[1],
+                        34..=66 => Self::TILE_REMNANT_2[1],
+                        _ => Self::TILE_REMNANT_3[1],
+                    },
+                    match quickrand(seed + 8447) % 100 {
+                        0..=33 => Self::TILE_REMNANT_1[2],
+                        34..=66 => Self::TILE_REMNANT_2[2],
+                        _ => Self::TILE_REMNANT_3[2],
+                    },
+                    match quickrand(seed + 477387) % 100 {
+                        0..=33 => Self::TILE_REMNANT_1[3],
+                        34..=66 => Self::TILE_REMNANT_2[3],
+                        _ => Self::TILE_REMNANT_3[3],
+                    },
+                ]];
+            }
+        }
         texs
     }
 
@@ -288,16 +435,75 @@ impl Tex {
         .concat()
     }
 
-    fn dock(color: Option<Color32>, neighbors: Vec<BGTexType>) -> Vec<TexQuad> {
+    pub fn text_dialog(x_tiles: usize, y_tiles: usize) -> Vec<Vec<Tex>> {
+        let middle_x_tiles = x_tiles.saturating_sub(2);
+        let middle_y_tiles = y_tiles.saturating_sub(2);
+
+        [
+            vec![[
+                vec![Self::DIALOG_NW],
+                vec![Self::DIALOG_N; middle_x_tiles],
+                vec![Self::DIALOG_NE],
+            ]
+            .concat()],
+            vec![
+                [
+                    vec![Self::DIALOG_W],
+                    vec![Self::DIALOG_CENTER; middle_x_tiles],
+                    vec![Self::DIALOG_E]
+                ]
+                .concat();
+                middle_y_tiles
+            ],
+            vec![[
+                vec![Self::DIALOG_SW],
+                vec![Self::DIALOG_S; middle_x_tiles],
+                vec![Self::DIALOG_SE],
+            ]
+            .concat()],
+        ]
+        .concat()
+    }
+
+    fn dock(color: Option<Color32>, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> Vec<TexQuad> {
         // TODO: Render docks with multiple edges somehow.
+
         let mut dock = if matches!(neighbors[1], BGTexType::Land) {
-            vec![Self::DOCK_SOUTH, Self::DOCK_SOUTH_SAIL]
+            vec![
+                Self::DOCK_SOUTH,
+                match wind_at_coord {
+                    calm!() => Self::DOCK_SOUTH_SAIL,
+                    breeze!() => Self::DOCK_SOUTH_SAIL_WIND0,
+                    _ => Self::DOCK_SOUTH_SAIL_WIND1,
+                },
+            ]
         } else if matches!(neighbors[5], BGTexType::Land) {
-            vec![Self::DOCK_NORTH, Self::DOCK_NORTH_SAIL]
+            vec![
+                Self::DOCK_NORTH,
+                match wind_at_coord {
+                    calm!() => Self::DOCK_NORTH_SAIL,
+                    breeze!() => Self::DOCK_NORTH_SAIL_WIND0,
+                    _ => Self::DOCK_NORTH_SAIL_WIND1,
+                },
+            ]
         } else if matches!(neighbors[3], BGTexType::Land) {
-            vec![Self::DOCK_WEST, Self::DOCK_WEST_SAIL]
+            vec![
+                Self::DOCK_WEST,
+                match wind_at_coord {
+                    calm!() => Self::DOCK_WEST_SAIL,
+                    breeze!() => Self::DOCK_WEST_SAIL_WIND0,
+                    _ => Self::DOCK_WEST_SAIL_WIND1,
+                },
+            ]
         } else if matches!(neighbors[7], BGTexType::Land) {
-            vec![Self::DOCK_EAST, Self::DOCK_EAST_SAIL]
+            vec![
+                Self::DOCK_EAST,
+                match wind_at_coord {
+                    calm!() => Self::DOCK_EAST_SAIL,
+                    breeze!() => Self::DOCK_EAST_SAIL_WIND0,
+                    _ => Self::DOCK_EAST_SAIL_WIND1,
+                },
+            ]
         } else {
             vec![Self::DOCK_DISCONNECTED, Self::DOCK_DISCONNECTED_SAIL]
         };
@@ -307,12 +513,31 @@ impl Tex {
         dock
     }
 
-    fn town(color: Option<Color32>, seed: usize) -> Vec<TexQuad> {
+    fn town(color: Option<Color32>, seed: usize, tick: u64, wind_at_coord: u8) -> Vec<TexQuad> {
+        let anim_index = (quickrand(seed + 3) + tick as usize) % 30;
         let rand_house = |n: usize| match quickrand(n) {
-            0..=25 => (Self::HOUSE1, Self::ROOF1),
-            26..=50 => (Self::HOUSE3, Self::ROOF3),
-            51..=75 => (Self::HOUSE2, Self::ROOF2),
-            _ => (Self::HOUSE4, Self::ROOF4),
+            0..=25 => (
+                Self::HOUSE1,
+                Self::ROOF1,
+                match (anim_index, wind_at_coord) {
+                    (5.., _) => Self::NONE,
+                    (_, calm!()) => Self::ROOF1_SMOKE[anim_index],
+                    (_, breeze!()) => Self::ROOF1_SMOKE_WIND0[anim_index],
+                    _ => Self::ROOF1_SMOKE_WIND1[anim_index],
+                },
+            ),
+            26..=50 => (Self::HOUSE3, Self::ROOF3, Self::NONE),
+            51..=75 => (
+                Self::HOUSE2,
+                Self::ROOF2,
+                match (anim_index, wind_at_coord) {
+                    (5.., _) => Self::NONE,
+                    (_, calm!()) => Self::ROOF2_SMOKE[anim_index],
+                    (_, breeze!()) => Self::ROOF2_SMOKE_WIND0[anim_index],
+                    _ => Self::ROOF2_SMOKE_WIND1[anim_index],
+                },
+            ),
+            _ => (Self::HOUSE4, Self::ROOF4, Self::NONE),
         };
 
         let rand_house_colored = |n: usize| {
@@ -327,7 +552,13 @@ impl Tex {
             0..=20 => (Self::DECOR_PLANTER1, Self::DECOR_PLANTER1_COLOR),
             21..=40 => (Self::DECOR_PLANTER2, Self::DECOR_PLANTER2_COLOR),
             41..=60 => (Self::DECOR_BUSH, Self::DECOR_BUSH_COLOR),
-            61..=80 => (Self::DECOR_WHEAT, Self::DECOR_WHEAT_COLOR),
+            61..=80 => (
+                match wind_at_coord {
+                    calm!() | breeze!() => Self::DECOR_WHEAT,
+                    _ => Self::DECOR_WHEAT_WIND0,
+                },
+                Self::DECOR_WHEAT_COLOR,
+            ),
             _ => (Self::DECOR_WELL, Self::DECOR_WELL_COLOR),
         };
 
@@ -369,6 +600,7 @@ impl Tex {
                 rand_path(seed + 4444),
             ],
             [Self::NONE, Self::NONE, Self::NONE, Self::NONE],
+            [Self::NONE, Self::NONE, Self::NONE, Self::NONE],
         ];
 
         for d in 0..numdecor {
@@ -383,10 +615,11 @@ impl Tex {
         // it just skews the average house number down slightly.
         for h in 0..numhouses {
             let housepos = quickrand(seed + 45 * h) % 4;
-            let (house, roof) = rand_house_colored(seed + 6 * h);
+            let (house, roof, smoke) = rand_house_colored(seed + 6 * h);
 
             texs[0][housepos] = house;
             texs[1][housepos] = roof;
+            texs[2][housepos] = smoke;
         }
 
         texs
@@ -400,17 +633,41 @@ impl Tex {
         neighbors: Vec<BGTexType>,
         color: Option<Color32>,
         seed: usize,
+        tick: u64,
+        wind_at_coord: u8,
     ) -> Vec<TexQuad> {
         debug_assert_eq!(neighbors.len(), 8);
         if neighbors.len() != 8 {
             return vec![[Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]];
         }
 
+        let grasses = match wind_at_coord {
+            calm!() => [Self::GRASS1, Self::GRASS2, Self::GRASS3, Self::GRASS4],
+            breeze!() => [
+                Self::GRASS1_WIND0,
+                Self::GRASS2_WIND0,
+                Self::GRASS3_WIND0,
+                Self::GRASS4_WIND0,
+            ],
+            wind!() => [
+                Self::GRASS1_WIND1,
+                Self::GRASS2_WIND1,
+                Self::GRASS3_WIND1,
+                Self::GRASS4_WIND1,
+            ],
+            _ => [
+                Self::GRASS1_WIND2,
+                Self::GRASS2_WIND2,
+                Self::GRASS3_WIND2,
+                Self::GRASS4_WIND2,
+            ],
+        };
+
         let rand_grass = |n: usize| match quickrand(n) {
-            0..=70 => Self::GRASS1,
-            71..=85 => Self::GRASS2,
-            86..=94 => Self::GRASS3,
-            _ => Self::GRASS4,
+            0..=70 => grasses[0],
+            71..=85 => grasses[1],
+            86..=94 => grasses[2],
+            _ => grasses[3],
         };
 
         use BGTexType::*;
@@ -462,8 +719,8 @@ impl Tex {
 
         if let Some(layer) = layer_type {
             match layer {
-                FGTexType::Town => texs.extend(Tex::town(color, seed)),
-                FGTexType::Dock => texs.extend(Tex::dock(color, neighbors)),
+                FGTexType::Town => texs.extend(Tex::town(color, seed, tick, wind_at_coord)),
+                FGTexType::Dock => texs.extend(Tex::dock(color, neighbors, wind_at_coord)),
             }
         }
 
@@ -478,7 +735,7 @@ impl Tex {
             ) => Some(Self::ISLAND),
             (
                 BoardEditingMode::Land | BoardEditingMode::Dock(_),
-                Square::Land | Square::Town(_),
+                Square::Land | Square::Town { .. },
             ) => Some(Self::LAKE),
             _ => None,
         }
@@ -574,9 +831,31 @@ pub fn render_texs_clockwise(
     }
 }
 
-fn quickrand(mut n: usize) -> usize {
-    n ^= n << 13;
-    n ^= n >> 7;
-    n ^= n << 17;
-    n % 100
+pub fn render_tex_rows(
+    texs: Vec<Vec<Tex>>,
+    rect: Rect,
+    map_texture: &TextureHandle,
+    ui: &mut egui::Ui,
+) {
+    let region = rect.size();
+    let tile_height = region.y / texs.len() as f32;
+
+    let mut tile_rect = rect.clone();
+    tile_rect.set_height(tile_height);
+
+    for (rownum, row) in texs.into_iter().enumerate() {
+        let tile_width = region.x / row.len() as f32;
+        tile_rect.set_width(tile_width);
+
+        for (colnum, tex) in row.into_iter().enumerate() {
+            tex.render(
+                map_texture.id(),
+                tile_rect.translate(vec2(
+                    tile_width * colnum as f32,
+                    tile_height * rownum as f32,
+                )),
+                ui,
+            );
+        }
+    }
 }

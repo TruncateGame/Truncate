@@ -69,7 +69,7 @@ impl<'a> TimerUI<'a> {
         }
     }
 
-    fn human_time(seconds: i64) -> String {
+    fn human_time(seconds: i64, absolute: bool) -> String {
         let abs_secs = seconds.abs();
         let h_minutes = abs_secs / 60;
         let h_seconds = abs_secs % 60;
@@ -80,8 +80,10 @@ impl<'a> TimerUI<'a> {
             format!("{h_seconds}s")
         };
 
-        if seconds.is_negative() {
-            time_string.extend(" overtime".chars());
+        if !absolute {
+            if seconds.is_negative() {
+                time_string.extend(" overtime".chars());
+            }
         }
 
         time_string
@@ -105,7 +107,7 @@ impl<'a> TimerUI<'a> {
                 if let Some(elapsed) = elapsed {
                     if let Some(time) = self.player.time_remaining {
                         self.time = time - Duration::seconds(elapsed as i64);
-                        format!("{}", TimerUI::human_time(self.time.whole_seconds()))
+                        format!("{}", TimerUI::human_time(self.time.whole_seconds(), false))
                     } else {
                         format!("Playing")
                     }
@@ -113,16 +115,16 @@ impl<'a> TimerUI<'a> {
                     let starts_in = (next_turn.saturating_sub(now) as i64) * -1;
                     if let Some(time) = self.player.time_remaining {
                         self.time = time;
-                        format!("Wait {}", TimerUI::human_time(starts_in))
+                        format!("Wait {}", TimerUI::human_time(starts_in, true))
                     } else {
-                        format!("Wait {}", TimerUI::human_time(starts_in))
+                        format!("Wait {}", TimerUI::human_time(starts_in, true))
                     }
                 }
             }
             None => {
                 if let Some(time) = self.player.time_remaining {
                     self.time = time;
-                    format!("{}", TimerUI::human_time(self.time.whole_seconds()))
+                    format!("{}", TimerUI::human_time(self.time.whole_seconds(), false))
                 } else {
                     format!("")
                 }
@@ -141,12 +143,12 @@ impl<'a> TimerUI<'a> {
         ui.allocate_rect(inner_timer_rect, Sense::hover());
 
         // Render the player name in the top left
-        let text = TextHelper::heavy(&self.player.name, font_z, ui);
+        let text = TextHelper::heavy(&self.player.name, font_z, None, ui);
         let name_size = text.size();
         text.paint_at(inner_timer_rect.left_top(), timer_color, ui);
 
         let time_string = self.calculate_time();
-        let text = TextHelper::heavy(&time_string, font_z, ui);
+        let text = TextHelper::heavy(&time_string, font_z, None, ui);
         let time_size = text.size();
 
         // Render the remaining time in the top left,

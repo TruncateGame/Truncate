@@ -6,6 +6,7 @@ use epaint::{hex_color, Color32, Hsva};
 #[derive(Debug, Clone)]
 pub struct Theme {
     pub water: Color32,
+    pub grass: Color32,
     pub enemy: Color32,
     pub text: Color32,
     pub selection: Color32,
@@ -25,6 +26,7 @@ impl Default for Theme {
     fn default() -> Self {
         Self {
             water: hex_color!("#50A7E8"),
+            grass: hex_color!("#7BCB69"),
             enemy: hex_color!("#F7BDB6"),
             text: hex_color!("#333333"),
             selection: hex_color!("#D78D1D"),
@@ -50,7 +52,7 @@ impl Theme {
         board_height: usize,
         scale_bounds: Range<f32>,
         pad_by: (usize, usize),
-    ) -> (Margin, Self) {
+    ) -> ((f32, f32), Margin, Self) {
         let mut ideal_grid = avail_space.width() / (board_width + pad_by.0) as f32;
         let y_space = avail_space.height() / (board_height + pad_by.1) as f32;
         if y_space < ideal_grid {
@@ -64,6 +66,7 @@ impl Theme {
         let height = (board_height) as f32 * (self.grid_size * scale);
 
         (
+            (width, height),
             Margin::symmetric(
                 (avail_space.width() - width) / 2.0,
                 (avail_space.height() - height) / 2.0,
