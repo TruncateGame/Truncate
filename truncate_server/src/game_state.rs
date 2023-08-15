@@ -1,10 +1,10 @@
+use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::{Mutex, MutexGuard};
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
-    messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
+    messages::{GameMessage, GameStateMessage, LobbyPlayerMessage},
     moves::Move,
     reporting::Change,
 };
@@ -22,20 +22,20 @@ pub struct PlayerClaims {
     pub room_code: String,
 }
 
-pub struct GameState {
+pub struct GameManager {
     pub game_id: String,
     pub players: Vec<Player>,
-    pub game: Game,
+    pub core_game: Game,
 }
 
-impl GameState {
+impl GameManager {
     pub fn new(game_id: String) -> Self {
         let game = Game::new(9, 11);
 
         Self {
             game_id,
             players: vec![],
-            game,
+            core_game: game,
         }
     }
 
@@ -53,11 +53,11 @@ impl GameState {
     }
 
     pub fn add_player(&mut self, player: Player, name: String) -> Result<usize, ()> {
-        if self.game.started_at.is_some() {
+        if self.core_game.started_at.is_some() {
             return Err(()); // TODO: Error types
         }
         // TODO: Check player #
-        self.game.add_player(name);
+        self.core_game.add_player(name);
         self.players.push(player);
         Ok(self.players.len() - 1)
     }
@@ -77,7 +77,7 @@ impl GameState {
 
     pub fn rename_player(&mut self, socket: SocketAddr, name: String) -> Result<(), ()> {
         if let Some(player_index) = self.get_player_index(socket) {
-            self.game.players[player_index].name = name;
+            self.core_game.players[player_index].name = name;
             Ok(())
         } else {
             println!("Couldn't rename player. Nothing stored for player {socket}");
@@ -86,7 +86,7 @@ impl GameState {
     }
 
     pub fn player_list(&self) -> Vec<LobbyPlayerMessage> {
-        self.game
+        self.core_game
             .players
             .iter()
             .map(|p| LobbyPlayerMessage {
@@ -98,7 +98,7 @@ impl GameState {
     }
 
     pub fn edit_board(&mut self, board: Board) {
-        self.game.board = board;
+        self.core_game.board = board;
     }
 
     pub fn game_msg(
@@ -106,7 +106,7 @@ impl GameState {
         player_index: usize,
         word_map: Option<&MutexGuard<'_, WordDB>>,
     ) -> GameStateMessage {
-        let (board, mut changes) = self.game.filter_game_to_player(player_index);
+        let (board, mut changes) = self.core_game.filter_game_to_player(player_index);
 
         if let Some(definitions) = word_map {
             for battle in changes.iter_mut().filter_map(|change| match change {
@@ -118,7 +118,8 @@ impl GameState {
                     .iter_mut()
                     .filter(|w| w.valid == Some(true))
                 {
-                    if let Some(meanings) = definitions.get_word(&word.word.to_lowercase()) {
+                    if let Some(meanings) = definitions.get_word(&word.resolved_word.to_lowercase())
+                    {
                         word.meanings = Some(meanings.clone());
                     }
                 }
@@ -128,7 +129,8 @@ impl GameState {
                     .iter_mut()
                     .filter(|w| w.valid == Some(true))
                 {
-                    if let Some(meanings) = definitions.get_word(&word.word.to_lowercase()) {
+                    if let Some(meanings) = definitions.get_word(&word.resolved_word.to_lowercase())
+                    {
                         word.meanings = Some(meanings.clone());
                     }
                 }
@@ -136,7 +138,7 @@ impl GameState {
         }
 
         let hand = self
-            .game
+            .core_game
             .get_player(player_index)
             .expect("Player should have been dealt a hand")
             .hand
@@ -144,22 +146,22 @@ impl GameState {
 
         GameStateMessage {
             room_code: self.game_id.clone(),
-            players: self.game.players.iter().map(Into::into).collect(),
+            players: self.core_game.players.iter().map(Into::into).collect(),
             player_number: player_index as u64,
-            next_player_number: self.game.next() as u64,
+            next_player_number: self.core_game.next() as u64,
             board,
             hand,
             changes,
         }
     }
 
-    pub async fn start(&mut self) -> Vec<(&Player, GameMessage)> {
+    pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
         // TODO: Check correct # of players
 
         // Trim off all edges and add one back for our land edges to show in the gui
-        self.game.board.trim();
+        self.core_game.board.trim();
 
-        self.game.start();
+        self.core_game.start();
         let mut messages = Vec::with_capacity(self.players.len());
 
         // TODO: Maintain an index of Player to the Game player index
@@ -174,7 +176,7 @@ impl GameState {
         messages
     }
 
-    pub async fn play(
+    pub fn play(
         &mut self,
         player: SocketAddr,
         position: Coordinate,
@@ -184,8 +186,8 @@ impl GameState {
         let mut messages = Vec::with_capacity(self.players.len());
 
         if let Some(player_index) = self.get_player_index(player) {
-            let words_db = words.lock().await;
-            match self.game.play_turn(
+            let words_db = words.lock();
+            match self.core_game.play_turn(
                 Move::Place {
                     player: player_index,
                     tile,
@@ -232,7 +234,7 @@ impl GameState {
 
     // TODO: Combine method with play and pass in a `Move` type
     // (need to solve the player lookup first)
-    pub async fn swap(
+    pub fn swap(
         &mut self,
         player: SocketAddr,
         from: Coordinate,
@@ -242,8 +244,8 @@ impl GameState {
         let mut messages = Vec::with_capacity(self.players.len());
 
         if let Some(player_index) = self.get_player_index(player) {
-            let words_db = words.lock().await;
-            match self.game.play_turn(
+            let words_db = words.lock();
+            match self.core_game.play_turn(
                 Move::Swap {
                     player: player_index,
                     positions: [from, to],

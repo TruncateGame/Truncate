@@ -48,15 +48,21 @@ impl<'a> BoardUI<'a> {
         let game_area = ui.available_rect_before_wrap();
         ui.set_clip_rect(game_area);
 
-        let (_, theme) = ctx.theme.calc_rescale(
+        let ((resolved_board_width, resolved_board_height), _, theme) = ctx.theme.calc_rescale(
             &game_area, 
             self.board.width(),
             self.board.height(),
             0.4..2.0,
-            (2, 2)
+            (0, 0)
         );
         let theme = theme.rescale(ctx.board_zoom);
         let outer_frame = egui::Frame::none().inner_margin(0.0);
+
+        if !ctx.board_moved {
+            let panx = (game_area.width() - resolved_board_width) / 2.0;
+            let pany = (game_area.height() - resolved_board_height) / 2.0;
+            ctx.board_pan = vec2(panx, pany);
+        }
 
         // TODO: Remove this hack, which is currently non-destructive place as the board is the last thing we render.
         // We instead need a way to create a GameCtx scoped to a different theme (or go back to drilling Theme objects down through funcs).
@@ -117,7 +123,7 @@ impl<'a> BoardUI<'a> {
                                             (BoardChangeAction::Swapped, Some(tile)) => Some(tile.modified(true)),
                                             (BoardChangeAction::Defeated, None) => 
                                                 match change.detail.square {
-                                                    Water | Land | Town(_) | Dock(_) => None,
+                                                    Water | Land | Town{..} | Dock(_) => None,
                                                     Occupied(player, char) => Some((player, char)),
                                                 }
                                                 .map(
@@ -129,7 +135,7 @@ impl<'a> BoardUI<'a> {
                                                 ),
                                             (BoardChangeAction::Truncated, None) => 
                                                 match change.detail.square {
-                                                    Water | Land | Town(_) | Dock(_) => None,
+                                                    Water | Land | Town{..} | Dock(_) => None,
                                                     Occupied(player, char) => Some((player, char)),
                                                 }
                                                 .map(
@@ -141,7 +147,7 @@ impl<'a> BoardUI<'a> {
                                                 ),
                                             (BoardChangeAction::Exploded, None) =>
                                                 match change.detail.square {
-                                                    Water | Land | Town(_) | Dock(_) => None,
+                                                    Water | Land | Town{..} | Dock(_) => None,
                                                     Occupied(player, char) => Some((player, char)),
                                                 }
                                                 .map(
@@ -154,7 +160,7 @@ impl<'a> BoardUI<'a> {
                                             (BoardChangeAction::Victorious, Some(tile)) => Some(tile.victor(true)),
                                             (BoardChangeAction::Victorious, None) =>
                                                 match change.detail.square {
-                                                    Water | Land | Town(_) | Dock(_) => None,
+                                                    Water | Land | Town{..} | Dock(_) => None,
                                                     Occupied(player, char) => Some((player, char)),
                                                 }
                                                 .map(
@@ -302,6 +308,7 @@ impl<'a> BoardUI<'a> {
             if capture_action {
                 // --- Zooming ---
                 if zoom_delta != 1.0 {
+                    ctx.board_moved = true;
                     
                     ctx.board_zoom *= zoom_delta;
                     let diff = board_pos.size() - board_pos.size() * zoom_delta;
@@ -317,6 +324,8 @@ impl<'a> BoardUI<'a> {
                 }
                 // --- Panning ---
                 if scroll_delta != Vec2::ZERO {
+                    ctx.board_moved = true;
+
                     ctx.board_pan += scroll_delta;
                     board_pos = board_pos.translate(scroll_delta);
                 }
@@ -329,6 +338,7 @@ impl<'a> BoardUI<'a> {
         if ui.memory(|mem| mem.is_being_dragged(area_id.id)) {
             let pointer_delta = ui.ctx().input(|i| i.pointer.delta());
             ctx.board_pan += pointer_delta;
+            ctx.board_moved = true;
             board_pos = board_pos.translate(pointer_delta);
         }
 
@@ -336,6 +346,7 @@ impl<'a> BoardUI<'a> {
         if let Some(touch) = ui.input(|i| i.multi_touch()) {
             ctx.board_zoom *= (touch.zoom_delta - 1.0) * 0.25 + 1.0;
             ctx.board_pan += touch.translation_delta;
+            ctx.board_moved = true;
             board_pos = board_pos.translate(touch.translation_delta);
         }
 
@@ -344,7 +355,6 @@ impl<'a> BoardUI<'a> {
             ctx.board_zoom = previous_state.0;
             ctx.board_pan = previous_state.1;
         }
-
 
         // let resolved_x = (self.board.width() * ctx.theme.grid_size * ctx.board_zoom) ctx.board_pan
 

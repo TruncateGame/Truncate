@@ -43,6 +43,7 @@ pub struct GameCtx {
     pub error_msg: Option<String>,
     pub map_texture: TextureHandle,
     pub player_colors: Vec<Color32>,
+    pub board_moved: bool,
     pub board_zoom: f32,
     pub board_pan: Vec2,
     pub sidebar_visible: bool,
@@ -100,6 +101,7 @@ impl ActiveGame {
                 error_msg: None,
                 map_texture: map_texture.clone(),
                 player_colors: player_colors.clone(),
+                board_moved: false,
                 board_zoom: 1.0,
                 board_pan: vec2(0.0, 0.0),
                 sidebar_visible: false,
@@ -133,18 +135,19 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
-    ) -> Option<PlayerMessage> {
+    ) -> (Rect, Option<PlayerMessage>) {
         let mut msg = None;
+        let companion_space = 220.0;
 
         let control_anchor = if self.ctx.timers_visible {
             vec2(0.0, 0.0)
         } else {
-            vec2(0.0, -200.0)
+            vec2(0.0, -companion_space)
         };
 
         if !self.ctx.timers_visible {
             let mut companion_pos = ui.available_rect_before_wrap();
-            companion_pos.set_top(companion_pos.bottom() - 200.0);
+            companion_pos.set_top(companion_pos.bottom() - companion_space);
             self.ctx.hand_companion_rect = Some(companion_pos);
         }
 
@@ -171,7 +174,7 @@ impl ActiveGame {
                     ui.add_space(10.0);
 
                     if winner.is_some() {
-                        let text = TextHelper::heavy("REMATCH", 12.0, ui);
+                        let text = TextHelper::heavy("REMATCH", 12.0, None, ui);
                         if text
                             .centered_button(
                                 theme.selection.lighten().lighten(),
@@ -225,7 +228,7 @@ impl ActiveGame {
                     }
 
                     if self.ctx.is_mobile {
-                        let text = TextHelper::heavy("VIEW INFO", 12.0, ui);
+                        let text = TextHelper::heavy("VIEW INFO", 12.0, None, ui);
                         if text
                             .centered_button(
                                 Color32::WHITE.diaphanize(),
@@ -245,7 +248,7 @@ impl ActiveGame {
 
         self.ctx.hand_total_rect = Some(resp.response.rect);
 
-        msg
+        (resp.response.rect, msg)
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
@@ -273,7 +276,7 @@ impl ActiveGame {
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
                 ui.expand_to_include_rect(inner_sidebar_area);
                 if self.ctx.is_mobile {
-                    let text = TextHelper::heavy("CLOSE INFO", 12.0, ui);
+                    let text = TextHelper::heavy("CLOSE INFO", 12.0, None, ui);
                     if text
                         .centered_button(
                             Color32::WHITE.diaphanize(),
@@ -368,11 +371,15 @@ impl ActiveGame {
             self.ctx.is_mobile = true;
         }
 
-        let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
-        let control_player_message = self.render_control_strip(&mut game_space_ui, theme, winner);
+        let mut control_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
+        let (control_strip_rect, control_player_message) =
+            self.render_control_strip(&mut control_strip_ui, theme, winner);
 
         let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
         self.render_sidebar(&mut sidebar_space_ui, theme, winner);
+
+        game_space.set_bottom(control_strip_rect.top());
+        let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
         let player_message = BoardUI::new(&self.board)
             .render(

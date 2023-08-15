@@ -303,7 +303,7 @@
         <div class="sub" data-stage="rejoin">
             <div class="split">
                 <button data-control="rejoin" class="fill">REJOIN ACTIVE GAME</button>
-                <button type="button" data-control="cancel_to_root" class="thin"
+                <button type="button" data-control="cancel_rejoin" class="thin"
                     aria-label="Cancel rejoining recent game">X</button>
             </div>
         </div>
@@ -793,33 +793,47 @@
 
             const existing_game_token = window.localStorage.getItem("truncate_active_token");
             if (existing_game_token) {
+                window.addEventListener('load', (event) => {
+                    window?.fathom?.trackGoal?.("{{ env.analytics_events.PROMPT_REJOIN }}", 0);
+                });
                 stage("rejoin");
             }
 
             control_plural("cancel_to_root").forEach(c => c.addEventListener("click", e => {
                 stage("root");
             }));
+            control("cancel_rejoin").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.CANCEL_REJOIN }}", 0);
+                stage("root");
+            });
             control("to_about").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.VIEW_CREDITS }}", 0);
                 stage("about");
                 document.querySelector("#about_truncate").showModal();
             });
 
             control("rejoin").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.REJOIN }}", 0);
                 truncate_runner.rejoin_game();
             });
             control("to_multi_game").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.MULTI_PLAYER }}", 0);
                 stage("multi");
             });
             control("tutorial").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.START_TUTORIAL }}", 0);
                 truncate_runner.join_game("TUTORIAL_01");
             });
             control("to_create_game").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.PLAY_GAME }}", 0);
                 stage("create");
             });
             control("new_single").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.START_SOLO }}", 0);
                 truncate_runner.join_game("SINGLE_PLAYER");
             });
             control("new_multi").addEventListener("click", e => {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.START_MULTI }}", 0);
                 truncate_runner.create_game();
             });
             control("to_join_game").addEventListener("click", e => {
@@ -841,6 +855,7 @@
                     }, 500);
                     return;
                 }
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.JOIN_ROOM }}", 0);
 
                 truncate_runner.join_game(room);
 
@@ -852,6 +867,7 @@
 
             let room_code = window.location.hash.substring(1);
             if (room_code) {
+                window?.fathom?.trackGoal?.("{{ env.analytics_events.JOIN_BY_LINK }}", 0);
                 truncate_runner.join_game(room_code);
             }
 
@@ -866,6 +882,7 @@
 
                 function on_wasm_loaded() {
                     console.debug("Loaded Truncate webassembly");
+                    window?.fathom?.trackGoal?.("{{ env.analytics_events.LOADED_TRUNCATE }}", 0);
                     const default_server = window.location.host.includes("outpost") ? "wss://coup.truncate.town" : "wss://citadel.truncate.town";
                     const local_server = window.location.host.includes("localhost") ? "ws://0.0.0.0:8080" : null;
                     const server = new URLSearchParams(window.location.search).get("server") ?? local_server ?? default_server;
@@ -885,6 +902,7 @@
 
                 function on_wasm_error(error) {
                     console.error("Failed to start: " + error);
+                    window?.fathom?.trackGoal?.("{{ env.analytics_events.ERRORED_TRUNCATE }}", 0);
                     truncate_runner.error(error);
                 }
             })();

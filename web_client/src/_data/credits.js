@@ -62,12 +62,12 @@ module.exports = function () {
         "license_url": "http://scripts.sil.org/OFL"
       },
       {
-        "name": "Pixel Operator",
-        "url": "https://www.dafont.com/pixel-operator.font",
-        "author": "Jayvee Enaguas",
-        "author_url": "https://www.dafont.com/jayvee-d-enaguas.d2725",
-        "license": "OFL",
-        "license_url": "http://scripts.sil.org/OFL"
+        "name": "at01",
+        "url": "https://grafxkid.itch.io/at01",
+        "author": "GrafxKid",
+        "author_url": "https://grafxkid.itch.io/",
+        "license": "CC0 1.0",
+        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
       }
     ],
     data_assets: [
