@@ -62,12 +62,12 @@ module.exports = function () {
         "license_url": "http://scripts.sil.org/OFL"
       },
       {
-        "name": "Cute Prop",
-        "url": "https://retro-pixel-font.takwolf.com/",
-        "author": "TakWolf",
-        "author_url": "https://takwolf.com/",
-        "license": "OFL",
-        "license_url": "http://scripts.sil.org/OFL"
+        "name": "at01",
+        "url": "https://grafxkid.itch.io/at01",
+        "author": "GrafxKid",
+        "author_url": "https://grafxkid.itch.io/",
+        "license": "CC0 1.0",
+        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
       }
     ],
     data_assets: [
