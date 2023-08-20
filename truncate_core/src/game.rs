@@ -65,7 +65,8 @@ impl Game {
             rules::Timing::PerPlayer {
                 time_allowance,
                 overtime_rule: _,
-            } => time_allowance,
+            } => Some(Duration::new(time_allowance as i64, 0)),
+            rules::Timing::None => None,
             _ => unimplemented!(),
         };
         self.players.push(Player::new(
@@ -73,7 +74,7 @@ impl Game {
             self.players.len(),
             self.rules.hand_size,
             &mut self.bag,
-            Some(Duration::new(time_allowance as i64, 0)),
+            time_allowance,
             GAME_COLORS[self.players.len()],
         ));
     }

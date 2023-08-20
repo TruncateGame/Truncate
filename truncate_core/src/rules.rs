@@ -101,10 +101,7 @@ impl Default for GameRules {
             },
             visibility: Visibility::Standard,
             truncation: Truncation::Root,
-            timing: Timing::PerPlayer {
-                time_allowance: 600,
-                overtime_rule: OvertimeRule::FreeWildcard { period: 60 },
-            },
+            timing: Timing::None,
             hand_size: 7,
             tile_distribution: TileDistribution::Standard,
             tile_bag_behaviour: TileBagBehaviour::Standard,
