@@ -188,24 +188,74 @@ impl Judge {
             return Some(battle_report);
         }
 
-        let weak_defenders: Vec<usize> = battle_report
-            .defenders // Indices of the weak defenders
+        let non_town_words: Vec<_> = battle_report
+            .defenders
             .iter()
             .enumerate()
+            .filter(|(_, word)| !word.original_word.contains('#'))
+            .collect();
+
+        let town_words: Vec<_> = battle_report
+            .defenders
+            .iter()
+            .enumerate()
+            .filter(|(_, word)| word.original_word.contains('#'))
+            .collect();
+
+        let weak_word_defenders: Vec<_> = non_town_words
+            .iter()
             .filter(|(_, word)| {
                 word.valid != Some(true)
                     || word.resolved_word.len() as isize + battle_rules.length_delta as isize
                         <= longest_attacker.as_ref().len() as isize
             })
-            .map(|(index, _)| index)
+            .map(|(index, _)| *index)
             .collect();
-        if weak_defenders.is_empty() {
-            battle_report.outcome = Outcome::DefenderWins;
+
+        let weak_town_defenders: Vec<_> = town_words
+            .iter()
+            .filter(|(_, word)| {
+                word.valid != Some(true)
+                    || word.resolved_word.len() as isize + battle_rules.length_delta as isize
+                        <= longest_attacker.as_ref().len() as isize
+            })
+            .map(|(index, _)| *index)
+            .collect();
+
+        // Normal battles without towns, easy cases.
+        if town_words.is_empty() {
+            if weak_word_defenders.is_empty() {
+                battle_report.outcome = Outcome::DefenderWins;
+            } else {
+                battle_report.outcome = Outcome::AttackerWins(weak_word_defenders);
+            }
+
             return Some(battle_report);
         }
 
-        // Otherwise the attacker wins
-        battle_report.outcome = Outcome::AttackerWins(weak_defenders);
+        // Towns were involved in this battle, resolve using the town battle rules
+        let has_beatable_towns = !weak_town_defenders.is_empty();
+        let has_words = !non_town_words.is_empty();
+        let has_beatable_words = !weak_word_defenders.is_empty();
+
+        let mut all_weak_defenders = weak_word_defenders.clone();
+        all_weak_defenders.extend(weak_town_defenders);
+
+        battle_report.outcome = match (has_beatable_towns, has_words, has_beatable_words) {
+            // Towns can be beat, and there are also some weak real words
+            (true, true, true) => Outcome::AttackerWins(all_weak_defenders),
+            // Towns can be beat, but all real words can defend
+            (true, true, false) => Outcome::DefenderWins,
+            // Towns can be beat, and no words are involved in the battle
+            (true, false, _) => Outcome::AttackerWins(all_weak_defenders),
+            // Towns cannot be beat directly, but there are weak words that lose the defense anyway
+            (false, true, true) => Outcome::AttackerWins(all_weak_defenders),
+            // Towns cannot be beat, and there were no beatable words either
+            (false, _, false) => Outcome::DefenderWins,
+            // Catch the unreachable case of no words with beatable words
+            (_, false, true) => unreachable!(),
+        };
+
         Some(battle_report)
     }
 
