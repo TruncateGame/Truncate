@@ -338,7 +338,7 @@ steps:
   - description: |-
       Even though we destroyed all of the opponent's letters the game is not over.
 
-      Remember, to win Truncate you have to reach your opponent's towns. Let's race for the top right corner.
+      Remember, to win Truncate you have to reach your opponent's town. Let's race for the top right corner.
     you: "A -> 3,6"
     gets: "P"
 
@@ -395,7 +395,7 @@ steps:
   - description: |-
       Now we're one turn away from winning.
       
-      Our opponent must play in front of 'RAM' or we can win next turn by reaching one of their towns.
+      Our opponent must play in front of 'RAM' or we can win next turn by reaching their town.
     computer: "P -> 6,8"
     gets: "T"
 
@@ -407,7 +407,7 @@ steps:
     gets: "K"
 
   - message: |-
-      Huzzah! By connecting your dock to their towns you have won this game.
+      Huzzah! By connecting your dock to their town you have won this game.
 
   - message: |-
       That concludes this tutorial.
