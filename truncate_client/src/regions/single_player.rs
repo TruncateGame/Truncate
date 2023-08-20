@@ -20,6 +20,7 @@ pub struct SinglePlayerState {
     game: Game,
     pub active_game: ActiveGame,
     dict: WordDict,
+    npc_known_dict: WordDict,
     next_response_at: Option<Duration>,
     winner: Option<usize>,
 }
@@ -43,23 +44,40 @@ impl SinglePlayerState {
         );
 
         let mut valid_words = HashMap::new();
+        let mut npc_known_words = HashMap::new();
         let lines = WORDNIK.lines();
 
         for line in lines {
             let mut chunks = line.split(' ');
+
+            let word = chunks.next().unwrap().to_string();
+            let extensions = chunks.next().unwrap().parse().unwrap();
+            let rel_freq = chunks.next().unwrap().parse().unwrap();
+
             valid_words.insert(
-                chunks.next().unwrap().to_string(),
+                word.clone(),
                 WordData {
-                    extensions: chunks.next().unwrap().parse().unwrap(),
-                    rel_freq: chunks.next().unwrap().parse().unwrap(),
+                    extensions,
+                    rel_freq,
                 },
             );
+
+            if rel_freq > 0.95 {
+                npc_known_words.insert(
+                    word,
+                    WordData {
+                        extensions,
+                        rel_freq,
+                    },
+                );
+            }
         }
 
         Self {
             game,
             active_game,
             dict: valid_words,
+            npc_known_dict: npc_known_words,
             next_response_at: None,
             winner: None,
         }
@@ -95,7 +113,7 @@ impl SinglePlayerState {
                     let mut arb = truncate_core::npc::Arborist::pruning();
                     next_msg = Some((
                         1,
-                        Game::best_move(&self.game, Some(&self.dict), 3, Some(&mut arb)),
+                        Game::best_move(&self.game, Some(&self.npc_known_dict), 3, Some(&mut arb)),
                     ));
                     // println!(
                     //     "Looked at {} leaves in {}ms",
@@ -142,6 +160,29 @@ impl SinglePlayerState {
                     let has_battles = changes.iter().any(|change| {
                         matches!(change, truncate_core::reporting::Change::Battle(_))
                     });
+
+                    // NPC learns words as a result of battles that reveal validity
+                    for battle in changes.iter().filter_map(|change| match change {
+                        truncate_core::reporting::Change::Battle(battle) => Some(battle),
+                        _ => None,
+                    }) {
+                        for word in &battle.attackers {
+                            if word.valid == Some(true) {
+                                let dict_word = word.original_word.to_lowercase();
+                                if let Some(word_data) = self.dict.get(&dict_word).cloned() {
+                                    self.npc_known_dict.insert(dict_word, word_data);
+                                }
+                            }
+                        }
+                        for word in &battle.defenders {
+                            if word.valid == Some(true) {
+                                let dict_word = word.original_word.to_lowercase();
+                                if let Some(word_data) = self.dict.get(&dict_word).cloned() {
+                                    self.npc_known_dict.insert(dict_word, word_data);
+                                }
+                            }
+                        }
+                    }
 
                     let ctx = &self.active_game.ctx;
                     let state_message = GameStateMessage {
