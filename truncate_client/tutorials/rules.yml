@@ -1,0 +1,87 @@
+
+dict:
+  TRAIL: "To follow behind (someone or something)"
+
+rules:
+  # General rules
+  - title: "Starting position"
+    message: "Each player starts with a dock and no tiles on the board. Tiles can only be played next to your dock or one of your tiles."
+    board: |-
+      ~~ ~~ ~~ |0 ~~ ~~ ~~
+      ~~ #0 #0 __ #0 #0 ~~
+      ~~ __ __ __ __ __ ~~
+      ~~ __ __ __ __ __ ~~
+      ~~ __ __ __ __ __ ~~
+      ~~ __ __ __ __ __ ~~
+      ~~ #1 #1 __ #1 #1 ~~
+      ~~ ~~ ~~ |1 ~~ ~~ ~~
+    player_hand: ALIFIRM
+    steps:
+      - you: "A -> 3,1"
+        gets: "E"
+      - computer: "X -> 3,7"
+      - you: "M -> 3,2"
+
+  - title: "Objective"
+    message: "To win, you must build across the board and reach your opponent's town."
+    board: |-
+      ~~ ~~ ~~ |0 ~~ ~~ ~~
+      ~~ #0 #0 0X #0 #0 ~~
+      ~~ __ __ 0A 0E 0S ~~
+      ~~ 1A __ __ __ 0A ~~
+      ~~ 1T 1O __ __ __ ~~
+      ~~ __ 1I 1T __ __ ~~
+      ~~ #1 #1 1A #1 #1 ~~
+      ~~ ~~ ~~ |1 ~~ ~~ ~~
+    player_hand: RBFAQIM
+    steps:
+      - you: "B -> 1,5"
+        gets: "E"
+
+  # Battle rules
+  - title: "Attacking words must be valid"
+    message: "If the attacking word is invalid, it loses the battle, and is destroyed."
+    board: |-
+      ~~ ~~ ~~ |0 ~~ ~~ ~~
+      ~~ #0 #0 0T #0 #0 ~~
+      ~~ __ __ 0I M1 __ ~~
+      ~~ __ __ __ __ __ ~~
+      ~~ __ __ 1B 1L __ ~~
+      ~~ __ __ 1A __ __ ~~
+      ~~ #1 #1 1T #1 #1 ~~
+      ~~ ~~ ~~ |1 ~~ ~~ ~~
+    player_hand: RBFAQIM
+    steps:
+      - you: "Q -> 4,4"
+        gets: "E"
+
+    - title: "Valid words beat invalid words"
+    message: "If the attacking word is valid and the defender is invalid, the attacker wins and the defender is destroyed."
+    board: |-
+      ~~ ~~ ~~ |0 ~~ ~~ ~~
+      ~~ #0 #0 0T #0 #0 ~~
+      ~~ __ __ 0Y 0X __ ~~
+      ~~ __ __ __ __ __ ~~
+      ~~ __ __ 1B 1T __ ~~
+      ~~ __ __ 1A __ __ ~~
+      ~~ #1 #1 1T #1 #1 ~~
+      ~~ ~~ ~~ |1 ~~ ~~ ~~
+    player_hand: RBFAQIM
+    steps:
+      - you: "I -> 4,4"
+        gets: "E"
+
+    - title: "Long words beat short words"
+
+    - title: "All attackers must be valid"
+
+    - title: "Only one attacker needs to be long"
+
+    - title: "All defenders must be valid and strong"
+    
+
+    # Multi party battles
+
+  # Swapping
+
+  # Town Strength
