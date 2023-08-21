@@ -8,6 +8,7 @@ use truncate_core::{
     judge::{WordData, WordDict},
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
+    reporting::WordMeaning,
 };
 
 use crate::utils::Theme;
@@ -65,7 +66,40 @@ impl SinglePlayerState {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
+    /// If the server sent through some new word definitions,
+    /// dig deep and update all past battles to reference the definitions
+    pub fn hydrate_meanings(&mut self, definitions: Vec<(String, Option<Vec<WordMeaning>>)>) {
+        self.active_game
+            .turn_reports
+            .iter_mut()
+            .flat_map(|t| t.iter_mut())
+            .filter_map(|change| {
+                if let truncate_core::reporting::Change::Battle(battle) = change {
+                    Some(battle)
+                } else {
+                    None
+                }
+            })
+            .flat_map(|b| b.attackers.iter_mut().chain(b.defenders.iter_mut()))
+            .for_each(|battle_word| {
+                if battle_word.meanings.is_none() {
+                    for (word, meanings) in &definitions {
+                        if battle_word.resolved_word.to_lowercase() == word.to_lowercase() {
+                            battle_word.meanings = meanings.clone();
+                        }
+                    }
+                }
+            });
+    }
+
+    pub fn render(
+        &mut self,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        current_time: Duration,
+    ) -> Option<PlayerMessage> {
+        let mut msg_to_server = None;
+
         // Standard game helper
         let mut next_msg = self
             .active_game
@@ -73,12 +107,12 @@ impl SinglePlayerState {
             .map(|msg| (0, msg));
 
         if self.winner.is_some() {
-            return;
+            return msg_to_server;
         }
 
         if let Some(next_response_at) = self.next_response_at {
             if next_response_at > self.active_game.ctx.current_time {
-                return;
+                return msg_to_server;
             }
         }
         self.next_response_at = None;
@@ -139,9 +173,18 @@ impl SinglePlayerState {
                         })
                         .collect();
 
-                    let has_battles = changes.iter().any(|change| {
-                        matches!(change, truncate_core::reporting::Change::Battle(_))
-                    });
+                    let battle_words: Vec<_> = changes
+                        .iter()
+                        .filter_map(|change| {
+                            if let truncate_core::reporting::Change::Battle(battle) = change {
+                                Some(battle)
+                            } else {
+                                None
+                            }
+                        })
+                        .flat_map(|b| b.attackers.iter().chain(b.defenders.iter()))
+                        .map(|b| b.resolved_word.clone())
+                        .collect();
 
                     let ctx = &self.active_game.ctx;
                     let state_message = GameStateMessage {
@@ -155,7 +198,11 @@ impl SinglePlayerState {
                     };
                     self.active_game.apply_new_state(state_message);
 
-                    let delay = if has_battles { 1200 } else { 200 };
+                    let delay = if battle_words.is_empty() { 200 } else { 1200 };
+
+                    if !battle_words.is_empty() {
+                        msg_to_server = Some(PlayerMessage::RequestDefinitions(battle_words));
+                    }
 
                     self.next_response_at = Some(
                         self.active_game
@@ -169,5 +216,7 @@ impl SinglePlayerState {
                 Err(msg) => eprintln!("Failed: {msg}"),
             }
         }
+
+        msg_to_server
     }
 }

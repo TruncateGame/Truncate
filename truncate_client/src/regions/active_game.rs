@@ -319,7 +319,9 @@ impl ActiveGame {
                             Change::Battle(battle) => Some(battle),
                             _ => None,
                         }) {
-                            if let Some(label) = if rendered_battles == 0 {
+                            let is_latest_battle = rendered_battles == 0;
+
+                            if let Some(label) = if is_latest_battle {
                                 Some("Latest Battle")
                             } else if rendered_battles == 1 {
                                 Some("Previous Battles")
@@ -335,9 +337,9 @@ impl ActiveGame {
                                 ui.painter().galley(r.min, label);
                             }
 
-                            BattleUI::new(battle).render(&mut self.ctx, ui);
+                            BattleUI::new(battle, is_latest_battle).render(&mut self.ctx, ui);
                             rendered_battles += 1;
-                            ui.add_space(15.0);
+                            ui.add_space(8.0);
                         }
                     }
                 });

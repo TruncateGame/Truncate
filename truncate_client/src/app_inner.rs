@@ -160,7 +160,10 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             tutorial.render(ui, theme, current_time);
         }
         GameStatus::SinglePlayer(sp) => {
-            sp.render(ui, theme, current_time);
+            // Single player _can_ talk to the server, e.g. to ask for word definitions
+            if let Some(msg) = sp.render(ui, theme, current_time) {
+                send(msg);
+            };
         }
         GameStatus::PendingJoin(room_code) => {
             let dot_count = (current_time.as_millis() / 500) % 4;
@@ -380,6 +383,14 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             },
             GameMessage::GenericError(err) => {
                 *error = Some(err);
+            }
+            GameMessage::SupplyDefinitions(definitions) => {
+                match game_status {
+                    GameStatus::SinglePlayer(game) => {
+                        game.hydrate_meanings(definitions);
+                    }
+                    _ => { /* Soft unreachable */ }
+                }
             }
         }
     }

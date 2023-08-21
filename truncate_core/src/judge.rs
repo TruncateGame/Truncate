@@ -121,6 +121,7 @@ impl Judge {
         }
 
         let mut battle_report = BattleReport {
+            battle_number: None,
             attackers: attackers
                 .iter()
                 .map(|w| {
@@ -684,6 +685,7 @@ mod tests {
                 None
             ),
             Some(BattleReport {
+                battle_number: None,
                 attackers: vec![BattleWord {
                     original_word: "B*G".into(),
                     resolved_word: "BAG".into(),
@@ -708,6 +710,7 @@ mod tests {
                 None
             ),
             Some(BattleReport {
+                battle_number: None,
                 attackers: vec![BattleWord {
                     original_word: "R*G".into(),
                     resolved_word: "R*G".into(),
@@ -733,6 +736,7 @@ mod tests {
                 None
             ),
             Some(BattleReport {
+                battle_number: None,
                 attackers: vec![BattleWord {
                     original_word: "ARTS".into(),
                     resolved_word: "ARTS".into(),
@@ -757,6 +761,7 @@ mod tests {
                 None
             ),
             Some(BattleReport {
+                battle_number: None,
                 attackers: vec![BattleWord {
                     original_word: "BAG".into(),
                     resolved_word: "BAG".into(),
