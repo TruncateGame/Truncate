@@ -42,9 +42,7 @@ steps:
       In this game, your dock is at the bottom of the board!
 
   - description: |-
-      Let's get started by playing a tile.
-      
-      You can either drag the tile to the highlighted square, or click the tile then click on the board to play. 
+      Let's get started by playing a tile. You can either drag the tile to the highlighted square, or click the tile then click on the board to play. 
 
       Place the 'L' tile from your hand on the square touching your dock.
     you: "L -> 4,1"
@@ -91,7 +89,7 @@ steps:
   - message: |-
       For their turn, they placed the letter 'R'.
 
-      You'll notice that their tiles are upside down to you — this means that their word is 'RD', not 'DR'.
+      You'll notice that their tiles are upside down to you. This means that their word is 'RD', not 'DR'.
 
   - message: |-
       From here we have a choice of playing on the sides of our 'I', or on top.
@@ -194,7 +192,7 @@ steps:
       Even if we can't break through immediately, it's useful to secure contested territory.
 
   - description: |-
-      If we get some territory in front of fire 'FIRE' our opponent will struggle to play on this side of the board without weakening their position.
+      If we get some territory in front of 'FIRE' our opponent will struggle to play on this side of the board without weakening their position.
     you: "M -> 1,5"
     gets: "R"
 
