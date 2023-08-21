@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     board::{Board, Coordinate},
     player::{Hand, Player},
-    reporting::Change,
+    reporting::{Change, WordMeaning},
 };
 
 pub type RoomCode = String;
@@ -25,6 +25,7 @@ pub enum PlayerMessage {
     Place(Coordinate, char),
     Swap(Coordinate, Coordinate),
     Rematch,
+    RequestDefinitions(Vec<String>),
 }
 
 impl fmt::Display for PlayerMessage {
@@ -47,6 +48,7 @@ impl fmt::Display for PlayerMessage {
             PlayerMessage::Place(coord, tile) => write!(f, "Place {} at {}", tile, coord),
             PlayerMessage::Swap(a, b) => write!(f, "Swap the tiles at {} and {}", a, b),
             PlayerMessage::Rematch => write!(f, "Rematch!"),
+            PlayerMessage::RequestDefinitions(words) => write!(f, "Get definition of {words:?}"),
         }
     }
 }
@@ -125,6 +127,7 @@ pub enum GameMessage {
     GameEnd(GameStateMessage, PlayerNumber),
     GameError(RoomCode, PlayerNumber, String),
     GenericError(String),
+    SupplyDefinitions(Vec<(String, Option<Vec<WordMeaning>>)>),
 }
 
 impl fmt::Display for GameMessage {
@@ -162,6 +165,9 @@ impl fmt::Display for GameMessage {
             }
             GameMessage::GameError(_, _, msg) => write!(f, "Error in game: {}", msg),
             GameMessage::GenericError(msg) => write!(f, "Generic error: {}", msg),
+            GameMessage::SupplyDefinitions(_) => {
+                write!(f, "Supplying definitions for words")
+            }
         }
     }
 }

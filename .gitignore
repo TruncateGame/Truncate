@@ -9,3 +9,5 @@ word_freqs/package-lock.json
 word_freqs/en_word_freqs.txt
 truncate_client/img/package-lock.json
 _site
+# ungzipped word definition db
+defs.db
