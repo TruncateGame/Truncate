@@ -151,6 +151,52 @@ impl ActiveGame {
             self.ctx.hand_companion_rect = Some(companion_pos);
         }
 
+        let error_area = egui::Area::new(egui::Id::new("error_layer"))
+            .movable(false)
+            .order(Order::Tooltip)
+            .anchor(
+                Align2::LEFT_BOTTOM,
+                -vec2(
+                    0.0,
+                    self.ctx
+                        .hand_total_rect
+                        .map(|r| r.height())
+                        .unwrap_or_default(),
+                ),
+            );
+        let mut resp = error_area.show(ui.ctx(), |ui| {
+            if let Some(error) = &self.ctx.error_msg {
+                let error_fz = if ui.available_width() < 550.0 {
+                    24.0
+                } else {
+                    32.0
+                };
+                let max_width = f32::min(600.0, ui.available_width());
+                let text = TextHelper::light(error, error_fz, Some(max_width), ui);
+                let text_mesh_size = text.mesh_size();
+
+                ui.add_space(10.0);
+                let (dialog_rect, dialog_resp) = crate::utils::tex::paint_dialog_background(
+                    false,
+                    false,
+                    true,
+                    text_mesh_size + vec2(100.0, 20.0),
+                    hex_color!("#ffe6c9"),
+                    &self.ctx.map_texture,
+                    ui,
+                );
+
+                let offset = (dialog_rect.size() - text_mesh_size) / 2.0 - vec2(0.0, 3.0);
+
+                let text_pos = dialog_rect.min + offset;
+                text.paint_at(text_pos, self.ctx.theme.text, ui);
+            }
+
+            if ui.input_mut(|i| i.pointer.any_click()) {
+                self.ctx.error_msg = None;
+            }
+        });
+
         let area = egui::Area::new(egui::Id::new("controls_layer"))
             .movable(false)
             .order(Order::Foreground)
@@ -158,7 +204,7 @@ impl ActiveGame {
 
         let avail_width = ui.available_width();
 
-        let resp = area.show(ui.ctx(), |ui| {
+        let mut resp = area.show(ui.ctx(), |ui| {
             if let Some(bg_rect) = self.ctx.hand_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
@@ -171,6 +217,8 @@ impl ActiveGame {
                 vec2(avail_width, 10.0),
                 Layout::top_down(Align::LEFT),
                 |ui| {
+                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+
                     ui.add_space(10.0);
 
                     if winner.is_some() {
@@ -304,11 +352,6 @@ impl ActiveGame {
                     let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
                     ui.painter().galley(r.min, room);
                     ui.add_space(15.0);
-
-                    if let Some(error) = &self.ctx.error_msg {
-                        ui.label(error);
-                        ui.separator();
-                    }
 
                     let mut rendered_battles = 0;
                     let label_font =
