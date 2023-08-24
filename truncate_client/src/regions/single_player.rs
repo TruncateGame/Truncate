@@ -24,6 +24,7 @@ pub struct SinglePlayerState {
     npc_known_dict: WordDict,
     next_response_at: Option<Duration>,
     winner: Option<usize>,
+    turns: usize,
 }
 
 impl SinglePlayerState {
@@ -81,6 +82,7 @@ impl SinglePlayerState {
             npc_known_dict: npc_known_words,
             next_response_at: None,
             winner: None,
+            turns: 0,
         }
     }
 
@@ -143,11 +145,19 @@ impl SinglePlayerState {
                 .turn_starts_at
             {
                 if turn_starts_at <= current_time.as_secs() {
+                    let search_depth = (7_usize.saturating_sub(self.turns / 2)).max(3);
+                    println!("Looking forward {search_depth} turns");
+
                     // let start = time::Instant::now();
                     let mut arb = truncate_core::npc::Arborist::pruning();
                     next_msg = Some((
                         1,
-                        Game::best_move(&self.game, Some(&self.npc_known_dict), 3, Some(&mut arb)),
+                        Game::best_move(
+                            &self.game,
+                            Some(&self.npc_known_dict),
+                            search_depth,
+                            Some(&mut arb),
+                        ),
                     ));
                     // println!(
                     //     "Looked at {} leaves in {}ms",
@@ -172,6 +182,8 @@ impl SinglePlayerState {
         };
 
         if let Some(next_move) = next_move {
+            self.turns += 1;
+
             match self.game.play_turn(next_move, Some(&self.dict)) {
                 Ok(winner) => {
                     self.winner = winner;
