@@ -255,7 +255,13 @@ impl TutorialState {
                 ui.allocate_ui_at_rect(inner_dialog, |ui| {
                     ui.expand_to_include_rect(inner_dialog);
 
-                    let tut_fz = 32.0;
+                    // TODO one day — put this in a theme
+                    let tut_fz = if inner_dialog.width() < 550.0 {
+                        24.0
+                    } else {
+                        32.0
+                    };
+
                     let button_spacing = 60.0;
                     let time_in_stage = (current_time - self.stage_changed_at).as_secs_f32();
 
