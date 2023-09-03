@@ -739,7 +739,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1337 possible leaves
-                  - 478 after pruning
+                  - 396 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -903,7 +903,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1400 possible leaves
-                  - 477 after pruning
+                  - 431 after pruning
                   - Move: Place S at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -947,7 +947,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 12345 possible leaves
-                  - 2550 after pruning
+                  - 2337 after pruning
                   - Move: Place A at (6, 7)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
