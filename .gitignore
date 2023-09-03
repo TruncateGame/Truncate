@@ -11,3 +11,4 @@ truncate_client/img/package-lock.json
 _site
 # ungzipped word definition db
 defs.db
+unsummed_wordlist.txt
