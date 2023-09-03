@@ -13,6 +13,10 @@ use crate::{
     reporting::{BoardChange, Change},
 };
 
+mod scoring;
+
+use scoring::BoardScore;
+
 pub struct Arborist {
     assessed: usize,
     prune: bool,
@@ -57,18 +61,25 @@ impl Game {
         let mut internal_arborist = Arborist::pruning();
         let arborist = counter.unwrap_or_else(|| &mut internal_arborist);
 
-        let (_, Some((position, tile))) = Game::minimax(
+        let (best_score, Some((position, tile))) = Game::minimax(
             game.clone(),
             external_dictionary,
             depth,
             depth,
-            f32::NEG_INFINITY,
-            f32::INFINITY,
+            BoardScore::neg_inf(),
+            BoardScore::inf(),
             evaluation_player,
             arborist
         ) else {
             panic!("Couldn't determine a move to play");
         };
+
+        println!("Bot has the hand: {}", game.players[evaluation_player].hand);
+
+        println!("Chosen tree has the score {best_score:#?}");
+        if let Some(board) = best_score.board {
+            println!("Bot is aiming for the board {board}");
+        }
 
         PlayerMessage::Place(position, tile)
     }
@@ -78,16 +89,16 @@ impl Game {
         external_dictionary: Option<&WordDict>,
         total_depth: usize,
         depth: usize,
-        mut alpha: f32,
-        mut beta: f32,
+        mut alpha: BoardScore,
+        mut beta: BoardScore,
         for_player: usize,
         arborist: &mut Arborist,
-    ) -> (f32, Option<(Coordinate, char)>) {
+    ) -> (BoardScore, Option<(Coordinate, char)>) {
         game.instrument_unknown_game_state(for_player, total_depth, depth);
         let pruning = arborist.prune();
 
         let mut turn_score =
-            |game: &Game, tile: char, position: Coordinate, alpha: f32, beta: f32| {
+            |game: &Game, tile: char, position: Coordinate, alpha: BoardScore, beta: BoardScore| {
                 arborist.tick();
                 let mut next_turn = game.clone();
                 next_turn
@@ -119,17 +130,19 @@ impl Game {
                 None,
             )
         } else if game.next_player == for_player {
-            let mut max_score = f32::NEG_INFINITY;
+            let mut max_score = BoardScore::neg_inf();
             let mut relevant_move = None;
 
             for (position, tile) in game.possible_moves() {
-                let score = turn_score(&game, tile, position, alpha, beta);
+                let score = turn_score(&game, tile, position, alpha.clone(), beta.clone());
 
                 if score > max_score {
-                    max_score = score;
+                    max_score = score.clone();
                     relevant_move = Some((position, tile));
                 }
-                alpha = alpha.max(score);
+                if score > alpha {
+                    alpha = score;
+                }
 
                 if pruning {
                     if beta <= alpha {
@@ -140,17 +153,19 @@ impl Game {
 
             (max_score, relevant_move)
         } else {
-            let mut min_score = f32::INFINITY;
+            let mut min_score = BoardScore::inf();
             let mut relevant_move = None;
 
             for (position, tile) in game.possible_moves() {
-                let score = turn_score(&game, tile, position, alpha, beta);
+                let score = turn_score(&game, tile, position, alpha.clone(), beta.clone());
 
                 if score < min_score {
-                    min_score = score;
+                    min_score = score.clone();
                     relevant_move = Some((position, tile));
                 }
-                beta = beta.min(score);
+                if score < beta {
+                    beta = score;
+                }
 
                 if pruning {
                     if beta <= alpha {
@@ -241,6 +256,25 @@ impl Game {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct WordQualityScores {
+    word_length: f32,
+    word_validity: f32,
+    word_extensibility: f32,
+}
+
+impl Div<f32> for WordQualityScores {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            word_length: self.word_length / rhs,
+            word_validity: self.word_validity / rhs,
+            word_extensibility: self.word_extensibility / rhs,
+        }
+    }
+}
+
 // Evaluation functions
 impl Game {
     /// Top-most evaluation function for looking at the game and calculating a score
@@ -249,36 +283,31 @@ impl Game {
         external_dictionary: Option<&WordDict>,
         for_player: usize,
         depth: usize,
-    ) -> f32 {
+    ) -> BoardScore {
         let word_quality = if let Some(external_dictionary) = external_dictionary {
             self.eval_word_quality(external_dictionary, for_player)
         } else {
-            0.0
+            WordQualityScores::default()
         };
+        let for_opponent = (for_player + 1) % self.players.len();
 
-        let our_frontline = self.eval_board_frontline(for_player);
-        let their_frontline =
-            self.eval_board_frontline((for_player + 1) % self.players.len()) * 2.0;
-
-        let our_progress = self.eval_board_positions(for_player);
-        let their_progress = self.eval_board_positions((for_player + 1) % self.players.len()) * 2.0;
-
-        let our_defense = self.eval_defense(for_player) * 1.5;
-
-        let win_score = self.eval_win(for_player, depth);
-
-        let total_score = win_score + word_quality + our_defense + our_frontline + our_progress
-            - their_frontline
-            - their_progress;
-
-        // println!("win_score{win_score} + word_quality{word_quality} + our_frontline{our_frontline} + our_progress{our_progress} - their_progress{their_progress} - our_balance{our_balance}");
-
-        total_score
+        BoardScore::default()
+            .turn_number(depth)
+            .word_quality(word_quality)
+            .self_frontline(self.eval_board_frontline(for_player))
+            .opponent_frontline(self.eval_board_frontline(for_opponent))
+            .self_progress(self.eval_board_positions(for_player))
+            .opponent_progress(self.eval_board_positions(for_opponent))
+            .self_defense(self.eval_defense(for_player))
+            .self_win(self.winner == Some(for_player))
+            .opponent_win(self.winner == Some(for_opponent))
+            .board(self.board.clone())
     }
 
     /// How many <player> tiles are there, and how far down the board are they?
     pub fn eval_board_positions(&self, player: usize) -> f32 {
         let mut score = 0.0;
+        let max_score = (self.board.height() * self.board.width()) as f32;
 
         for (rownum, row) in self.board.squares.iter().enumerate() {
             let row_score = if player == 0 {
@@ -294,7 +323,7 @@ impl Game {
             }
         }
 
-        score
+        (score / max_score).min(1.0)
     }
 
     /// How far forward are our furthest tiles?
@@ -317,37 +346,37 @@ impl Game {
             }
         }
 
-        score
+        score / self.board.squares.len() as f32
     }
 
     pub fn eval_defense(&self, player: usize) -> f32 {
         let towns = self.board.towns.clone();
         let attacker = (player + 1) % self.players.len();
         let max_score = self.board.width() + self.board.height();
-        let mut num_towns = 0;
 
-        let score: usize = towns
-            .into_iter()
-            .filter(|town| matches!(self.board.get(*town), Ok(Square::Town{player: p, ..}) if player == p))
-            .map(|town| {
-                num_towns += 1;
-                self.board
-                    .distance_from_attack(town, attacker)
-                    .unwrap_or(max_score)
-            })
-            .sum();
+        let mut score = max_score;
 
-        if num_towns > 0 {
-            score as f32 / num_towns as f32
-        } else {
-            0.0
+        for town in towns.into_iter().filter(
+            |town| matches!(self.board.get(*town), Ok(Square::Town{player: p, ..}) if player == p),
+        ) {
+            let Some(town_dist) = self.board.distance_from_attack(town, attacker) else { continue };
+            if town_dist < score {
+                score = town_dist;
+            }
         }
+
+        score as f32 / max_score as f32
     }
 
-    pub fn eval_word_quality(&self, external_dictionary: &WordDict, player: usize) -> f32 {
+    pub fn eval_word_quality(
+        &self,
+        external_dictionary: &WordDict,
+        player: usize,
+    ) -> WordQualityScores {
         let mut assessed_tiles: HashSet<Coordinate> = HashSet::new();
-        let mut score = 0.0;
         let mut num_words = 0;
+
+        let mut word_scores = WordQualityScores::default();
 
         for (y, row) in self.board.squares.iter().enumerate() {
             for (x, sq) in row.iter().enumerate() {
@@ -366,18 +395,24 @@ impl Game {
 
                     num_words += words.len();
                     for word in words {
-                        if let Some(word_data) = external_dictionary.get(&word.to_lowercase()) {
-                            score += word.len() as f32
-                                + (word.len().saturating_sub(2) * 2) as f32
-                                + (word_data.extensions.min(25) as f32 / 100.0);
+                        let resolved = self.judge.valid(
+                            word,
+                            &crate::rules::WinCondition::Elimination,
+                            Some(external_dictionary),
+                            None,
+                        );
+                        if let Some(resolved_word) = resolved {
+                            if let Some(word_data) =
+                                external_dictionary.get(&resolved_word.to_lowercase())
+                            {
+                                word_scores.word_length +=
+                                    (((resolved_word.len() - 1) as f32) / 5.0).min(1.0);
 
-                            score *= word_data.rel_freq;
+                                word_scores.word_extensibility +=
+                                    (word_data.extensions.min(100) as f32) / 100.0;
 
-                            if word.len() == 2 {
-                                score -= 2.0;
+                                word_scores.word_validity += 1.0;
                             }
-                        } else {
-                            score -= word.len().pow(2) as f32;
                         }
                     }
                 }
@@ -385,18 +420,9 @@ impl Game {
         }
 
         if num_words > 0 {
-            score / num_words as f32
+            word_scores / num_words as f32
         } else {
-            0.0
-        }
-    }
-
-    /// Did someone win?
-    pub fn eval_win(&self, player: usize, depth: usize) -> f32 {
-        match self.winner {
-            Some(p) if p == player => 10000.0 * (depth + 1) as f32,
-            Some(_) => -10000.0 * (depth + 1) as f32,
-            None => 0.0,
+            word_scores
         }
     }
 }
@@ -412,7 +438,7 @@ mod tests {
         player::Player,
     };
 
-    pub static TESTING_DICT: &str = include_str!("../../word_freqs/final_wordlist.txt");
+    pub static TESTING_DICT: &str = include_str!("../../../word_freqs/final_wordlist.txt");
 
     /// Build an (expensive) word dictionary using the real game data.
     fn dict() -> WordDict {
@@ -559,7 +585,41 @@ mod tests {
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
             omit_expression => true
         }, {
-            insta::assert_snapshot!(format!("(Total score) A: {} / B: {}", score_a, score_b), @"(Total score) A: 9.227806 / B: 6.5617027");
+            insta::assert_snapshot!(format!("(Total score) A: {:#?} / B: {:#?}", score_a, score_b), @r###"
+            (Total score) A: BoardScore {
+                infinity: false,
+                neg_infinity: false,
+                turn_number: 1,
+                word_quality: WordQualityScores {
+                    word_length: 0.4,
+                    word_validity: 1.0,
+                    word_extensibility: 1.0,
+                },
+                self_frontline: 0.5,
+                opponent_frontline: 0.375,
+                self_progress: 0.35714287,
+                opponent_progress: 0.125,
+                self_defense: 1.0,
+                self_win: false,
+                opponent_win: false,
+            } / B: BoardScore {
+                infinity: false,
+                neg_infinity: false,
+                turn_number: 1,
+                word_quality: WordQualityScores {
+                    word_length: 0.4,
+                    word_validity: 1.0,
+                    word_extensibility: 1.0,
+                },
+                self_frontline: 0.5,
+                opponent_frontline: 0.375,
+                self_progress: 0.32142857,
+                opponent_progress: 0.125,
+                self_defense: 1.0,
+                self_win: false,
+                opponent_win: false,
+            }
+            "###);
         });
     }
 
@@ -598,7 +658,7 @@ mod tests {
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
             omit_expression => true
         }, {
-            insta::assert_snapshot!(format!("(Defense score) A: {} / B: {}", score_a, score_b), @"(Defense score) A: 9.333333 / B: 15");
+            insta::assert_snapshot!(format!("(Defense score) A: {} / B: {}", score_a, score_b), @"(Defense score) A: 0.4 / B: 1");
         });
     }
 
@@ -636,7 +696,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1337 possible leaves
-                  - 693 after pruning
+                  - 478 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -677,7 +737,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1366 possible leaves
-                  - 559 after pruning
+                  - 552 after pruning
                   - Move: Place A at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -718,7 +778,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1384 possible leaves
-                  - 798 after pruning
+                  - 609 after pruning
                   - Move: Place A at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -759,15 +819,15 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1399 possible leaves
-                  - 633 after pruning
-                  - Move: Place A at (0, 5)
+                  - 509 after pruning
+                  - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 D0 A0 __ __ __
-                __ __ __ __ __
+                __ __ S1 __ __
                 T1 E1 E1 __ __
-                A1 __ A1 __ __
+                __ __ A1 __ __
                 R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
                 "###);
@@ -800,14 +860,14 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1400 possible leaves
-                  - 443 after pruning
-                  - Move: Place T at (2, 3)
+                  - 529 after pruning
+                  - Move: Place S at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
+                __ T0 O0 __ __
+                D0 A0 Q0 __ __
                 __ __ __ __ __
-                __ __ __ __ __
-                __ __ T1 __ __
-                Q1 E1 E1 __ __
+                __ __ E1 __ __
                 __ __ A1 __ __
                 R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
@@ -844,8 +904,8 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 12345 possible leaves
-                  - 5356 after pruning
-                  - Move: Place T at (1, 7)
+                  - 3572 after pruning
+                  - Move: Place A at (6, 7)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -854,7 +914,7 @@ mod tests {
                 __ __ C0 T0 __ __ __
                 __ __ __ A0 __ __ __
                 __ __ __ B0 __ __ __
-                __ T1 I1 __ __ __ __
+                __ __ I1 __ __ __ A1
                 __ __ D1 A1 T1 E1 S1
                 __ __ E1 __ __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~

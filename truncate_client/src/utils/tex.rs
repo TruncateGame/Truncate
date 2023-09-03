@@ -3,8 +3,8 @@ use std::{
     ops::{Range, RangeInclusive},
 };
 
-use eframe::egui;
-use epaint::{pos2, vec2, Color32, Mesh, Rect, Shape, TextureHandle, TextureId};
+use eframe::egui::{self, Sense};
+use epaint::{pos2, vec2, Color32, Mesh, Rect, Shape, TextureHandle, TextureId, Vec2};
 use truncate_core::board::Square;
 
 use crate::regions::lobby::BoardEditingMode;
@@ -75,7 +75,7 @@ const fn quad(nw_tile: usize, ne_tile: usize, se_tile: usize, sw_tile: usize) ->
 
 // TODO: Generate this impl with codegen from aseprite
 impl Tex {
-    pub const MAX_TILE: usize = 247;
+    pub const MAX_TILE: usize = 256;
 
     pub const NONE: Self = t(0);
     pub const DEBUG: Self = t(77);
@@ -239,6 +239,17 @@ impl Tex {
     pub const BUTTON_DOCK_COLOR: TexQuad = quad(135, 136, 138, 137);
 
     pub const BUTTON_LAND: TexQuad = quad(123, 124, 130, 129);
+
+    // Dialog
+    pub const DIALOG_NW: Self = t(248);
+    pub const DIALOG_N: Self = t(249);
+    pub const DIALOG_NE: Self = t(250);
+    pub const DIALOG_E: Self = t(253);
+    pub const DIALOG_SE: Self = t(256);
+    pub const DIALOG_S: Self = t(255);
+    pub const DIALOG_SW: Self = t(254);
+    pub const DIALOG_W: Self = t(251);
+    pub const DIALOG_CENTER: Self = t(252);
 }
 
 pub trait Tint {
@@ -265,6 +276,17 @@ impl Tint for Vec<Tex> {
     fn tint(mut self, color: Color32) -> Self {
         for tex in &mut self {
             tex.tint = Some(color);
+        }
+        self
+    }
+}
+
+impl Tint for Vec<Vec<Tex>> {
+    fn tint(mut self, color: Color32) -> Self {
+        for row in &mut self {
+            for tex in row {
+                tex.tint = Some(color);
+            }
         }
         self
     }
@@ -409,6 +431,36 @@ impl Tex {
             vec![Self::GAME_TILE_NE, Self::GAME_TILE_SE],
             vec![Self::GAME_TILE_S; extra_tiles],
             vec![Self::GAME_TILE_SW],
+        ]
+        .concat()
+    }
+
+    pub fn text_dialog(x_tiles: usize, y_tiles: usize) -> Vec<Vec<Tex>> {
+        let middle_x_tiles = x_tiles.saturating_sub(2);
+        let middle_y_tiles = y_tiles.saturating_sub(2);
+
+        [
+            vec![[
+                vec![Self::DIALOG_NW],
+                vec![Self::DIALOG_N; middle_x_tiles],
+                vec![Self::DIALOG_NE],
+            ]
+            .concat()],
+            vec![
+                [
+                    vec![Self::DIALOG_W],
+                    vec![Self::DIALOG_CENTER; middle_x_tiles],
+                    vec![Self::DIALOG_E]
+                ]
+                .concat();
+                middle_y_tiles
+            ],
+            vec![[
+                vec![Self::DIALOG_SW],
+                vec![Self::DIALOG_S; middle_x_tiles],
+                vec![Self::DIALOG_SE],
+            ]
+            .concat()],
         ]
         .concat()
     }
@@ -777,4 +829,83 @@ pub fn render_texs_clockwise(
             ui,
         );
     }
+}
+
+pub fn render_tex_rows(
+    texs: Vec<Vec<Tex>>,
+    rect: Rect,
+    map_texture: &TextureHandle,
+    ui: &mut egui::Ui,
+) {
+    let region = rect.size();
+    let tile_height = region.y / texs.len() as f32;
+
+    let mut tile_rect = rect.clone();
+    tile_rect.set_height(tile_height);
+
+    for (rownum, row) in texs.into_iter().enumerate() {
+        let tile_width = region.x / row.len() as f32;
+        tile_rect.set_width(tile_width);
+
+        for (colnum, tex) in row.into_iter().enumerate() {
+            tex.render(
+                map_texture.id(),
+                tile_rect.translate(vec2(
+                    tile_width * colnum as f32,
+                    tile_height * rownum as f32,
+                )),
+                ui,
+            );
+        }
+    }
+}
+
+pub fn paint_dialog_background(
+    full_width: bool,
+    full_height: bool,
+    centered: bool,
+    size_to_pos: Vec2,
+    background_color: Color32,
+    map_texture: &TextureHandle,
+    ui: &mut egui::Ui,
+) -> (Rect, egui::Response) {
+    let text_size = size_to_pos;
+    let dialog_width = if full_width {
+        ui.available_width()
+    } else {
+        text_size.x
+    };
+
+    let width_in_tiles = (dialog_width / 16.0) as usize;
+    let dialog_tile_size = dialog_width / width_in_tiles as f32;
+
+    let height_in_tiles = if full_height {
+        (ui.available_height() / dialog_tile_size) as usize
+    } else {
+        (text_size.y / dialog_tile_size).ceil() as usize + 2
+    };
+    let dialog_height = height_in_tiles as f32 * dialog_tile_size;
+
+    let dialog_texs = Tex::text_dialog(width_in_tiles, height_in_tiles);
+
+    let (dialog_rect, dialog_resp) = if centered {
+        ui.horizontal(|ui| {
+            let centered_offset = (ui.available_width() - dialog_width) * 0.5;
+            ui.add_space(centered_offset);
+            ui.allocate_exact_size(vec2(dialog_width, dialog_height), Sense::click())
+        })
+        .inner
+    } else {
+        ui.allocate_exact_size(vec2(dialog_width, dialog_height), Sense::click())
+    };
+
+    render_tex_rows(
+        dialog_texs.tint(background_color),
+        dialog_rect,
+        map_texture,
+        ui,
+    );
+
+    let inner_dialog_rect = dialog_rect.shrink(dialog_tile_size / 2.0);
+    (inner_dialog_rect, dialog_resp)
 }

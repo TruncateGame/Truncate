@@ -30,6 +30,7 @@ pub struct Game {
     pub board: Board, // TODO: should these actually be public?
     pub bag: TileBag,
     pub judge: Judge,
+    pub battle_count: u32,
     pub recent_changes: Vec<Change>,
     pub started_at: Option<u64>,
     pub next_player: usize,
@@ -52,6 +53,7 @@ impl Game {
             board: Board::new(width, height),
             bag: TileBag::new(&rules.tile_distribution),
             judge: Judge::default(),
+            battle_count: 0,
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
@@ -65,7 +67,8 @@ impl Game {
             rules::Timing::PerPlayer {
                 time_allowance,
                 overtime_rule: _,
-            } => time_allowance,
+            } => Some(Duration::new(time_allowance as i64, 0)),
+            rules::Timing::None => None,
             _ => unimplemented!(),
         };
         self.players.push(Player::new(
@@ -73,7 +76,7 @@ impl Game {
             self.players.len(),
             self.rules.hand_size,
             &mut self.bag,
-            Some(Duration::new(time_allowance as i64, 0)),
+            time_allowance,
             GAME_COLORS[self.players.len()],
         ));
     }
@@ -345,13 +348,16 @@ impl Game {
             .word_strings(&defenders)
             .expect("Words were just found and should be valid");
 
-        if let Some(battle) = self.judge.battle(
+        if let Some(mut battle) = self.judge.battle(
             attacking_words,
             defending_words,
             &self.rules.battle_rules,
             &self.rules.win_condition,
             external_dictionary,
         ) {
+            battle.battle_number = Some(self.battle_count);
+            self.battle_count += 1;
+
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
                     let mut all_defenders_are_towns = true;

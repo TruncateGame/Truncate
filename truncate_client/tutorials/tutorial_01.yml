@@ -22,6 +22,7 @@ dict:
   TONERS: "Powder used in laser printers and photocopiers to form the text and images on the printed paper"
   HERD: "A number of domestic animals assembled together under the watch or ownership of a keeper"
   HIT: "To administer a blow to, directly or with a weapon or missile"
+  PIN: "A needle without an eye (usually) made of drawn-out steel wire with one end sharpened and the other flattened or rounded into a head, used for fastening"
 
 steps:
 
@@ -35,49 +36,67 @@ steps:
 
       To win Truncate, you must place a valid word that touches your opponent's town.
 
+  - message: |-
+      Each player starts at their own dock, and must always stay connected to it.
+
+      In this game, your dock is at the bottom of the board!
+
   - description: |-
-      To start the game, you take a tile from your hand and place it adjacent to your dock.
+      Let's get started by playing a tile. You can either drag the tile to the highlighted square, or click the tile then click on the board to play. 
 
-      You can drag a tile from your hand onto the board, or you can click the tile and then click a square on the board.
-
-      We'll guide you through some example gameplay, so start by placing the 'L' tile from your hand on the square touching your dock at the bottom of the board.
+      Place the 'L' tile from your hand on the square touching your dock.
     you: "L -> 4,1"
     gets: "E"
 
-  - description: |-
+  - message: |-
       After you place a tile, a new tile will be drawn from the bag and added to your hand.
 
-      Then your turn ends and your opponent's turn starts.
+      ( You got an 'E'! )
 
-      Click Next to see their move.
+  - description: |-
+      Finally, your turn ends and your opponent's turn starts.
+
+      Click Next to see their first move.
     computer: "D -> 4,9"
     gets: "R"
 
-  - description: |-
+  - message: |-
       Your opponent placed a 'D' beside their dock, and it's your turn to play again.
 
-      Now that you have a tile beside your dock, all tiles you place must touch your existing tiles. Since you can't play on top of a town, there's only one valid spot for you to play, which is above your 'L' tile.
+  - message: |-
+      Now that you have a tile beside your dock, all tiles you place must touch your existing tiles.
+
+  - description: |-
+      Since you can't play on top of a town, there's only one valid spot for you to play, which is above your 'L' tile.
 
       To continue, place your 'I' tile above your 'L' tile on the board.
     you: "I -> 4,2"
     gets: "S"
 
-  - description: |-
+  - message: |-
       Now your side of the board has the word 'IL'. This isn't a valid word, but that's okay!
 
-      Words in Truncate only have to be valid when they are attacked, and you can only attack a word by touching it. Since our opponent is too far away, we don't have to worry about this word being attacked just yet.
+  - message: |-
+      Words in Truncate only have to be valid when they are attacked, and you can only attack a word by touching it.
+      
+      Since our opponent is too far away, we don't have to worry about this word being attacked just yet.
 
+  - description: |-
       Let's see what our opponent plays next.
     computer: "R -> 4,8"
     gets: "E"
   
-  - description: |-
+  - message: |-
       For their turn, they placed the letter 'R'.
 
-      You'll notice that their tiles are upside down to you — this means that their word is 'RD', not 'DR'.
+      You'll notice that their tiles are upside down to you. This means that their word is 'RD', not 'DR'.
 
-      From here we have a choice of playing on the sides of our 'I', or on top. Generally we want to claim as much of the board as we can early on, so we'll keep building up.
+  - message: |-
+      From here we have a choice of playing on the sides of our 'I', or on top.
+      
+      Generally we want to claim as much of the board as we can early on, so we'll keep building up.
 
+  - description: |-
       Place your 'A' tile above your 'I', to make 'AIL'.
     you: "A -> 4,3"
     gets: "O"
@@ -87,11 +106,15 @@ steps:
     computer: "E -> 4,7"
     gets: "H"
 
-  - description: |-
+  - message: |-
       Now we're getting close to each other, so we need to start being careful.
 
-      The word we've been building thus far is our "root word" — the word that touches our dock. This will be the backbone of our entire board, so we want it to be long and valid.
+  - message: |-
+      The word we've been building thus far is our "root word" — the word that touches our dock.
+      
+      This will be the backbone of our entire board, so we want it to be long and valid.
 
+  - description: |-
       Let's finish up our root word with the tile 'F', making it the word 'FAIL'.
     you: "F -> 4,4"
     gets: "E"
@@ -101,170 +124,295 @@ steps:
     computer: "H -> 4,6"
     gets: "N"
 
+  - message: |-
+      Now we're right up against our opponent. 
+      
+      If we extend our root word again we'll be touching, which will trigger a battle.
+
+  - message: |-
+      In a battle, valid words defeat invalid words, and long words defeat short words.
+      
+      'HERD' is valid, so we can only defeat it with a longer word.
+
+  - message: |-
+      Defenders have an advantage in battles, and attacking words must be at least 2 letters longer than defending words to win.
+
+  - message: |-
+      In this case, we'd need a 6 letter word to beat 'HERD', but we don't have enough space for that.
+
   - description: |-
-      . . .
+      Let's go around them instead by building a word off the top of 'FAIL'.
     you: "I -> 3,4"
     gets: "M"
 
   - description: |-
-      . . .
+      Our opponent has several choices.
+      
+      They can try to stop us from coming down the right side, race down the left side, or extend their root word.
     computer: "N -> 3,7"
     gets: "O"
 
+  - message: |-
+      They seem to be trying to block us.
+
   - description: |-
-      . . .
+      We should extend 'FI' into a long valid word as quickly as possible. 
+      
+      If our opponent manages to extend 'HERD' into a valid 5 letter word, we'll need a valid 4 letter word to defend.
     you: "R -> 2,4"
     gets: "L"
 
   - description: |-
-      . . .
+      We are almost safe, we just need one more letter to stop our opponent from extending their root word.
     computer: "O -> 2,7"
     gets: "T"
 
   - description: |-
-      . . .
+      Now we can finish our top word. 
     you: "E -> 1,4"
     gets: "E"
 
+  - message: |-
+      Awesome! 'FIRE' is a valid 4 letter word. Thanks to the defender's advantage, our opponent can't beat it by extending 'HERD'.
+
+  - message: |-
+      We'd like to keep racing down the board by building off the 'E' in 'FIRE'.
+
   - description: |-
-      . . .
+      We'd have to beat 'ONE' to reach the end, but 'ONE' is only a 3 letter word, so our opponent is still vulnerable.
+
+      Let's see what they do about that...
     computer: "T -> 1,7"
     gets: "I"
 
-  - description: |-
-      . . .
-    you: "M -> 1,5"
-    gets: "T"
+  - message: |-
+      Our opponent successfully defended their position by playing 'TONE', now we can't race to the end.
+
+  - message: |-
+      Even if we can't break through immediately, it's useful to secure contested territory.
 
   - description: |-
-      . . .
+      If we get some territory in front of 'FIRE' our opponent will struggle to play on this side of the board without weakening their position.
+    you: "M -> 1,5"
+    gets: "R"
+
+  - description: |-
+      Now that our opponent has secured their position, they will probably try to gain more territory.
+
+      Let's see what they do...
     computer: "I -> 5,6"
     gets: "T"
 
+  - message: |-
+      It looks like our opponent is trying to race down the other side of the board.
+
   - description: |-
-      . . .
+      Let's build a strong word along our back line.
+      
+      We have the letters for 'SOIL' in our hand, which should be strong enough to defend us.
     you: "O -> 5,2"
     gets: "S"
 
   - description: |-
-      . . .
+      Let's see how our opponent proceeds...
     computer: "T -> 6,6"
     gets: "A"
 
+  - message: |-
+      Our opponent is probably preparing to build a long word towards us from the 'T' in 'HIT'.
+
   - description: |-
-      . . .
+      Let's continue building toward 'SOIL'.
+
+      We could build 'SOI' first instead of 'OIL', but it's usually safer to go via valid words.
     you: "L -> 3,2"
     gets: "I"
 
   - description: |-
-      . . .
+      It looks like we'll have plenty of time to build 'SOIL' across our back line before our opponent reaches us.
     computer: "A -> 6,5"
     gets: "H"
 
   - description: |-
-      . . .
+      Let's finish 'SOIL'.
     you: "S -> 6,2"
-    gets: "R"
+    gets: "T"
+
+  - message: |-
+      Our opponent has gained territory on our left flank, but they're still several turns away from breaking through.
+      
+      Remember, they need a 6 letter word to beat 'SOIL'.
 
   - description: |-
-      . . .
+      Let's see how they build their word out...
     computer: "H -> 6,4"
     gets: "E"
 
+  - message: |-
+      Notice, we just picked up a 'T' which would let us extend our root word to 'TRAIL' - if only we had played 'RAIL' instead of 'FAIL' originally...
+
+  - message: |-
+      Thankfully, you can use your turn to swap any two tiles on the board.
+
   - description: |-
-      . . .
+      To do this, you click one tile to select it, then click the other.
+
+      In this case, we can swap 'R' for 'F'. 'FAIL' will become 'RAIL' and 'FIRE' will become 'RIFE'.
     you: "2,4 -> 4,4"
     gets: "_"
 
+  - message: |-
+      Nice! Both 'RIFE' and 'RAIL' are valid words, so we don't have to worry about any new vulnerabilities.
+
+  - message: |-
+      Our opponent is now in serious danger.
+      
+      Next turn we can extend 'RAIL' to 'TRAIL', which is long enough to beat 'HIT' despite the defender's advantage.
+
   - description: |-
-      . . .
+      If they have an 'S', they should play 'HITS', which will be strong enough to defend against 'TRAIL'...
     computer: "E -> 6,7"
     gets: "R"
 
   - description: |-
-      . . .
+      It looks like our opponent wasn't able to defend.
+      
+      Now we can play 'TRAIL' and beat 'HIT' on length.
     you: "T -> 4,5"
     gets: "N"
 
+  - message: |-
+      'TRAIL' destroyed 'HIT' because it's 2 letters longer, but 'HERD' was long enough to stay on the board.
+      
+      The 'H' in 'HERD was removed as part of 'HIT', but the rest of the word remains.
+
+  - message: |-
+      In Truncate, all words need to be connected to a dock, and since 'HATE' became disconnected when 'HIT' was destroyed, 'HATE' was "Truncated."
+
   - description: |-
-      . . .
+      Our opponent is now in a weaker position, and will need to start rebuilding.
     computer: "R -> 5,7"
     gets: "S"
 
   - description: |-
-      . . .
+      We can actually extend our root word again by swapping 'TRAIL' into 'TRAIN' then playing 'STRAIN'.
+
+      You can only swap letters that are already on the board, so let's play our 'N'.
     you: "N -> 1,3"
     gets: "A"
 
   - description: |-
-      . . .
+      It doesn't matter what our opponent does since we'll beat their root word and all their other letters will be truncated.
+
+      There's nothing they can do to defend 'ERD'.
     computer: "S -> 6,7"
     gets: "I"
 
   - description: |-
-      . . .
+      Let's let's swap 'N' for 'L' so that we can play 'STRAIN' next turn.
     you: "4,1 -> 1,3"
     gets: "_"
 
   - description: |-
-      . . .
+      By swapping our 'N' we created the invalid word 'MEL' which our opponent can attack with a valid word of any length.
     computer: "I -> 1,6"
     gets: "T"
 
   - description: |-
-      . . .
+      We lost 'MEL' against 'IT' because 'IT' is valid and 'MEL' is not.
+
+      But it doesn't matter because our next turn will be practically game winning!
     you: "S -> 4,6"
     gets: "W"
 
+  - message: |-
+      'STRAIN' beats 'ERD' on length and because 'ERD' is invalid.
+
   - description: |-
-      . . .
+      'TONERS' is valid and long enough to defend against 'STRAIN', but when 'ERD' was defeated, 'TONERS' was disconnected from the dock so it got truncated.
     computer: "T -> 4,9"
     gets: "A"
 
   - description: |-
-      . . .
+      Even though we destroyed all of the opponent's letters the game is not over.
+
+      Remember, to win Truncate you have to reach your opponent's towns. Let's race for the top right corner.
     you: "A -> 3,6"
     gets: "P"
 
   - description: |-
-      . . .
+      The opponent is forced to build toward the right side of the board to stop us.
+
+      Let's see if they can...
     computer: "A -> 4,8"
     gets: "M"
 
   - description: |-
-      . . .
+      Let's keep rushing to the top right corner.
     you: "W -> 2,6"
     gets: "N"
 
   - description: |-
-      . . .
+      The opponent still has a chance to defend their back line.
     computer: "M -> 5,8"
     gets: "R"
 
+  - message: |-
+      It looks like they couldn't safely build to our right. If they had played an invalid word like 'RA' or 'QA', we could have attacked it and got an even stronger position.
+
   - description: |-
-      . . .
+      Let's seal off the right hand side by playing 'SAWN'.
     you: "N -> 1,6"
     gets: "I"
 
   - description: |-
-      . . .
+      The opponent has to build towards the corner or they will lose in 2 turns.
     computer: "R -> 3,8"
     gets: "P"
 
+  - message: |-
+      'RAM' is a good word with many extensions such as 'GRAM', 'CRAM', and 'PRAM'.
+
+      Let's keep playing towards the corner just in case they don't have an extension.
+
+  - message: |-
+      Now we're getting close to winning, and we have to be careful what we play.
+
+  - message: |-
+      To win, you must touch an opponent's town with a valid word.
+
+      If you play an invalid word touching an enemy town, it will be lost.
+
   - description: |-
-      . . .
+      Thankfully, there are many three letter words that end with the letter 'N'.
+
+      We'll aim to play 'PIN'.
     you: "I -> 1,7"
     gets: "Q"
 
   - description: |-
-      . . .
+      Now we're one turn away from winning.
+      
+      Our opponent must play in front of 'RAM' or we can win next turn by reaching one of their towns.
     computer: "P -> 6,8"
     gets: "T"
 
   - description: |-
-      . . .
+      Our opponent wasn't able to defend the corner, and we are able to play a valid word!
+      
+      Let's play there and win the game!
     you: "P -> 1,8"
     gets: "K"
 
   - message: |-
-      Huzzah!
+      Huzzah! By connecting your dock to their towns you have won this game.
+
+  - message: |-
+      That concludes this tutorial.
+      
+      To get more familiar with the game, play some single player games against the computer.
+
+  - message: |-
+      Once you're ready, challenge a friend to an online game!
+
+      We hope you enjoy Truncate :-)

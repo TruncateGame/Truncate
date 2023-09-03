@@ -160,7 +160,10 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             tutorial.render(ui, theme, current_time);
         }
         GameStatus::SinglePlayer(sp) => {
-            sp.render(ui, theme, current_time);
+            // Single player _can_ talk to the server, e.g. to ask for word definitions
+            if let Some(msg) = sp.render(ui, theme, current_time) {
+                send(msg);
+            };
         }
         GameStatus::PendingJoin(room_code) => {
             let dot_count = (current_time.as_millis() / 500) % 4;
@@ -172,8 +175,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 format!("JOINING {room_code}{}", dots.join(""))
             };
 
-            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
-            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let msg_text = TextHelper::heavy(&msg, 14.0, None, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, None, ui);
             let required_size = vec2(
                 msg_text.size().x,
                 msg_text.size().y + button_text.size().y * 2.0,
@@ -211,8 +214,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 format!("CREATING ROOM{}", dots.join(""))
             };
 
-            let msg_text = TextHelper::heavy(&msg, 14.0, ui);
-            let button_text = TextHelper::heavy("CANCEL", 14.0, ui);
+            let msg_text = TextHelper::heavy(&msg, 14.0, None, ui);
+            let button_text = TextHelper::heavy("CANCEL", 14.0, None, ui);
             let required_size = vec2(
                 msg_text.size().x,
                 msg_text.size().y + button_text.size().y * 2.0,
@@ -266,6 +269,16 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         match msg {
             GameMessage::Ping => {}
             GameMessage::JoinedLobby(player_index, id, players, board, token) => {
+                // If we're already in a lobby, treat this as a lobby update
+                // (the websocket probably dropped and reconnected)
+                if let GameStatus::PendingStart(lobby) = game_status {
+                    if lobby.room_code.to_uppercase() == id.to_uppercase() {
+                        lobby.players = players;
+                        lobby.update_board(board);
+                        continue;
+                    }
+                }
+
                 #[cfg(target_arch = "wasm32")]
                 {
                     let local_storage =
@@ -308,6 +321,24 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 hand,
                 changes: _,
             }) => {
+                // If we're already in a game, treat this as a game update
+                // (the websocket probably dropped and reconnected)
+                if let GameStatus::Active(game) = game_status {
+                    if game.ctx.room_code.to_uppercase() == room_code.to_uppercase() {
+                        let update = GameStateMessage {
+                            room_code,
+                            players,
+                            player_number,
+                            next_player_number,
+                            board,
+                            hand,
+                            changes: vec![], // TODO: Try get latest changes on reconnect without dupes
+                        };
+                        game.apply_new_state(update);
+                        continue;
+                    }
+                }
+
                 *game_status = GameStatus::Active(ActiveGame::new(
                     room_code.to_uppercase(),
                     players,
@@ -352,6 +383,14 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             },
             GameMessage::GenericError(err) => {
                 *error = Some(err);
+            }
+            GameMessage::SupplyDefinitions(definitions) => {
+                match game_status {
+                    GameStatus::SinglePlayer(game) => {
+                        game.hydrate_meanings(definitions);
+                    }
+                    _ => { /* Soft unreachable */ }
+                }
             }
         }
     }

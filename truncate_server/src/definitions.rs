@@ -73,8 +73,15 @@ pub fn read_defs() -> WordDB {
         );
     }
 
+    let word_db_connection = Connection::open(defs_file).ok();
+    if word_db_connection.is_some() {
+        println!("Connected to the word definition database at {defs_file}");
+    } else {
+        println!("No word definitions available at {defs_file}. Set a TR_DEFS_FILE environment variable to point to a word db.");
+    }
+
     WordDB {
-        conn: Connection::open(defs_file).ok(),
+        conn: word_db_connection,
         room_codes: valid_words
             .keys()
             .filter(|k| k.len() < 6)
