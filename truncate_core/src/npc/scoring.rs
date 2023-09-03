@@ -204,9 +204,14 @@ mod tests {
         let base = BoardScore::default();
         let early_loss = BoardScore::default().turn_number(1).opponent_win(true);
         let late_loss = BoardScore::default().turn_number(0).opponent_win(true);
+        let late_better_loss = BoardScore::default()
+            .turn_number(0)
+            .opponent_win(true)
+            .self_frontline(1.0);
 
         assert!(base > early_loss);
         assert!(base > late_loss);
         assert!(late_loss > early_loss);
+        assert!(late_better_loss > late_loss);
     }
 }
