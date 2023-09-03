@@ -24,6 +24,8 @@ pub struct SinglePlayerState {
     npc_known_dict: WordDict,
     next_response_at: Option<Duration>,
     winner: Option<usize>,
+    map_texture: TextureHandle,
+    theme: Theme,
     turns: usize,
 }
 
@@ -41,8 +43,8 @@ impl SinglePlayerState {
             0,
             game.board.clone(),
             game.players[0].hand.clone(),
-            map_texture,
-            theme,
+            map_texture.clone(),
+            theme.clone(),
         );
 
         let mut valid_words = HashMap::new();
@@ -82,8 +84,33 @@ impl SinglePlayerState {
             npc_known_dict: npc_known_words,
             next_response_at: None,
             winner: None,
+            map_texture,
+            theme,
             turns: 0,
         }
+    }
+
+    pub fn reset(&mut self) {
+        let mut game = Game::new(9, 9);
+        game.add_player("You".into());
+        game.add_player("Computer".into());
+        game.start();
+
+        let active_game = ActiveGame::new(
+            "SINGLE_PLAYER".into(),
+            game.players.iter().map(Into::into).collect(),
+            0,
+            0,
+            game.board.clone(),
+            game.players[0].hand.clone(),
+            self.map_texture.clone(),
+            self.theme.clone(),
+        );
+
+        self.game = game;
+        self.active_game = active_game;
+        self.next_response_at = None;
+        self.winner = None;
     }
 
     /// If the server sent through some new word definitions,
@@ -125,6 +152,11 @@ impl SinglePlayerState {
             .active_game
             .render(ui, theme, self.winner, current_time)
             .map(|msg| (0, msg));
+
+        if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
+            self.reset();
+            return msg_to_server;
+        }
 
         if self.winner.is_some() {
             return msg_to_server;
