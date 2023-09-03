@@ -765,7 +765,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1366 possible leaves
-                  - 552 after pruning
+                  - 404 after pruning
                   - Move: Place A at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -806,14 +806,14 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1384 possible leaves
-                  - 609 after pruning
-                  - Move: Place A at (1, 3)
+                  - 774 after pruning
+                  - Move: Place A at (3, 4)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 __ A0 __ __ __
                 __ __ __ __ __
-                __ __ T1 __ __
+                __ X1 T1 A1 __
                 __ __ A1 __ __
                 __ __ R1 __ __
                 ~~ ~~ |1 ~~ ~~
@@ -847,14 +847,14 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1399 possible leaves
-                  - 509 after pruning
-                  - Move: Place S at (2, 3)
+                  - 376 after pruning
+                  - Move: Place S at (3, 4)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 D0 A0 __ __ __
-                __ __ S1 __ __
-                T1 E1 E1 __ __
+                __ __ __ __ __
+                T1 E1 E1 S1 __
                 __ __ A1 __ __
                 R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
@@ -932,8 +932,8 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 12345 possible leaves
-                  - 3572 after pruning
-                  - Move: Place A at (6, 7)
+                  - 2493 after pruning
+                  - Move: Place E at (1, 8)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -942,8 +942,8 @@ mod tests {
                 __ __ C0 T0 __ __ __
                 __ __ __ A0 __ __ __
                 __ __ __ B0 __ __ __
-                __ __ I1 __ __ __ A1
-                __ __ D1 A1 T1 E1 S1
+                __ __ I1 __ __ __ __
+                __ E1 D1 A1 T1 E1 S1
                 __ __ E1 __ __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~
                 "###);

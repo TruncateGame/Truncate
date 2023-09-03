@@ -72,7 +72,7 @@ impl Judge {
     }
 
     pub fn set_alias(&mut self, alias_target: Vec<char>) -> char {
-        for p in ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'] {
+        for p in ['1', '2', '3', '4', '5', '6', '7', '8', '9'] {
             if self.aliases.contains_key(&p) {
                 continue;
             }
@@ -178,6 +178,7 @@ impl Judge {
         let longest_attacker = attackers
             .iter()
             .reduce(|longest, curr| {
+                // TODO: len() is bytes not characters
                 if curr.as_ref().len() > longest.as_ref().len() {
                     curr
                 } else {
@@ -216,6 +217,7 @@ impl Judge {
             .map(|(index, _)| *index)
             .collect();
 
+        // TODO: len() is bytes not characters
         let weak_town_defenders: Vec<_> = town_words
             .iter()
             .filter(|(_, word)| {
@@ -734,6 +736,33 @@ mod tests {
             .unwrap()
             .outcome,
             Outcome::AttackerWins(vec![0])
+        );
+
+        assert_eq!(
+            j.battle(
+                vec![format!("{a_or_b}RTS").as_str()],
+                vec!["FOLK"],
+                &test_battle_rules(),
+                &test_win_rules(),
+                None,
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
+        );
+        assert_eq!(
+            j.battle(
+                vec![format!("{a_or_b}RTS").as_str()],
+                vec!["BAG"],
+                &test_battle_rules(),
+                &test_win_rules(),
+                None,
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
         );
     }
 

@@ -113,7 +113,7 @@ impl BoardScore {
             + self.self_progress
             + self.self_defense
             + self.word_quality.word_length
-            + self.word_quality.word_validity * 4.0
+            + self.word_quality.word_validity * 2.0
             + self.word_quality.word_extensibility;
 
         self_scores - opponent_scores
