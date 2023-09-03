@@ -133,18 +133,23 @@ impl PartialOrd for BoardScore {
         }
 
         match (self.self_win, other.self_win) {
-            // Rank early wins high
-            (true, true) => return self.turn_number.partial_cmp(&other.turn_number),
             (true, false) => return Some(Ordering::Greater),
             (false, true) => return Some(Ordering::Less),
+            // Rank early wins high
+            (true, true) => return self.turn_number.partial_cmp(&other.turn_number),
             _ => {}
         }
 
         match (self.opponent_win, other.opponent_win) {
-            // Rank early losses low
-            (true, true) => return other.turn_number.partial_cmp(&self.turn_number),
             (true, false) => return Some(Ordering::Less),
             (false, true) => return Some(Ordering::Greater),
+            (true, true) => match other.turn_number.partial_cmp(&self.turn_number) {
+                // Rank early losses low
+                Some(Ordering::Greater) => return Some(Ordering::Greater),
+                Some(Ordering::Less) => return Some(Ordering::Less),
+                // Rank even losses on the rest of the board
+                _ => {}
+            },
             _ => {}
         }
 
@@ -203,48 +208,5 @@ mod tests {
         assert!(base > early_loss);
         assert!(base > late_loss);
         assert!(late_loss > early_loss);
-    }
-
-    #[test]
-    fn tmp() {
-        let a = BoardScore {
-            infinity: false,
-            neg_infinity: false,
-            turn_number: 0,
-            word_quality: WordQualityScores {
-                word_length: 0.5,
-                word_validity: 1.0,
-                word_extensibility: 1.0,
-            },
-            self_frontline: 0.54545456,
-            opponent_frontline: 0.0,
-            self_progress: 0.20661157,
-            opponent_progress: 0.0,
-            self_defense: 1.0,
-            self_win: false,
-            opponent_win: false,
-            board: None,
-        };
-
-        let b = BoardScore {
-            infinity: false,
-            neg_infinity: false,
-            turn_number: 0,
-            word_quality: WordQualityScores {
-                word_length: 0.8,
-                word_validity: 1.0,
-                word_extensibility: 1.0,
-            },
-            self_frontline: 0.54545456,
-            opponent_frontline: 0.0,
-            self_progress: 0.16528925,
-            opponent_progress: 0.0,
-            self_defense: 1.0,
-            self_win: false,
-            opponent_win: false,
-            board: None,
-        };
-
-        assert!(b > a);
     }
 }
