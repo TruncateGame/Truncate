@@ -273,6 +273,11 @@ impl Judge {
         external_dictionary: Option<&WordDict>,
         used_aliases: Option<HashMap<char, Vec<usize>>>,
     ) -> Option<String> {
+        // If the word is entirely wildcards, skip the lookup and just say it is valid.
+        if word.as_ref().len() > 1 && word.as_ref().chars().all(|c| c == '*') {
+            return Some(word.as_ref().to_string());
+        }
+
         if word.as_ref().contains('¤') {
             return Some(word.as_ref().to_string().to_uppercase());
         }

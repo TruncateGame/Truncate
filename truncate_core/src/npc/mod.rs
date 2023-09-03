@@ -252,11 +252,26 @@ impl Game {
         player.hand_capacity = 0;
 
         // If we're past the first layer,
-        // use a combo tile for the eval player to reduce permutations.
+        // use a combo tile for the eval player, to reduce permutations.
         if current_depth == total_depth - 1 {
             let alias = self.judge.set_alias(player.hand.0.clone());
             // Add enough that using them doesn't cause them to run out.
             player.hand = Hand(vec![alias; current_depth]);
+        }
+
+        // If we're past the first layer,
+        // all opponent tiles become wildcards, to encourage early attacks.
+        if current_depth == total_depth - 1 {
+            for row in &mut self.board.squares {
+                for col in row {
+                    match col {
+                        Square::Occupied(p, _) if *p == unknown_player_index => {
+                            *col = Square::Occupied(unknown_player_index, '*');
+                        }
+                        _ => {}
+                    }
+                }
+            }
         }
 
         // Prevent the NPC from making decisions based on the opponent's tiles,
