@@ -585,7 +585,41 @@ mod tests {
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
             omit_expression => true
         }, {
-            insta::assert_snapshot!(format!("(Total score) A: {:#?} / B: {:#?}", score_a, score_b), @"(Total score) A: 9.227806 / B: 6.5617027");
+            insta::assert_snapshot!(format!("(Total score) A: {:#?} / B: {:#?}", score_a, score_b), @r###"
+            (Total score) A: BoardScore {
+                infinity: false,
+                neg_infinity: false,
+                turn_number: 1,
+                word_quality: WordQualityScores {
+                    word_length: 0.4,
+                    word_validity: 1.0,
+                    word_extensibility: 1.0,
+                },
+                self_frontline: 0.5,
+                opponent_frontline: 0.375,
+                self_progress: 0.35714287,
+                opponent_progress: 0.125,
+                self_defense: 1.0,
+                self_win: false,
+                opponent_win: false,
+            } / B: BoardScore {
+                infinity: false,
+                neg_infinity: false,
+                turn_number: 1,
+                word_quality: WordQualityScores {
+                    word_length: 0.4,
+                    word_validity: 1.0,
+                    word_extensibility: 1.0,
+                },
+                self_frontline: 0.5,
+                opponent_frontline: 0.375,
+                self_progress: 0.32142857,
+                opponent_progress: 0.125,
+                self_defense: 1.0,
+                self_win: false,
+                opponent_win: false,
+            }
+            "###);
         });
     }
 
@@ -624,7 +658,7 @@ mod tests {
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
             omit_expression => true
         }, {
-            insta::assert_snapshot!(format!("(Defense score) A: {} / B: {}", score_a, score_b), @"(Defense score) A: 9.333333 / B: 15");
+            insta::assert_snapshot!(format!("(Defense score) A: {} / B: {}", score_a, score_b), @"(Defense score) A: 0.4 / B: 1");
         });
     }
 
@@ -662,7 +696,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1337 possible leaves
-                  - 693 after pruning
+                  - 478 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -703,7 +737,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1366 possible leaves
-                  - 559 after pruning
+                  - 552 after pruning
                   - Move: Place A at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -744,7 +778,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1384 possible leaves
-                  - 798 after pruning
+                  - 736 after pruning
                   - Move: Place A at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -785,15 +819,15 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1399 possible leaves
-                  - 633 after pruning
-                  - Move: Place A at (0, 5)
+                  - 507 after pruning
+                  - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 D0 A0 __ __ __
-                __ __ __ __ __
+                __ __ S1 __ __
                 T1 E1 E1 __ __
-                A1 __ A1 __ __
+                __ __ A1 __ __
                 R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
                 "###);
@@ -826,14 +860,14 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1400 possible leaves
-                  - 443 after pruning
-                  - Move: Place T at (2, 3)
+                  - 461 after pruning
+                  - Move: Place S at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
+                __ T0 O0 __ __
+                D0 A0 Q0 __ __
                 __ __ __ __ __
-                __ __ __ __ __
-                __ __ T1 __ __
-                Q1 E1 E1 __ __
+                __ __ E1 __ __
                 __ __ A1 __ __
                 R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
@@ -870,8 +904,8 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 12345 possible leaves
-                  - 5356 after pruning
-                  - Move: Place T at (1, 7)
+                  - 3583 after pruning
+                  - Move: Place A at (6, 7)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -880,7 +914,7 @@ mod tests {
                 __ __ C0 T0 __ __ __
                 __ __ __ A0 __ __ __
                 __ __ __ B0 __ __ __
-                __ T1 I1 __ __ __ __
+                __ __ I1 __ __ __ A1
                 __ __ D1 A1 T1 E1 S1
                 __ __ E1 __ __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~
