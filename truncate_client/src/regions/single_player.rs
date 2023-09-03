@@ -155,7 +155,7 @@ impl SinglePlayerState {
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
             self.reset();
-            return;
+            return msg_to_server;
         }
 
         if self.winner.is_some() {
