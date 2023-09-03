@@ -34,7 +34,7 @@ const objectionable_tags = [
     "objectionable",
     "derogatory",
     "genitalia",
-    "sex",
+    "sex", // TODO: links containing
     "sexual intercourse",
     "fascist",
     "racist",

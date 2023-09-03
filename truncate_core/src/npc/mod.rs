@@ -259,9 +259,9 @@ impl Game {
             player.hand = Hand(vec![alias; current_depth]);
         }
 
-        // If we're past the first layer,
+        // If we're past the second layer,
         // all opponent tiles become wildcards, to encourage early attacks.
-        if current_depth == total_depth - 1 {
+        if current_depth == total_depth - 2 {
             for row in &mut self.board.squares {
                 for col in row {
                     match col {
