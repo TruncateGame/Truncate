@@ -29,6 +29,7 @@ pub enum Truncation {
 #[derive(Debug, Clone)]
 pub enum OvertimeRule {
     FreeWildcard { period: usize },                   // TODO: Implement
+    Bomb { period: usize },                           // TODO: Implement
     RemoveTiles { period: usize, phase_time: usize }, // TODO: Implement
     Elimination,                                      // TODO: Implement
 }
