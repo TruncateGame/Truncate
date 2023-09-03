@@ -124,7 +124,6 @@ impl Game {
     }
 
     pub fn calculate_game_over(&mut self) {
-        println!("Checking if the game is over");
         let overtime_rule = match &self.rules.timing {
             rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
             _ => None,

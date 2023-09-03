@@ -140,6 +140,7 @@ impl SinglePlayerState {
 
         self.game = game;
         self.active_game = active_game;
+        self.turns = 0;
         self.next_response_at = None;
         self.winner = None;
     }
