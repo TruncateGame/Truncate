@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::Debug;
 
 use crate::board::Board;
@@ -8,7 +9,7 @@ use super::WordQualityScores;
 pub struct BoardScore {
     infinity: bool,
     neg_infinity: bool,
-    turn_number: usize,
+    turn_number: usize, // Lower number means later turn
     word_quality: WordQualityScores,
     self_frontline: f32,
     opponent_frontline: f32,
@@ -108,8 +109,8 @@ impl BoardScore {
 
 impl BoardScore {
     pub fn rank(&self) -> f32 {
-        let opponent_scores = self.opponent_frontline + self.opponent_progress;
-        let self_scores = self.self_frontline
+        let opponent_scores = self.opponent_frontline * 2.0 + self.opponent_progress;
+        let self_scores = self.self_frontline * 2.0
             + self.self_progress
             + self.self_defense
             + self.word_quality.word_length
@@ -121,7 +122,7 @@ impl BoardScore {
 }
 
 impl PartialOrd for BoardScore {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self.infinity.partial_cmp(&other.infinity) {
             Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,
@@ -131,23 +132,20 @@ impl PartialOrd for BoardScore {
             ord => return ord,
         }
 
-        match self.self_win.partial_cmp(&other.self_win) {
-            Some(core::cmp::Ordering::Equal) => {
-                match self.turn_number.partial_cmp(&other.turn_number) {
-                    Some(core::cmp::Ordering::Equal) => {}
-                    ord => return ord,
-                }
-            }
-            ord => return ord,
+        match (self.self_win, other.self_win) {
+            // Rank early wins high
+            (true, true) => return self.turn_number.partial_cmp(&other.turn_number),
+            (true, false) => return Some(Ordering::Greater),
+            (false, true) => return Some(Ordering::Less),
+            _ => {}
         }
-        match other.opponent_win.partial_cmp(&self.opponent_win) {
-            Some(core::cmp::Ordering::Equal) => {
-                match other.turn_number.partial_cmp(&self.turn_number) {
-                    Some(core::cmp::Ordering::Equal) => {}
-                    ord => return ord,
-                }
-            }
-            ord => return ord,
+
+        match (self.opponent_win, other.opponent_win) {
+            // Rank early losses low
+            (true, true) => return other.turn_number.partial_cmp(&self.turn_number),
+            (true, false) => return Some(Ordering::Greater),
+            (false, true) => return Some(Ordering::Less),
+            _ => {}
         }
 
         self.rank().partial_cmp(&other.rank())

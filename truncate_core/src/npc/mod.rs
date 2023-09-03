@@ -149,7 +149,7 @@ impl Game {
                     max_score = score.clone();
                     relevant_move = Some((position, tile));
                 }
-                if score > alpha {
+                if max_score > alpha {
                     alpha = score;
                 }
 
@@ -172,7 +172,7 @@ impl Game {
                     min_score = score.clone();
                     relevant_move = Some((position, tile));
                 }
-                if score < beta {
+                if min_score < beta {
                     beta = score;
                 }
 
@@ -806,7 +806,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1384 possible leaves
-                  - 774 after pruning
+                  - 760 after pruning
                   - Move: Place A at (3, 4)
 
                 ~~ ~~ |0 ~~ ~~
@@ -847,7 +847,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1399 possible leaves
-                  - 376 after pruning
+                  - 379 after pruning
                   - Move: Place S at (3, 4)
 
                 ~~ ~~ |0 ~~ ~~
@@ -888,7 +888,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1400 possible leaves
-                  - 529 after pruning
+                  - 477 after pruning
                   - Move: Place S at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -932,8 +932,8 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 12345 possible leaves
-                  - 2493 after pruning
-                  - Move: Place E at (1, 8)
+                  - 2550 after pruning
+                  - Move: Place A at (6, 7)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -942,10 +942,57 @@ mod tests {
                 __ __ C0 T0 __ __ __
                 __ __ __ A0 __ __ __
                 __ __ __ B0 __ __ __
-                __ __ I1 __ __ __ __
-                __ E1 D1 A1 T1 E1 S1
+                __ __ I1 __ __ __ A1
+                __ __ D1 A1 T1 E1 S1
                 __ __ E1 __ __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~
+                "###);
+            });
+        }
+
+        /* - - - - - - - - - - - - - - - - - */
+
+        {
+            let (board, result) = eval_npc_result(
+                "LDDEUQU",
+                r###"
+                ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
+                ~~ #0 #0 #0 #0 E0 #0 #0 #0 #0 ~~
+                ~~ __ __ __ __ N0 __ __ __ __ ~~
+                ~~ __ __ __ __ I0 __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ N1 __ __ __ __ ~~
+                ~~ __ __ __ __ E1 __ __ __ __ ~~
+                ~~ #1 #1 #1 #1 E1 #1 #1 #1 #1 ~~
+                ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~
+                "###,
+                4,
+                &dict,
+            );
+
+            insta::with_settings!({
+                description => board,
+                omit_expression => true
+            }, {
+                insta::assert_snapshot!(result, @r###"
+                Evaluating:
+                  - 5080 possible leaves
+                  - 1101 after pruning
+                  - Move: Place E at (6, 7)
+
+                ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
+                ~~ #0 #0 #0 #0 E0 #0 #0 #0 #0 ~~
+                ~~ __ __ __ __ N0 __ __ __ __ ~~
+                ~~ __ __ __ __ I0 __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ N1 E1 __ __ __ ~~
+                ~~ __ __ __ __ E1 __ __ __ __ ~~
+                ~~ #1 #1 #1 #1 E1 #1 #1 #1 #1 ~~
+                ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~
                 "###);
             });
         }
