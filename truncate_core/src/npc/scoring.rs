@@ -143,11 +143,108 @@ impl PartialOrd for BoardScore {
         match (self.opponent_win, other.opponent_win) {
             // Rank early losses low
             (true, true) => return other.turn_number.partial_cmp(&self.turn_number),
-            (true, false) => return Some(Ordering::Greater),
-            (false, true) => return Some(Ordering::Less),
+            (true, false) => return Some(Ordering::Less),
+            (false, true) => return Some(Ordering::Greater),
             _ => {}
         }
 
         self.rank().partial_cmp(&other.rank())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn infinities() {
+        let max = BoardScore::inf();
+        let base = BoardScore::default();
+        let min = BoardScore::neg_inf();
+
+        assert!(max > base);
+        assert!(min < base);
+        assert!(max > min)
+    }
+
+    #[test]
+    fn validities() {
+        let a = BoardScore::default().word_quality(WordQualityScores {
+            word_length: 0.0,
+            word_validity: 0.6,
+            word_extensibility: 0.0,
+        });
+        let b = BoardScore::default().word_quality(WordQualityScores {
+            word_length: 0.0,
+            word_validity: 0.5,
+            word_extensibility: 0.0,
+        });
+
+        assert!(a > b);
+    }
+
+    #[test]
+    fn winning() {
+        let base = BoardScore::default();
+        let early_win = BoardScore::default().turn_number(1).self_win(true);
+        let late_win = BoardScore::default().turn_number(0).self_win(true);
+
+        assert!(early_win > base);
+        assert!(late_win > base);
+        assert!(early_win > late_win);
+    }
+
+    #[test]
+    fn losing() {
+        let base = BoardScore::default();
+        let early_loss = BoardScore::default().turn_number(1).opponent_win(true);
+        let late_loss = BoardScore::default().turn_number(0).opponent_win(true);
+
+        assert!(base > early_loss);
+        assert!(base > late_loss);
+        assert!(late_loss > early_loss);
+    }
+
+    #[test]
+    fn tmp() {
+        let a = BoardScore {
+            infinity: false,
+            neg_infinity: false,
+            turn_number: 0,
+            word_quality: WordQualityScores {
+                word_length: 0.5,
+                word_validity: 1.0,
+                word_extensibility: 1.0,
+            },
+            self_frontline: 0.54545456,
+            opponent_frontline: 0.0,
+            self_progress: 0.20661157,
+            opponent_progress: 0.0,
+            self_defense: 1.0,
+            self_win: false,
+            opponent_win: false,
+            board: None,
+        };
+
+        let b = BoardScore {
+            infinity: false,
+            neg_infinity: false,
+            turn_number: 0,
+            word_quality: WordQualityScores {
+                word_length: 0.8,
+                word_validity: 1.0,
+                word_extensibility: 1.0,
+            },
+            self_frontline: 0.54545456,
+            opponent_frontline: 0.0,
+            self_progress: 0.16528925,
+            opponent_progress: 0.0,
+            self_defense: 1.0,
+            self_win: false,
+            opponent_win: false,
+            board: None,
+        };
+
+        assert!(b > a);
     }
 }
