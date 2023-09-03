@@ -75,6 +75,9 @@ mod tests {
             "ARTS".into(),
         ]) // TODO: Collins 2018 list
     }
+    pub fn b_dict() -> Judge {
+        Judge::new(vec!["BIG".into()]) // TODO: Collins 2018 list
+    }
 
     #[test]
     fn invalid_placement_locations() {
@@ -97,7 +100,7 @@ mod tests {
             ..Game::new(3, 3)
         };
         assert_eq!(
-            game.make_move(out_of_bounds, None),
+            game.make_move(out_of_bounds, None, None),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
@@ -108,7 +111,7 @@ mod tests {
             position,
         };
         assert_eq!(
-            game.make_move(out_of_bounds, None),
+            game.make_move(out_of_bounds, None, None),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
@@ -119,7 +122,7 @@ mod tests {
             position,
         };
         assert_eq!(
-            game.make_move(dead, None),
+            game.make_move(dead, None, None),
             Err(GamePlayError::InvalidPosition { position })
         );
     }
@@ -143,6 +146,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 2, y: 1 },
             },
+            None,
             None,
         );
         assert_eq!(
@@ -183,7 +187,8 @@ mod tests {
                     tile: 'B',
                     position: Coordinate { x: 2, y: 1 }
                 },
-                None
+                None,
+                None,
             ),
             Err(GamePlayError::OccupiedPlace)
         );
@@ -196,7 +201,8 @@ mod tests {
                     tile: 'B',
                     position: Coordinate { x: 3, y: 2 }
                 },
-                None
+                None,
+                None,
             ),
             Err(GamePlayError::NonAdjacentPlace)
         );
@@ -209,7 +215,8 @@ mod tests {
                     tile: 'B',
                     position: Coordinate { x: 2, y: 2 }
                 },
-                None
+                None,
+                None,
             )
             .map(|c| {
                 c.into_iter()
@@ -233,7 +240,8 @@ mod tests {
                     tile: 'B',
                     position: Coordinate { x: 2, y: 2 }
                 },
-                None
+                None,
+                None,
             ),
             Err(GamePlayError::OccupiedPlace)
         );
@@ -245,7 +253,8 @@ mod tests {
                     player: 0,
                     positions: [Coordinate { x: 2, y: 1 }, Coordinate { x: 2, y: 2 }]
                 },
-                None
+                None,
+                None,
             ),
             Ok(vec![
                 Change::Board(BoardChange {
@@ -288,7 +297,8 @@ mod tests {
                     tile: 'A',
                     position: Coordinate { x: 2, y: 2 }
                 },
-                None
+                None,
+                None,
             ),
             Err(GamePlayError::NonAdjacentPlace)
         );
@@ -300,7 +310,8 @@ mod tests {
                     tile: '&',
                     position: Coordinate { x: 1, y: 0 }
                 },
-                None
+                None,
+                None,
             ),
             Err(GamePlayError::PlayerDoesNotHaveTile {
                 player: 0,
@@ -433,6 +444,7 @@ mod tests {
                 position: Coordinate { x: 1, y: 3 },
             },
             None,
+            None,
         )
         .unwrap();
 
@@ -475,6 +487,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
+            None,
             None,
         )
         .unwrap();
@@ -529,6 +542,7 @@ mod tests {
                 position: Coordinate { x: 1, y: 3 },
             },
             None,
+            None,
         )
         .unwrap();
 
@@ -580,6 +594,7 @@ mod tests {
                 position: Coordinate { x: 2, y: 3 },
             },
             None,
+            None,
         )
         .unwrap();
 
@@ -627,6 +642,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
+            None,
             None,
         );
 
@@ -683,6 +699,7 @@ mod tests {
                 position: Coordinate { x: 0, y: 5 },
             },
             None,
+            None,
         );
 
         assert_eq!(
@@ -737,6 +754,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
+            None,
             None,
         );
 
@@ -793,6 +811,7 @@ mod tests {
                 position: Coordinate { x: 0, y: 5 },
             },
             None,
+            None,
         );
 
         assert_eq!(
@@ -848,6 +867,7 @@ mod tests {
                 position: Coordinate { x: 2, y: 5 },
             },
             None,
+            None,
         );
 
         assert_eq!(
@@ -900,6 +920,7 @@ mod tests {
                 position: Coordinate { x: 2, y: 0 },
             },
             None,
+            None,
         )
         .unwrap();
 
@@ -910,6 +931,102 @@ mod tests {
              __ __ __ __ __\n\
              __ __ __ __ __\n\
              ~~ ~~ T1 |1 ~~",
+        )
+    }
+
+    #[test]
+    fn resolve_with_smaller_attack_dict() {
+        let b = Board::from_string(
+            "__ S0 X0 |0 __\n\
+             __ T0 __ __ __\n\
+             __ R0 __ __ __\n\
+             __ __ A1 __ __\n\
+             __ __ R1 __ __\n\
+             __ __ T1 __ __\n\
+             __ __ S1 |1 __",
+        );
+        let mut bag = TileUtils::trivial_bag();
+        let players = vec![
+            Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
+        ];
+
+        let mut game = Game {
+            board: b,
+            bag,
+            players,
+            judge: short_dict(),
+            ..Game::new(1, 1)
+        };
+
+        game.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            Some(&b_dict().builtin_dictionary),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            game.board.to_string(),
+            "__ __ X0 |0 __\n\
+             __ __ __ __ __\n\
+             __ __ __ __ __\n\
+             __ __ A1 __ __\n\
+             __ __ R1 __ __\n\
+             __ __ T1 __ __\n\
+             __ __ S1 |1 __",
+        )
+    }
+
+    #[test]
+    fn resolve_with_smaller_defense_dict() {
+        let b = Board::from_string(
+            "__ S0 X0 |0 __\n\
+             __ T0 __ __ __\n\
+             __ R0 __ __ __\n\
+             __ __ A1 __ __\n\
+             __ __ R1 __ __\n\
+             __ __ T1 __ __\n\
+             __ __ S1 |1 __",
+        );
+        let mut bag = TileUtils::trivial_bag();
+        let players = vec![
+            Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
+        ];
+
+        let mut game = Game {
+            board: b,
+            bag,
+            players,
+            judge: short_dict(),
+            ..Game::new(1, 1)
+        };
+
+        game.make_move(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            None,
+            Some(&b_dict().builtin_dictionary),
+        )
+        .unwrap();
+
+        assert_eq!(
+            game.board.to_string(),
+            "__ S0 X0 |0 __\n\
+             __ T0 __ __ __\n\
+             __ R0 __ __ __\n\
+             __ A0 __ __ __\n\
+             __ __ __ __ __\n\
+             __ __ __ __ __\n\
+             __ __ __ |1 __",
         )
     }
 }

@@ -124,7 +124,6 @@ impl Game {
     }
 
     pub fn calculate_game_over(&mut self) {
-        println!("Checking if the game is over");
         let overtime_rule = match &self.rules.timing {
             rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
             _ => None,
@@ -144,7 +143,8 @@ impl Game {
     pub fn play_turn(
         &mut self,
         next_move: Move,
-        external_dictionary: Option<&WordDict>,
+        attacker_dictionary: Option<&WordDict>,
+        defender_dictionary: Option<&WordDict>,
     ) -> Result<Option<usize>, String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
@@ -172,13 +172,14 @@ impl Game {
             return Err("Player's turn has not yet started".into());
         };
 
-        self.recent_changes = match self.make_move(next_move, external_dictionary) {
-            Ok(changes) => changes,
-            Err(msg) => {
-                println!("{}", msg);
-                return Err(format!("Couldn't make move: {msg}")); // TODO: propogate error post polonius
-            }
-        };
+        self.recent_changes =
+            match self.make_move(next_move, attacker_dictionary, defender_dictionary) {
+                Ok(changes) => changes,
+                Err(msg) => {
+                    println!("{}", msg);
+                    return Err(format!("Couldn't make move: {msg}")); // TODO: propogate error post polonius
+                }
+            };
 
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
@@ -244,7 +245,8 @@ impl Game {
     pub fn make_move(
         &mut self,
         game_move: Move,
-        external_dictionary: Option<&WordDict>,
+        attacker_dictionary: Option<&WordDict>,
+        defender_dictionary: Option<&WordDict>,
     ) -> Result<Vec<Change>, GamePlayError> {
         let mut changes = vec![];
 
@@ -273,7 +275,13 @@ impl Game {
                     detail: self.board.set(position, player, tile)?,
                     action: BoardChangeAction::Added,
                 }));
-                self.resolve_attack(player, position, external_dictionary, &mut changes);
+                self.resolve_attack(
+                    player,
+                    position,
+                    attacker_dictionary,
+                    defender_dictionary,
+                    &mut changes,
+                );
 
                 self.players[player].swap_count = 0;
 
@@ -335,7 +343,8 @@ impl Game {
         &mut self,
         player: usize,
         position: Coordinate,
-        external_dictionary: Option<&WordDict>,
+        attacker_dictionary: Option<&WordDict>,
+        defender_dictionary: Option<&WordDict>,
         changes: &mut Vec<Change>,
     ) {
         let (attackers, defenders) = self.board.collect_combanants(player, position);
@@ -353,7 +362,8 @@ impl Game {
             defending_words,
             &self.rules.battle_rules,
             &self.rules.win_condition,
-            external_dictionary,
+            attacker_dictionary,
+            defender_dictionary,
         ) {
             battle.battle_number = Some(self.battle_count);
             self.battle_count += 1;

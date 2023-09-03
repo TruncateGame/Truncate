@@ -52,7 +52,8 @@ impl Arborist {
 impl Game {
     pub fn best_move(
         game: &Game,
-        external_dictionary: Option<&WordDict>,
+        self_dictionary: Option<&WordDict>,
+        opponent_dictionary: Option<&WordDict>,
         depth: usize,
         counter: Option<&mut Arborist>,
     ) -> PlayerMessage {
@@ -63,7 +64,8 @@ impl Game {
 
         let (best_score, Some((position, tile))) = Game::minimax(
             game.clone(),
-            external_dictionary,
+            self_dictionary,
+            opponent_dictionary,
             depth,
             depth,
             BoardScore::neg_inf(),
@@ -86,7 +88,8 @@ impl Game {
 
     fn minimax(
         mut game: Game,
-        external_dictionary: Option<&WordDict>,
+        self_dictionary: Option<&WordDict>,
+        opponent_dictionary: Option<&WordDict>,
         total_depth: usize,
         depth: usize,
         mut alpha: BoardScore,
@@ -101,6 +104,13 @@ impl Game {
             |game: &Game, tile: char, position: Coordinate, alpha: BoardScore, beta: BoardScore| {
                 arborist.tick();
                 let mut next_turn = game.clone();
+
+                let (attacker_dict, defender_dict) = if game.next_player == for_player {
+                    (self_dictionary, opponent_dictionary)
+                } else {
+                    (opponent_dictionary, self_dictionary)
+                };
+
                 next_turn
                     .play_turn(
                         Move::Place {
@@ -108,12 +118,14 @@ impl Game {
                             tile,
                             position,
                         },
-                        external_dictionary,
+                        attacker_dict,
+                        defender_dict,
                     )
                     .expect("Should be exploring valid turns");
                 Game::minimax(
                     next_turn,
-                    external_dictionary,
+                    self_dictionary,
+                    opponent_dictionary,
                     total_depth,
                     depth - 1,
                     alpha,
@@ -125,10 +137,7 @@ impl Game {
             };
 
         if depth == 0 || game.winner.is_some() {
-            (
-                game.static_eval(external_dictionary, for_player, depth),
-                None,
-            )
+            (game.static_eval(self_dictionary, for_player, depth), None)
         } else if game.next_player == for_player {
             let mut max_score = BoardScore::neg_inf();
             let mut relevant_move = None;
@@ -140,7 +149,7 @@ impl Game {
                     max_score = score.clone();
                     relevant_move = Some((position, tile));
                 }
-                if score > alpha {
+                if max_score > alpha {
                     alpha = score;
                 }
 
@@ -163,7 +172,7 @@ impl Game {
                     min_score = score.clone();
                     relevant_move = Some((position, tile));
                 }
-                if score < beta {
+                if min_score < beta {
                     beta = score;
                 }
 
@@ -243,11 +252,26 @@ impl Game {
         player.hand_capacity = 0;
 
         // If we're past the first layer,
-        // use a combo tile for the eval player to reduce permutations.
+        // use a combo tile for the eval player, to reduce permutations.
         if current_depth == total_depth - 1 {
             let alias = self.judge.set_alias(player.hand.0.clone());
             // Add enough that using them doesn't cause them to run out.
             player.hand = Hand(vec![alias; current_depth]);
+        }
+
+        // If we're past the second layer,
+        // all opponent tiles become wildcards, to encourage early attacks.
+        if current_depth == total_depth - 2 {
+            for row in &mut self.board.squares {
+                for col in row {
+                    match col {
+                        Square::Occupied(p, _) if *p == unknown_player_index => {
+                            *col = Square::Occupied(unknown_player_index, '*');
+                        }
+                        _ => {}
+                    }
+                }
+            }
         }
 
         // Prevent the NPC from making decisions based on the opponent's tiles,
@@ -447,11 +471,19 @@ mod tests {
 
         for line in lines {
             let mut chunks = line.split(' ');
+
+            let mut word = chunks.next().unwrap().to_string();
+            let objectionable = word.chars().next() == Some('*');
+            if objectionable {
+                word.remove(0);
+            }
+
             valid_words.insert(
-                chunks.next().unwrap().to_string(),
+                word,
                 WordData {
                     extensions: chunks.next().unwrap().parse().unwrap(),
                     rel_freq: chunks.next().unwrap().parse().unwrap(),
+                    objectionable,
                 },
             );
         }
@@ -475,7 +507,7 @@ mod tests {
         }) else {
             panic!("Unhandle-able message");
         };
-        game.play_turn(next_move, Some(dict))
+        game.play_turn(next_move, Some(dict), Some(dict))
             .expect("Move was valid");
     }
 
@@ -507,11 +539,22 @@ mod tests {
     /// on how many branches were evaluated.
     fn best_test_move(game: &Game, dict: &WordDict, depth: usize) -> (PlayerMessage, usize, usize) {
         let mut exhaustive_arbor = Arborist::exhaustive();
-        let exhaustive_best_move =
-            Game::best_move(&game, Some(&dict), depth, Some(&mut exhaustive_arbor));
+        let exhaustive_best_move = Game::best_move(
+            &game,
+            Some(&dict),
+            Some(&dict),
+            depth,
+            Some(&mut exhaustive_arbor),
+        );
 
         let mut pruned_arbor = Arborist::pruning();
-        let pruned_best_move = Game::best_move(&game, Some(&dict), depth, Some(&mut pruned_arbor));
+        let pruned_best_move = Game::best_move(
+            &game,
+            Some(&dict),
+            Some(&dict),
+            depth,
+            Some(&mut pruned_arbor),
+        );
 
         assert_eq!(
             pruned_best_move,
@@ -696,7 +739,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1337 possible leaves
-                  - 478 after pruning
+                  - 396 after pruning
                   - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -737,7 +780,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1366 possible leaves
-                  - 552 after pruning
+                  - 404 after pruning
                   - Move: Place A at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -778,14 +821,14 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1384 possible leaves
-                  - 609 after pruning
-                  - Move: Place A at (1, 3)
+                  - 760 after pruning
+                  - Move: Place A at (3, 4)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 __ A0 __ __ __
                 __ __ __ __ __
-                __ __ T1 __ __
+                __ X1 T1 A1 __
                 __ __ A1 __ __
                 __ __ R1 __ __
                 ~~ ~~ |1 ~~ ~~
@@ -819,14 +862,14 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1399 possible leaves
-                  - 509 after pruning
-                  - Move: Place S at (2, 3)
+                  - 379 after pruning
+                  - Move: Place S at (3, 4)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 D0 A0 __ __ __
-                __ __ S1 __ __
-                T1 E1 E1 __ __
+                __ __ __ __ __
+                T1 E1 E1 S1 __
                 __ __ A1 __ __
                 R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
@@ -860,7 +903,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1400 possible leaves
-                  - 529 after pruning
+                  - 431 after pruning
                   - Move: Place S at (1, 3)
 
                 ~~ ~~ |0 ~~ ~~
@@ -904,7 +947,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 12345 possible leaves
-                  - 3572 after pruning
+                  - 2337 after pruning
                   - Move: Place A at (6, 7)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
@@ -918,6 +961,53 @@ mod tests {
                 __ __ D1 A1 T1 E1 S1
                 __ __ E1 __ __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~
+                "###);
+            });
+        }
+
+        /* - - - - - - - - - - - - - - - - - */
+
+        {
+            let (board, result) = eval_npc_result(
+                "LDDEUQU",
+                r###"
+                ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
+                ~~ #0 #0 #0 #0 E0 #0 #0 #0 #0 ~~
+                ~~ __ __ __ __ N0 __ __ __ __ ~~
+                ~~ __ __ __ __ I0 __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ N1 __ __ __ __ ~~
+                ~~ __ __ __ __ E1 __ __ __ __ ~~
+                ~~ #1 #1 #1 #1 E1 #1 #1 #1 #1 ~~
+                ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~
+                "###,
+                4,
+                &dict,
+            );
+
+            insta::with_settings!({
+                description => board,
+                omit_expression => true
+            }, {
+                insta::assert_snapshot!(result, @r###"
+                Evaluating:
+                  - 5080 possible leaves
+                  - 1101 after pruning
+                  - Move: Place E at (6, 7)
+
+                ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
+                ~~ #0 #0 #0 #0 E0 #0 #0 #0 #0 ~~
+                ~~ __ __ __ __ N0 __ __ __ __ ~~
+                ~~ __ __ __ __ I0 __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ __ __ __ __ __ ~~
+                ~~ __ __ __ __ N1 E1 __ __ __ ~~
+                ~~ __ __ __ __ E1 __ __ __ __ ~~
+                ~~ #1 #1 #1 #1 E1 #1 #1 #1 #1 ~~
+                ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~
                 "###);
             });
         }

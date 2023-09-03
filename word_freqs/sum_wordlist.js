@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const unsummed_file = path.join(__dirname, "unsummed_wordlist.txt");
-const final_file = path.join(__dirname, "final_wordlist.txt");
+const unmarked_file = path.join(__dirname, "unmarked_wordlist.txt");
 
 if (!fs.existsSync(unsummed_file)) {
     console.error(`run 'npm run build-freqs' file first to create unsummed_wordlist.txt.`);
@@ -45,4 +45,4 @@ let output = Object.entries(wordmap).map(([word, deets]) => {
     return `${word} ${deets.summed_score} ${deets.word_freq}`;
 }).join('\n');
 
-fs.writeFileSync(final_file, output);
+fs.writeFileSync(unmarked_file, output);

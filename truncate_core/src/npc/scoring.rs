@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::Debug;
 
 use crate::board::Board;
@@ -8,7 +9,7 @@ use super::WordQualityScores;
 pub struct BoardScore {
     infinity: bool,
     neg_infinity: bool,
-    turn_number: usize,
+    turn_number: usize, // Lower number means later turn
     word_quality: WordQualityScores,
     self_frontline: f32,
     opponent_frontline: f32,
@@ -108,12 +109,12 @@ impl BoardScore {
 
 impl BoardScore {
     pub fn rank(&self) -> f32 {
-        let opponent_scores = self.opponent_frontline + self.opponent_progress;
-        let self_scores = self.self_frontline
+        let opponent_scores = self.opponent_frontline * 2.0 + self.opponent_progress;
+        let self_scores = self.self_frontline * 2.0
             + self.self_progress
             + self.self_defense
             + self.word_quality.word_length
-            + self.word_quality.word_validity * 4.0
+            + self.word_quality.word_validity * 2.0
             + self.word_quality.word_extensibility;
 
         self_scores - opponent_scores
@@ -121,7 +122,7 @@ impl BoardScore {
 }
 
 impl PartialOrd for BoardScore {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self.infinity.partial_cmp(&other.infinity) {
             Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,
@@ -131,25 +132,86 @@ impl PartialOrd for BoardScore {
             ord => return ord,
         }
 
-        match self.self_win.partial_cmp(&other.self_win) {
-            Some(core::cmp::Ordering::Equal) => {
-                match self.turn_number.partial_cmp(&other.turn_number) {
-                    Some(core::cmp::Ordering::Equal) => {}
-                    ord => return ord,
-                }
-            }
-            ord => return ord,
+        match (self.self_win, other.self_win) {
+            (true, false) => return Some(Ordering::Greater),
+            (false, true) => return Some(Ordering::Less),
+            // Rank early wins high
+            (true, true) => return self.turn_number.partial_cmp(&other.turn_number),
+            _ => {}
         }
-        match other.opponent_win.partial_cmp(&self.opponent_win) {
-            Some(core::cmp::Ordering::Equal) => {
-                match other.turn_number.partial_cmp(&self.turn_number) {
-                    Some(core::cmp::Ordering::Equal) => {}
-                    ord => return ord,
-                }
-            }
-            ord => return ord,
+
+        match (self.opponent_win, other.opponent_win) {
+            (true, false) => return Some(Ordering::Less),
+            (false, true) => return Some(Ordering::Greater),
+            (true, true) => match other.turn_number.partial_cmp(&self.turn_number) {
+                // Rank early losses low
+                Some(Ordering::Greater) => return Some(Ordering::Greater),
+                Some(Ordering::Less) => return Some(Ordering::Less),
+                // Rank even losses on the rest of the board
+                _ => {}
+            },
+            _ => {}
         }
 
         self.rank().partial_cmp(&other.rank())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn infinities() {
+        let max = BoardScore::inf();
+        let base = BoardScore::default();
+        let min = BoardScore::neg_inf();
+
+        assert!(max > base);
+        assert!(min < base);
+        assert!(max > min)
+    }
+
+    #[test]
+    fn validities() {
+        let a = BoardScore::default().word_quality(WordQualityScores {
+            word_length: 0.0,
+            word_validity: 0.6,
+            word_extensibility: 0.0,
+        });
+        let b = BoardScore::default().word_quality(WordQualityScores {
+            word_length: 0.0,
+            word_validity: 0.5,
+            word_extensibility: 0.0,
+        });
+
+        assert!(a > b);
+    }
+
+    #[test]
+    fn winning() {
+        let base = BoardScore::default();
+        let early_win = BoardScore::default().turn_number(1).self_win(true);
+        let late_win = BoardScore::default().turn_number(0).self_win(true);
+
+        assert!(early_win > base);
+        assert!(late_win > base);
+        assert!(early_win > late_win);
+    }
+
+    #[test]
+    fn losing() {
+        let base = BoardScore::default();
+        let early_loss = BoardScore::default().turn_number(1).opponent_win(true);
+        let late_loss = BoardScore::default().turn_number(0).opponent_win(true);
+        let late_better_loss = BoardScore::default()
+            .turn_number(0)
+            .opponent_win(true)
+            .self_frontline(1.0);
+
+        assert!(base > early_loss);
+        assert!(base > late_loss);
+        assert!(late_loss > early_loss);
+        assert!(late_better_loss > late_loss);
     }
 }
