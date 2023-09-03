@@ -25,8 +25,6 @@ let writable = 0;
 
 const words = {};
 
-const objectionable_words = [];
-
 const objectionable_tags = [
     "vulgar",
     "offensive",
@@ -53,18 +51,19 @@ const writeWord = (word_json) => {
     };
 
     const out_obj = {
+        word: word_json.word.toLowerCase(),
         pos: word_json.pos,
         defs: word_json.senses.flatMap(sense => sense.raw_glosses || sense.glosses || []),
         tags: word_json.senses.flatMap(sense => [...(sense.tags ?? []), ...(sense.links ?? []).map(link => link[0])]),
+        roots: word_json.senses.flatMap(sense => [...(sense.form_of ?? []).map(form => form.word)]),
+        forms: (word_json.forms ?? []).flatMap(form => form.form),
+        objectionable: false,
     };
 
     for (const tag of out_obj.tags) {
         for (const objectionable_tag of objectionable_tags) {
             if (tag.includes(objectionable_tag)) {
-                const word = word_json.word.toLowerCase();
-                if (!objectionable_words.includes(word)) {
-                    objectionable_words.push(word);
-                }
+                out_obj.objectionable = true;
             }
         }
     }
@@ -84,7 +83,7 @@ const writeWord = (word_json) => {
         console.warn(`- - - - - - - - - - -`);
     }
 
-    const word_key = `${word_json.word.toLowerCase()}_tr`; // Fixes clash with `constructor`
+    const word_key = `${out_obj.word}_tr`; // Fixes clash with `constructor`
     words[word_key] = words[word_key] || [];
     words[word_key].push(out_obj);
 
@@ -110,6 +109,33 @@ rl.on('close', () => {
 
 parser.on('end', () => {
     console.log(`\n-------------\n`);
+
+    console.log(`• Mapping objectionable words`);
+    const objectionable_words = [];
+
+    for (const word_data of Object.values(words)) {
+        for (const word_datum of word_data) {
+            let objectionable = word_datum.objectionable;
+
+            for (const root of word_datum.roots) {
+                if (words[`${root}_tr`]?.objectionable) {
+                    objectionable = true;
+                }
+            }
+
+            if (objectionable) {
+                if (!objectionable_words.includes(word_datum.word)) {
+                    objectionable_words.push(word_datum.word);
+                }
+
+                for (const form of word_datum.forms) {
+                    if (!objectionable_words.includes(form)) {
+                        objectionable_words.push(form);
+                    }
+                }
+            }
+        }
+    }
 
     console.log(`• Writing objectionable words`);
     fs.writeFileSync(`objectionable.json`, JSON.stringify(objectionable_words, null, 2));
