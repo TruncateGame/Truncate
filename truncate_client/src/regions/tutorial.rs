@@ -418,7 +418,7 @@ impl TutorialState {
                 self.game.bag = TileBag::explicit(vec![*next_tile]);
             }
 
-            match self.game.make_move(game_move, None) {
+            match self.game.make_move(game_move, None, None) {
                 Ok(changes) => {
                     let changes = changes
                         .into_iter()

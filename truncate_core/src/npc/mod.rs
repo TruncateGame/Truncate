@@ -52,7 +52,8 @@ impl Arborist {
 impl Game {
     pub fn best_move(
         game: &Game,
-        external_dictionary: Option<&WordDict>,
+        self_dictionary: Option<&WordDict>,
+        opponent_dictionary: Option<&WordDict>,
         depth: usize,
         counter: Option<&mut Arborist>,
     ) -> PlayerMessage {
@@ -63,7 +64,8 @@ impl Game {
 
         let (best_score, Some((position, tile))) = Game::minimax(
             game.clone(),
-            external_dictionary,
+            self_dictionary,
+            opponent_dictionary,
             depth,
             depth,
             BoardScore::neg_inf(),
@@ -86,7 +88,8 @@ impl Game {
 
     fn minimax(
         mut game: Game,
-        external_dictionary: Option<&WordDict>,
+        self_dictionary: Option<&WordDict>,
+        opponent_dictionary: Option<&WordDict>,
         total_depth: usize,
         depth: usize,
         mut alpha: BoardScore,
@@ -101,6 +104,13 @@ impl Game {
             |game: &Game, tile: char, position: Coordinate, alpha: BoardScore, beta: BoardScore| {
                 arborist.tick();
                 let mut next_turn = game.clone();
+
+                let (attacker_dict, defender_dict) = if game.next_player == for_player {
+                    (self_dictionary, opponent_dictionary)
+                } else {
+                    (opponent_dictionary, self_dictionary)
+                };
+
                 next_turn
                     .play_turn(
                         Move::Place {
@@ -108,12 +118,14 @@ impl Game {
                             tile,
                             position,
                         },
-                        external_dictionary,
+                        attacker_dict,
+                        defender_dict,
                     )
                     .expect("Should be exploring valid turns");
                 Game::minimax(
                     next_turn,
-                    external_dictionary,
+                    self_dictionary,
+                    opponent_dictionary,
                     total_depth,
                     depth - 1,
                     alpha,
@@ -125,10 +137,7 @@ impl Game {
             };
 
         if depth == 0 || game.winner.is_some() {
-            (
-                game.static_eval(external_dictionary, for_player, depth),
-                None,
-            )
+            (game.static_eval(self_dictionary, for_player, depth), None)
         } else if game.next_player == for_player {
             let mut max_score = BoardScore::neg_inf();
             let mut relevant_move = None;
@@ -447,11 +456,19 @@ mod tests {
 
         for line in lines {
             let mut chunks = line.split(' ');
+
+            let mut word = chunks.next().unwrap().to_string();
+            let objectionable = word.chars().next() == Some('*');
+            if objectionable {
+                word.remove(0);
+            }
+
             valid_words.insert(
-                chunks.next().unwrap().to_string(),
+                word,
                 WordData {
                     extensions: chunks.next().unwrap().parse().unwrap(),
                     rel_freq: chunks.next().unwrap().parse().unwrap(),
+                    objectionable,
                 },
             );
         }
@@ -475,7 +492,7 @@ mod tests {
         }) else {
             panic!("Unhandle-able message");
         };
-        game.play_turn(next_move, Some(dict))
+        game.play_turn(next_move, Some(dict), Some(dict))
             .expect("Move was valid");
     }
 
@@ -507,11 +524,22 @@ mod tests {
     /// on how many branches were evaluated.
     fn best_test_move(game: &Game, dict: &WordDict, depth: usize) -> (PlayerMessage, usize, usize) {
         let mut exhaustive_arbor = Arborist::exhaustive();
-        let exhaustive_best_move =
-            Game::best_move(&game, Some(&dict), depth, Some(&mut exhaustive_arbor));
+        let exhaustive_best_move = Game::best_move(
+            &game,
+            Some(&dict),
+            Some(&dict),
+            depth,
+            Some(&mut exhaustive_arbor),
+        );
 
         let mut pruned_arbor = Arborist::pruning();
-        let pruned_best_move = Game::best_move(&game, Some(&dict), depth, Some(&mut pruned_arbor));
+        let pruned_best_move = Game::best_move(
+            &game,
+            Some(&dict),
+            Some(&dict),
+            depth,
+            Some(&mut pruned_arbor),
+        );
 
         assert_eq!(
             pruned_best_move,

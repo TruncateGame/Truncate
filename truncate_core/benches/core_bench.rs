@@ -22,11 +22,19 @@ fn dict() -> WordDict {
 
     for line in lines {
         let mut chunks = line.split(' ');
+
+        let mut word = chunks.next().unwrap().to_string();
+        let objectionable = word.chars().next() == Some('*');
+        if objectionable {
+            word.remove(0);
+        }
+
         valid_words.insert(
-            chunks.next().unwrap().to_string(),
+            word,
             WordData {
                 extensions: chunks.next().unwrap().parse().unwrap(),
                 rel_freq: chunks.next().unwrap().parse().unwrap(),
+                objectionable,
             },
         );
     }
@@ -95,7 +103,7 @@ pub fn npc_benches(c: &mut Criterion) {
     c.bench_function("defense_eval", |b| b.iter(|| game.eval_defense(1)));
 
     c.bench_function("move_finding", |b| {
-        b.iter(|| Game::best_move(&game, Some(&dict), 4, None))
+        b.iter(|| Game::best_move(&game, Some(&dict), Some(&dict), 4, None))
     });
 
     let small_hand_game = test_game(
@@ -113,7 +121,7 @@ pub fn npc_benches(c: &mut Criterion) {
     );
 
     c.bench_function("monotile_move_finder", |b| {
-        b.iter(|| Game::best_move(&small_hand_game, Some(&dict), 3, None))
+        b.iter(|| Game::best_move(&small_hand_game, Some(&dict), Some(&dict), 3, None))
     });
 }
 

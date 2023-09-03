@@ -25,17 +25,48 @@ let writable = 0;
 
 const words = {};
 
+const objectionable_words = [];
+
+const objectionable_tags = [
+    "vulgar",
+    "offensive",
+    "unpleasant",
+    "objectionable",
+    "derogatory",
+    "genitalia",
+    "sex",
+    "sexual intercourse",
+    "fascist",
+    "racist",
+    "anti-Semitic",
+    "xenophobic",
+    "supremacist",
+    "ultranationalist",
+    "slur",
+];
+
 const writeWord = (word_json) => {
-    // Skip words with casing, whitespace, or punctuation
-    if (/[^a-z]/.test(word_json.word)) {
+    // Skip words with whitespace, or punctuation
+    if (/[^a-zA-Z]/.test(word_json.word)) {
         skipped += 1;
         return;
     };
 
     const out_obj = {
         pos: word_json.pos,
-        defs: word_json.senses.flatMap(sense => sense.raw_glosses || sense.glosses || [])
+        defs: word_json.senses.flatMap(sense => sense.raw_glosses || sense.glosses || []),
+        tags: word_json.senses.flatMap(sense => [...(sense.tags ?? []), ...(sense.links ?? []).map(link => link[0])]),
     };
+
+    for (const tag of out_obj.tags) {
+        if (objectionable_tags.includes(tag)) {
+            const word = word_json.word.toLowerCase();
+            if (!objectionable_words.includes(word)) {
+                objectionable_words.push(word);
+            }
+        }
+    }
+
     if (!out_obj.defs.length) {
         out_obj.defs.push(out_obj.etymology_text || "No definition found");
     }
@@ -51,7 +82,7 @@ const writeWord = (word_json) => {
         console.warn(`- - - - - - - - - - -`);
     }
 
-    const word_key = `${word_json.word}_tr`; // Fixes clash with `constructor`
+    const word_key = `${word_json.word.toLowerCase()}_tr`; // Fixes clash with `constructor`
     words[word_key] = words[word_key] || [];
     words[word_key].push(out_obj);
 
@@ -77,6 +108,11 @@ rl.on('close', () => {
 
 parser.on('end', () => {
     console.log(`\n-------------\n`);
+
+    console.log(`• Writing objectionable words`);
+    fs.writeFileSync(`objectionable.json`, JSON.stringify(objectionable_words, null, 2));
+
+    return;
 
     console.log(`• Sorting words`);
     const keys = Object.keys(words).sort();
