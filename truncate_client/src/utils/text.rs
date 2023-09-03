@@ -3,7 +3,7 @@ use epaint::{vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
 
 use super::{
     glyph_meaure::GlyphMeasure,
-    tex::{render_tex_rows, render_texs_clockwise, Tex, Tint},
+    tex::{paint_dialog_background, render_texs_clockwise, Tex, Tint},
 };
 
 const DIALOG_TIME_PER_CHAR: f32 = 0.05;
@@ -171,17 +171,22 @@ impl<'a> TextHelper<'a> {
         map_texture: &TextureHandle,
         ui: &mut egui::Ui,
     ) -> egui::Response {
-        self.paint_dialog_background(
+        let (dialog_rect, dialog_resp) = paint_dialog_background(
             true,
             true,
             false,
             size_to_pos,
             dialog_color,
-            text_color,
-            reserve_space_at_bottom,
             map_texture,
             ui,
-        )
+        );
+
+        let dialog_size = dialog_rect.size() - vec2(0.0, reserve_space_at_bottom);
+        let offset = (dialog_size - size_to_pos) / 2.0;
+
+        self.paint_at(dialog_rect.min + offset, text_color, ui);
+
+        dialog_resp
     }
 
     fn paint_tile_background(
@@ -246,62 +251,5 @@ impl<'a> TextHelper<'a> {
         self.paint_at(button_rect.min + offset, text_color, ui);
 
         button_resp
-    }
-
-    fn paint_dialog_background(
-        self,
-        full_width: bool,
-        full_height: bool,
-        centered: bool,
-        size_to_pos: Vec2,
-        background_color: Color32,
-        text_color: Color32,
-        reserve_space_at_bottom: f32,
-        map_texture: &TextureHandle,
-        ui: &mut egui::Ui,
-    ) -> egui::Response {
-        let text_size = size_to_pos;
-        let dialog_width = if full_width {
-            ui.available_width()
-        } else {
-            text_size.x
-        };
-
-        let width_in_tiles = (dialog_width / 16.0) as usize;
-        let dialog_tile_size = dialog_width / width_in_tiles as f32;
-
-        let height_in_tiles = if full_height {
-            (ui.available_height() / dialog_tile_size) as usize
-        } else {
-            (text_size.y / dialog_tile_size).ceil() as usize + 2
-        };
-        let dialog_height = height_in_tiles as f32 * dialog_tile_size;
-
-        let dialog_texs = Tex::text_dialog(width_in_tiles, height_in_tiles);
-
-        let (dialog_rect, dialog_resp) = if centered {
-            ui.horizontal(|ui| {
-                let centered_offset = (ui.available_width() - dialog_width) * 0.5;
-                ui.add_space(centered_offset);
-                ui.allocate_exact_size(vec2(dialog_width, dialog_height), Sense::click())
-            })
-            .inner
-        } else {
-            ui.allocate_exact_size(vec2(dialog_width, dialog_height), Sense::click())
-        };
-
-        render_tex_rows(
-            dialog_texs.tint(background_color),
-            dialog_rect,
-            map_texture,
-            ui,
-        );
-
-        let dialog_size = dialog_rect.size() - vec2(0.0, reserve_space_at_bottom);
-        let offset = (dialog_size - text_size) / 2.0;
-
-        self.paint_at(dialog_rect.min + offset, text_color, ui);
-
-        dialog_resp
     }
 }

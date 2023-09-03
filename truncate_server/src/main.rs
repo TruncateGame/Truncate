@@ -501,6 +501,19 @@ async fn handle_player_msg(
                 }
             }
         }
+        RequestDefinitions(words) => {
+            let word_db = server_state.word_db.lock();
+            let definitions: Vec<_> = words
+                .iter()
+                .map(|word| (word.clone(), word_db.get_word(&word.to_lowercase()).clone()))
+                .collect();
+            // Don't hold the lock while sending messages
+            drop(word_db);
+
+            server_state
+                .send_to_player(&player_addr, GameMessage::SupplyDefinitions(definitions))
+                .unwrap();
+        }
     }
 
     Ok(())

@@ -102,6 +102,7 @@ impl fmt::Display for BattleWord {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BattleReport {
+    pub battle_number: Option<u32>,
     pub attackers: Vec<BattleWord>,
     pub defenders: Vec<BattleWord>,
     pub outcome: Outcome,

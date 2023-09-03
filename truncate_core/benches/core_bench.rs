@@ -92,8 +92,6 @@ pub fn npc_benches(c: &mut Criterion) {
         b.iter(|| game.eval_word_quality(&dict, 1))
     });
 
-    c.bench_function("win_eval", |b| b.iter(|| game.eval_win(1, 1)));
-
     c.bench_function("defense_eval", |b| b.iter(|| game.eval_defense(1)));
 
     c.bench_function("move_finding", |b| {
