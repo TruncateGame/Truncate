@@ -34,7 +34,7 @@ const objectionable_tags = [
     "objectionable",
     "derogatory",
     "genitalia",
-    "sex", // TODO: links containing
+    "sex",
     "sexual intercourse",
     "fascist",
     "racist",
@@ -59,10 +59,12 @@ const writeWord = (word_json) => {
     };
 
     for (const tag of out_obj.tags) {
-        if (objectionable_tags.includes(tag)) {
-            const word = word_json.word.toLowerCase();
-            if (!objectionable_words.includes(word)) {
-                objectionable_words.push(word);
+        for (const objectionable_tag of objectionable_tags) {
+            if (tag.includes(objectionable_tag)) {
+                const word = word_json.word.toLowerCase();
+                if (!objectionable_words.includes(word)) {
+                    objectionable_words.push(word);
+                }
             }
         }
     }
