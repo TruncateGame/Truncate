@@ -84,6 +84,11 @@ impl<'a> HandUI<'a> {
                             }
                             next_selection = Some(None);
                             ctx.dragging_tile = true;
+                            ui.ctx().animate_value_with_time(
+                                tile_id.with("initial_offset"),
+                                0.0,
+                                0.0,
+                            );
                         } else if tile_response.drag_released() {
                             if let Some(HoveredRegion {
                                 coord: Some(coord), ..
@@ -130,7 +135,16 @@ impl<'a> HandUI<'a> {
                             let delta = if let Some(snap_rect) = snap_to_rect {
                                 snap_rect.center() - response.rect.center()
                             } else if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-                                let delta = pointer_pos - response.rect.center();
+                                let drag_offset = if ctx.is_touch { -50.0 } else { 0.0 };
+
+                                let bounce_offset = ui.ctx().animate_value_with_time(
+                                    tile_id.with("initial_offset"),
+                                    drag_offset,
+                                    ctx.theme.animation_time,
+                                );
+
+                                let delta =
+                                    pointer_pos + vec2(0.0, bounce_offset) - response.rect.center();
                                 let original_delta: Vec2 = ui.memory_mut(|mem| {
                                     mem.data.get_temp(tile_id).unwrap_or_default()
                                 });
