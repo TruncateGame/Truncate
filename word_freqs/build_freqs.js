@@ -3,7 +3,7 @@ const path = require("path");
 
 const freq_file = path.join(__dirname, "en_word_freqs.txt");
 const word_file = path.join(__dirname, "wordnik_wordlist.txt");
-const final_file = path.join(__dirname, "final_wordlist.txt");
+const unsummed_file = path.join(__dirname, "unsummed_wordlist.txt");
 
 if (!fs.existsSync(freq_file)) {
     console.error(`Need to build word frequencies from a frequency reference.`);
@@ -23,20 +23,30 @@ for (let i = 0; i < freq_entries.length; i += 1) {
     frequencies[word] = ((freq_entries.length - i) / freq_entries.length).toFixed(4);
 }
 
-const words = fs.readFileSync(word_file, { encoding: "utf8" }).split('\n');
+const all_words = fs.readFileSync(word_file, { encoding: "utf8" });
+const words = all_words.split('\n');
 let output = [];
 
 let done = 0;
 for (const word of words) {
-    let freq = frequencies[word];
-    let extension_regex = new RegExp(`^${word}[a-z]+ \\d+$`, 'mg');
-    let extensions = raw_freqs.match(extension_regex);
+    const single_prefix_regex = new RegExp(`^[a-z]${word}$`, 'mg');
+    const single_prefixes = all_words.match(single_prefix_regex)?.length || 0;
 
-    output.push(`${word} ${extensions?.length || 0} ${frequencies[word] || 0}`)
+    const prefix_regex = new RegExp(`^[a-z]+${word}$`, 'mg');
+    const prefixes = all_words.match(prefix_regex)?.length || 0;
+
+    const suffix_regex = new RegExp(`^${word}[a-z]+$`, 'mg');
+    const suffixes = all_words.match(suffix_regex)?.length || 0;
+
+    const score = (single_prefixes * 20) + (prefixes * 3) + (suffixes);
+
+    const wordline = `${word} ${score} ${frequencies[word] || 0}`;
+    output.push(wordline)
     done += 1;
     if (done % 100 === 0) {
-        console.log(`Done ${done}/${words.length}`);
+        console.log(wordline);
+        console.log(`Done ${((done / words.length) * 100).toFixed(2)}%`);
     }
 }
 
-fs.writeFileSync(final_file, output.join('\n'));
+fs.writeFileSync(unsummed_file, output.join('\n'));

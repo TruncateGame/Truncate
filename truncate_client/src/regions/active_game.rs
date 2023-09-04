@@ -53,6 +53,7 @@ pub struct GameCtx {
     pub highlight_tiles: Option<Vec<char>>,
     pub highlight_squares: Option<Vec<Coordinate>>,
     pub is_mobile: bool,
+    pub is_touch: bool,
 }
 
 #[derive(Clone)]
@@ -111,6 +112,7 @@ impl ActiveGame {
                 highlight_tiles: None,
                 highlight_squares: None,
                 is_mobile: false,
+                is_touch: false,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -319,7 +321,9 @@ impl ActiveGame {
                             Change::Battle(battle) => Some(battle),
                             _ => None,
                         }) {
-                            if let Some(label) = if rendered_battles == 0 {
+                            let is_latest_battle = rendered_battles == 0;
+
+                            if let Some(label) = if is_latest_battle {
                                 Some("Latest Battle")
                             } else if rendered_battles == 1 {
                                 Some("Previous Battles")
@@ -335,9 +339,9 @@ impl ActiveGame {
                                 ui.painter().galley(r.min, label);
                             }
 
-                            BattleUI::new(battle).render(&mut self.ctx, ui);
+                            BattleUI::new(battle, is_latest_battle).render(&mut self.ctx, ui);
                             rendered_battles += 1;
-                            ui.add_space(15.0);
+                            ui.add_space(8.0);
                         }
                     }
                 });
@@ -358,6 +362,18 @@ impl ActiveGame {
             self.ctx.qs_tick = cur_tick;
             self.mapped_board
                 .remap(&self.board, &self.ctx.player_colors, self.ctx.qs_tick);
+        }
+
+        if !self.ctx.is_touch {
+            // If we ever receive any touch event,
+            // irrevocably put Truncate into touch mode.
+            if ui.input(|i| {
+                i.events
+                    .iter()
+                    .any(|event| matches!(event, egui::Event::Touch { .. }))
+            }) {
+                self.ctx.is_touch = true;
+            }
         }
 
         let mut game_space = ui.available_rect_before_wrap();

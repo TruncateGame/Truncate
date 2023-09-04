@@ -160,7 +160,10 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             tutorial.render(ui, theme, current_time);
         }
         GameStatus::SinglePlayer(sp) => {
-            sp.render(ui, theme, current_time);
+            // Single player _can_ talk to the server, e.g. to ask for word definitions
+            if let Some(msg) = sp.render(ui, theme, current_time) {
+                send(msg);
+            };
         }
         GameStatus::PendingJoin(room_code) => {
             let dot_count = (current_time.as_millis() / 500) % 4;
@@ -367,7 +370,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                         game.apply_new_state(state_message);
                         *game_status = GameStatus::Concluded(game.clone(), winner);
                     }
-                    _ => todo!("Game error hit an unknown state"),
+                    _ => {}
                 }
             }
             GameMessage::GameError(_id, _num, err) => match game_status {
@@ -376,10 +379,18 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     // assert_eq!(game.player_number, num);
                     game.ctx.error_msg = Some(err);
                 }
-                _ => todo!("Game error hit an unknown state"),
+                _ => {}
             },
             GameMessage::GenericError(err) => {
                 *error = Some(err);
+            }
+            GameMessage::SupplyDefinitions(definitions) => {
+                match game_status {
+                    GameStatus::SinglePlayer(game) => {
+                        game.hydrate_meanings(definitions);
+                    }
+                    _ => { /* Soft unreachable */ }
+                }
             }
         }
     }

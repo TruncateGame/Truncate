@@ -215,12 +215,18 @@ impl<'a> BoardUI<'a> {
                                             }
                                         });
                                     if matches!(square, Square::Land | Square::Occupied(_, _)) {
-                                        if ui.rect_contains_pointer(outer_rect) {
-                                            hovered_square = Some(HoveredRegion{
-                                                rect: outer_rect,
-                                                coord: Some(coord)
-                                            });
+                                        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                                            let drag_offset = if ctx.is_touch { -50.0 } else { 0.0 };
+                                            let drag_pos = pointer_pos + vec2(0.0, drag_offset);
+
+                                            if outer_rect.contains(drag_pos) {
+                                                hovered_square = Some(HoveredRegion{
+                                                    rect: outer_rect,
+                                                    coord: Some(coord)
+                                                });
+                                            }
                                         }
+
 
                                         if square_response.clicked() {
                                             if let Some(tile) = ctx.selected_tile_in_hand {

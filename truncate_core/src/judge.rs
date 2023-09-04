@@ -16,6 +16,7 @@ use std::{
 pub struct WordData {
     pub extensions: u32,
     pub rel_freq: f32,
+    pub objectionable: bool,
 }
 pub type WordDict = HashMap<String, WordData>;
 
@@ -38,7 +39,7 @@ impl fmt::Display for Outcome {
 
 #[derive(Debug, Clone)]
 pub struct Judge {
-    builtin_dictionary: WordDict,
+    pub builtin_dictionary: WordDict,
     aliases: HashMap<char, Vec<char>>,
 }
 
@@ -60,6 +61,7 @@ impl Judge {
                 WordData {
                     extensions: 0,
                     rel_freq: 0.0,
+                    objectionable: false,
                 },
             );
         }
@@ -70,7 +72,7 @@ impl Judge {
     }
 
     pub fn set_alias(&mut self, alias_target: Vec<char>) -> char {
-        for p in ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'] {
+        for p in ['1', '2', '3', '4', '5', '6', '7', '8', '9'] {
             if self.aliases.contains_key(&p) {
                 continue;
             }
@@ -113,7 +115,8 @@ impl Judge {
         defenders: Vec<S>,
         battle_rules: &rules::BattleRules,
         win_rules: &rules::WinCondition,
-        external_dictionary: Option<&WordDict>,
+        attacker_dictionary: Option<&WordDict>,
+        defender_dictionary: Option<&WordDict>,
     ) -> Option<BattleReport> {
         // If there are no attackers or no defenders there is no battle
         if attackers.is_empty() || defenders.is_empty() {
@@ -121,10 +124,11 @@ impl Judge {
         }
 
         let mut battle_report = BattleReport {
+            battle_number: None,
             attackers: attackers
                 .iter()
                 .map(|w| {
-                    let valid = self.valid(w, win_rules, external_dictionary, None);
+                    let valid = self.valid(w, win_rules, attacker_dictionary, None);
                     BattleWord {
                         original_word: w.to_string(),
                         valid: Some(valid.is_some()),
@@ -159,7 +163,7 @@ impl Judge {
             let valid = self.valid(
                 &*defense.resolved_word,
                 win_rules,
-                external_dictionary,
+                defender_dictionary,
                 None,
             );
             if let Some(valid) = valid {
@@ -174,6 +178,7 @@ impl Judge {
         let longest_attacker = attackers
             .iter()
             .reduce(|longest, curr| {
+                // TODO: len() is bytes not characters
                 if curr.as_ref().len() > longest.as_ref().len() {
                     curr
                 } else {
@@ -188,24 +193,75 @@ impl Judge {
             return Some(battle_report);
         }
 
-        let weak_defenders: Vec<usize> = battle_report
-            .defenders // Indices of the weak defenders
+        let non_town_words: Vec<_> = battle_report
+            .defenders
             .iter()
             .enumerate()
+            .filter(|(_, word)| !word.original_word.contains('#'))
+            .collect();
+
+        let town_words: Vec<_> = battle_report
+            .defenders
+            .iter()
+            .enumerate()
+            .filter(|(_, word)| word.original_word.contains('#'))
+            .collect();
+
+        let weak_word_defenders: Vec<_> = non_town_words
+            .iter()
             .filter(|(_, word)| {
                 word.valid != Some(true)
                     || word.resolved_word.len() as isize + battle_rules.length_delta as isize
                         <= longest_attacker.as_ref().len() as isize
             })
-            .map(|(index, _)| index)
+            .map(|(index, _)| *index)
             .collect();
-        if weak_defenders.is_empty() {
-            battle_report.outcome = Outcome::DefenderWins;
+
+        // TODO: len() is bytes not characters
+        let weak_town_defenders: Vec<_> = town_words
+            .iter()
+            .filter(|(_, word)| {
+                word.valid != Some(true)
+                    || word.resolved_word.len() as isize + battle_rules.length_delta as isize
+                        <= longest_attacker.as_ref().len() as isize
+            })
+            .map(|(index, _)| *index)
+            .collect();
+
+        // Normal battles without towns, easy cases.
+        if town_words.is_empty() {
+            if weak_word_defenders.is_empty() {
+                battle_report.outcome = Outcome::DefenderWins;
+            } else {
+                battle_report.outcome = Outcome::AttackerWins(weak_word_defenders);
+            }
+
             return Some(battle_report);
         }
 
-        // Otherwise the attacker wins
-        battle_report.outcome = Outcome::AttackerWins(weak_defenders);
+        // Towns were involved in this battle, resolve using the town battle rules
+        let has_beatable_towns = !weak_town_defenders.is_empty();
+        let has_words = !non_town_words.is_empty();
+        let has_beatable_words = !weak_word_defenders.is_empty();
+
+        let mut all_weak_defenders = weak_word_defenders.clone();
+        all_weak_defenders.extend(weak_town_defenders);
+
+        battle_report.outcome = match (has_beatable_towns, has_words, has_beatable_words) {
+            // Towns can be beat, and there are also some weak real words
+            (true, true, true) => Outcome::AttackerWins(all_weak_defenders),
+            // Towns can be beat, but all real words can defend
+            (true, true, false) => Outcome::DefenderWins,
+            // Towns can be beat, and no words are involved in the battle
+            (true, false, _) => Outcome::AttackerWins(all_weak_defenders),
+            // Towns cannot be beat directly, but there are weak words that lose the defense anyway
+            (false, true, true) => Outcome::AttackerWins(all_weak_defenders),
+            // Towns cannot be beat, and there were no beatable words either
+            (false, _, false) => Outcome::DefenderWins,
+            // Catch the unreachable case of no words with beatable words
+            (_, false, true) => unreachable!(),
+        };
+
         Some(battle_report)
     }
 
@@ -217,6 +273,11 @@ impl Judge {
         external_dictionary: Option<&WordDict>,
         used_aliases: Option<HashMap<char, Vec<usize>>>,
     ) -> Option<String> {
+        // If the word is entirely wildcards, skip the lookup and just say it is valid.
+        if word.as_ref().len() > 1 && word.as_ref().chars().all(|c| c == '*') {
+            return Some(word.as_ref().to_string());
+        }
+
         if word.as_ref().contains('¤') {
             return Some(word.as_ref().to_string().to_uppercase());
         }
@@ -311,6 +372,7 @@ mod tests {
                 vec![],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             ),
             None
@@ -321,6 +383,7 @@ mod tests {
                 vec!["WORD"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             ),
             None
@@ -332,6 +395,7 @@ mod tests {
                 vec![],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             ),
             None
@@ -347,6 +411,7 @@ mod tests {
                 vec!["BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -359,6 +424,7 @@ mod tests {
                 vec!["BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -371,6 +437,7 @@ mod tests {
                 vec!["BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -383,6 +450,7 @@ mod tests {
                 vec!["BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -395,6 +463,7 @@ mod tests {
                 vec!["BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -412,6 +481,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -424,6 +494,7 @@ mod tests {
                 vec!["XYZXYZXYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -436,6 +507,7 @@ mod tests {
                 vec!["BIG", "XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -448,6 +520,7 @@ mod tests {
                 vec!["XYZ", "BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -465,6 +538,7 @@ mod tests {
                 vec!["FOLK"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -477,6 +551,7 @@ mod tests {
                 vec!["FOLK"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -494,6 +569,7 @@ mod tests {
                 vec!["FAT"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -506,6 +582,7 @@ mod tests {
                 vec!["FAT"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -518,11 +595,47 @@ mod tests {
                 vec!["FAT", "BIG", "JOLLY", "FOLK", "XYZXYZXYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
             .outcome,
             Outcome::AttackerWins(vec![0, 1, 4])
+        );
+    }
+
+    #[test]
+    fn different_dicts() {
+        let j = short_dict();
+
+        // Attacker would normally lose, but defender has a different dictionary
+        assert_eq!(
+            j.battle(
+                vec!["BAG"],
+                vec!["FAT"],
+                &test_battle_rules(),
+                &test_win_rules(),
+                Some(&short_dict().builtin_dictionary),
+                Some(&b_dict().builtin_dictionary)
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
+        );
+
+        // Attacker would normally win, but attacker has a different dictionary
+        assert_eq!(
+            j.battle(
+                vec!["JOLLY"],
+                vec!["FAT"],
+                &test_battle_rules(),
+                &test_win_rules(),
+                Some(&b_dict().builtin_dictionary),
+                Some(&short_dict().builtin_dictionary)
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
         );
     }
 
@@ -535,6 +648,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -547,6 +661,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -559,6 +674,7 @@ mod tests {
                 vec!["JALL*"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -571,6 +687,7 @@ mod tests {
                 vec!["JOLL*"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -592,6 +709,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -604,6 +722,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -616,11 +735,39 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
             .outcome,
             Outcome::AttackerWins(vec![0])
+        );
+
+        assert_eq!(
+            j.battle(
+                vec![format!("{a_or_b}RTS").as_str()],
+                vec!["FOLK"],
+                &test_battle_rules(),
+                &test_win_rules(),
+                None,
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
+        );
+        assert_eq!(
+            j.battle(
+                vec![format!("{a_or_b}RTS").as_str()],
+                vec!["BAG"],
+                &test_battle_rules(),
+                &test_win_rules(),
+                None,
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
         );
     }
 
@@ -638,6 +785,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -651,6 +799,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -664,6 +813,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             )
             .unwrap()
@@ -681,9 +831,11 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             ),
             Some(BattleReport {
+                battle_number: None,
                 attackers: vec![BattleWord {
                     original_word: "B*G".into(),
                     resolved_word: "BAG".into(),
@@ -705,9 +857,11 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             ),
             Some(BattleReport {
+                battle_number: None,
                 attackers: vec![BattleWord {
                     original_word: "R*G".into(),
                     resolved_word: "R*G".into(),
@@ -730,9 +884,11 @@ mod tests {
                 vec!["JALL*"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             ),
             Some(BattleReport {
+                battle_number: None,
                 attackers: vec![BattleWord {
                     original_word: "ARTS".into(),
                     resolved_word: "ARTS".into(),
@@ -754,9 +910,11 @@ mod tests {
                 vec!["JOLL*"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None
             ),
             Some(BattleReport {
+                battle_number: None,
                 attackers: vec![BattleWord {
                     original_word: "BAG".into(),
                     resolved_word: "BAG".into(),
@@ -818,5 +976,9 @@ mod tests {
             "FOLK".into(),
             "ARTS".into(),
         ]) // TODO: Collins 2018 list
+    }
+
+    pub fn b_dict() -> Judge {
+        Judge::new(vec!["BIG".into(), "BAG".into()]) // TODO: Collins 2018 list
     }
 }

@@ -64,22 +64,42 @@ pub fn read_defs() -> WordDB {
 
     for line in lines {
         let mut chunks = line.split(' ');
+
+        let mut word = chunks.next().unwrap().to_string();
+        let objectionable = word.chars().next() == Some('*');
+        if objectionable {
+            word.remove(0);
+        }
+
         valid_words.insert(
-            chunks.next().unwrap().to_string(),
+            word,
             WordData {
                 extensions: chunks.next().unwrap().parse().unwrap(),
                 rel_freq: chunks.next().unwrap().parse().unwrap(),
+                objectionable,
             },
         );
     }
 
+    let word_db_connection = Connection::open(defs_file).ok();
+    if word_db_connection.is_some() {
+        println!("Connected to the word definition database at {defs_file}");
+    } else {
+        println!("No word definitions available at {defs_file}. Set a TR_DEFS_FILE environment variable to point to a word db.");
+    }
+
+    let room_codes: Vec<_> = valid_words
+        .iter()
+        .filter(|(word, data)| word.len() < 6 && !data.objectionable)
+        .map(|(word, _)| word)
+        .cloned()
+        .collect();
+
+    println!("There are {} room codes available", room_codes.len());
+
     WordDB {
-        conn: Connection::open(defs_file).ok(),
-        room_codes: valid_words
-            .keys()
-            .filter(|k| k.len() < 6)
-            .cloned()
-            .collect(),
+        conn: word_db_connection,
+        room_codes,
         valid_words,
         allocated_room_codes: HashSet::new(),
     }
