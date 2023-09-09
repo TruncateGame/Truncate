@@ -194,6 +194,7 @@ impl GameManager {
                     position,
                 },
                 Some(&words_db.valid_words),
+                Some(&words_db.valid_words),
             ) {
                 Ok(Some(winner)) => {
                     for (player_index, player) in self.players.iter().enumerate() {
@@ -250,6 +251,7 @@ impl GameManager {
                     player: player_index,
                     positions: [from, to],
                 },
+                Some(&words_db.valid_words),
                 Some(&words_db.valid_words),
             ) {
                 Ok(Some(_)) => {

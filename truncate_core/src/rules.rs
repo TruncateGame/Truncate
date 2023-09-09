@@ -29,6 +29,7 @@ pub enum Truncation {
 #[derive(Debug, Clone)]
 pub enum OvertimeRule {
     FreeWildcard { period: usize },                   // TODO: Implement
+    Bomb { period: usize },                           // TODO: Implement
     RemoveTiles { period: usize, phase_time: usize }, // TODO: Implement
     Elimination,                                      // TODO: Implement
 }
@@ -101,10 +102,7 @@ impl Default for GameRules {
             },
             visibility: Visibility::Standard,
             truncation: Truncation::Root,
-            timing: Timing::PerPlayer {
-                time_allowance: 600,
-                overtime_rule: OvertimeRule::FreeWildcard { period: 60 },
-            },
+            timing: Timing::None,
             hand_size: 7,
             tile_distribution: TileDistribution::Standard,
             tile_bag_behaviour: TileBagBehaviour::Standard,

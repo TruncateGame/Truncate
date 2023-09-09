@@ -24,7 +24,7 @@ RUN cd truncate_server && cargo build --release
 
 # Thin Docker image for runtime
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y sqlite3
 

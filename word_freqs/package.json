@@ -2,7 +2,10 @@
   "name": "word-freqs",
   "private": true,
   "scripts": {
-    "start": "rm -f final_wordlist.txt && node build_freqs.js"
+    "build-all": "npm run build-freqs && npm run build-sums && npm run build-marks",
+    "build-freqs": "rm -f unsummed_wordlist.txt && node build_freqs.js",
+    "build-sums": "rm -f unmarked_wordlist.txt && node sum_wordlist.js",
+    "build-marks": "rm -f final_wordlist.txt && node mark_wordlist.js"
   },
   "license": "CC-BY-SA",
   "dependencies": {

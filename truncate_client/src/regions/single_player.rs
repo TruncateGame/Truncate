@@ -22,8 +22,12 @@ pub struct SinglePlayerState {
     pub active_game: ActiveGame,
     dict: WordDict,
     npc_known_dict: WordDict,
+    player_known_dict: WordDict,
     next_response_at: Option<Duration>,
     winner: Option<usize>,
+    map_texture: TextureHandle,
+    theme: Theme,
+    turns: usize,
 }
 
 impl SinglePlayerState {
@@ -40,48 +44,105 @@ impl SinglePlayerState {
             0,
             game.board.clone(),
             game.players[0].hand.clone(),
-            map_texture,
-            theme,
+            map_texture.clone(),
+            theme.clone(),
         );
 
         let mut valid_words = HashMap::new();
         let mut npc_known_words = HashMap::new();
+        let mut player_known_words = HashMap::new();
         let lines = WORDNIK.lines();
 
         for line in lines {
             let mut chunks = line.split(' ');
 
-            let word = chunks.next().unwrap().to_string();
+            let mut word = chunks.next().unwrap().to_string();
             let extensions = chunks.next().unwrap().parse().unwrap();
             let rel_freq = chunks.next().unwrap().parse().unwrap();
+
+            let objectionable = word.chars().next() == Some('*');
+            if objectionable {
+                word.remove(0);
+            }
 
             valid_words.insert(
                 word.clone(),
                 WordData {
                     extensions,
                     rel_freq,
+                    objectionable,
                 },
             );
 
-            if rel_freq > 0.95 {
+            // These are the words the NPC has recall of,
+            // and will play during their turn.
+            if rel_freq > 0.95 && !objectionable {
                 npc_known_words.insert(
+                    word.clone(),
+                    WordData {
+                        extensions,
+                        rel_freq,
+                        objectionable,
+                    },
+                );
+            }
+
+            // These are the words the NPC will think it recognizes,
+            // and won't challenge if they're on the board.
+            if rel_freq > 0.90 {
+                player_known_words.insert(
                     word,
                     WordData {
                         extensions,
                         rel_freq,
+                        objectionable,
                     },
                 );
             }
         }
+
+        println!("NPC playing with {} known words", npc_known_words.len());
+        println!(
+            "NPC thinks it knows {} words that the player plays",
+            player_known_words.len()
+        );
 
         Self {
             game,
             active_game,
             dict: valid_words,
             npc_known_dict: npc_known_words,
+            player_known_dict: player_known_words,
             next_response_at: None,
             winner: None,
+            map_texture,
+            theme,
+            turns: 0,
         }
+    }
+
+    pub fn reset(&mut self) {
+        let mut game = Game::new(9, 9);
+        game.add_player("You".into());
+        game.add_player("Computer".into());
+        game.start();
+
+        let active_game = ActiveGame::new(
+            "SINGLE_PLAYER".into(),
+            game.players.iter().map(Into::into).collect(),
+            0,
+            0,
+            game.board.clone(),
+            game.players[0].hand.clone(),
+            self.map_texture.clone(),
+            self.theme.clone(),
+        );
+
+        self.game = game;
+        self.active_game = active_game;
+        self.turns = 0;
+        self.next_response_at = None;
+        self.winner = None;
     }
 
     /// If the server sent through some new word definitions,
@@ -124,6 +185,11 @@ impl SinglePlayerState {
             .render(ui, theme, self.winner, current_time)
             .map(|msg| (0, msg));
 
+        if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
+            self.reset();
+            return msg_to_server;
+        }
+
         if self.winner.is_some() {
             return msg_to_server;
         }
@@ -143,11 +209,20 @@ impl SinglePlayerState {
                 .turn_starts_at
             {
                 if turn_starts_at <= current_time.as_secs() {
+                    let search_depth = (7_usize.saturating_sub(self.turns / 2)).max(3);
+                    println!("Looking forward {search_depth} turns");
+
                     // let start = time::Instant::now();
                     let mut arb = truncate_core::npc::Arborist::pruning();
                     next_msg = Some((
                         1,
-                        Game::best_move(&self.game, Some(&self.npc_known_dict), 3, Some(&mut arb)),
+                        Game::best_move(
+                            &self.game,
+                            Some(&self.npc_known_dict),
+                            Some(&self.player_known_dict),
+                            search_depth,
+                            Some(&mut arb),
+                        ),
                     ));
                     // println!(
                     //     "Looked at {} leaves in {}ms",
@@ -172,7 +247,14 @@ impl SinglePlayerState {
         };
 
         if let Some(next_move) = next_move {
-            match self.game.play_turn(next_move, Some(&self.dict)) {
+            self.turns += 1;
+
+            // When actually playing the turn, make sure we pass in the real dict
+            // for both the attack and defense roles.
+            match self
+                .game
+                .play_turn(next_move, Some(&self.dict), Some(&self.dict))
+            {
                 Ok(winner) => {
                     self.winner = winner;
 
@@ -213,7 +295,13 @@ impl SinglePlayerState {
                             if word.valid == Some(true) {
                                 let dict_word = word.original_word.to_lowercase();
                                 if let Some(word_data) = self.dict.get(&dict_word).cloned() {
-                                    self.npc_known_dict.insert(dict_word, word_data);
+                                    self.player_known_dict
+                                        .insert(dict_word.clone(), word_data.clone());
+
+                                    // We don't want the NPC to learn bad words from the player
+                                    if !word_data.objectionable {
+                                        self.npc_known_dict.insert(dict_word, word_data);
+                                    }
                                 }
                             }
                         }
@@ -221,7 +309,13 @@ impl SinglePlayerState {
                             if word.valid == Some(true) {
                                 let dict_word = word.original_word.to_lowercase();
                                 if let Some(word_data) = self.dict.get(&dict_word).cloned() {
-                                    self.npc_known_dict.insert(dict_word, word_data);
+                                    self.player_known_dict
+                                        .insert(dict_word.clone(), word_data.clone());
+
+                                    // We don't want the NPC to learn bad words from the player
+                                    if !word_data.objectionable {
+                                        self.npc_known_dict.insert(dict_word, word_data);
+                                    }
                                 }
                             }
                         }
