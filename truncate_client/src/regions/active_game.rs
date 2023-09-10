@@ -454,18 +454,18 @@ impl ActiveGame {
                 }
 
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
-                    let text = TextHelper::heavy("RESIGN", 12.0, None, ui);
-                    if text
-                        .full_button(
-                            Color32::RED.diaphanize(),
-                            theme.text,
-                            &self.ctx.map_texture,
-                            ui,
-                        )
-                        .clicked()
-                    {
-                        // TODO
-                    }
+                    // let text = TextHelper::heavy("RESIGN", 12.0, None, ui);
+                    // if text
+                    //     .full_button(
+                    //         Color32::RED.diaphanize(),
+                    //         theme.text,
+                    //         &self.ctx.map_texture,
+                    //         ui,
+                    //     )
+                    //     .clicked()
+                    // {
+                    //     // TODO
+                    // }
 
                     ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
                         ScrollArea::new([false, true])
