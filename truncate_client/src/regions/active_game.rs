@@ -8,14 +8,21 @@ use truncate_core::{
 };
 
 use eframe::{
-    egui::{self, Frame, Label, LayerId, Layout, Margin, Order, RichText, ScrollArea, Sense},
+    egui::{
+        self, CursorIcon, Frame, Label, LayerId, Layout, Margin, Order, RichText, ScrollArea, Sense,
+    },
     emath::Align,
 };
 use hashbrown::HashMap;
 
 use crate::{
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
-    utils::{mapper::MappedBoard, text::TextHelper, Diaphanize, Lighten, Theme},
+    utils::{
+        mapper::MappedBoard,
+        tex::{render_tex_quad, render_tex_quads, Tex},
+        text::TextHelper,
+        Diaphanize, Lighten, Theme,
+    },
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -48,12 +55,14 @@ pub struct GameCtx {
     pub board_pan: Vec2,
     pub sidebar_visible: bool,
     pub timers_visible: bool,
+    pub timers_total_rect: Option<Rect>,
     pub hand_total_rect: Option<Rect>,
     pub hand_companion_rect: Option<Rect>,
     pub highlight_tiles: Option<Vec<char>>,
     pub highlight_squares: Option<Vec<Coordinate>>,
     pub is_mobile: bool,
     pub is_touch: bool,
+    pub unread_sidebar: bool,
 }
 
 #[derive(Clone)]
@@ -108,11 +117,13 @@ impl ActiveGame {
                 sidebar_visible: false,
                 timers_visible: true,
                 hand_companion_rect: None,
+                timers_total_rect: None,
                 hand_total_rect: None,
                 highlight_tiles: None,
                 highlight_squares: None,
                 is_mobile: false,
                 is_touch: false,
+                unread_sidebar: false,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -132,6 +143,134 @@ impl ActiveGame {
 }
 
 impl ActiveGame {
+    pub fn render_timer_strip(
+        &mut self,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        winner: Option<usize>,
+    ) -> (Rect, Option<PlayerMessage>) {
+        let mut msg = None;
+
+        let avail_width = ui.available_width();
+
+        let area = egui::Area::new(egui::Id::new("timers_layer"))
+            .movable(false)
+            .order(Order::Foreground)
+            .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
+
+        let mut resp = area.show(ui.ctx(), |ui| {
+            if let Some(bg_rect) = self.ctx.timers_total_rect {
+                ui.painter().clone().rect_filled(
+                    bg_rect,
+                    0.0,
+                    self.ctx.theme.water.gamma_multiply(0.75),
+                );
+            }
+
+            ui.add_space(5.0);
+
+            ui.allocate_ui_with_layout(
+                vec2(avail_width, 10.0),
+                Layout::left_to_right(Align::TOP),
+                |ui| {
+                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+                    let button_size = 48.0;
+                    let mut total_width = 700.0;
+
+                    if self.ctx.is_mobile {
+                        if total_width + button_size + 10.0 > ui.available_width() {
+                            total_width = ui.available_width() - button_size - 10.0;
+                        }
+                    } else {
+                        if total_width + 10.0 > ui.available_width() {
+                            total_width = ui.available_width() - 10.0;
+                        }
+                    }
+
+                    let outer_x_padding = if !self.ctx.is_mobile {
+                        (ui.available_width() - total_width) / 2.0
+                    } else {
+                        0.0
+                    };
+                    let item_spacing = 10.0;
+
+                    ui.add_space(outer_x_padding + item_spacing);
+
+                    let timer_width = (total_width - item_spacing * 3.0) / 2.0;
+
+                    if let Some(player) = self
+                        .players
+                        .iter()
+                        .find(|p| p.index == self.ctx.player_number as usize)
+                    {
+                        TimerUI::new(player, self.ctx.current_time, &self.time_changes)
+                            .friend(true)
+                            .active(player.index == self.ctx.next_player_number as usize)
+                            .winner(winner.clone())
+                            .render(Some(timer_width), false, ui, theme, &mut self.ctx);
+                    }
+
+                    ui.add_space(item_spacing);
+
+                    if let Some(opponent) = self
+                        .players
+                        .iter()
+                        .find(|p| p.index != self.ctx.player_number as usize)
+                    {
+                        TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
+                            .friend(false)
+                            .active(opponent.index == self.ctx.next_player_number as usize)
+                            .winner(winner.clone())
+                            .right_align()
+                            .render(Some(timer_width), false, ui, theme, &mut self.ctx);
+                    }
+
+                    ui.add_space(item_spacing);
+
+                    if !self.ctx.is_mobile {
+                        ui.add_space(outer_x_padding);
+                    } else {
+                        let (mut button_rect, button_resp) =
+                            ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
+                        if button_resp.hovered() {
+                            button_rect = button_rect.translate(vec2(0.0, -2.0));
+                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        }
+
+                        if self.ctx.unread_sidebar {
+                            render_tex_quads(
+                                &[Tex::BUTTON_INFO, Tex::BUTTON_NOTIF],
+                                button_rect,
+                                &self.ctx.map_texture,
+                                ui,
+                            );
+                        } else {
+                            render_tex_quad(
+                                Tex::BUTTON_INFO,
+                                button_rect,
+                                &self.ctx.map_texture,
+                                ui,
+                            );
+                        }
+
+                        if button_resp.clicked() {
+                            self.ctx.sidebar_visible = !self.ctx.sidebar_visible;
+                            self.ctx.unread_sidebar = false;
+                        }
+
+                        ui.add_space(item_spacing);
+                    }
+                },
+            );
+
+            ui.add_space(10.0);
+        });
+
+        self.ctx.timers_total_rect = Some(resp.response.rect);
+
+        (resp.response.rect, msg)
+    }
+
     pub fn render_control_strip(
         &mut self,
         ui: &mut egui::Ui,
@@ -153,14 +292,62 @@ impl ActiveGame {
             self.ctx.hand_companion_rect = Some(companion_pos);
         }
 
+        let avail_width = ui.available_width();
+
+        let error_area = egui::Area::new(egui::Id::new("error_layer"))
+            .movable(false)
+            .order(Order::Tooltip)
+            .anchor(
+                Align2::LEFT_BOTTOM,
+                -vec2(
+                    0.0,
+                    self.ctx
+                        .hand_total_rect
+                        .map(|r| r.height())
+                        .unwrap_or_default(),
+                ),
+            );
+        let mut resp = error_area.show(ui.ctx(), |ui| {
+            if let Some(error) = &self.ctx.error_msg {
+                let error_fz = if avail_width < 550.0 { 24.0 } else { 32.0 };
+                let max_width = f32::min(600.0, avail_width - 100.0);
+                let text = TextHelper::light(error, error_fz, Some(max_width), ui);
+                let text_mesh_size = text.mesh_size();
+                let dialog_size = text_mesh_size + vec2(100.0, 20.0);
+                let x_offset = (avail_width - dialog_size.x) / 2.0;
+
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+                    ui.add_space(x_offset);
+                    let (dialog_rect, dialog_resp) = crate::utils::tex::paint_dialog_background(
+                        false,
+                        false,
+                        false,
+                        dialog_size,
+                        hex_color!("#ffe6c9"),
+                        &self.ctx.map_texture,
+                        ui,
+                    );
+
+                    let offset = (dialog_rect.size() - text_mesh_size) / 2.0 - vec2(0.0, 3.0);
+
+                    let text_pos = dialog_rect.min + offset;
+                    text.paint_at(text_pos, self.ctx.theme.text, ui);
+                });
+            }
+
+            if ui.input_mut(|i| i.pointer.any_click()) {
+                self.ctx.error_msg = None;
+            }
+        });
+
         let area = egui::Area::new(egui::Id::new("controls_layer"))
             .movable(false)
             .order(Order::Foreground)
             .anchor(Align2::LEFT_BOTTOM, control_anchor);
 
-        let avail_width = ui.available_width();
-
-        let resp = area.show(ui.ctx(), |ui| {
+        let mut resp = area.show(ui.ctx(), |ui| {
             if let Some(bg_rect) = self.ctx.hand_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
@@ -173,6 +360,8 @@ impl ActiveGame {
                 vec2(avail_width, 10.0),
                 Layout::top_down(Align::LEFT),
                 |ui| {
+                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+
                     ui.add_space(10.0);
 
                     if winner.is_some() {
@@ -198,52 +387,6 @@ impl ActiveGame {
                         .render(&mut self.ctx, &mut hand_ui);
 
                     ui.add_space(10.0);
-
-                    if self.ctx.timers_visible {
-                        if let Some(player) = self
-                            .players
-                            .iter()
-                            .find(|p| p.index == self.ctx.player_number as usize)
-                        {
-                            TimerUI::new(player, self.ctx.current_time, &self.time_changes)
-                                .friend(true)
-                                .active(player.index == self.ctx.next_player_number as usize)
-                                .winner(winner.clone())
-                                .render(ui, theme, &mut self.ctx);
-                            ui.add_space(10.0);
-                        }
-
-                        if let Some(opponent) = self
-                            .players
-                            .iter()
-                            .find(|p| p.index != self.ctx.player_number as usize)
-                        {
-                            TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
-                                .friend(false)
-                                .active(opponent.index == self.ctx.next_player_number as usize)
-                                .winner(winner.clone())
-                                .render(ui, theme, &mut self.ctx);
-                            ui.add_space(10.0);
-                        }
-
-                        ui.add_space(5.0);
-                    }
-
-                    if self.ctx.is_mobile {
-                        let text = TextHelper::heavy("VIEW INFO", 12.0, None, ui);
-                        if text
-                            .centered_button(
-                                Color32::WHITE.diaphanize(),
-                                theme.text,
-                                &self.ctx.map_texture,
-                                ui,
-                            )
-                            .clicked()
-                        {
-                            self.ctx.sidebar_visible = true;
-                        }
-                    }
-                    ui.add_space(10.0);
                 },
             );
         });
@@ -253,9 +396,16 @@ impl ActiveGame {
         (resp.response.rect, msg)
     }
 
-    pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
+    pub fn render_sidebar(
+        &mut self,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        winner: Option<usize>,
+    ) -> Option<PlayerMessage> {
+        let mut msg = None;
+
         if self.ctx.is_mobile && !self.ctx.sidebar_visible {
-            return;
+            return msg;
         }
 
         let area = egui::Area::new(egui::Id::new("sidebar_layer"))
@@ -264,9 +414,8 @@ impl ActiveGame {
             .anchor(Align2::RIGHT_TOP, vec2(0.0, 0.0));
 
         let sidebar_alloc = ui.max_rect();
-        let mut outer_sidebar_area = sidebar_alloc.shrink2(vec2(0.0, 8.0));
-        outer_sidebar_area.set_right(outer_sidebar_area.right() - 8.0);
-        let inner_sidebar_area = outer_sidebar_area.shrink(8.0);
+        let inner_sidebar_area = sidebar_alloc.shrink2(vec2(10.0, 5.0));
+        let button_size = 48.0;
 
         let resp = area.show(ui.ctx(), |ui| {
             ui.painter().clone().rect_filled(
@@ -278,75 +427,111 @@ impl ActiveGame {
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
                 ui.expand_to_include_rect(inner_sidebar_area);
                 if self.ctx.is_mobile {
-                    let text = TextHelper::heavy("CLOSE INFO", 12.0, None, ui);
-                    if text
-                        .centered_button(
-                            Color32::WHITE.diaphanize(),
-                            theme.text,
-                            &self.ctx.map_texture,
-                            ui,
-                        )
-                        .clicked()
-                    {
-                        self.ctx.sidebar_visible = false;
-                    }
+                    ui.allocate_ui_with_layout(
+                        vec2(ui.available_width(), button_size),
+                        Layout::right_to_left(Align::TOP),
+                        |ui| {
+                            let (mut button_rect, button_resp) =
+                                ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
+                            if button_resp.hovered() {
+                                button_rect = button_rect.translate(vec2(0.0, -2.0));
+                                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                            }
+                            render_tex_quad(
+                                Tex::BUTTON_CLOSE,
+                                button_rect,
+                                &self.ctx.map_texture,
+                                ui,
+                            );
+
+                            if button_resp.clicked() {
+                                self.ctx.sidebar_visible = false;
+                            }
+                        },
+                    );
 
                     ui.add_space(10.0);
                 }
 
-                ScrollArea::new([false, true]).show(ui, |ui| {
-                    let room = ui.painter().layout_no_wrap(
-                        "Game Info".into(),
-                        FontId::new(
-                            self.ctx.theme.letter_size / 2.0,
-                            egui::FontFamily::Name("Truncate-Heavy".into()),
-                        ),
-                        self.ctx.theme.text,
-                    );
-                    let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
-                    ui.painter().galley(r.min, room);
-                    ui.add_space(15.0);
+                ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
+                    // let text = TextHelper::heavy("RESIGN", 12.0, None, ui);
+                    // if text
+                    //     .full_button(
+                    //         Color32::RED.diaphanize(),
+                    //         theme.text,
+                    //         &self.ctx.map_texture,
+                    //         ui,
+                    //     )
+                    //     .clicked()
+                    // {
+                    //     // TODO
+                    // }
 
-                    if let Some(error) = &self.ctx.error_msg {
-                        ui.label(error);
-                        ui.separator();
-                    }
+                    ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
+                        ScrollArea::new([false, true])
+                            .always_show_scroll(true)
+                            .show(ui, |ui| {
+                                // Small hack to fill the scroll area
+                                ui.allocate_at_least(
+                                    vec2(ui.available_width(), 1.0),
+                                    Sense::hover(),
+                                );
 
-                    let mut rendered_battles = 0;
-                    let label_font =
-                        FontId::new(8.0, egui::FontFamily::Name("Truncate-Heavy".into()));
-
-                    for turn in self.turn_reports.iter().rev() {
-                        for battle in turn.iter().filter_map(|change| match change {
-                            Change::Battle(battle) => Some(battle),
-                            _ => None,
-                        }) {
-                            let is_latest_battle = rendered_battles == 0;
-
-                            if let Some(label) = if is_latest_battle {
-                                Some("Latest Battle")
-                            } else if rendered_battles == 1 {
-                                Some("Previous Battles")
-                            } else {
-                                None
-                            } {
-                                let label = ui.painter().layout_no_wrap(
-                                    label.into(),
-                                    label_font.clone(),
+                                let room = ui.painter().layout_no_wrap(
+                                    "Battles".into(),
+                                    FontId::new(
+                                        self.ctx.theme.letter_size / 2.0,
+                                        egui::FontFamily::Name("Truncate-Heavy".into()),
+                                    ),
                                     self.ctx.theme.text,
                                 );
-                                let (r, _) = ui.allocate_at_least(label.size(), Sense::hover());
-                                ui.painter().galley(r.min, label);
-                            }
+                                let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
+                                ui.painter().galley(r.min, room);
+                                ui.add_space(15.0);
 
-                            BattleUI::new(battle, is_latest_battle).render(&mut self.ctx, ui);
-                            rendered_battles += 1;
-                            ui.add_space(8.0);
-                        }
-                    }
+                                let mut rendered_battles = 0;
+                                let label_font = FontId::new(
+                                    8.0,
+                                    egui::FontFamily::Name("Truncate-Heavy".into()),
+                                );
+
+                                for turn in self.turn_reports.iter().rev() {
+                                    for battle in turn.iter().filter_map(|change| match change {
+                                        Change::Battle(battle) => Some(battle),
+                                        _ => None,
+                                    }) {
+                                        let is_latest_battle = rendered_battles == 0;
+
+                                        if let Some(label) = if is_latest_battle {
+                                            Some("Latest Battle")
+                                        } else if rendered_battles == 1 {
+                                            Some("Previous Battles")
+                                        } else {
+                                            None
+                                        } {
+                                            let label = ui.painter().layout_no_wrap(
+                                                label.into(),
+                                                label_font.clone(),
+                                                self.ctx.theme.text,
+                                            );
+                                            let (r, _) =
+                                                ui.allocate_at_least(label.size(), Sense::hover());
+                                            ui.painter().galley(r.min, label);
+                                        }
+
+                                        BattleUI::new(battle, is_latest_battle)
+                                            .render(&mut self.ctx, ui);
+                                        rendered_battles += 1;
+                                        ui.add_space(8.0);
+                                    }
+                                }
+                            });
+                    })
                 });
             });
         });
+
+        msg
     }
 
     pub fn render(
@@ -391,9 +576,14 @@ impl ActiveGame {
         let (control_strip_rect, control_player_message) =
             self.render_control_strip(&mut control_strip_ui, theme, winner);
 
-        let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
-        self.render_sidebar(&mut sidebar_space_ui, theme, winner);
+        let mut timer_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
+        let (timer_strip_rect, timer_player_message) =
+            self.render_timer_strip(&mut timer_strip_ui, theme, winner);
 
+        let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
+        let sidebar_player_message = self.render_sidebar(&mut sidebar_space_ui, theme, winner);
+
+        game_space.set_top(timer_strip_rect.bottom());
         game_space.set_bottom(control_strip_rect.top());
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
@@ -406,7 +596,9 @@ impl ActiveGame {
                 &mut game_space_ui,
                 &self.mapped_board,
             )
-            .or(control_player_message);
+            .or(control_player_message)
+            .or(timer_player_message)
+            .or(sidebar_player_message);
 
         player_message
     }
@@ -483,6 +675,13 @@ impl ActiveGame {
                 _ => None,
             })
             .collect();
+
+        if changes
+            .iter()
+            .any(|change| matches!(change, Change::Battle(_)))
+        {
+            self.ctx.unread_sidebar = true;
+        }
 
         self.turn_reports.push(changes);
 

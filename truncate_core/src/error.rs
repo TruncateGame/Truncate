@@ -18,16 +18,18 @@ pub enum GamePlayError {
     SelfSwap,
     #[error("Must swap between occupied squares")]
     UnoccupiedSwap,
-    #[error("Player must own the squares they swap")]
+    #[error("You can't swap with an opponent's tile")]
     UnownedSwap,
-    #[error("Player cannot swap tiles from disconnected groups")]
+    #[error("You can't swap tiles between disconnected groups")]
     DisjointSwap,
     #[error("Swapping is disabled")]
     NoSwapping,
+    #[error("You can't swap {count} in a row")]
+    TooManySwaps { count: String },
 
-    #[error("Cannot place a tile in an occupied square")]
+    #[error("You can't place a tile on top of another")]
     OccupiedPlace,
-    #[error("Must place tile on square that neighbours one of your already placed tiles, or on your root")]
+    #[error("You can only place tiles touching your dock or your existing tiles")]
     NonAdjacentPlace,
 
     #[error("Player {player:?} doesn't have a '{tile:?}' tile")]
