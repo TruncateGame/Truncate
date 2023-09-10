@@ -348,7 +348,9 @@ impl SinglePlayerState {
                     ui.ctx()
                         .request_repaint_after(Duration::from_millis(delay / 2));
                 }
-                Err(msg) => eprintln!("Failed: {msg}"),
+                Err(msg) => {
+                    self.active_game.ctx.error_msg = Some(msg);
+                }
             }
         }
 

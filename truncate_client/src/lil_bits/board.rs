@@ -236,7 +236,9 @@ impl<'a> BoardUI<'a> {
                                             } else if is_selected {
                                                 next_selection = Some(None);
                                             } else if let Some(selected_coord) = ctx.selected_square_on_board {
-                                                msg = Some(PlayerMessage::Swap(coord, selected_coord));
+                                                if matches!(square, Square::Occupied(_, _)) {
+                                                    msg = Some(PlayerMessage::Swap(coord, selected_coord));
+                                                }
                                                 next_selection = Some(None);
                                             } else {
                                                 next_selection = Some(Some(coord));

@@ -177,7 +177,7 @@ impl Game {
                 Ok(changes) => changes,
                 Err(msg) => {
                     println!("{}", msg);
-                    return Err(format!("Couldn't make move: {msg}")); // TODO: propogate error post polonius
+                    return Err(format!("{msg}")); // TODO: propogate error post polonius
                 }
             };
 
@@ -291,40 +291,65 @@ impl Game {
                 player: player_index,
                 positions,
             } => {
-                let mut swap_result =
-                    self.board
-                        .swap(player_index, positions, &self.rules.swapping)?;
                 let player = &mut self.players[player_index];
-
-                player.swap_count += 1;
-
-                if let Some(swap_rules) = match &self.rules.swapping {
+                let swap_rules = match &self.rules.swapping {
                     rules::Swapping::Contiguous(rules) => Some(rules),
                     rules::Swapping::Universal(rules) => Some(rules),
                     rules::Swapping::None => None,
-                } {
-                    let player_swaps = player.swap_count;
-                    if player_swaps > swap_rules.swap_threshold {
-                        let penalty_number = player_swaps - swap_rules.swap_threshold - 1;
-                        let penalty = swap_rules
-                            .penalties
-                            .get(penalty_number)
-                            .or_else(|| swap_rules.penalties.last());
-                        if let (Some(penalty), Some(time_remaining)) =
-                            (penalty, &mut player.time_remaining)
-                        {
-                            let time_change = -(*penalty as isize);
-                            *time_remaining += Duration::seconds(time_change as i64);
-                            swap_result.push(Change::Time(TimeChange {
-                                player: player_index,
-                                time_change,
-                                reason: format!(
-                                    "Lost time for {player_swaps} consecutive swap{}",
-                                    if player_swaps == 1 { "" } else { "s" }
-                                ),
-                            }))
+                };
+
+                match swap_rules {
+                    Some(rules::SwapPenalty::Disallowed { allowed_swaps }) => {
+                        let player_swaps = player.swap_count;
+                        if player_swaps >= *allowed_swaps {
+                            return Err(GamePlayError::TooManySwaps {
+                                count: match player_swaps + 1 {
+                                    2 => "twice".into(),
+                                    n => format!("{n} times"),
+                                },
+                            });
                         }
                     }
+                    _ => {}
+                }
+
+                let mut swap_result =
+                    self.board
+                        .swap(player_index, positions, &self.rules.swapping)?;
+
+                player.swap_count += 1;
+
+                match swap_rules {
+                    Some(rules::SwapPenalty::Time {
+                        swap_threshold,
+                        penalties,
+                    }) => {
+                        let player_swaps = player.swap_count;
+
+                        if player_swaps > *swap_threshold {
+                            let penalty_number = player_swaps - swap_threshold - 1;
+                            let penalty =
+                                penalties.get(penalty_number).or_else(|| penalties.last());
+                            if let (Some(penalty), Some(time_remaining)) =
+                                (penalty, &mut player.time_remaining)
+                            {
+                                let time_change = -(*penalty as isize);
+                                *time_remaining += Duration::seconds(time_change as i64);
+                                swap_result.push(Change::Time(TimeChange {
+                                    player: player_index,
+                                    time_change,
+                                    reason: format!(
+                                        "Lost time for {player_swaps} consecutive swap{}",
+                                        if player_swaps == 1 { "" } else { "s" }
+                                    ),
+                                }))
+                            }
+                        }
+                    }
+                    Some(rules::SwapPenalty::Disallowed { .. }) => {
+                        // Handled before move was made
+                    }
+                    None => {}
                 }
 
                 Ok(swap_result)
@@ -436,7 +461,7 @@ impl Game {
                                 self.bag.return_tile(letter);
                             }
                             Ok(Square::Town { player, .. }) => {
-                                self.board.set_square(
+                                _ = self.board.set_square(
                                     *square,
                                     Square::Town {
                                         player,
