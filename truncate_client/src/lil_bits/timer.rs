@@ -16,6 +16,7 @@ pub struct TimerUI<'a> {
     time: Duration,
     friend: bool,
     active: bool,
+    right_align: bool,
     winner: Option<usize>,
 }
 
@@ -38,6 +39,7 @@ impl<'a> TimerUI<'a> {
             time_adjustment,
             friend: true,
             active: true,
+            right_align: false,
             winner: None,
         }
     }
@@ -54,6 +56,11 @@ impl<'a> TimerUI<'a> {
 
     pub fn winner(mut self, winner: Option<usize>) -> Self {
         self.winner = winner;
+        self
+    }
+
+    pub fn right_align(mut self) -> Self {
+        self.right_align = true;
         self
     }
 }
@@ -90,16 +97,6 @@ impl<'a> TimerUI<'a> {
     }
 
     fn calculate_time(&mut self) -> String {
-        match self.winner {
-            Some(player) if player == self.player.index => {
-                return "Winner".into();
-            }
-            Some(_) => {
-                return "".into();
-            }
-            _ => {}
-        };
-
         match self.player.turn_starts_at {
             Some(next_turn) => {
                 let now = self.current_time.as_secs();
@@ -109,15 +106,14 @@ impl<'a> TimerUI<'a> {
                         self.time = time - Duration::seconds(elapsed as i64);
                         format!("{}", TimerUI::human_time(self.time.whole_seconds(), false))
                     } else {
-                        format!("Playing")
+                        format!("")
                     }
                 } else {
-                    let starts_in = (next_turn.saturating_sub(now) as i64) * -1;
                     if let Some(time) = self.player.time_remaining {
                         self.time = time;
-                        format!("Wait {}", TimerUI::human_time(starts_in, true))
+                        format!("{}", TimerUI::human_time(self.time.whole_seconds(), false))
                     } else {
-                        format!("Wait {}", TimerUI::human_time(starts_in, true))
+                        format!("")
                     }
                 }
             }
@@ -132,9 +128,41 @@ impl<'a> TimerUI<'a> {
         }
     }
 
+    fn calculate_byline(&mut self) -> String {
+        match self.winner {
+            Some(player) if player == self.player.index => {
+                return "Victorious".into();
+            }
+            Some(_) => {
+                return "Defeated".into();
+            }
+            _ => {}
+        };
+
+        match self.player.turn_starts_at {
+            Some(next_turn) => {
+                let now = self.current_time.as_secs();
+                let elapsed = now.checked_sub(next_turn);
+                if elapsed.is_some() {
+                    if self.friend {
+                        return format!("Your turn!");
+                    } else {
+                        return format!("Playing");
+                    }
+                } else {
+                    let starts_in = (next_turn.saturating_sub(now) as i64) * -1;
+                    return format!("Turn starts in {}", TimerUI::human_time(starts_in, true));
+                }
+            }
+            _ => {}
+        }
+
+        return "".into();
+    }
+
     /// Renders everything within our timer frame
     pub fn render_inner(&mut self, ui: &mut egui::Ui, theme: &Theme, ctx: &mut GameCtx) {
-        let (bar_h, font_z) = (10.0, 14.0);
+        let (bar_h, font_z, font_z_small) = (10.0, 14.0, 10.0);
         let timer_color = self.get_time_color(theme, ctx);
         let timer_rounding = theme.rounding / 4.0;
 
@@ -142,25 +170,10 @@ impl<'a> TimerUI<'a> {
         let inner_timer_rect = ui.available_rect_before_wrap();
         ui.allocate_rect(inner_timer_rect, Sense::hover());
 
-        // Render the player name in the top left
-        let text = TextHelper::heavy(&self.player.name, font_z, None, ui);
-        let name_size = text.size();
-        text.paint_at(inner_timer_rect.left_top(), timer_color, ui);
-
-        let time_string = self.calculate_time();
-        let text = TextHelper::heavy(&time_string, font_z, None, ui);
-        let time_size = text.size();
-
-        // Render the remaining time in the top left,
-        // aligned to the bottom of the name
-        let mut pos = inner_timer_rect.right_top();
-        pos.x -= time_size.x;
-        pos.y += name_size.y - time_size.y;
-        text.paint_at(pos, timer_color, ui);
-
         // Paint bar background
         let mut bar = inner_timer_rect.clone();
-        bar.set_top(bar.bottom() - bar_h);
+        bar.set_bottom(bar.top() + bar_h);
+        bar = bar.translate(vec2(0.0, 5.0));
         ui.painter()
             .rect_filled(bar, timer_rounding, timer_color.diaphanize());
 
@@ -169,14 +182,23 @@ impl<'a> TimerUI<'a> {
         {
             // Paint time remaining sector of bar
             let remaining_time_proportion = (self.time / allotted_time) as f32;
-            bar.set_right(bar.left() + remaining_time_proportion * inner_timer_rect.width());
-            ui.painter().rect_filled(bar, timer_rounding, timer_color);
+            if self.right_align {
+                bar.set_left(bar.right() - remaining_time_proportion * inner_timer_rect.width());
+                ui.painter().rect_filled(bar, timer_rounding, timer_color);
+            } else {
+                bar.set_right(bar.left() + remaining_time_proportion * inner_timer_rect.width());
+                ui.painter().rect_filled(bar, timer_rounding, timer_color);
+            }
 
             // If in an active turn, paint an extension of the bar
             // to mark when the turn started
             if time_remaining != self.time {
                 let time_proportion = (time_remaining / allotted_time) as f32;
-                bar.set_right(bar.left() + time_proportion * inner_timer_rect.width());
+                if self.right_align {
+                    bar.set_left(bar.right() - time_proportion * inner_timer_rect.width());
+                } else {
+                    bar.set_right(bar.left() + time_proportion * inner_timer_rect.width());
+                }
 
                 ui.painter()
                     .rect_stroke(bar, timer_rounding, Stroke::new(1.0, timer_color));
@@ -186,19 +208,30 @@ impl<'a> TimerUI<'a> {
             if self.time_adjustment != 0 {
                 let adj_duration = Duration::seconds(self.time_adjustment as i64).abs();
                 let adj_proportion = (adj_duration / allotted_time) as f32;
-                let mut penalty_bar = bar.translate(vec2(
-                    (remaining_time_proportion - adj_proportion) * inner_timer_rect.width(),
-                    0.0,
-                ));
-                penalty_bar
-                    .set_right(penalty_bar.left() + adj_proportion * inner_timer_rect.width());
-                penalty_bar.set_left(penalty_bar.left().max(bar.left()));
+                let penalty =
+                    (remaining_time_proportion - adj_proportion) * inner_timer_rect.width();
+                let mut penalty_bar =
+                    bar.translate(vec2(if self.right_align { -penalty } else { penalty }, 0.0));
+
+                if self.right_align {
+                    penalty_bar
+                        .set_left(penalty_bar.right() - adj_proportion * inner_timer_rect.width());
+                    penalty_bar.set_right(penalty_bar.right().min(bar.right()));
+                } else {
+                    penalty_bar
+                        .set_right(penalty_bar.left() + adj_proportion * inner_timer_rect.width());
+                    penalty_bar.set_left(penalty_bar.left().max(bar.left()));
+                }
 
                 if self.time_adjustment.is_positive() {
                     ui.painter()
                         .rect_filled(penalty_bar, timer_rounding, hex_color!("#00ff00"));
                 } else {
-                    penalty_bar = penalty_bar.translate(vec2(penalty_bar.width(), 0.0));
+                    if self.right_align {
+                        penalty_bar = penalty_bar.translate(vec2(-penalty_bar.width(), 0.0));
+                    } else {
+                        penalty_bar = penalty_bar.translate(vec2(penalty_bar.width(), 0.0));
+                    }
                     ui.painter()
                         .rect_filled(penalty_bar, timer_rounding, hex_color!("#ff0000"));
                 };
@@ -219,42 +252,75 @@ impl<'a> TimerUI<'a> {
                     .line_segment(time_division_line, Stroke::new(1.0, theme.text));
             }
         }
+
+        // Render the player name
+        let text = TextHelper::heavy(&self.player.name, font_z, None, ui);
+        let name_size = text.size();
+        if self.right_align {
+            let mut pos = bar.right_bottom() + vec2(0.0, 10.0);
+            pos.x -= name_size.x;
+            text.paint_at(pos, timer_color, ui);
+        } else {
+            text.paint_at(bar.left_bottom() + vec2(0.0, 10.0), timer_color, ui);
+        }
+
+        let time_string = self.calculate_time();
+        let text = TextHelper::heavy(&time_string, font_z, None, ui);
+        let time_size = text.size();
+
+        // Render the remaining time
+        if self.right_align {
+            text.paint_at(bar.left_bottom() + vec2(0.0, 10.0), timer_color, ui);
+        } else {
+            let mut pos = bar.right_bottom() + vec2(0.0, 10.0);
+            pos.x -= time_size.x;
+            text.paint_at(pos, timer_color, ui);
+        }
+
+        let byline_string = self.calculate_byline();
+        let text = TextHelper::heavy(&byline_string, font_z_small, None, ui);
+        let byline_size = text.size();
+        let byline_y_offset = vec2(0.0, 10.0 + name_size.y + 5.0);
+
+        // Render the byline
+        if self.right_align {
+            let mut pos = bar.right_bottom() + byline_y_offset;
+            pos.x -= byline_size.x;
+            text.paint_at(pos, timer_color, ui);
+        } else {
+            let pos = bar.left_bottom() + byline_y_offset;
+            text.paint_at(pos, timer_color, ui);
+        }
     }
 
     /// Renders the position and border of our timer frame
-    pub fn render(mut self, ui: &mut egui::Ui, theme: &Theme, ctx: &mut GameCtx) -> Response {
+    pub fn render(
+        mut self,
+        explicit_width: Option<f32>,
+        center: bool,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        ctx: &mut GameCtx,
+    ) -> Response {
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        // Calculate the placement and positioning of this timer
-        // TODO: Allow alignment to handle L/R split timers
         let (timer_w, timer_h) = (430.0, 50.0);
-        let timer_width = ui.available_width().min(timer_w);
-        let timer_padding = (ui.available_width() - timer_width) / 2.0;
+        let timer_width = explicit_width.unwrap_or_else(|| ui.available_width().min(timer_w));
+        let timer_padding = if center {
+            (ui.available_width() - timer_width) / 2.0
+        } else {
+            0.0
+        };
 
-        let (timer_ui_rect, _response) =
-            ui.allocate_exact_size(vec2(ui.available_width(), timer_h), Sense::hover());
+        let (timer_ui_rect, response) =
+            ui.allocate_exact_size(vec2(timer_width, timer_h), Sense::hover());
         let timer_ui_rect = timer_ui_rect.shrink2(vec2(timer_padding, 0.0));
 
         // All layout from here should use the layout UI scoped to the timer.
         let mut ui = ui.child_ui(timer_ui_rect, Layout::top_down(Align::LEFT));
 
-        let resp = egui::Frame::none()
-            .inner_margin(Margin {
-                left: 10.0,
-                right: 10.0,
-                top: 12.0, // Optically balance for text
-                bottom: 10.0,
-            })
-            .show(&mut ui, |ui| {
-                self.render_inner(ui, theme, ctx);
-            });
+        self.render_inner(&mut ui, theme, ctx);
 
-        ui.painter().rect_stroke(
-            resp.response.rect,
-            10.0,
-            Stroke::new(2.0, self.get_time_color(theme, ctx)),
-        );
-
-        resp.response
+        response
     }
 }
