@@ -65,6 +65,7 @@ impl Game {
     pub fn from_string<S: AsRef<str>>(s: S) -> Self {
         // Transform string into a board
         let mut squares: Vec<Vec<Square>> = vec![];
+        let mut changes: Vec<Change> = vec![];
         let mut player_count = 0;
         for line in s.as_ref().split('\n') {
             if line.chars().all(|c| c.is_whitespace()) {
@@ -73,12 +74,14 @@ impl Game {
             squares.push(
                 line.trim()
                     .split(' ')
-                    .map(|tile| {
+                    .enumerate()
+                    .map(|(column, tile)| -> Square {
                         let mut chars = tile.chars();
-                        match chars.next() {
-                            Some('~') => Square::Water,
-                            Some('_') => Square::Land,
-                            Some('|') => {
+                        let control_char = chars.next().expect("Expects board string to be valid");
+                        match control_char {
+                            '~' => Square::Water,
+                            '_' => Square::Land,
+                            '|' => {
                                 let player = chars
                                     .next()
                                     .expect("Square needs player")
@@ -87,7 +90,7 @@ impl Game {
                                 player_count = player_count.max(player);
                                 Square::Dock(player)
                             }
-                            Some('#') => {
+                            '#' | '⊭' => {
                                 let player = chars
                                     .next()
                                     .expect("Square needs player")
@@ -96,22 +99,42 @@ impl Game {
                                 player_count = player_count.max(player);
                                 Square::Town {
                                     player,
-                                    defeated: false,
+                                    defeated: control_char == '⊭',
                                 }
                             }
-                            Some('⊭') => {
+                            '-' | '+' | '=' => {
+                                let action = match control_char {
+                                    '-' => BoardChangeAction::Defeated,
+                                    '+' => BoardChangeAction::Added,
+                                    '=' => BoardChangeAction::Swapped,
+                                    _ => unreachable!(),
+                                };
+                                let letter = chars.next().unwrap();
                                 let player = chars
                                     .next()
                                     .expect("Square needs player")
                                     .to_digit(10)
                                     .unwrap() as usize;
                                 player_count = player_count.max(player);
-                                Square::Town {
-                                    player,
-                                    defeated: true,
+
+                                let square = Square::Occupied(player, letter);
+                                let coordinate = Coordinate::new(column, squares.len());
+
+                                changes.push(Change::Board(BoardChange {
+                                    detail: BoardChangeDetail { square, coordinate },
+                                    action: action.clone(),
+                                }));
+
+                                match action {
+                                    BoardChangeAction::Added => square,
+                                    BoardChangeAction::Swapped => square,
+                                    BoardChangeAction::Victorious => square,
+                                    BoardChangeAction::Defeated => Square::Land,
+                                    BoardChangeAction::Truncated => Square::Land,
+                                    BoardChangeAction::Exploded => Square::Land,
                                 }
                             }
-                            Some(letter) => {
+                            letter => {
                                 let player = chars
                                     .next()
                                     .expect("Square needs player")
@@ -120,7 +143,6 @@ impl Game {
                                 player_count = player_count.max(player);
                                 Square::Occupied(player, letter)
                             }
-                            _ => panic!("Couldn't build board from string"),
                         }
                     })
                     .collect(),
@@ -147,6 +169,7 @@ impl Game {
         Self {
             board,
             next_player: 1,
+            recent_changes: changes,
             ..Self::new(1, 1)
         }
     }
@@ -633,5 +656,41 @@ impl Game {
             &self.winner,
         );
         (visible_board, visible_changes)
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn games_from_string() {
+        let game = Game::from_string(
+            "~~ ~~ |0 ~~ ~~\n\
+             ~~ #0 G0 #0 ~~\n\
+             ~~ __ __ __ ~~\n\
+             ~~ #1 -A1 #1 ~~\n\
+             ~~ ~~ |1 ~~ ~~",
+        );
+
+        assert_eq!(
+            game.board.to_string(),
+            "~~ ~~ |0 ~~ ~~\n\
+             ~~ #0 G0 #0 ~~\n\
+             ~~ __ __ __ ~~\n\
+             ~~ #1 __ #1 ~~\n\
+             ~~ ~~ |1 ~~ ~~"
+        );
+
+        assert_eq!(
+            game.recent_changes[0],
+            Change::Board(BoardChange {
+                detail: BoardChangeDetail {
+                    square: Square::Occupied(1, 'A'),
+                    coordinate: Coordinate { x: 2, y: 3 }
+                },
+                action: BoardChangeAction::Defeated
+            })
+        )
     }
 }
