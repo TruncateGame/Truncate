@@ -351,6 +351,20 @@ impl Board {
             return Err(GamePlayError::SelfSwap);
         }
 
+        let mut tiles = ['&'; 2];
+        for (i, pos) in positions.iter().enumerate() {
+            use Square::*;
+            match self.get(*pos)? {
+                Occupied(owner, tile) => {
+                    if owner != player {
+                        return Err(GamePlayError::UnownedSwap);
+                    }
+                    tiles[i] = tile;
+                }
+                Water | Land | Town { .. } | Dock(_) => return Err(GamePlayError::UnoccupiedSwap),
+            };
+        }
+
         match swap_rules {
             rules::Swapping::Contiguous(_) => {
                 if self
@@ -365,20 +379,6 @@ impl Board {
             rules::Swapping::None => {
                 return Err(GamePlayError::NoSwapping);
             }
-        }
-
-        let mut tiles = ['&'; 2];
-        for (i, pos) in positions.iter().enumerate() {
-            use Square::*;
-            match self.get(*pos)? {
-                Occupied(owner, tile) => {
-                    if owner != player {
-                        return Err(GamePlayError::UnownedSwap);
-                    }
-                    tiles[i] = tile;
-                }
-                Water | Land | Town { .. } | Dock(_) => return Err(GamePlayError::UnoccupiedSwap),
-            };
         }
 
         Ok(vec![
@@ -945,10 +945,7 @@ pub mod tests {
     use super::*;
 
     fn default_swap_rules() -> SwapPenalty {
-        SwapPenalty {
-            swap_threshold: 3,
-            penalties: vec![],
-        }
+        SwapPenalty::Disallowed { allowed_swaps: 1 }
     }
 
     #[test]
