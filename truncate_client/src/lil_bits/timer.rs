@@ -142,25 +142,9 @@ impl<'a> TimerUI<'a> {
         let inner_timer_rect = ui.available_rect_before_wrap();
         ui.allocate_rect(inner_timer_rect, Sense::hover());
 
-        // Render the player name in the top left
-        let text = TextHelper::heavy(&self.player.name, font_z, None, ui);
-        let name_size = text.size();
-        text.paint_at(inner_timer_rect.left_top(), timer_color, ui);
-
-        let time_string = self.calculate_time();
-        let text = TextHelper::heavy(&time_string, font_z, None, ui);
-        let time_size = text.size();
-
-        // Render the remaining time in the top left,
-        // aligned to the bottom of the name
-        let mut pos = inner_timer_rect.right_top();
-        pos.x -= time_size.x;
-        pos.y += name_size.y - time_size.y;
-        text.paint_at(pos, timer_color, ui);
-
         // Paint bar background
         let mut bar = inner_timer_rect.clone();
-        bar.set_top(bar.bottom() - bar_h);
+        bar.set_bottom(bar.top() + bar_h);
         ui.painter()
             .rect_filled(bar, timer_rounding, timer_color.diaphanize());
 
@@ -219,42 +203,51 @@ impl<'a> TimerUI<'a> {
                     .line_segment(time_division_line, Stroke::new(1.0, theme.text));
             }
         }
+
+        // Render the player name in the bottom left
+        let text = TextHelper::heavy(&self.player.name, font_z, None, ui);
+        let name_size = text.size();
+        text.paint_at(bar.left_bottom() + vec2(0.0, 10.0), timer_color, ui);
+
+        let time_string = self.calculate_time();
+        let text = TextHelper::heavy(&time_string, font_z, None, ui);
+        let time_size = text.size();
+
+        // Render the remaining time in the bottom right
+        let mut pos = bar.right_bottom() + vec2(0.0, 10.0);
+        pos.x -= time_size.x;
+        pos.y += name_size.y - time_size.y;
+        text.paint_at(pos, timer_color, ui);
     }
 
     /// Renders the position and border of our timer frame
-    pub fn render(mut self, ui: &mut egui::Ui, theme: &Theme, ctx: &mut GameCtx) -> Response {
+    pub fn render(
+        mut self,
+        explicit_width: Option<f32>,
+        center: bool,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        ctx: &mut GameCtx,
+    ) -> Response {
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-        // Calculate the placement and positioning of this timer
-        // TODO: Allow alignment to handle L/R split timers
         let (timer_w, timer_h) = (430.0, 50.0);
-        let timer_width = ui.available_width().min(timer_w);
-        let timer_padding = (ui.available_width() - timer_width) / 2.0;
+        let timer_width = explicit_width.unwrap_or_else(|| ui.available_width().min(timer_w));
+        let timer_padding = if center {
+            (ui.available_width() - timer_width) / 2.0
+        } else {
+            0.0
+        };
 
-        let (timer_ui_rect, _response) =
-            ui.allocate_exact_size(vec2(ui.available_width(), timer_h), Sense::hover());
+        let (timer_ui_rect, response) =
+            ui.allocate_exact_size(vec2(timer_width, timer_h), Sense::hover());
         let timer_ui_rect = timer_ui_rect.shrink2(vec2(timer_padding, 0.0));
 
         // All layout from here should use the layout UI scoped to the timer.
         let mut ui = ui.child_ui(timer_ui_rect, Layout::top_down(Align::LEFT));
 
-        let resp = egui::Frame::none()
-            .inner_margin(Margin {
-                left: 10.0,
-                right: 10.0,
-                top: 12.0, // Optically balance for text
-                bottom: 10.0,
-            })
-            .show(&mut ui, |ui| {
-                self.render_inner(ui, theme, ctx);
-            });
+        self.render_inner(&mut ui, theme, ctx);
 
-        ui.painter().rect_stroke(
-            resp.response.rect,
-            10.0,
-            Stroke::new(2.0, self.get_time_color(theme, ctx)),
-        );
-
-        resp.response
+        response
     }
 }

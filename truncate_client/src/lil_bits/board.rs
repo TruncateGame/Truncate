@@ -59,8 +59,8 @@ impl<'a> BoardUI<'a> {
         let outer_frame = egui::Frame::none().inner_margin(0.0);
 
         if !ctx.board_moved {
-            let panx = (game_area.width() - resolved_board_width) / 2.0;
-            let pany = (game_area.height() - resolved_board_height) / 2.0;
+            let panx = (game_area.width() - resolved_board_width) / 2.0 + game_area.left();
+            let pany = (game_area.height() - resolved_board_height) / 2.0 + game_area.top();
             ctx.board_pan = vec2(panx, pany);
         }
 
