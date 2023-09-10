@@ -1,46 +1,42 @@
-
-dict:
-  TRAIL: "To follow behind (someone or something)"
-
 rules:
-  - section_title: "General rules"
-    rules:
-      - title: "Starting position"
-        message: |-
-          Each player starts with one or more docks and no tiles on the board.
-          Your first tile must be placed next to one of your docks.
-        board: |-
-          ~~ ~~ ~~ |0 ~~ ~~ ~~
-          ~~ #0 #0 __ #0 #0 ~~
-          ~~ __ __ __ __ __ ~~
-          ~~ __ __ __ __ __ ~~
-          ~~ __ __ __ __ __ ~~
-          ~~ __ __ __ __ __ ~~
-          ~~ #1 #1 __ #1 #1 ~~
-          ~~ ~~ ~~ |1 ~~ ~~ ~~
-        player_hand: ALIFIRM
-        steps:
-          - you: "A -> 3,1"
-            gets: "E"
-          - computer: "X -> 3,7"
-          - you: "M -> 3,2"
+  # - section_title: "General rules"
+  #   rules:
+  #     - title: "Starting position"
+  #       message: |-
+  #         Each player starts with one or more docks and no tiles on the board.
+  #         Your first tile must be placed next to one of your docks.
+  #       board: |-
+  #         ~~ ~~ ~~ |0 ~~ ~~ ~~
+  #         ~~ #0 #0 __ #0 #0 ~~
+  #         ~~ __ __ __ __ __ ~~
+  #         ~~ __ __ __ __ __ ~~
+  #         ~~ __ __ __ __ __ ~~
+  #         ~~ __ __ __ __ __ ~~
+  #         ~~ #1 #1 __ #1 #1 ~~
+  #         ~~ ~~ ~~ |1 ~~ ~~ ~~
+  #       player_hand: ALIFIRM
+  #       steps:
+  #         - you: "A -> 3,1"
+  #           gets: "E"
+  #         - computer: "X -> 3,7"
+  #         - you: "M -> 3,2"
 
-      - title: "Objective"
-        message: |-
-          To win, you must build across the board and reach your opponent's town.
-        board: |-
-          ~~ ~~ ~~ |0 ~~ ~~ ~~
-          ~~ #0 #0 0X #0 #0 ~~
-          ~~ __ __ 0A 0E 0S ~~
-          ~~ 1A __ __ __ 0A ~~
-          ~~ 1T 1O __ __ __ ~~
-          ~~ __ 1I 1T __ __ ~~
-          ~~ #1 #1 1A #1 #1 ~~
-          ~~ ~~ ~~ |1 ~~ ~~ ~~
-        player_hand: RBFAQIM
-        steps:
-          - you: "B -> 1,5"
-            gets: "E"
+  #     - title: "Objective"
+  #       message: |-
+  #         To win, you must build across the board and reach your opponent's town.
+  #       board: |-
+  #         ~~ ~~ ~~ |0 ~~ ~~ ~~
+  #         ~~ #0 #0 0X #0 #0 ~~
+  #         ~~ __ __ 0A 0E 0S ~~
+  #         ~~ 1A __ __ __ 0A ~~
+  #         ~~ 1T 1O __ __ __ ~~
+  #         ~~ __ 1I 1T __ __ ~~
+  #         ~~ #1 #1 1A #1 #1 ~~
+  #         ~~ ~~ ~~ |1 ~~ ~~ ~~
+  #       player_hand: RBFAQIM
+  #       steps:
+  #         - you: "B -> 1,5"
+  #           gets: "E"
 
   - section_title: "Battle rules"
     rules:
@@ -68,7 +64,7 @@ rules:
                   ~~ __ __ 1A __ __ ~~
                   ~~ #1 #1 1T #1 #1 ~~
                   ~~ ~~ ~~ |1 ~~ ~~ ~~
-                message: 'IAT' attacks 'FQX'.
+                message: "'IAT' attacks 'FQX'."
               - board: |-
                   ~~ ~~ ~~ |0 ~~ ~~ ~~
                   ~~ #0 #0 0X #0 #0 ~~
@@ -78,7 +74,7 @@ rules:
                   ~~ __ __ -1A __ __ ~~
                   ~~ #1 #1 -1T #1 #1 ~~
                   ~~ ~~ ~~ |1 ~~ ~~ ~~
-                message: 'IAT' is invalid and is removed from the board.
+                message: "'IAT' is invalid and is removed from the board."
           - message: |-
               If the attacking word is valid, the attack succeeds if the defending word is invalid.
             boards: 
@@ -100,7 +96,7 @@ rules:
                   ~~ __ __ 1A __ __ ~~
                   ~~ #1 #1 1T #1 #1 ~~
                   ~~ ~~ ~~ |1 ~~ ~~ ~~
-                message: 'BAT' attacks 'FQX'.
+                message: "'BAT' attacks 'FQX'."
               - board: |-
                   ~~ ~~ ~~ |0 ~~ ~~ ~~
                   ~~ #0 #0 -0X #0 #0 ~~
@@ -110,7 +106,7 @@ rules:
                   ~~ __ __ 1A __ __ ~~
                   ~~ #1 #1 1T #1 #1 ~~
                   ~~ ~~ ~~ |1 ~~ ~~ ~~
-                message: 'BAT' is valid, and 'FQX' is not. 'FQX' is removed from the board.
+                message: "'BAT' is valid, and 'FQX' is not. 'FQX' is removed from the board."
           - message: |-
               If both words are valid, the attack wins if the attacking word is two or more tiles longer than the defending word.
             boards: 
@@ -132,7 +128,7 @@ rules:
                   ~~ __ __ 1A __ __ ~~
                   ~~ #1 #1 1T #1 #1 ~~
                   ~~ ~~ ~~ |1 ~~ ~~ ~~
-                message: 'FEAT' attacks 'AX'.
+                message: "'FEAT' attacks 'AX'."
               - board: |-
                   ~~ ~~ ~~ |0 ~~ ~~ ~~
                   ~~ #0 #0 -0X #0 #0 ~~
@@ -142,7 +138,7 @@ rules:
                   ~~ __ __ 1A __ __ ~~
                   ~~ #1 #1 1T #1 #1 ~~
                   ~~ ~~ ~~ |1 ~~ ~~ ~~
-                message: 'FEAT' and 'AX' are both valid, but 'FEAT' is two tiles longer. 'AX' is removed from the board.
+                message: "'FEAT' and 'AX' are both valid, but 'FEAT' is two tiles longer. 'AX' is removed from the board."
           - message: |-
               If all words are valid, and the attacking word is not long enough to win, the attack fails.
             boards: 
@@ -164,7 +160,7 @@ rules:
                   ~~ __ __ 1A __ __ ~~
                   ~~ #1 #1 1T #1 #1 ~~
                   ~~ ~~ ~~ |1 ~~ ~~ ~~
-                message: 'BAT' attacks 'FAX'.
+                message: "'BAT' attacks 'FAX'."
               - board: |-
                   ~~ ~~ ~~ |0 ~~ ~~ ~~
                   ~~ #0 #0 0X #0 #0 ~~
@@ -174,81 +170,81 @@ rules:
                   ~~ __ __ -1A __ __ ~~
                   ~~ #1 #1 -1T #1 #1 ~~
                   ~~ ~~ ~~ |1 ~~ ~~ ~~
-                message: 'BAT' and 'FAX' are both valid. 'BAT' would need to be five tiles long to beat 'FAX' on length. 'BAT' is removed from the board.
+                message: "'BAT' and 'FAX' are both valid. 'BAT' would need to be five tiles long to beat 'FAX' on length. 'BAT' is removed from the board."
 
 
-      - title: One word attacking multiple words
-        cascades:
-          - message: |-
-              LOSS Attacking word is invalid
-            board: |-
-              ~~
-          - message: |-
-              WIN All defending words are invalid
-            board: |-
-              ~~
-          - message: |-
-              WIN Some defending words are invalid
-            board: |-
-              ~~
-          - message: |-
-              WIN All defending words are too short
-            board: |-
-              ~~
-          - message: |-
-              WIN Some defending words are too short
-            board: |-
-              ~~
-          - message: |-
-              LOSS Attacking word is shorter than all
-            board: |-
-              ~~
+      # - title: One word attacking multiple words
+      #   cascades:
+      #     - message: |-
+      #         LOSS Attacking word is invalid
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN All defending words are invalid
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN Some defending words are invalid
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN All defending words are too short
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN Some defending words are too short
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         LOSS Attacking word is shorter than all
+      #       board: |-
+      #         ~~
 
-      - title: Two words attacking one word
-        cascades:
-          - message: |-
-              LOSS Any attacking word is invalid
-            board: |-
-              ~~
-          - message: |-
-              WIN Defending word is invalid
-            board: |-
-              ~~
-          - message: |-
-              WIN Any attacking word is long enough
-            board: |-
-              ~~
-          - message: |-
-              LOSS All attacking words are too short
-            board: |-
-              ~~
+      # - title: Two words attacking one word
+      #   cascades:
+      #     - message: |-
+      #         LOSS Any attacking word is invalid
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN Defending word is invalid
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN Any attacking word is long enough
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         LOSS All attacking words are too short
+      #       board: |-
+      #         ~~
 
-      - title: Two words attacking multiple words
-        cascades:
-          - message: |-
-              LOSS Any attacking word is invalid
-            board: |-
-              ~~
-          - message: |-
-              WIN All defending words are invalid
-            board: |-
-              ~~
-          - message: |-
-              WIN Some defending words are invalid
-            board: |-
-              ~~
-          - message: |-
-              WIN Any attacking word is longer than all defendings words
-            board: |-
-              ~~
-          - message: |-
-              WIN Any attacking word is longer than some defending words
-            board: |-
-              ~~
-          - message: |-
-              LOSS All attacking words are shorter than all defending words
-            board: |-
-              ~~
+      # - title: Two words attacking multiple words
+      #   cascades:
+      #     - message: |-
+      #         LOSS Any attacking word is invalid
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN All defending words are invalid
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN Some defending words are invalid
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN Any attacking word is longer than all defendings words
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         WIN Any attacking word is longer than some defending words
+      #       board: |-
+      #         ~~
+      #     - message: |-
+      #         LOSS All attacking words are shorter than all defending words
+      #       board: |-
+      #         ~~
 
     # Multi party battles
 
