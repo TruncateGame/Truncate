@@ -446,13 +446,29 @@ impl ActiveGame {
                     ui.add_space(10.0);
                 }
 
+                let text = TextHelper::heavy("RESIGN", 12.0, None, ui);
+                if text
+                    .full_button(
+                        Color32::RED.diaphanize(),
+                        theme.text,
+                        &self.ctx.map_texture,
+                        ui,
+                    )
+                    .clicked()
+                {
+                    // TODO
+                }
+
                 ScrollArea::new([false, true])
                     .always_show_scroll(true)
                     .show(ui, |ui| {
-                        ui.expand_to_include_rect(inner_sidebar_area);
+                        ui.expand_to_include_y(inner_sidebar_area.bottom());
+
+                        // Small hack to fill the scroll area
+                        ui.allocate_at_least(vec2(ui.available_width(), 1.0), Sense::hover());
 
                         let room = ui.painter().layout_no_wrap(
-                            "Game Info".into(),
+                            "Battles".into(),
                             FontId::new(
                                 self.ctx.theme.letter_size / 2.0,
                                 egui::FontFamily::Name("Truncate-Heavy".into()),
