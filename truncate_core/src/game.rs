@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use time::Duration;
 
 use crate::bag::TileBag;
-use crate::board::{Coordinate, Square};
+use crate::board::{self, Coordinate, Square};
 use crate::error::GamePlayError;
 use crate::judge::{Outcome, WordDict};
 use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, TimeChange};
@@ -59,6 +59,95 @@ impl Game {
             next_player: 0,
             winner: None,
             rules,
+        }
+    }
+
+    pub fn from_string<S: AsRef<str>>(s: S) -> Self {
+        // Transform string into a board
+        let mut squares: Vec<Vec<Square>> = vec![];
+        let mut player_count = 0;
+        for line in s.as_ref().split('\n') {
+            if line.chars().all(|c| c.is_whitespace()) {
+                continue;
+            };
+            squares.push(
+                line.trim()
+                    .split(' ')
+                    .map(|tile| {
+                        let mut chars = tile.chars();
+                        match chars.next() {
+                            Some('~') => Square::Water,
+                            Some('_') => Square::Land,
+                            Some('|') => {
+                                let player = chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize;
+                                player_count = player_count.max(player);
+                                Square::Dock(player)
+                            }
+                            Some('#') => {
+                                let player = chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize;
+                                player_count = player_count.max(player);
+                                Square::Town {
+                                    player,
+                                    defeated: false,
+                                }
+                            }
+                            Some('⊭') => {
+                                let player = chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize;
+                                player_count = player_count.max(player);
+                                Square::Town {
+                                    player,
+                                    defeated: true,
+                                }
+                            }
+                            Some(letter) => {
+                                let player = chars
+                                    .next()
+                                    .expect("Square needs player")
+                                    .to_digit(10)
+                                    .unwrap() as usize;
+                                player_count = player_count.max(player);
+                                Square::Occupied(player, letter)
+                            }
+                            _ => panic!("Couldn't build board from string"),
+                        }
+                    })
+                    .collect(),
+            );
+        }
+
+        // Make sure the board is an valid non-jagged grid
+        if squares
+            .iter()
+            .skip(1)
+            .any(|line| line.len() != squares[0].len())
+        {
+            panic!("Tried to make a jagged board");
+        }
+
+        let mut board = Board {
+            squares,
+            towns: vec![],
+            docks: vec![],
+            orientations: vec![board::Direction::North, board::Direction::South],
+        };
+        board.cache_special_squares();
+
+        Self {
+            board,
+            next_player: 1,
+            ..Self::new(1, 1)
         }
     }
 

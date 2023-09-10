@@ -137,7 +137,7 @@ impl TutorialState {
                     color: (255, 80, 80),
                 },
             ],
-            board: Board::from_string(loaded_tutorial.board.clone()),
+            board: Game::from_string(loaded_tutorial.board.clone()).board,
             // TODO: Use some special infinite bag?
             bag: TileBag::new(&TileDistribution::Standard),
             judge: Judge::new(loaded_tutorial.dict.keys().cloned().collect()),

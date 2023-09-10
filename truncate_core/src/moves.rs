@@ -341,13 +341,14 @@ mod tests {
         // Note, 3 attackers are impossible because the letter being placed will combine two of the words into one
 
         // 1v1
-        let mut one_v_one = Board::from_string(
+        let mut one_v_one = Game::from_string(
             "__ |0 M0 __ __\n\
              __ __ D0 __ __\n\
              __ __ __ __ __\n\
              __ __ M1 __ __\n\
              __ __ D1 |1 __",
-        );
+        )
+        .board;
         one_v_one.set(middle, 0, 'A').unwrap();
 
         assert_eq!(
@@ -356,13 +357,14 @@ mod tests {
         );
 
         // 1v2
-        let mut one_v_two = Board::from_string(
+        let mut one_v_two = Game::from_string(
             "__ |0 M0 __ __\n\
              __ __ D0 __ __\n\
              __ L1 __ R1 __\n\
              __ F1 __ T1 __\n\
              __ D1 R1 D1 |1",
-        );
+        )
+        .board;
         one_v_two.set(middle, 0, 'A').unwrap();
 
         assert_eq!(
@@ -374,13 +376,14 @@ mod tests {
         );
 
         // 1v3
-        let mut one_v_three = Board::from_string(
+        let mut one_v_three = Game::from_string(
             "__ |0 M0 __ __\n\
              __ __ D0 __ __\n\
              __ L1 __ R1 __\n\
              __ F1 M1 T1 __\n\
              __ D1 D1 D1 |1",
-        );
+        )
+        .board;
         one_v_three.set(middle, 0, 'A').unwrap();
 
         assert_eq!(
@@ -397,13 +400,14 @@ mod tests {
         );
 
         // 2v2
-        let mut two_v_two = Board::from_string(
+        let mut two_v_two = Game::from_string(
             "X0 X0 M0 |0 __\n\
              X0 __ D0 __ __\n\
              L0 F0 __ R1 __\n\
              __ __ M1 T1 __\n\
              __ __ D1 D1 |1",
-        );
+        )
+        .board;
         two_v_two.set(middle, 0, 'A').unwrap();
         assert_eq!(
             two_v_two.collect_combanants(0, middle),
@@ -416,13 +420,14 @@ mod tests {
 
     #[test]
     fn resolve_successful_attack() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ S0 X0 |0 __\n\
              __ T0 __ __ __\n\
              __ R0 __ __ __\n\
              __ __ I1 __ __\n\
              __ __ T1 |1 __",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -460,13 +465,14 @@ mod tests {
 
     #[test]
     fn resolve_failed_attack() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ X0 X0 |0 __\n\
              __ T0 __ __ __\n\
              __ R0 __ __ __\n\
              __ __ I1 __ __\n\
              __ __ T1 |1 __",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -504,14 +510,15 @@ mod tests {
 
     #[test]
     fn resolve_truncation() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ S0 X0 |0 __\n\
              __ T0 __ __ __\n\
              __ R0 __ X1 __\n\
              __ __ B1 X1 __\n\
              __ __ I1 __ __\n\
              __ __ G1 |1 __",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -564,7 +571,7 @@ mod tests {
 
     #[test]
     fn resolve_explosion() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ __ S0 |0 __\n\
              __ __ T0 __ __\n\
              __ __ R0 __ __\n\
@@ -572,7 +579,8 @@ mod tests {
              __ I1 __ X1 __\n\
              __ G1 X1 X1 __\n\
              ~~ ~~ |1 ~~ ~~",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -612,7 +620,7 @@ mod tests {
 
     #[test]
     fn resolve_win() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ __ S0 |0 __\n\
              __ __ T0 __ __\n\
              __ A0 R0 __ __\n\
@@ -620,7 +628,8 @@ mod tests {
              N0 __ __ X1 __\n\
              __ __ X1 X1 __\n\
              #1 #1 |1 #1 #1",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -668,7 +677,7 @@ mod tests {
 
     #[test]
     fn resolve_failed_win() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ __ S0 |0 __\n\
              __ __ T0 __ __\n\
              __ A0 R0 __ __\n\
@@ -676,7 +685,8 @@ mod tests {
              N0 __ __ X1 __\n\
              __ __ X1 X1 __\n\
              #1 #1 |1 #1 #1",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -724,7 +734,7 @@ mod tests {
 
     #[test]
     fn resolve_failed_win_due_to_battle() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ __ S0 |0 __\n\
              __ __ T0 __ __\n\
              __ A0 R0 __ __\n\
@@ -732,7 +742,8 @@ mod tests {
              N0 __ __ X1 __\n\
              __ B1 I1 G1 __\n\
              #1 #1 |1 #1 #1",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -780,7 +791,7 @@ mod tests {
 
     #[test]
     fn resolve_win_after_battle() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ __ S0 |0 __\n\
              __ __ T0 __ __\n\
              __ A0 R0 __ __\n\
@@ -788,7 +799,8 @@ mod tests {
              N0 __ __ X1 __\n\
              __ X1 I1 G1 __\n\
              #1 #1 |1 #1 #1",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -836,7 +848,7 @@ mod tests {
 
     #[test]
     fn resolve_win_via_explosion() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ __ __ __ S0 |0 __\n\
              __ __ __ __ T0 __ __\n\
              __ __ __ A0 R0 __ __\n\
@@ -844,7 +856,8 @@ mod tests {
              __ __ N0 __ __ X1 __\n\
              X1 X1 __ B1 I1 G1 __\n\
              |1 #1 #1 #1 |1 #1 #1",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -892,13 +905,14 @@ mod tests {
 
     #[test]
     fn resolve_noop() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "~~ |0 __ ~~ ~~\n\
              __ __ __ __ __\n\
              __ __ __ __ __\n\
              __ __ __ __ __\n\
              ~~ ~~ T1 |1 ~~",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -936,7 +950,7 @@ mod tests {
 
     #[test]
     fn resolve_with_smaller_attack_dict() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ S0 X0 |0 __\n\
              __ T0 __ __ __\n\
              __ R0 __ __ __\n\
@@ -944,7 +958,8 @@ mod tests {
              __ __ R1 __ __\n\
              __ __ T1 __ __\n\
              __ __ S1 |1 __",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
@@ -984,7 +999,7 @@ mod tests {
 
     #[test]
     fn resolve_with_smaller_defense_dict() {
-        let b = Board::from_string(
+        let b = Game::from_string(
             "__ S0 X0 |0 __\n\
              __ T0 __ __ __\n\
              __ R0 __ __ __\n\
@@ -992,7 +1007,8 @@ mod tests {
              __ __ R1 __ __\n\
              __ __ T1 __ __\n\
              __ __ S1 |1 __",
-        );
+        )
+        .board;
         let mut bag = TileUtils::trivial_bag();
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),

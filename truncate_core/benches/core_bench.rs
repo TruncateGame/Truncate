@@ -43,7 +43,7 @@ fn dict() -> WordDict {
 }
 
 fn test_game(board: &str, hand: &str) -> Game {
-    let b = Board::from_string(board);
+    let b = Game::from_string(board).board;
     let next_player = 1;
     let mut bag = TileBag::default();
     let players = vec![
@@ -126,7 +126,7 @@ pub fn npc_benches(c: &mut Criterion) {
 }
 
 pub fn board_benches(c: &mut Criterion) {
-    let board = Board::from_string(
+    let board = Game::from_string(
         r###"
         ~~ ~~ |0 ~~ ~~
         __ S0 O0 __ __
@@ -137,7 +137,8 @@ pub fn board_benches(c: &mut Criterion) {
         E1 A1 R1 __ __
         ~~ ~~ |1 ~~ ~~
         "###,
-    );
+    )
+    .board;
 
     c.bench_function("board_dfs", |b| {
         b.iter(|| board.depth_first_search(Coordinate { x: 2, y: 6 }))

@@ -514,7 +514,7 @@ mod tests {
     /// Stub out a game for us to test with using the supplied board.
     /// The attacking player will be given the tiles A E T S
     fn test_game(board: &str, hand: &str) -> Game {
-        let b = Board::from_string(board);
+        let b = Game::from_string(board).board;
         let next_player = 1;
         let mut bag = TileBag::default();
         let players = vec![
