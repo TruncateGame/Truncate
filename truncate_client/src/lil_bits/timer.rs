@@ -173,6 +173,7 @@ impl<'a> TimerUI<'a> {
         // Paint bar background
         let mut bar = inner_timer_rect.clone();
         bar.set_bottom(bar.top() + bar_h);
+        bar = bar.translate(vec2(0.0, 5.0));
         ui.painter()
             .rect_filled(bar, timer_rounding, timer_color.diaphanize());
 

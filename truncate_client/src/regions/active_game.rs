@@ -8,14 +8,21 @@ use truncate_core::{
 };
 
 use eframe::{
-    egui::{self, Frame, Label, LayerId, Layout, Margin, Order, RichText, ScrollArea, Sense},
+    egui::{
+        self, CursorIcon, Frame, Label, LayerId, Layout, Margin, Order, RichText, ScrollArea, Sense,
+    },
     emath::Align,
 };
 use hashbrown::HashMap;
 
 use crate::{
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
-    utils::{mapper::MappedBoard, text::TextHelper, Diaphanize, Lighten, Theme},
+    utils::{
+        mapper::MappedBoard,
+        tex::{render_tex_quad, render_tex_quads, Tex},
+        text::TextHelper,
+        Diaphanize, Lighten, Theme,
+    },
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,6 +62,7 @@ pub struct GameCtx {
     pub highlight_squares: Option<Vec<Coordinate>>,
     pub is_mobile: bool,
     pub is_touch: bool,
+    pub unread_sidebar: bool,
 }
 
 #[derive(Clone)]
@@ -115,6 +123,7 @@ impl ActiveGame {
                 highlight_squares: None,
                 is_mobile: false,
                 is_touch: false,
+                unread_sidebar: false,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -158,15 +167,31 @@ impl ActiveGame {
                 );
             }
 
-            ui.add_space(10.0);
+            ui.add_space(5.0);
 
             ui.allocate_ui_with_layout(
                 vec2(avail_width, 10.0),
                 Layout::left_to_right(Align::TOP),
                 |ui| {
                     ui.spacing_mut().item_spacing = Vec2::splat(0.0);
-                    let total_width = ui.available_width().min(700.0);
-                    let outer_x_padding = (ui.available_width() - total_width) / 2.0;
+                    let button_size = 48.0;
+                    let mut total_width = 700.0;
+
+                    if self.ctx.is_mobile {
+                        if total_width + button_size + 10.0 > ui.available_width() {
+                            total_width = ui.available_width() - button_size - 10.0;
+                        }
+                    } else {
+                        if total_width + 10.0 > ui.available_width() {
+                            total_width = ui.available_width() - 10.0;
+                        }
+                    }
+
+                    let outer_x_padding = if !self.ctx.is_mobile {
+                        (ui.available_width() - total_width) / 2.0
+                    } else {
+                        0.0
+                    };
                     let item_spacing = 10.0;
 
                     ui.add_space(outer_x_padding + item_spacing);
@@ -200,22 +225,41 @@ impl ActiveGame {
                             .render(Some(timer_width), false, ui, theme, &mut self.ctx);
                     }
 
-                    ui.add_space(outer_x_padding + item_spacing);
+                    ui.add_space(item_spacing);
 
-                    // if self.ctx.is_mobile {
-                    //     let text = TextHelper::heavy("VIEW INFO", 12.0, None, ui);
-                    //     if text
-                    //         .centered_button(
-                    //             Color32::WHITE.diaphanize(),
-                    //             theme.text,
-                    //             &self.ctx.map_texture,
-                    //             ui,
-                    //         )
-                    //         .clicked()
-                    //     {
-                    //         self.ctx.sidebar_visible = true;
-                    //     }
-                    // }
+                    if !self.ctx.is_mobile {
+                        ui.add_space(outer_x_padding);
+                    } else {
+                        let (mut button_rect, button_resp) =
+                            ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
+                        if button_resp.hovered() {
+                            button_rect = button_rect.translate(vec2(0.0, -2.0));
+                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        }
+
+                        if self.ctx.unread_sidebar {
+                            render_tex_quads(
+                                &[Tex::BUTTON_INFO, Tex::BUTTON_NOTIF],
+                                button_rect,
+                                &self.ctx.map_texture,
+                                ui,
+                            );
+                        } else {
+                            render_tex_quad(
+                                Tex::BUTTON_INFO,
+                                button_rect,
+                                &self.ctx.map_texture,
+                                ui,
+                            );
+                        }
+
+                        if button_resp.clicked() {
+                            self.ctx.sidebar_visible = !self.ctx.sidebar_visible;
+                            self.ctx.unread_sidebar = false;
+                        }
+
+                        ui.add_space(item_spacing);
+                    }
                 },
             );
 
@@ -343,22 +387,6 @@ impl ActiveGame {
                         .render(&mut self.ctx, &mut hand_ui);
 
                     ui.add_space(10.0);
-
-                    if self.ctx.is_mobile {
-                        let text = TextHelper::heavy("VIEW INFO", 12.0, None, ui);
-                        if text
-                            .centered_button(
-                                Color32::WHITE.diaphanize(),
-                                theme.text,
-                                &self.ctx.map_texture,
-                                ui,
-                            )
-                            .clicked()
-                        {
-                            self.ctx.sidebar_visible = true;
-                        }
-                    }
-                    ui.add_space(10.0);
                 },
             );
         });
@@ -379,9 +407,8 @@ impl ActiveGame {
             .anchor(Align2::RIGHT_TOP, vec2(0.0, 0.0));
 
         let sidebar_alloc = ui.max_rect();
-        let mut outer_sidebar_area = sidebar_alloc.shrink2(vec2(0.0, 8.0));
-        outer_sidebar_area.set_right(outer_sidebar_area.right() - 8.0);
-        let inner_sidebar_area = outer_sidebar_area.shrink(8.0);
+        let inner_sidebar_area = sidebar_alloc.shrink2(vec2(10.0, 5.0));
+        let button_size = 48.0;
 
         let resp = area.show(ui.ctx(), |ui| {
             ui.painter().clone().rect_filled(
@@ -393,18 +420,28 @@ impl ActiveGame {
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
                 ui.expand_to_include_rect(inner_sidebar_area);
                 if self.ctx.is_mobile {
-                    let text = TextHelper::heavy("CLOSE INFO", 12.0, None, ui);
-                    if text
-                        .centered_button(
-                            Color32::WHITE.diaphanize(),
-                            theme.text,
-                            &self.ctx.map_texture,
-                            ui,
-                        )
-                        .clicked()
-                    {
-                        self.ctx.sidebar_visible = false;
-                    }
+                    ui.allocate_ui_with_layout(
+                        vec2(ui.available_width(), button_size),
+                        Layout::right_to_left(Align::TOP),
+                        |ui| {
+                            let (mut button_rect, button_resp) =
+                                ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
+                            if button_resp.hovered() {
+                                button_rect = button_rect.translate(vec2(0.0, -2.0));
+                                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                            }
+                            render_tex_quad(
+                                Tex::BUTTON_CLOSE,
+                                button_rect,
+                                &self.ctx.map_texture,
+                                ui,
+                            );
+
+                            if button_resp.clicked() {
+                                self.ctx.sidebar_visible = false;
+                            }
+                        },
+                    );
 
                     ui.add_space(10.0);
                 }
@@ -598,6 +635,13 @@ impl ActiveGame {
                 _ => None,
             })
             .collect();
+
+        if changes
+            .iter()
+            .any(|change| matches!(change, Change::Battle(_)))
+        {
+            self.ctx.unread_sidebar = true;
+        }
 
         self.turn_reports.push(changes);
 
