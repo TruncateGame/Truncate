@@ -1450,7 +1450,7 @@ pub mod tests {
                 [c0_1, c2_1],
                 &rules::Swapping::Contiguous(default_swap_rules())
             ),
-            Err(GamePlayError::DisjointSwap)
+            Err(GamePlayError::UnownedSwap)
         );
         assert_eq!(
             b.swap(
