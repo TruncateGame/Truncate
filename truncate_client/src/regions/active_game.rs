@@ -446,52 +446,56 @@ impl ActiveGame {
                     ui.add_space(10.0);
                 }
 
-                ScrollArea::new([false, true]).show(ui, |ui| {
-                    let room = ui.painter().layout_no_wrap(
-                        "Game Info".into(),
-                        FontId::new(
-                            self.ctx.theme.letter_size / 2.0,
-                            egui::FontFamily::Name("Truncate-Heavy".into()),
-                        ),
-                        self.ctx.theme.text,
-                    );
-                    let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
-                    ui.painter().galley(r.min, room);
-                    ui.add_space(15.0);
+                ScrollArea::new([false, true])
+                    .always_show_scroll(true)
+                    .show(ui, |ui| {
+                        ui.expand_to_include_rect(inner_sidebar_area);
 
-                    let mut rendered_battles = 0;
-                    let label_font =
-                        FontId::new(8.0, egui::FontFamily::Name("Truncate-Heavy".into()));
+                        let room = ui.painter().layout_no_wrap(
+                            "Game Info".into(),
+                            FontId::new(
+                                self.ctx.theme.letter_size / 2.0,
+                                egui::FontFamily::Name("Truncate-Heavy".into()),
+                            ),
+                            self.ctx.theme.text,
+                        );
+                        let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
+                        ui.painter().galley(r.min, room);
+                        ui.add_space(15.0);
 
-                    for turn in self.turn_reports.iter().rev() {
-                        for battle in turn.iter().filter_map(|change| match change {
-                            Change::Battle(battle) => Some(battle),
-                            _ => None,
-                        }) {
-                            let is_latest_battle = rendered_battles == 0;
+                        let mut rendered_battles = 0;
+                        let label_font =
+                            FontId::new(8.0, egui::FontFamily::Name("Truncate-Heavy".into()));
 
-                            if let Some(label) = if is_latest_battle {
-                                Some("Latest Battle")
-                            } else if rendered_battles == 1 {
-                                Some("Previous Battles")
-                            } else {
-                                None
-                            } {
-                                let label = ui.painter().layout_no_wrap(
-                                    label.into(),
-                                    label_font.clone(),
-                                    self.ctx.theme.text,
-                                );
-                                let (r, _) = ui.allocate_at_least(label.size(), Sense::hover());
-                                ui.painter().galley(r.min, label);
+                        for turn in self.turn_reports.iter().rev() {
+                            for battle in turn.iter().filter_map(|change| match change {
+                                Change::Battle(battle) => Some(battle),
+                                _ => None,
+                            }) {
+                                let is_latest_battle = rendered_battles == 0;
+
+                                if let Some(label) = if is_latest_battle {
+                                    Some("Latest Battle")
+                                } else if rendered_battles == 1 {
+                                    Some("Previous Battles")
+                                } else {
+                                    None
+                                } {
+                                    let label = ui.painter().layout_no_wrap(
+                                        label.into(),
+                                        label_font.clone(),
+                                        self.ctx.theme.text,
+                                    );
+                                    let (r, _) = ui.allocate_at_least(label.size(), Sense::hover());
+                                    ui.painter().galley(r.min, label);
+                                }
+
+                                BattleUI::new(battle, is_latest_battle).render(&mut self.ctx, ui);
+                                rendered_battles += 1;
+                                ui.add_space(8.0);
                             }
-
-                            BattleUI::new(battle, is_latest_battle).render(&mut self.ctx, ui);
-                            rendered_battles += 1;
-                            ui.add_space(8.0);
                         }
-                    }
-                });
+                    });
             });
         });
     }
