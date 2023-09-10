@@ -7,7 +7,7 @@ use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
 use crate::judge::{Outcome, WordDict};
 use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, TimeChange};
-use crate::rules::{self, GameRules};
+use crate::rules::{self, GameRules, OvertimeRule, Timing};
 
 use super::board::Board;
 use super::judge::Judge;
@@ -30,6 +30,7 @@ pub struct Game {
     pub board: Board, // TODO: should these actually be public?
     pub bag: TileBag,
     pub judge: Judge,
+    pub battle_count: u32,
     pub recent_changes: Vec<Change>,
     pub started_at: Option<u64>,
     pub next_player: usize,
@@ -52,6 +53,7 @@ impl Game {
             board: Board::new(width, height),
             bag: TileBag::new(&rules.tile_distribution),
             judge: Judge::default(),
+            battle_count: 0,
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
@@ -65,7 +67,8 @@ impl Game {
             rules::Timing::PerPlayer {
                 time_allowance,
                 overtime_rule: _,
-            } => time_allowance,
+            } => Some(Duration::new(time_allowance as i64, 0)),
+            rules::Timing::None => None,
             _ => unimplemented!(),
         };
         self.players.push(Player::new(
@@ -73,7 +76,7 @@ impl Game {
             self.players.len(),
             self.rules.hand_size,
             &mut self.bag,
-            Some(Duration::new(time_allowance as i64, 0)),
+            time_allowance,
             GAME_COLORS[self.players.len()],
         ));
     }
@@ -89,13 +92,67 @@ impl Game {
         self.players[self.next_player].turn_starts_at = Some(now());
     }
 
+    pub fn any_player_is_overtime(&self) -> Option<usize> {
+        let mut most_overtime_player: Option<(Duration, usize)> = None;
+
+        for (player_number, player) in self.players.iter().enumerate() {
+            let Some(mut time_remaining) = player.time_remaining else {
+                println!("Player {player_number} has not started a turn yet");
+                continue;
+            };
+            println!("⏰ Player {player_number} has {time_remaining} game time left");
+            if let Some(turn_starts) = player.turn_starts_at {
+                let elapsed_time = now().saturating_sub(turn_starts);
+                println!("⏰ Player {player_number} is mid-turn, and has used {elapsed_time}");
+                time_remaining -= Duration::seconds(elapsed_time as i64);
+            }
+            println!("⏰ Player {player_number} has {time_remaining} total time left");
+            println!("Current most overtime: {most_overtime_player:?}");
+
+            if !time_remaining.is_positive() {
+                match most_overtime_player {
+                    Some((duration, _)) if time_remaining < duration => {
+                        most_overtime_player = Some((time_remaining, player_number))
+                    }
+                    None => most_overtime_player = Some((time_remaining, player_number)),
+                    _ => {}
+                }
+            }
+        }
+
+        most_overtime_player.map(|(_, player_number)| player_number)
+    }
+
+    pub fn calculate_game_over(&mut self) {
+        let overtime_rule = match &self.rules.timing {
+            rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
+            _ => None,
+        };
+        if matches!(overtime_rule, Some(OvertimeRule::Elimination)) {
+            match self.any_player_is_overtime() {
+                Some(overtime_player) => {
+                    println!("{overtime_player} is over time!");
+                    self.board.defeat_player(overtime_player);
+                    self.winner = Some((overtime_player + 1) % 2);
+                }
+                _ => {}
+            }
+        }
+    }
+
     pub fn play_turn(
         &mut self,
         next_move: Move,
-        external_dictionary: Option<&WordDict>,
+        attacker_dictionary: Option<&WordDict>,
+        defender_dictionary: Option<&WordDict>,
     ) -> Result<Option<usize>, String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
+        }
+
+        self.calculate_game_over();
+        if self.winner.is_some() {
+            return Ok(self.winner);
         }
 
         let player = match next_move {
@@ -105,6 +162,7 @@ impl Game {
         if player != self.next_player {
             return Err("Only the next player can play".into());
         }
+
         let turn_duration = now().checked_sub(
             self.players[player]
                 .turn_starts_at
@@ -114,13 +172,14 @@ impl Game {
             return Err("Player's turn has not yet started".into());
         };
 
-        self.recent_changes = match self.make_move(next_move, external_dictionary) {
-            Ok(changes) => changes,
-            Err(msg) => {
-                println!("{}", msg);
-                return Err(format!("Couldn't make move: {msg}")); // TODO: propogate error post polonius
-            }
-        };
+        self.recent_changes =
+            match self.make_move(next_move, attacker_dictionary, defender_dictionary) {
+                Ok(changes) => changes,
+                Err(msg) => {
+                    println!("{}", msg);
+                    return Err(format!("{msg}")); // TODO: propogate error post polonius
+                }
+            };
 
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
@@ -132,28 +191,40 @@ impl Game {
         let this_player = &mut self.players[player];
         if let Some(time_remaining) = &mut this_player.time_remaining {
             *time_remaining -= Duration::seconds(turn_duration as i64);
-            let mut apply_penalties = 0;
 
-            if time_remaining.is_negative() {
-                // TODO: Make the penalty period an option
-                let total_penalties = 1 + (time_remaining.whole_seconds() / -60) as usize; // usize cast as we guaranteed both are negative
-                println!("Player {player} now has {total_penalties} penalties");
-                apply_penalties = total_penalties - this_player.penalties_incurred;
-                println!("Player {player} needs {apply_penalties} to be applied");
-                this_player.penalties_incurred = total_penalties;
-            }
+            let overtime_rule = match &self.rules.timing {
+                rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
+                _ => None,
+            };
 
-            if apply_penalties > 0 {
-                for other_player in &mut self.players {
-                    if other_player.index == player {
-                        continue;
+            match overtime_rule {
+                Some(OvertimeRule::Bomb { period }) => {
+                    let mut apply_penalties = 0;
+
+                    if time_remaining.is_negative() {
+                        // TODO: Make the penalty period an option
+                        let total_penalties =
+                            1 + (time_remaining.whole_seconds() / -(*period as i64)) as usize; // usize cast as we guaranteed both are negative
+                        println!("Player {player} now has {total_penalties} penalties");
+                        apply_penalties = total_penalties - this_player.penalties_incurred;
+                        println!("Player {player} needs {apply_penalties} to be applied");
+                        this_player.penalties_incurred = total_penalties;
                     }
-                    for _ in 0..apply_penalties {
-                        println!("Player {} gets a free tile", other_player.name);
-                        self.recent_changes.push(other_player.add_special_tile('¤'));
+
+                    if apply_penalties > 0 {
+                        for other_player in &mut self.players {
+                            if other_player.index == player {
+                                continue;
+                            }
+                            for _ in 0..apply_penalties {
+                                println!("Player {} gets a free tile", other_player.name);
+                                self.recent_changes.push(other_player.add_special_tile('¤'));
+                            }
+                        }
                     }
                 }
-            }
+                _ => {}
+            };
         }
 
         self.players[player].turn_starts_at = None;
@@ -174,7 +245,8 @@ impl Game {
     pub fn make_move(
         &mut self,
         game_move: Move,
-        external_dictionary: Option<&WordDict>,
+        attacker_dictionary: Option<&WordDict>,
+        defender_dictionary: Option<&WordDict>,
     ) -> Result<Vec<Change>, GamePlayError> {
         let mut changes = vec![];
 
@@ -203,7 +275,13 @@ impl Game {
                     detail: self.board.set(position, player, tile)?,
                     action: BoardChangeAction::Added,
                 }));
-                self.resolve_attack(player, position, external_dictionary, &mut changes);
+                self.resolve_attack(
+                    player,
+                    position,
+                    attacker_dictionary,
+                    defender_dictionary,
+                    &mut changes,
+                );
 
                 self.players[player].swap_count = 0;
 
@@ -213,40 +291,65 @@ impl Game {
                 player: player_index,
                 positions,
             } => {
-                let mut swap_result =
-                    self.board
-                        .swap(player_index, positions, &self.rules.swapping)?;
                 let player = &mut self.players[player_index];
-
-                player.swap_count += 1;
-
-                if let Some(swap_rules) = match &self.rules.swapping {
+                let swap_rules = match &self.rules.swapping {
                     rules::Swapping::Contiguous(rules) => Some(rules),
                     rules::Swapping::Universal(rules) => Some(rules),
                     rules::Swapping::None => None,
-                } {
-                    let player_swaps = player.swap_count;
-                    if player_swaps > swap_rules.swap_threshold {
-                        let penalty_number = player_swaps - swap_rules.swap_threshold - 1;
-                        let penalty = swap_rules
-                            .penalties
-                            .get(penalty_number)
-                            .or_else(|| swap_rules.penalties.last());
-                        if let (Some(penalty), Some(time_remaining)) =
-                            (penalty, &mut player.time_remaining)
-                        {
-                            let time_change = -(*penalty as isize);
-                            *time_remaining += Duration::seconds(time_change as i64);
-                            swap_result.push(Change::Time(TimeChange {
-                                player: player_index,
-                                time_change,
-                                reason: format!(
-                                    "Lost time for {player_swaps} consecutive swap{}",
-                                    if player_swaps == 1 { "" } else { "s" }
-                                ),
-                            }))
+                };
+
+                match swap_rules {
+                    Some(rules::SwapPenalty::Disallowed { allowed_swaps }) => {
+                        let player_swaps = player.swap_count;
+                        if player_swaps >= *allowed_swaps {
+                            return Err(GamePlayError::TooManySwaps {
+                                count: match player_swaps + 1 {
+                                    2 => "twice".into(),
+                                    n => format!("{n} times"),
+                                },
+                            });
                         }
                     }
+                    _ => {}
+                }
+
+                let mut swap_result =
+                    self.board
+                        .swap(player_index, positions, &self.rules.swapping)?;
+
+                player.swap_count += 1;
+
+                match swap_rules {
+                    Some(rules::SwapPenalty::Time {
+                        swap_threshold,
+                        penalties,
+                    }) => {
+                        let player_swaps = player.swap_count;
+
+                        if player_swaps > *swap_threshold {
+                            let penalty_number = player_swaps - swap_threshold - 1;
+                            let penalty =
+                                penalties.get(penalty_number).or_else(|| penalties.last());
+                            if let (Some(penalty), Some(time_remaining)) =
+                                (penalty, &mut player.time_remaining)
+                            {
+                                let time_change = -(*penalty as isize);
+                                *time_remaining += Duration::seconds(time_change as i64);
+                                swap_result.push(Change::Time(TimeChange {
+                                    player: player_index,
+                                    time_change,
+                                    reason: format!(
+                                        "Lost time for {player_swaps} consecutive swap{}",
+                                        if player_swaps == 1 { "" } else { "s" }
+                                    ),
+                                }))
+                            }
+                        }
+                    }
+                    Some(rules::SwapPenalty::Disallowed { .. }) => {
+                        // Handled before move was made
+                    }
+                    None => {}
                 }
 
                 Ok(swap_result)
@@ -265,7 +368,8 @@ impl Game {
         &mut self,
         player: usize,
         position: Coordinate,
-        external_dictionary: Option<&WordDict>,
+        attacker_dictionary: Option<&WordDict>,
+        defender_dictionary: Option<&WordDict>,
         changes: &mut Vec<Change>,
     ) {
         let (attackers, defenders) = self.board.collect_combanants(player, position);
@@ -278,13 +382,17 @@ impl Game {
             .word_strings(&defenders)
             .expect("Words were just found and should be valid");
 
-        if let Some(battle) = self.judge.battle(
+        if let Some(mut battle) = self.judge.battle(
             attacking_words,
             defending_words,
             &self.rules.battle_rules,
             &self.rules.win_condition,
-            external_dictionary,
+            attacker_dictionary,
+            defender_dictionary,
         ) {
+            battle.battle_number = Some(self.battle_count);
+            self.battle_count += 1;
+
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
                     let mut all_defenders_are_towns = true;
@@ -353,7 +461,7 @@ impl Game {
                                 self.bag.return_tile(letter);
                             }
                             Ok(Square::Town { player, .. }) => {
-                                self.board.set_square(
+                                _ = self.board.set_square(
                                     *square,
                                     Square::Town {
                                         player,

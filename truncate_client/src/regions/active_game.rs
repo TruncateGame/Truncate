@@ -53,6 +53,7 @@ pub struct GameCtx {
     pub highlight_tiles: Option<Vec<char>>,
     pub highlight_squares: Option<Vec<Coordinate>>,
     pub is_mobile: bool,
+    pub is_touch: bool,
 }
 
 #[derive(Clone)]
@@ -111,6 +112,7 @@ impl ActiveGame {
                 highlight_tiles: None,
                 highlight_squares: None,
                 is_mobile: false,
+                is_touch: false,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -151,14 +153,62 @@ impl ActiveGame {
             self.ctx.hand_companion_rect = Some(companion_pos);
         }
 
+        let avail_width = ui.available_width();
+
+        let error_area = egui::Area::new(egui::Id::new("error_layer"))
+            .movable(false)
+            .order(Order::Tooltip)
+            .anchor(
+                Align2::LEFT_BOTTOM,
+                -vec2(
+                    0.0,
+                    self.ctx
+                        .hand_total_rect
+                        .map(|r| r.height())
+                        .unwrap_or_default(),
+                ),
+            );
+        let mut resp = error_area.show(ui.ctx(), |ui| {
+            if let Some(error) = &self.ctx.error_msg {
+                let error_fz = if avail_width < 550.0 { 24.0 } else { 32.0 };
+                let max_width = f32::min(600.0, avail_width - 100.0);
+                let text = TextHelper::light(error, error_fz, Some(max_width), ui);
+                let text_mesh_size = text.mesh_size();
+                let dialog_size = text_mesh_size + vec2(100.0, 20.0);
+                let x_offset = (avail_width - dialog_size.x) / 2.0;
+
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+                    ui.add_space(x_offset);
+                    let (dialog_rect, dialog_resp) = crate::utils::tex::paint_dialog_background(
+                        false,
+                        false,
+                        false,
+                        dialog_size,
+                        hex_color!("#ffe6c9"),
+                        &self.ctx.map_texture,
+                        ui,
+                    );
+
+                    let offset = (dialog_rect.size() - text_mesh_size) / 2.0 - vec2(0.0, 3.0);
+
+                    let text_pos = dialog_rect.min + offset;
+                    text.paint_at(text_pos, self.ctx.theme.text, ui);
+                });
+            }
+
+            if ui.input_mut(|i| i.pointer.any_click()) {
+                self.ctx.error_msg = None;
+            }
+        });
+
         let area = egui::Area::new(egui::Id::new("controls_layer"))
             .movable(false)
             .order(Order::Foreground)
             .anchor(Align2::LEFT_BOTTOM, control_anchor);
 
-        let avail_width = ui.available_width();
-
-        let resp = area.show(ui.ctx(), |ui| {
+        let mut resp = area.show(ui.ctx(), |ui| {
             if let Some(bg_rect) = self.ctx.hand_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
@@ -171,6 +221,8 @@ impl ActiveGame {
                 vec2(avail_width, 10.0),
                 Layout::top_down(Align::LEFT),
                 |ui| {
+                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+
                     ui.add_space(10.0);
 
                     if winner.is_some() {
@@ -305,11 +357,6 @@ impl ActiveGame {
                     ui.painter().galley(r.min, room);
                     ui.add_space(15.0);
 
-                    if let Some(error) = &self.ctx.error_msg {
-                        ui.label(error);
-                        ui.separator();
-                    }
-
                     let mut rendered_battles = 0;
                     let label_font =
                         FontId::new(8.0, egui::FontFamily::Name("Truncate-Heavy".into()));
@@ -319,7 +366,9 @@ impl ActiveGame {
                             Change::Battle(battle) => Some(battle),
                             _ => None,
                         }) {
-                            if let Some(label) = if rendered_battles == 0 {
+                            let is_latest_battle = rendered_battles == 0;
+
+                            if let Some(label) = if is_latest_battle {
                                 Some("Latest Battle")
                             } else if rendered_battles == 1 {
                                 Some("Previous Battles")
@@ -335,9 +384,9 @@ impl ActiveGame {
                                 ui.painter().galley(r.min, label);
                             }
 
-                            BattleUI::new(battle).render(&mut self.ctx, ui);
+                            BattleUI::new(battle, is_latest_battle).render(&mut self.ctx, ui);
                             rendered_battles += 1;
-                            ui.add_space(15.0);
+                            ui.add_space(8.0);
                         }
                     }
                 });
@@ -358,6 +407,18 @@ impl ActiveGame {
             self.ctx.qs_tick = cur_tick;
             self.mapped_board
                 .remap(&self.board, &self.ctx.player_colors, self.ctx.qs_tick);
+        }
+
+        if !self.ctx.is_touch {
+            // If we ever receive any touch event,
+            // irrevocably put Truncate into touch mode.
+            if ui.input(|i| {
+                i.events
+                    .iter()
+                    .any(|event| matches!(event, egui::Event::Touch { .. }))
+            }) {
+                self.ctx.is_touch = true;
+            }
         }
 
         let mut game_space = ui.available_rect_before_wrap();

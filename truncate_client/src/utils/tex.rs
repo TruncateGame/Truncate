@@ -3,8 +3,8 @@ use std::{
     ops::{Range, RangeInclusive},
 };
 
-use eframe::egui;
-use epaint::{pos2, vec2, Color32, Mesh, Rect, Shape, TextureHandle, TextureId};
+use eframe::egui::{self, Sense};
+use epaint::{pos2, vec2, Color32, Mesh, Rect, Shape, TextureHandle, TextureId, Vec2};
 use truncate_core::board::Square;
 
 use crate::regions::lobby::BoardEditingMode;
@@ -858,4 +858,54 @@ pub fn render_tex_rows(
             );
         }
     }
+}
+
+pub fn paint_dialog_background(
+    full_width: bool,
+    full_height: bool,
+    centered: bool,
+    size_to_pos: Vec2,
+    background_color: Color32,
+    map_texture: &TextureHandle,
+    ui: &mut egui::Ui,
+) -> (Rect, egui::Response) {
+    let text_size = size_to_pos;
+    let dialog_width = if full_width {
+        ui.available_width()
+    } else {
+        text_size.x
+    };
+
+    let width_in_tiles = (dialog_width / 16.0) as usize;
+    let dialog_tile_size = dialog_width / width_in_tiles as f32;
+
+    let height_in_tiles = if full_height {
+        (ui.available_height() / dialog_tile_size) as usize
+    } else {
+        (text_size.y / dialog_tile_size).ceil() as usize + 2
+    };
+    let dialog_height = height_in_tiles as f32 * dialog_tile_size;
+
+    let dialog_texs = Tex::text_dialog(width_in_tiles, height_in_tiles);
+
+    let (dialog_rect, dialog_resp) = if centered {
+        ui.horizontal(|ui| {
+            let centered_offset = (ui.available_width() - dialog_width) * 0.5;
+            ui.add_space(centered_offset);
+            ui.allocate_exact_size(vec2(dialog_width, dialog_height), Sense::click())
+        })
+        .inner
+    } else {
+        ui.allocate_exact_size(vec2(dialog_width, dialog_height), Sense::click())
+    };
+
+    render_tex_rows(
+        dialog_texs.tint(background_color),
+        dialog_rect,
+        map_texture,
+        ui,
+    );
+
+    let inner_dialog_rect = dialog_rect.shrink(dialog_tile_size / 2.0);
+    (inner_dialog_rect, dialog_resp)
 }

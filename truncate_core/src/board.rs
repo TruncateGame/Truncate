@@ -351,6 +351,20 @@ impl Board {
             return Err(GamePlayError::SelfSwap);
         }
 
+        let mut tiles = ['&'; 2];
+        for (i, pos) in positions.iter().enumerate() {
+            use Square::*;
+            match self.get(*pos)? {
+                Occupied(owner, tile) => {
+                    if owner != player {
+                        return Err(GamePlayError::UnownedSwap);
+                    }
+                    tiles[i] = tile;
+                }
+                Water | Land | Town { .. } | Dock(_) => return Err(GamePlayError::UnoccupiedSwap),
+            };
+        }
+
         match swap_rules {
             rules::Swapping::Contiguous(_) => {
                 if self
@@ -365,20 +379,6 @@ impl Board {
             rules::Swapping::None => {
                 return Err(GamePlayError::NoSwapping);
             }
-        }
-
-        let mut tiles = ['&'; 2];
-        for (i, pos) in positions.iter().enumerate() {
-            use Square::*;
-            match self.get(*pos)? {
-                Occupied(owner, tile) => {
-                    if owner != player {
-                        return Err(GamePlayError::UnownedSwap);
-                    }
-                    tiles[i] = tile;
-                }
-                Water | Land | Town { .. } | Dock(_) => return Err(GamePlayError::UnoccupiedSwap),
-            };
         }
 
         Ok(vec![
@@ -430,6 +430,24 @@ impl Board {
                     *sq = Square::Town {
                         player: player.clone(),
                         defeated: false,
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn defeat_player(&mut self, player_to_defeat: usize) {
+        let towns = self.towns.clone();
+        for town in towns {
+            let Ok(sq) = self.get_mut(town) else {
+                continue;
+            };
+            match sq {
+                Square::Town { player, .. } if *player == player_to_defeat => {
+                    *sq = Square::Town {
+                        player: player_to_defeat,
+                        defeated: true,
                     }
                 }
                 _ => {}
@@ -927,10 +945,7 @@ pub mod tests {
     use super::*;
 
     fn default_swap_rules() -> SwapPenalty {
-        SwapPenalty {
-            swap_threshold: 3,
-            penalties: vec![],
-        }
+        SwapPenalty::Disallowed { allowed_swaps: 1 }
     }
 
     #[test]
@@ -1435,7 +1450,7 @@ pub mod tests {
                 [c0_1, c2_1],
                 &rules::Swapping::Contiguous(default_swap_rules())
             ),
-            Err(GamePlayError::DisjointSwap)
+            Err(GamePlayError::UnownedSwap)
         );
         assert_eq!(
             b.swap(

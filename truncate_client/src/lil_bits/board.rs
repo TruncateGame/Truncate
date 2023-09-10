@@ -215,12 +215,18 @@ impl<'a> BoardUI<'a> {
                                             }
                                         });
                                     if matches!(square, Square::Land | Square::Occupied(_, _)) {
-                                        if ui.rect_contains_pointer(outer_rect) {
-                                            hovered_square = Some(HoveredRegion{
-                                                rect: outer_rect,
-                                                coord: Some(coord)
-                                            });
+                                        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                                            let drag_offset = if ctx.is_touch { -50.0 } else { 0.0 };
+                                            let drag_pos = pointer_pos + vec2(0.0, drag_offset);
+
+                                            if outer_rect.contains(drag_pos) {
+                                                hovered_square = Some(HoveredRegion{
+                                                    rect: outer_rect,
+                                                    coord: Some(coord)
+                                                });
+                                            }
                                         }
+
 
                                         if square_response.clicked() {
                                             if let Some(tile) = ctx.selected_tile_in_hand {
@@ -230,7 +236,9 @@ impl<'a> BoardUI<'a> {
                                             } else if is_selected {
                                                 next_selection = Some(None);
                                             } else if let Some(selected_coord) = ctx.selected_square_on_board {
-                                                msg = Some(PlayerMessage::Swap(coord, selected_coord));
+                                                if matches!(square, Square::Occupied(_, _)) {
+                                                    msg = Some(PlayerMessage::Swap(coord, selected_coord));
+                                                }
                                                 next_selection = Some(None);
                                             } else {
                                                 next_selection = Some(Some(coord));
