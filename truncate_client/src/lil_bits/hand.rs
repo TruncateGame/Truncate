@@ -2,7 +2,7 @@ use instant::Duration;
 use truncate_core::player::Hand;
 
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order};
-use epaint::{vec2, Vec2};
+use epaint::{emath::Align2, vec2, Rect, Vec2};
 
 use crate::regions::active_game::{GameCtx, HoveredRegion};
 
@@ -103,12 +103,20 @@ impl<'a> HandUI<'a> {
                             let drag_id: Duration = ui
                                 .memory_mut(|mem| mem.data.get_temp(tile_id))
                                 .unwrap_or_default();
-                            let layer_id = LayerId::new(
-                                Order::Tooltip,
-                                tile_id.with("floating").with(drag_id),
-                            );
-                            let response = ui
-                                .with_layer_id(layer_id, |ui| {
+
+                            // There is definitely a better way to do this, but this works for now.
+                            // The issue with using a layer directly, or with aligning this area to a corner,
+                            // is that the Tile is clipped to the screen bounds before we translate the layer.
+                            // So if we paint our tile on this layer at the bottom of the screen,
+                            // and then drag it over the board which might scale it up,
+                            // the bottom of our tile can be cut off due to it clipping based on its original location.
+                            let area = egui::Area::new(tile_id.with("floating").with(drag_id))
+                                .movable(false)
+                                .order(Order::Tooltip)
+                                .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0));
+
+                            let response = area
+                                .show(ui.ctx(), |ui| {
                                     let hover_scale =
                                         if let Some(region) = &ctx.hovered_tile_on_board {
                                             region.rect.width() / ctx.theme.grid_size
@@ -116,7 +124,7 @@ impl<'a> HandUI<'a> {
                                             1.0
                                         };
                                     let bouncy_scale = ui.ctx().animate_value_with_time(
-                                        layer_id.id,
+                                        area.layer().id,
                                         hover_scale,
                                         ctx.theme.animation_time,
                                     );
@@ -155,17 +163,18 @@ impl<'a> HandUI<'a> {
 
                             let animated_delta = vec2(
                                 ui.ctx().animate_value_with_time(
-                                    layer_id.id.with("delta_x"),
+                                    area.layer().id.with("delta_x"),
                                     delta.x,
                                     ctx.theme.animation_time,
                                 ),
                                 ui.ctx().animate_value_with_time(
-                                    layer_id.id.with("delta_y"),
+                                    area.layer().id.with("delta_y"),
                                     delta.y,
                                     ctx.theme.animation_time,
                                 ),
                             );
-                            ui.ctx().translate_layer(layer_id, animated_delta.round());
+                            ui.ctx()
+                                .translate_layer(area.layer(), animated_delta.round());
 
                             ui.ctx()
                                 .output_mut(|out| out.cursor_icon = CursorIcon::Grabbing);

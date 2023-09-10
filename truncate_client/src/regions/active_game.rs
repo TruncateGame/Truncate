@@ -396,9 +396,16 @@ impl ActiveGame {
         (resp.response.rect, msg)
     }
 
-    pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, winner: Option<usize>) {
+    pub fn render_sidebar(
+        &mut self,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        winner: Option<usize>,
+    ) -> Option<PlayerMessage> {
+        let mut msg = None;
+
         if self.ctx.is_mobile && !self.ctx.sidebar_visible {
-            return;
+            return msg;
         }
 
         let area = egui::Area::new(egui::Id::new("sidebar_layer"))
@@ -514,6 +521,8 @@ impl ActiveGame {
                     });
             });
         });
+
+        msg
     }
 
     pub fn render(
@@ -563,7 +572,7 @@ impl ActiveGame {
             self.render_timer_strip(&mut timer_strip_ui, theme, winner);
 
         let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
-        self.render_sidebar(&mut sidebar_space_ui, theme, winner);
+        let sidebar_player_message = self.render_sidebar(&mut sidebar_space_ui, theme, winner);
 
         game_space.set_top(timer_strip_rect.bottom());
         game_space.set_bottom(control_strip_rect.top());
@@ -578,7 +587,9 @@ impl ActiveGame {
                 &mut game_space_ui,
                 &self.mapped_board,
             )
-            .or(control_player_message);
+            .or(control_player_message)
+            .or(timer_player_message)
+            .or(sidebar_player_message);
 
         player_message
     }
