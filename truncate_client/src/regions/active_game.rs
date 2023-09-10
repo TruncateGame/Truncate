@@ -196,6 +196,7 @@ impl ActiveGame {
                             .friend(false)
                             .active(opponent.index == self.ctx.next_player_number as usize)
                             .winner(winner.clone())
+                            .right_align()
                             .render(Some(timer_width), false, ui, theme, &mut self.ctx);
                     }
 
