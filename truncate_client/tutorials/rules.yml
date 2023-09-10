@@ -48,33 +48,133 @@ rules:
       - title: One word attacking one word
         cascades:
           - message: |-
-              LOSS Attacking word is invalid
-            board: |-
-              ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
+              An attack fails if the attacking word is not valid.
+            boards: 
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0Q __ __ ~~
+                  ~~ __ __ 0F __ __ ~~
+                  ~~ __ __ __ __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0Q __ __ ~~
+                  ~~ __ __ 0F __ __ ~~
+                  ~~ __ __ +1I __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+                message: 'IAT' attacks 'FQX'.
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0Q __ __ ~~
+                  ~~ __ __ 0F __ __ ~~
+                  ~~ __ __ -1I __ __ ~~
+                  ~~ __ __ -1A __ __ ~~
+                  ~~ #1 #1 -1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+                message: 'IAT' is invalid and is removed from the board.
           - message: |-
-              WIN Defending word is invalid
-            board: |-
-              ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
+              If the attacking word is valid, the attack succeeds if the defending word is invalid.
+            boards: 
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0Q __ __ ~~
+                  ~~ __ __ 0F __ __ ~~
+                  ~~ __ __ __ __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0Q __ __ ~~
+                  ~~ __ __ 0F __ __ ~~
+                  ~~ __ __ +1B __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+                message: 'BAT' attacks 'FQX'.
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 -0X #0 #0 ~~
+                  ~~ __ __ -0Q __ __ ~~
+                  ~~ __ __ -0F __ __ ~~
+                  ~~ __ __ 1B __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+                message: 'BAT' is valid, and 'FQX' is not. 'FQX' is removed from the board.
           - message: |-
-              WIN Defending word is too short
-            board: |-
-              ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
+              If both words are valid, the attack wins if the attacking word is two or more tiles longer than the defending word.
+            boards: 
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0A __ __ ~~
+                  ~~ __ __ __ __ __ ~~
+                  ~~ __ __ 1E __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0A __ __ ~~
+                  ~~ __ __ +1F __ __ ~~
+                  ~~ __ __ 1E __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+                message: 'FEAT' attacks 'AX'.
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 -0X #0 #0 ~~
+                  ~~ __ __ -0A __ __ ~~
+                  ~~ __ __ 1F __ __ ~~
+                  ~~ __ __ 1E __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+                message: 'FEAT' and 'AX' are both valid, but 'FEAT' is two tiles longer. 'AX' is removed from the board.
           - message: |-
-              LOSS Attacking word is too short
-            board: |-
-              ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
+              If all words are valid, and the attacking word is not long enough to win, the attack fails.
+            boards: 
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0A __ __ ~~
+                  ~~ __ __ 0F __ __ ~~
+                  ~~ __ __ __ __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0A __ __ ~~
+                  ~~ __ __ 0F __ __ ~~
+                  ~~ __ __ +1B __ __ ~~
+                  ~~ __ __ 1A __ __ ~~
+                  ~~ #1 #1 1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+                message: 'BAT' attacks 'FAX'.
+              - board: |-
+                  ~~ ~~ ~~ |0 ~~ ~~ ~~
+                  ~~ #0 #0 0X #0 #0 ~~
+                  ~~ __ __ 0A __ __ ~~
+                  ~~ __ __ 0F __ __ ~~
+                  ~~ __ __ -1B __ __ ~~
+                  ~~ __ __ -1A __ __ ~~
+                  ~~ #1 #1 -1T #1 #1 ~~
+                  ~~ ~~ ~~ |1 ~~ ~~ ~~
+                message: 'BAT' and 'FAX' are both valid. 'BAT' would need to be five tiles long to beat 'FAX' on length. 'BAT' is removed from the board.
 
 
       - title: One word attacking multiple words
@@ -83,44 +183,26 @@ rules:
               LOSS Attacking word is invalid
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN All defending words are invalid
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN Some defending words are invalid
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN All defending words are too short
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN Some defending words are too short
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               LOSS Attacking word is shorter than all
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
 
       - title: Two words attacking one word
         cascades:
@@ -128,30 +210,18 @@ rules:
               LOSS Any attacking word is invalid
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN Defending word is invalid
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN Any attacking word is long enough
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               LOSS All attacking words are too short
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
 
       - title: Two words attacking multiple words
         cascades:
@@ -159,44 +229,26 @@ rules:
               LOSS Any attacking word is invalid
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN All defending words are invalid
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN Some defending words are invalid
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN Any attacking word is longer than all defendings words
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               WIN Any attacking word is longer than some defending words
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
           - message: |-
               LOSS All attacking words are shorter than all defending words
             board: |-
               ~~
-            steps:
-              - you: "X -> 0,0"
-                gets: "X"
 
     # Multi party battles
 
