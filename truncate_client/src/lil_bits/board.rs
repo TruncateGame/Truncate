@@ -241,7 +241,9 @@ impl<'a> BoardUI<'a> {
                                                 }
                                                 next_selection = Some(None);
                                             } else {
-                                                next_selection = Some(Some(coord));
+                                                if matches!(square, Square::Occupied(_, _)) {
+                                                    next_selection = Some(Some(coord));
+                                                }
                                             }
                                         } else if let Some(tile) = ctx.released_tile {
                                             if tile.1 == coord {
