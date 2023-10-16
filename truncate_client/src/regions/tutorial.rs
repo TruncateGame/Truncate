@@ -47,6 +47,9 @@ enum TutorialStep {
     Dialog {
         message: String,
     },
+    EndAction {
+        end_message: String,
+    },
 }
 
 fn pos_to_coord(pos: &str) -> Option<Coordinate> {
@@ -87,6 +90,7 @@ impl PartialEq<Move> for TutorialStep {
             }
             TutorialStep::ComputerMove { .. } => false,
             TutorialStep::Dialog { .. } => false,
+            TutorialStep::EndAction { .. } => false,
         }
     }
 }
@@ -394,6 +398,68 @@ impl TutorialState {
                                                 {
                                                     self.stage += 1;
                                                     self.stage_changed_at = current_time;
+                                                }
+                                            },
+                                        );
+                                    });
+                                }
+                            }
+                            TutorialStep::EndAction { end_message } => {
+                                let dialog_text = TextHelper::light(
+                                    &end_message,
+                                    tut_fz,
+                                    Some((ui.available_width() - 16.0).max(0.0)),
+                                    ui,
+                                );
+
+                                let animated_text =
+                                    dialog_text.get_partial_slice(time_in_stage, ui);
+                                let has_animation = animated_text.is_some();
+                                if has_animation {
+                                    ui.ctx().request_repaint();
+                                }
+
+                                let final_size = dialog_text.mesh_size();
+                                let dialog_resp = animated_text.unwrap_or(dialog_text).dialog(
+                                    final_size,
+                                    Color32::WHITE.diaphanize(),
+                                    Color32::BLACK,
+                                    button_spacing,
+                                    &self.active_game.ctx.map_texture,
+                                    ui,
+                                );
+
+                                if !has_animation {
+                                    let mut dialog_rect = dialog_resp.rect;
+                                    dialog_rect.set_top(dialog_rect.bottom() - button_spacing);
+
+                                    let text = TextHelper::heavy("RETURN TO MENU", 14.0, None, ui);
+                                    ui.allocate_ui_at_rect(dialog_rect, |ui| {
+                                        ui.with_layout(
+                                            Layout::centered_and_justified(
+                                                egui::Direction::LeftToRight,
+                                            ),
+                                            |ui| {
+                                                if text
+                                                    .button(
+                                                        theme.water.lighten(),
+                                                        theme.text,
+                                                        &self.active_game.ctx.map_texture,
+                                                        ui,
+                                                    )
+                                                    .clicked()
+                                                {
+                                                    // TODO: A more elegant way to show the menu over the game would be nice,
+                                                    // but we would need to add extra endpoints to the lib.rs file,
+                                                    // and also give those endpoints a way to access the active game to change its state.
+                                                    // As an MVP here, we simply reload the page to get back to the menu.
+                                                    #[cfg(target_arch = "wasm32")]
+                                                    {
+                                                        _ = web_sys::window()
+                                                            .unwrap()
+                                                            .location()
+                                                            .reload();
+                                                    }
                                                 }
                                             },
                                         );

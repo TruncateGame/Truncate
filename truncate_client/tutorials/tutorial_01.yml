@@ -415,7 +415,7 @@ steps:
       
       To get more familiar with the game, play some single player games against the computer.
 
-  - message: |-
+  - end_message: |-
       Once you're ready, challenge a friend to an online game!
 
       We hope you enjoy Truncate :-)
