@@ -265,6 +265,9 @@ steps:
       Nice! Both 'RIFE' and 'RAIL' are valid words, so we don't have to worry about any new vulnerabilities.
 
   - message: |-
+      One thing to note is that you can't swap twice in a row, so next turn we'll need to play a tile from our hand.
+
+  - message: |-
       Our opponent is now in serious danger.
       
       Next turn we can extend 'RAIL' to 'TRAIL', which is long enough to beat 'HIT' despite the defender's advantage.
