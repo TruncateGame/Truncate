@@ -31,7 +31,7 @@ impl Default for Theme {
             text: hex_color!("#333333"),
             selection: hex_color!("#D78D1D"),
             outlines: hex_color!("#9B9B9B"),
-            addition: hex_color!("#55b14c"),
+            addition: hex_color!("#cdff9d"),
             modification: hex_color!("#9452ad"),
             defeated: hex_color!("#944D5E"),
             grid_size: 50.0,
