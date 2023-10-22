@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::format;
 
 use time::Duration;
 
@@ -66,7 +67,7 @@ impl Game {
         // Transform string into a board
         let mut squares: Vec<Vec<Square>> = vec![];
         let mut changes: Vec<Change> = vec![];
-        let mut player_count = 0;
+        let mut max_player = 0;
         for line in s.as_ref().split('\n') {
             if line.chars().all(|c| c.is_whitespace()) {
                 continue;
@@ -87,7 +88,7 @@ impl Game {
                                     .expect("Square needs player")
                                     .to_digit(10)
                                     .unwrap() as usize;
-                                player_count = player_count.max(player);
+                                max_player = max_player.max(player);
                                 Square::Dock(player)
                             }
                             '#' | '⊭' => {
@@ -96,7 +97,7 @@ impl Game {
                                     .expect("Square needs player")
                                     .to_digit(10)
                                     .unwrap() as usize;
-                                player_count = player_count.max(player);
+                                max_player = max_player.max(player);
                                 Square::Town {
                                     player,
                                     defeated: control_char == '⊭',
@@ -115,7 +116,7 @@ impl Game {
                                     .expect("Square needs player")
                                     .to_digit(10)
                                     .unwrap() as usize;
-                                player_count = player_count.max(player);
+                                max_player = max_player.max(player);
 
                                 let square = Square::Occupied(player, letter);
                                 let coordinate = Coordinate::new(column, squares.len());
@@ -140,7 +141,7 @@ impl Game {
                                     .expect("Square needs player")
                                     .to_digit(10)
                                     .unwrap() as usize;
-                                player_count = player_count.max(player);
+                                max_player = max_player.max(player);
                                 Square::Occupied(player, letter)
                             }
                         }
@@ -166,12 +167,18 @@ impl Game {
         };
         board.cache_special_squares();
 
-        Self {
+        let mut game = Self {
             board,
             next_player: 1,
             recent_changes: changes,
             ..Self::new(1, 1)
+        };
+
+        for player in 0..=max_player {
+            game.add_player(format!("Player {player}"));
         }
+
+        game
     }
 
     pub fn add_player(&mut self, name: String) {

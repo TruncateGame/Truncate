@@ -19,6 +19,7 @@ use truncate_core::{
 pub enum GameStatus {
     None(RoomCode, Option<Token>),
     Tutorial(TutorialState),
+    Rules(RulesState),
     SinglePlayer(SinglePlayerState),
     PendingJoin(RoomCode),
     PendingCreate,
@@ -133,6 +134,12 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     theme.clone(),
                 )));
             }
+            if ui.button("Rules").clicked() {
+                new_game_status = Some(GameStatus::Rules(RulesState::new(
+                    map_texture.clone(),
+                    theme.clone(),
+                )));
+            }
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
                 send(PlayerMessage::NewGame(name.clone()));
@@ -156,9 +163,9 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     new_game_status = Some(GameStatus::PendingJoin("...".into()));
                 }
             }
-
-            let mut rule_region = RulesState::new(map_texture.clone(), theme.clone());
-            rule_region.render(ui, theme, current_time);
+        }
+        GameStatus::Rules(rules_state) => {
+            rules_state.render(ui, theme, current_time);
         }
         GameStatus::Tutorial(tutorial) => {
             tutorial.render(ui, theme, current_time);
