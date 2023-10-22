@@ -173,6 +173,22 @@ async fn handle_player_msg(
             let code = room_code.to_ascii_lowercase();
             if let Some(existing_game) = server_state.get_game_by_code(&code) {
                 let mut game_manager = existing_game.lock();
+
+                // TODO: This is the easiest place to check for lobby capacity right now,
+                // but we'll need to reevaluate if we ever support >2 players, or spectators.
+                if game_manager.players.len() >= 2 {
+                    server_state
+                        .send_to_player(
+                            &player_addr,
+                            GameMessage::GenericError(format!(
+                                "Room {} already has two players, cannot join",
+                                code.to_ascii_uppercase()
+                            )),
+                        )
+                        .unwrap();
+                    return Ok(());
+                }
+
                 server_state.attach_player_to_game(&player_addr, &room_code);
 
                 if &player_name == "___AUTO___" {

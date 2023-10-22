@@ -75,7 +75,7 @@ const fn quad(nw_tile: usize, ne_tile: usize, se_tile: usize, sw_tile: usize) ->
 
 // TODO: Generate this impl with codegen from aseprite
 impl Tex {
-    pub const MAX_TILE: usize = 256;
+    pub const MAX_TILE: usize = 265;
 
     pub const NONE: Self = t(0);
     pub const DEBUG: Self = t(77);
@@ -239,6 +239,10 @@ impl Tex {
     pub const BUTTON_DOCK_COLOR: TexQuad = quad(135, 136, 138, 137);
 
     pub const BUTTON_LAND: TexQuad = quad(123, 124, 130, 129);
+
+    pub const BUTTON_INFO: TexQuad = quad(257, 258, 260, 259);
+    pub const BUTTON_CLOSE: TexQuad = quad(261, 262, 264, 263);
+    pub const BUTTON_NOTIF: TexQuad = quad(0, 0, 265, 0);
 
     // Dialog
     pub const DIALOG_NW: Self = t(248);
