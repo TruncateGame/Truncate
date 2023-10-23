@@ -88,19 +88,11 @@ pub fn npc_benches(c: &mut Criterion) {
         b.iter(|| game.static_eval(Some(&dict), 1, 1))
     });
 
-    c.bench_function("frontline_eval", |b| {
-        b.iter(|| game.eval_board_frontline(1))
-    });
-
-    c.bench_function("positions_eval", |b| {
-        b.iter(|| game.eval_board_positions(1))
-    });
-
     c.bench_function("quality_eval", |b| {
         b.iter(|| game.eval_word_quality(&dict, 1))
     });
 
-    c.bench_function("defense_eval", |b| b.iter(|| game.eval_defense(1)));
+    c.bench_function("defense_eval", |b| b.iter(|| game.eval_attack_distance(1)));
 
     c.bench_function("move_finding", |b| {
         b.iter(|| Game::best_move(&game, Some(&dict), Some(&dict), 4, None))

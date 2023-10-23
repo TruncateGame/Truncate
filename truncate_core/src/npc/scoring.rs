@@ -11,11 +11,8 @@ pub struct BoardScore {
     neg_infinity: bool,
     turn_number: usize, // Lower number means later turn
     word_quality: WordQualityScores,
-    self_frontline: f32,
-    opponent_frontline: f32,
-    self_progress: f32,
-    opponent_progress: f32,
     self_defense: f32,
+    self_attack: f32,
     self_win: bool,
     opponent_win: bool,
     pub board: Option<Board>,
@@ -28,11 +25,8 @@ impl Debug for BoardScore {
             .field("neg_infinity", &self.neg_infinity)
             .field("turn_number", &self.turn_number)
             .field("word_quality", &self.word_quality)
-            .field("self_frontline", &self.self_frontline)
-            .field("opponent_frontline", &self.opponent_frontline)
-            .field("self_progress", &self.self_progress)
-            .field("opponent_progress", &self.opponent_progress)
             .field("self_defense", &self.self_defense)
+            .field("self_attack", &self.self_attack)
             .field("self_win", &self.self_win)
             .field("opponent_win", &self.opponent_win)
             .finish()
@@ -55,28 +49,13 @@ impl BoardScore {
         self
     }
 
-    pub fn self_frontline(mut self, value: f32) -> Self {
-        self.self_frontline = value;
-        self
-    }
-
-    pub fn opponent_frontline(mut self, value: f32) -> Self {
-        self.opponent_frontline = value;
-        self
-    }
-
-    pub fn self_progress(mut self, value: f32) -> Self {
-        self.self_progress = value;
-        self
-    }
-
-    pub fn opponent_progress(mut self, value: f32) -> Self {
-        self.opponent_progress = value;
-        self
-    }
-
     pub fn self_defense(mut self, value: f32) -> Self {
         self.self_defense = value;
+        self
+    }
+
+    pub fn self_attack(mut self, value: f32) -> Self {
+        self.self_attack = value;
         self
     }
 
@@ -109,15 +88,11 @@ impl BoardScore {
 
 impl BoardScore {
     pub fn rank(&self) -> f32 {
-        let opponent_scores = self.opponent_frontline * 2.0 + self.opponent_progress;
-        let self_scores = self.self_frontline * 2.0
-            + self.self_progress
-            + self.self_defense
-            + self.word_quality.word_length
+        self.self_defense * 3.0
+            + self.self_attack * 2.0
             + self.word_quality.word_validity * 2.0
-            + self.word_quality.word_extensibility;
-
-        self_scores - opponent_scores
+            + self.word_quality.word_length
+            + self.word_quality.word_extensibility
     }
 }
 
@@ -204,10 +179,7 @@ mod tests {
         let base = BoardScore::default();
         let early_loss = BoardScore::default().turn_number(1).opponent_win(true);
         let late_loss = BoardScore::default().turn_number(0).opponent_win(true);
-        let late_better_loss = BoardScore::default()
-            .turn_number(0)
-            .opponent_win(true)
-            .self_frontline(1.0);
+        let late_better_loss = BoardScore::default().turn_number(0).opponent_win(true);
 
         assert!(base > early_loss);
         assert!(base > late_loss);
