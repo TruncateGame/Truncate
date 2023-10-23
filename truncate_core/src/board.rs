@@ -1,6 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::slice::Iter;
 
@@ -8,7 +8,7 @@ use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
 use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::reporting::Change;
-use crate::rules;
+use crate::{player, rules};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -529,6 +529,7 @@ impl Board {
 
     /// Manhattan distance from a point on the board to the closest
     /// tile of a given player that has a path to attack
+    /// TODO: Remove this function
     pub fn distance_from_attack(&self, position: Coordinate, attacker: usize) -> Option<usize> {
         let mut visited = HashSet::new();
         let defended = |sqs: &Vec<(Coordinate, Square)>| {
@@ -562,6 +563,85 @@ impl Board {
         }
 
         None
+    }
+
+    pub fn flood_fill_attacks(&self, attacker: usize) -> Vec<Option<usize>> {
+        let mut visited = vec![
+            None;
+            Coordinate {
+                x: self.width() - 1,
+                y: self.height() - 1
+            }
+            .to_1d(self.width())
+                + 1
+        ];
+
+        let pos_is_attacker = |pos: &Coordinate| match self.get(*pos) {
+            Ok(Square::Occupied(player, _)) if player == attacker => true,
+            _ => false,
+        };
+
+        let rows = self.height();
+        let cols = self.width();
+
+        // Always evaluate tiles furthest down the board first
+        let outermost_attacker = if attacker == 0 {
+            (0..rows)
+                .rev()
+                .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+                .map(|(x, y)| Coordinate { x, y })
+                .find(pos_is_attacker)
+        } else {
+            (0..rows)
+                .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+                .map(|(x, y)| Coordinate { x, y })
+                .find(pos_is_attacker)
+        };
+
+        let Some(outermost_attacker) = outermost_attacker else {
+            return visited;
+        };
+
+        visited[outermost_attacker.to_1d(self.width())] = Some(0);
+        let neighbors = self.neighbouring_squares(outermost_attacker);
+        let mut pts: VecDeque<_> = neighbors.iter().map(|n| (n.0, 0)).collect();
+
+        while !pts.is_empty() {
+            let (pt, dist) = pts.pop_front().unwrap();
+            let vec_pos = pt.to_1d(self.width());
+
+            match visited.get_mut(vec_pos) {
+                Some(Some(visited_dist)) => {
+                    if *visited_dist > dist {
+                        // We have now found a better path to this point, so we will reprocess it
+                        *visited_dist = dist;
+                    } else {
+                        // We have previous found a better (or equal) path to this point, continue to the next point
+                        continue;
+                    }
+                }
+                _ => {
+                    visited[vec_pos] = Some(dist);
+                }
+            }
+
+            match self.get(pt) {
+                Ok(Square::Occupied(player, _)) if player == attacker => {
+                    let neighbors = self.neighbouring_squares(pt);
+
+                    // We found another one of our tiles — search its neighbors with a new starting distance
+                    pts.extend(neighbors.iter().map(|n| (n.0, 0)));
+                    visited[vec_pos] = Some(0);
+                }
+                Ok(Square::Land) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                _ => continue,
+            }
+        }
+
+        visited
     }
 
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
@@ -867,6 +947,10 @@ impl Coordinate {
                 East | West => self.y,
             },
         }
+    }
+
+    pub fn to_1d(&self, width: usize) -> usize {
+        return self.x + self.y * width;
     }
 
     /// Return coordinates of the horizontal and vertical neighbors, from north clockwise
@@ -1331,6 +1415,36 @@ pub mod tests {
             board.distance_from_attack(Coordinate { x: 3, y: 6 }, 0),
             Some(2)
         );
+    }
+
+    #[test]
+    fn flood_fill_attacks() {
+        let board = Board::from_string(
+            r###"
+            ~~ ~~ |0 ~~ ~~
+            __ __ R0 __ __
+            __ __ A0 __ X0
+            __ __ __ __ __
+            __ __ __ __ __
+            __ __ __ __ __
+            ~~ ~~ |1 ~~ ~~
+            "###,
+        );
+
+        let dists = board.flood_fill_attacks(0);
+        let width = board.width();
+
+        let coord = |x: usize, y: usize| Coordinate { x, y }.to_1d(width);
+
+        assert_eq!(dists.get(coord(0, 1)), Some(&Some(1)));
+        assert_eq!(dists.get(coord(3, 1)), Some(&Some(0)));
+        assert_eq!(dists.get(coord(4, 5)), Some(&Some(2)));
+        assert_eq!(dists.get(coord(3, 5)), Some(&Some(3)));
+        assert_eq!(dists.get(coord(2, 5)), Some(&Some(2)));
+        assert_eq!(dists.get(coord(0, 5)), Some(&Some(4)));
+
+        // Player 1's dock
+        assert_eq!(dists.get(coord(2, 6)), Some(&Some(3)));
     }
 
     #[test]

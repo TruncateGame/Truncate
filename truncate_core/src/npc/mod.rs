@@ -72,7 +72,7 @@ impl Game {
             BoardScore::neg_inf(),
             BoardScore::inf(),
             evaluation_player,
-            arborist
+            arborist,
         ) else {
             panic!("Couldn't determine a move to play");
         };
@@ -328,7 +328,8 @@ impl Game {
             .board(self.board.clone())
     }
 
-    pub fn eval_attack_distance(&self, player: usize) -> f32 {
+    // TODO: Remove this function
+    pub fn eval_attack_distance_bfs(&self, player: usize) -> f32 {
         let towns = self.board.towns.clone();
         let attacker = (player + 1) % self.players.len();
         let max_score = self.board.width() + self.board.height();
@@ -338,13 +339,33 @@ impl Game {
         for town in towns.into_iter().filter(
             |town| matches!(self.board.get(*town), Ok(Square::Town{player: p, ..}) if player == p),
         ) {
-            let Some(town_dist) = self.board.distance_from_attack(town, attacker) else { continue };
+            let Some(town_dist) = self.board.distance_from_attack(town, attacker) else {
+                continue;
+            };
             if town_dist < score {
                 score = town_dist;
             }
         }
 
         score as f32 / max_score as f32
+    }
+
+    pub fn eval_attack_distance(&self, player: usize) -> f32 {
+        let towns = self.board.towns.clone();
+        let attacker = (player + 1) % self.players.len();
+        let pts = self.board.flood_fill_attacks(attacker);
+        let max_score = self.board.width() + self.board.height();
+
+        let score = towns
+            .into_iter()
+            .flat_map(|town_pt| {
+                pts.get(town_pt.to_1d(self.board.width()))
+                    .cloned()
+                    .unwrap_or(Some(max_score))
+            })
+            .min();
+
+        score.unwrap_or(max_score) as f32 / max_score as f32
     }
 
     pub fn eval_word_quality(

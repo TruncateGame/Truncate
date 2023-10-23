@@ -73,7 +73,15 @@ pub fn npc_benches(c: &mut Criterion) {
         #0 #0 O0 #0 #0 #0 #0
         __ S0 O0 __ __ __ __
         __ T0 __ __ __ __ __
-        __ R0 __ __ Q1 __ __
+        __ __ __ __ __ __ __
+        __ __ __ __ __ __ __
+        __ __ __ __ __ __ __
+        __ __ __ __ __ __ __
+        __ __ __ __ __ __ __
+        __ __ __ __ __ __ __
+        __ __ __ __ __ __ __
+        __ __ __ __ __ __ __
+        __ __ __ __ Q1 __ __
         __ __ T1 __ X1 __ __
         __ __ A1 P1 T1 __ __
         E1 A1 R1 __ __ __ __
@@ -133,6 +141,10 @@ pub fn board_benches(c: &mut Criterion) {
 
     c.bench_function("board_dfs", |b| {
         b.iter(|| board.depth_first_search(Coordinate { x: 2, y: 6 }))
+    });
+
+    c.bench_function("flood_fill_attacks", |b| {
+        b.iter(|| board.flood_fill_attacks(0))
     });
 
     c.bench_function("distance_from_attack", |b| {
