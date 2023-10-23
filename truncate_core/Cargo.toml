@@ -17,7 +17,7 @@ instant = "0.1"
 
 [dev-dependencies]
 insta = { version = "1.29.0", features = ["yaml"] }
-criterion = "0.3"
+criterion = { version = "0.3", features = ["html_reports"] }
 
 [profile.dev]
 opt-level = 3
