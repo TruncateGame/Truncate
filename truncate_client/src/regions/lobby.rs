@@ -278,6 +278,7 @@ impl Lobby {
                             .clicked()
                         {
                             self.board.grow();
+                            self.mapped_board.remap(&self.board, &self.player_colors, 0);
                             msg = Some(PlayerMessage::EditBoard(self.board.clone()));
                         }
 
@@ -330,6 +331,7 @@ impl Lobby {
             .render(true, &mut ui, theme, &self.map_texture)
             {
                 msg = Some(board_update);
+                self.mapped_board.remap(&self.board, &self.player_colors, 0);
             }
         }
 

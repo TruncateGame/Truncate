@@ -4,6 +4,7 @@ use eframe::egui;
 use epaint::TextureHandle;
 use instant::Duration;
 use truncate_core::{
+    board::Board,
     game::Game,
     judge::{WordData, WordDict},
     messages::{GameStateMessage, PlayerMessage},
@@ -19,6 +20,7 @@ pub static WORDNIK: &str = include_str!("../../../word_freqs/final_wordlist.txt"
 
 pub struct SinglePlayerState {
     game: Game,
+    original_board: Board,
     pub active_game: ActiveGame,
     dict: WordDict,
     npc_known_dict: WordDict,
@@ -31,10 +33,14 @@ pub struct SinglePlayerState {
 }
 
 impl SinglePlayerState {
-    pub fn new(map_texture: TextureHandle, theme: Theme) -> Self {
+    pub fn new(map_texture: TextureHandle, theme: Theme, mut board: Board) -> Self {
         let mut game = Game::new(9, 9);
         game.add_player("You".into());
         game.add_player("Computer".into());
+
+        board.cache_special_squares();
+        game.board = board.clone();
+
         game.start();
 
         let active_game = ActiveGame::new(
@@ -110,6 +116,7 @@ impl SinglePlayerState {
         Self {
             game,
             active_game,
+            original_board: board,
             dict: valid_words,
             npc_known_dict: npc_known_words,
             player_known_dict: player_known_words,
@@ -125,6 +132,7 @@ impl SinglePlayerState {
         let mut game = Game::new(9, 9);
         game.add_player("You".into());
         game.add_player("Computer".into());
+        game.board = self.original_board.clone();
         game.start();
 
         let active_game = ActiveGame::new(

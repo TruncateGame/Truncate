@@ -1,7 +1,11 @@
 use eframe::egui::{self, Layout, Margin};
 use epaint::{vec2, Color32};
 use instant::Duration;
-use truncate_core::{messages::RoomCode, messages::Token};
+use truncate_core::{
+    board::Board,
+    messages::RoomCode,
+    messages::{LobbyPlayerMessage, Token},
+};
 
 use crate::{
     regions::active_game::ActiveGame,
@@ -18,6 +22,7 @@ use truncate_core::{
 pub enum GameStatus {
     None(RoomCode, Option<Token>),
     Tutorial(TutorialState),
+    PendingSinglePlayer(Lobby),
     SinglePlayer(SinglePlayerState),
     PendingJoin(RoomCode),
     PendingCreate,
@@ -67,9 +72,23 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 theme.clone(),
             )));
         } else if launched_room == "SINGLE_PLAYER" {
-            new_game_status = Some(GameStatus::SinglePlayer(SinglePlayerState::new(
+            new_game_status = Some(GameStatus::PendingSinglePlayer(Lobby::new(
+                "Single Player".into(),
+                vec![
+                    LobbyPlayerMessage {
+                        name: "You".into(),
+                        index: 0,
+                        color: (128, 128, 255),
+                    },
+                    LobbyPlayerMessage {
+                        name: "Computer".into(),
+                        index: 1,
+                        color: (255, 80, 80),
+                    },
+                ],
+                0,
+                Board::new(9, 9),
                 map_texture.clone(),
-                theme.clone(),
             )));
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
@@ -127,9 +146,23 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 )));
             }
             if ui.button("Single Player").clicked() {
-                new_game_status = Some(GameStatus::SinglePlayer(SinglePlayerState::new(
+                new_game_status = Some(GameStatus::PendingSinglePlayer(Lobby::new(
+                    "Single Player".into(),
+                    vec![
+                        LobbyPlayerMessage {
+                            name: "You".into(),
+                            index: 0,
+                            color: (128, 128, 255),
+                        },
+                        LobbyPlayerMessage {
+                            name: "Computer".into(),
+                            index: 1,
+                            color: (255, 80, 80),
+                        },
+                    ],
+                    0,
+                    Board::new(9, 9),
                     map_texture.clone(),
-                    theme.clone(),
                 )));
             }
             if ui.button("New Game").clicked() {
@@ -158,6 +191,23 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         }
         GameStatus::Tutorial(tutorial) => {
             tutorial.render(ui, theme, current_time);
+        }
+        GameStatus::PendingSinglePlayer(editor_state) => {
+            if let Some(msg) = editor_state.render(ui, theme) {
+                match msg {
+                    PlayerMessage::StartGame => {
+                        let single_player_game = SinglePlayerState::new(
+                            map_texture.clone(),
+                            theme.clone(),
+                            editor_state.board.clone(),
+                        );
+                        new_game_status = Some(GameStatus::SinglePlayer(single_player_game));
+                    }
+                    _ => {
+                        // Ignore anything else the lobby might return.
+                    }
+                }
+            }
         }
         GameStatus::SinglePlayer(sp) => {
             // Single player _can_ talk to the server, e.g. to ask for word definitions
