@@ -56,6 +56,7 @@ impl Game {
         opponent_dictionary: Option<&WordDict>,
         depth: usize,
         counter: Option<&mut Arborist>,
+        log: bool,
     ) -> PlayerMessage {
         let evaluation_player = game.next_player;
 
@@ -76,11 +77,13 @@ impl Game {
             panic!("Couldn't determine a move to play");
         };
 
-        println!("Bot has the hand: {}", game.players[evaluation_player].hand);
+        if log {
+            println!("Bot has the hand: {}", game.players[evaluation_player].hand);
 
-        println!("Chosen tree has the score {best_score:#?}");
-        if let Some(board) = best_score.board {
-            println!("Bot is aiming for the board {board}");
+            println!("Chosen tree has the score {best_score:#?}");
+            if let Some(board) = best_score.board {
+                println!("Bot is aiming for the board {board}");
+            }
         }
 
         PlayerMessage::Place(position, tile)
@@ -497,6 +500,7 @@ mod tests {
             Some(&dict),
             depth,
             Some(&mut exhaustive_arbor),
+            false,
         );
 
         let mut pruned_arbor = Arborist::pruning();
@@ -506,6 +510,7 @@ mod tests {
             Some(&dict),
             depth,
             Some(&mut pruned_arbor),
+            false,
         );
 
         assert_eq!(

@@ -230,6 +230,7 @@ impl SinglePlayerState {
                             Some(&self.player_known_dict),
                             search_depth,
                             Some(&mut arb),
+                            true,
                         ),
                     ));
                     // println!(

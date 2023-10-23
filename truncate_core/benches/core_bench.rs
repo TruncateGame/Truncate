@@ -95,7 +95,7 @@ pub fn npc_benches(c: &mut Criterion) {
     c.bench_function("defense_eval", |b| b.iter(|| game.eval_attack_distance(1)));
 
     c.bench_function("move_finding", |b| {
-        b.iter(|| Game::best_move(&game, Some(&dict), Some(&dict), 4, None))
+        b.iter(|| Game::best_move(&game, Some(&dict), Some(&dict), 4, None, false))
     });
 
     let small_hand_game = test_game(
@@ -113,7 +113,7 @@ pub fn npc_benches(c: &mut Criterion) {
     );
 
     c.bench_function("monotile_move_finder", |b| {
-        b.iter(|| Game::best_move(&small_hand_game, Some(&dict), Some(&dict), 3, None))
+        b.iter(|| Game::best_move(&small_hand_game, Some(&dict), Some(&dict), 3, None, false))
     });
 }
 
