@@ -580,6 +580,10 @@ impl Board {
             Ok(Square::Occupied(player, _)) if player == attacker => true,
             _ => false,
         };
+        let adjacent_to_opponent = |sqs: &Vec<(Coordinate, Square)>| {
+            sqs.iter()
+                .any(|(_, n)| matches!(n, Square::Occupied(player, _) if *player != attacker))
+        };
 
         let rows = self.height();
         let cols = self.width();
@@ -635,7 +639,22 @@ impl Board {
                 }
                 Ok(Square::Land) => {
                     let neighbors = self.neighbouring_squares(pt);
-                    pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+
+                    if adjacent_to_opponent(&neighbors) {
+                        // This tile is touching the opponent.
+                        // We don't want to flood fill any more adjacent land since we
+                        // can't play _through_ this tile, but we do want to visit any
+                        // adjacent towns and tiles since they would be attacked by playing here.
+                        pts.extend(
+                            neighbors
+                                .iter()
+                                .filter(|(_, sq)| !matches!(sq, Square::Land))
+                                .map(|n| (n.0, dist + 1)),
+                        );
+                    } else {
+                        // This tile is clear land — continue to flood fill everything
+                        pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                    }
                 }
                 _ => continue,
             }
@@ -1418,7 +1437,7 @@ pub mod tests {
     }
 
     #[test]
-    fn flood_fill_attacks() {
+    fn simple_flood_fill_attacks() {
         let board = Board::from_string(
             r###"
             ~~ ~~ |0 ~~ ~~
@@ -1445,6 +1464,44 @@ pub mod tests {
 
         // Player 1's dock
         assert_eq!(dists.get(coord(2, 6)), Some(&Some(3)));
+    }
+
+    #[test]
+    fn complex_flood_fill_attacks() {
+        let board = Board::from_string(
+            r###"
+            ~~ ~~ |0 ~~ ~~ __ __ __ __ __
+            __ __ R0 __ __ __ __ __ __ __
+            __ __ A0 __ X0 __ __ Q1 __ __
+            __ __ __ __ __ __ __ Q1 __ __
+            __ __ __ __ __ __ __ Q1 __ __
+            __ __ F1 __ __ __ __ Q1 __ __
+            T1 __ A1 __ __ __ __ Q1 __ __
+            A1 __ X1 __ G1 __ __ Q1 __ __
+            ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+            "###,
+        );
+
+        let dists = board.flood_fill_attacks(0);
+        let width = board.width();
+
+        let coord = |x: usize, y: usize| Coordinate { x, y }.to_1d(width);
+
+        // Probing the left, we can't get between T1 and A1
+        assert_eq!(dists.get(coord(1, 5)), Some(&Some(3)));
+        assert_eq!(dists.get(coord(0, 5)), Some(&Some(4)));
+        assert_eq!(dists.get(coord(0, 6)), Some(&Some(5)));
+        assert_eq!(dists.get(coord(1, 6)), Some(&None));
+
+        // In the middle, the G1 blocks us from being adjacent to the A1
+        assert_eq!(dists.get(coord(3, 6)), Some(&None));
+
+        // Far right, we have to go back and around the Q1 tower to reach the end
+        assert_eq!(dists.get(coord(9, 7)), Some(&Some(13)));
+        // And to attack the bottom-most Q1, we would have to visit all the way from the right
+        assert_eq!(dists.get(coord(7, 7)), Some(&Some(15)));
+        // The one above it we could attack from the left, though
+        assert_eq!(dists.get(coord(7, 6)), Some(&Some(6)));
     }
 
     #[test]
