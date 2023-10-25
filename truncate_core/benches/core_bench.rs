@@ -147,10 +147,6 @@ pub fn board_benches(c: &mut Criterion) {
         b.iter(|| board.flood_fill_attacks(0))
     });
 
-    c.bench_function("distance_from_attack", |b| {
-        b.iter(|| board.distance_from_attack(Coordinate { x: 1, y: 6 }, 0))
-    });
-
     c.bench_function("get_word_coordinates", |b| {
         b.iter(|| board.get_words(Coordinate { x: 2, y: 5 }))
     });

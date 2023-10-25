@@ -527,44 +527,6 @@ impl Board {
         visited
     }
 
-    /// Manhattan distance from a point on the board to the closest
-    /// tile of a given player that has a path to attack
-    /// TODO: Remove this function
-    pub fn distance_from_attack(&self, position: Coordinate, attacker: usize) -> Option<usize> {
-        let mut visited = HashSet::new();
-        let defended = |sqs: &Vec<(Coordinate, Square)>| {
-            sqs.iter()
-                .any(|(_, n)| matches!(n, Square::Occupied(player, _) if *player != attacker))
-        };
-
-        let neighbors = self.neighbouring_squares(position);
-        let mut pts: VecDeque<_> = neighbors.iter().map(|n| (n.0, 0)).collect();
-
-        while !pts.is_empty() {
-            let (pt, dist) = pts.pop_front().unwrap();
-
-            if visited.contains(&pt) {
-                continue;
-            }
-            visited.insert(pt);
-
-            match self.get(pt) {
-                Ok(Square::Occupied(player, _)) if player == attacker => return Some(dist),
-                Ok(Square::Land) => {
-                    let neighbors = self.neighbouring_squares(pt);
-                    if defended(&neighbors) {
-                        // Square is defended.
-                        continue;
-                    }
-                    pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
-                }
-                _ => continue,
-            }
-        }
-
-        None
-    }
-
     pub fn flood_fill_attacks(&self, attacker: usize) -> Vec<Option<usize>> {
         let mut visited = vec![
             None;
@@ -1387,53 +1349,6 @@ pub mod tests {
             assert!(b.depth_first_search(part).is_subset(&parts_set));
             assert!(b.depth_first_search(part).is_superset(&parts_set));
         }
-    }
-
-    #[test]
-    fn attack_dist() {
-        let board = Board::from_string(
-            r###"
-            ~~ ~~ ~~ |0 ~~ ~~ ~~
-            #0 __ __ R0 __ __ __
-            __ __ __ A0 __ X0 __
-            __ __ A0 T0 E0 __ __
-            __ __ __ __ __ __ __
-            __ __ __ __ __ T1 __
-            __ __ __ __ E1 __ __
-            __ __ __ __ __ __ __
-            ~~ ~~ ~~ |1 ~~ ~~ ~~
-            "###,
-        );
-
-        assert_eq!(
-            board.distance_from_attack(Coordinate { x: 0, y: 1 }, 1),
-            Some(8)
-        );
-
-        assert_eq!(
-            board.distance_from_attack(Coordinate { x: 1, y: 1 }, 1),
-            Some(9)
-        );
-
-        assert_eq!(
-            board.distance_from_attack(Coordinate { x: 2, y: 1 }, 1),
-            Some(10)
-        );
-
-        assert_eq!(
-            board.distance_from_attack(Coordinate { x: 6, y: 1 }, 1),
-            None
-        );
-
-        assert_eq!(
-            board.distance_from_attack(Coordinate { x: 6, y: 7 }, 0),
-            None
-        );
-
-        assert_eq!(
-            board.distance_from_attack(Coordinate { x: 3, y: 6 }, 0),
-            Some(2)
-        );
     }
 
     #[test]

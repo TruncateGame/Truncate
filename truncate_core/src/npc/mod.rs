@@ -328,28 +328,6 @@ impl Game {
             .board(self.board.clone())
     }
 
-    // TODO: Remove this function
-    pub fn eval_attack_distance_bfs(&self, player: usize) -> f32 {
-        let towns = self.board.towns.clone();
-        let attacker = (player + 1) % self.players.len();
-        let max_score = self.board.width() + self.board.height();
-
-        let mut score = max_score;
-
-        for town in towns.into_iter().filter(
-            |town| matches!(self.board.get(*town), Ok(Square::Town{player: p, ..}) if player == p),
-        ) {
-            let Some(town_dist) = self.board.distance_from_attack(town, attacker) else {
-                continue;
-            };
-            if town_dist < score {
-                score = town_dist;
-            }
-        }
-
-        score as f32 / max_score as f32
-    }
-
     pub fn eval_attack_distance(&self, player: usize) -> f32 {
         let towns = self.board.towns.clone();
         let attacker = (player + 1) % self.players.len();
@@ -966,8 +944,8 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 5080 possible leaves
-                  - 629 after pruning
-                  - Move: Place D at (6, 7)
+                  - 448 after pruning
+                  - Move: Place D at (6, 8)
 
                 ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
                 ~~ #0 #0 #0 #0 E0 #0 #0 #0 #0 ~~
@@ -976,8 +954,8 @@ mod tests {
                 ~~ __ __ __ __ __ __ __ __ __ ~~
                 ~~ __ __ __ __ __ __ __ __ __ ~~
                 ~~ __ __ __ __ __ __ __ __ __ ~~
-                ~~ __ __ __ __ N1 D1 __ __ __ ~~
-                ~~ __ __ __ __ E1 __ __ __ __ ~~
+                ~~ __ __ __ __ N1 __ __ __ __ ~~
+                ~~ __ __ __ __ E1 D1 __ __ __ ~~
                 ~~ #1 #1 #1 #1 E1 #1 #1 #1 #1 ~~
                 ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~
                 "###);
