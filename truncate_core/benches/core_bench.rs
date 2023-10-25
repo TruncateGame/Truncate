@@ -100,7 +100,7 @@ pub fn npc_benches(c: &mut Criterion) {
         b.iter(|| game.eval_word_quality(&dict, 1))
     });
 
-    c.bench_function("defense_eval", |b| b.iter(|| game.eval_attack_distance(1)));
+    c.bench_function("defense_eval", |b| b.iter(|| game.eval_defense_of_towns(1)));
 
     c.bench_function("move_finding", |b| {
         b.iter(|| Game::best_move(&game, Some(&dict), Some(&dict), 4, None, false))

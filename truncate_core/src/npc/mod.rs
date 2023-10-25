@@ -321,14 +321,14 @@ impl Game {
         BoardScore::default()
             .turn_number(depth)
             .word_quality(word_quality)
-            .self_defense(self.eval_attack_distance(for_player))
-            .self_attack(1.0 - self.eval_attack_distance(for_opponent))
+            .self_defense(self.eval_defense_of_towns(for_player))
+            .self_attack(1.0 - self.eval_defense_of_towns(for_opponent))
             .self_win(self.winner == Some(for_player))
             .opponent_win(self.winner == Some(for_opponent))
             .board(self.board.clone())
     }
 
-    pub fn eval_attack_distance(&self, player: usize) -> f32 {
+    pub fn eval_defense_of_towns(&self, player: usize) -> f32 {
         let towns = self.board.towns.clone();
         let attacker = (player + 1) % self.players.len();
         let pts = self.board.flood_fill_attacks(attacker);
@@ -336,6 +336,9 @@ impl Game {
 
         let score = towns
             .into_iter()
+            .filter(
+                |town_pt| matches!(self.board.get(*town_pt), Ok(Square::Town{player: p, ..}) if player == p),
+            )
             .flat_map(|town_pt| {
                 pts.get(town_pt.to_1d(self.board.width()))
                     .cloned()
@@ -631,7 +634,7 @@ mod tests {
             "###,
             "A",
         );
-        let score_a = game_a.eval_attack_distance(1);
+        let score_a = game_a.eval_defense_of_towns(1);
         let game_b = test_game(
             r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
@@ -645,7 +648,7 @@ mod tests {
             "###,
             "A",
         );
-        let score_b = game_b.eval_attack_distance(1);
+        let score_b = game_b.eval_defense_of_towns(1);
 
         insta::with_settings!({
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
