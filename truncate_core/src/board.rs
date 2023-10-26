@@ -632,7 +632,6 @@ impl Board {
 
             match distances.direct_distance_mut(&pt) {
                 Some(Some(visited_dist)) => {
-                    println!("Visited {pt} with {dist} but it already had {visited_dist}");
                     if *visited_dist > dist {
                         // We have now found a better path to this point, so we will reprocess it
                         *visited_dist = dist;
