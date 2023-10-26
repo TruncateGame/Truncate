@@ -330,26 +330,26 @@ impl Game {
             .turn_number(depth)
             .word_quality(word_quality)
             .self_defense(self.eval_defense_of_towns(
-                &self_attack_distances,
-                for_opponent,
+                &opponent_attack_distances,
+                for_player,
                 DefenceEvalType::Attackable,
             ))
             .self_attack(
                 1.0 - self.eval_defense_of_towns(
-                    &opponent_attack_distances,
-                    for_player,
+                    &self_attack_distances,
+                    for_opponent,
                     DefenceEvalType::Attackable,
                 ),
             )
             .direct_defence(self.eval_defense_of_towns(
-                &self_attack_distances,
-                for_opponent,
+                &opponent_attack_distances,
+                for_player,
                 DefenceEvalType::Direct,
             ))
             .direct_attack(
                 1.0 - self.eval_defense_of_towns(
-                    &opponent_attack_distances,
-                    for_player,
+                    &self_attack_distances,
+                    for_opponent,
                     DefenceEvalType::Direct,
                 ),
             )
