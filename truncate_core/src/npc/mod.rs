@@ -331,22 +331,21 @@ impl Game {
     pub fn eval_defense_of_towns(&self, player: usize) -> f32 {
         let towns = self.board.towns.clone();
         let attacker = (player + 1) % self.players.len();
-        let pts = self.board.flood_fill_attacks(attacker);
+        let distances = self.board.flood_fill_attacks(attacker);
         let max_score = self.board.width() + self.board.height();
 
-        let score = towns
+        let defense_towns = towns
             .into_iter()
             .filter(
                 |town_pt| matches!(self.board.get(*town_pt), Ok(Square::Town{player: p, ..}) if player == p),
-            )
-            .flat_map(|town_pt| {
-                pts.get(town_pt.to_1d(self.board.width()))
-                    .cloned()
-                    .unwrap_or(Some(max_score))
-            })
-            .min();
+            ).collect::<Vec<_>>();
 
-        score.unwrap_or(max_score) as f32 / max_score as f32
+        let score: usize = defense_towns
+            .iter()
+            .map(|town_pt| distances.attackable_distance(town_pt).unwrap_or(max_score))
+            .sum();
+
+        (score as f32) / (defense_towns.len() as f32) / (max_score as f32)
     }
 
     pub fn eval_word_quality(
