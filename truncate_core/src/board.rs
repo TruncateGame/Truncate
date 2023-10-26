@@ -615,6 +615,7 @@ impl Board {
                         attackable_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
                     }
                 }
+                Ok(Square::Water) => continue,
                 Ok(_) => {
                     let neighbors = self.neighbouring_squares(pt);
                     // Falling through from the above, these tiles are the edges of our attacking BFS.
@@ -646,6 +647,7 @@ impl Board {
             }
 
             match self.get(pt) {
+                Ok(Square::Water) => continue,
                 Ok(_) => {
                     let neighbors = self.neighbouring_squares(pt);
                     direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));

@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    board::{self, Board, Coordinate, Square},
+    board::{self, Board, BoardDistances, Coordinate, Square},
     game::Game,
     judge::WordDict,
     messages::PlayerMessage,
@@ -302,6 +302,11 @@ impl Div<f32> for WordQualityScores {
     }
 }
 
+pub enum DefenceEvalType {
+    Attackable,
+    Direct,
+}
+
 // Evaluation functions
 impl Game {
     /// Top-most evaluation function for looking at the game and calculating a score
@@ -318,34 +323,67 @@ impl Game {
         };
         let for_opponent = (for_player + 1) % self.players.len();
 
+        let self_attack_distances = self.board.flood_fill_attacks(for_player);
+        let opponent_attack_distances = self.board.flood_fill_attacks(for_opponent);
+
         BoardScore::default()
             .turn_number(depth)
             .word_quality(word_quality)
-            .self_defense(self.eval_defense_of_towns(for_player))
-            .self_attack(1.0 - self.eval_defense_of_towns(for_opponent))
+            .self_defense(self.eval_defense_of_towns(
+                &self_attack_distances,
+                for_opponent,
+                DefenceEvalType::Attackable,
+            ))
+            .self_attack(
+                1.0 - self.eval_defense_of_towns(
+                    &opponent_attack_distances,
+                    for_player,
+                    DefenceEvalType::Attackable,
+                ),
+            )
+            .direct_defence(self.eval_defense_of_towns(
+                &self_attack_distances,
+                for_opponent,
+                DefenceEvalType::Direct,
+            ))
+            .direct_attack(
+                1.0 - self.eval_defense_of_towns(
+                    &opponent_attack_distances,
+                    for_player,
+                    DefenceEvalType::Direct,
+                ),
+            )
             .self_win(self.winner == Some(for_player))
             .opponent_win(self.winner == Some(for_opponent))
             .board(self.board.clone())
     }
 
-    pub fn eval_defense_of_towns(&self, player: usize) -> f32 {
+    pub fn eval_defense_of_towns(
+        &self,
+        distances: &BoardDistances,
+        defender: usize,
+        defence_type: DefenceEvalType,
+    ) -> f32 {
         let towns = self.board.towns.clone();
-        let attacker = (player + 1) % self.players.len();
-        let distances = self.board.flood_fill_attacks(attacker);
         let max_score = self.board.width() + self.board.height();
 
         let defense_towns = towns
             .into_iter()
             .filter(
-                |town_pt| matches!(self.board.get(*town_pt), Ok(Square::Town{player: p, ..}) if player == p),
+                |town_pt| matches!(self.board.get(*town_pt), Ok(Square::Town{player: p, ..}) if defender == p),
             ).collect::<Vec<_>>();
 
         let score: usize = defense_towns
             .iter()
-            .map(|town_pt| distances.attackable_distance(town_pt).unwrap_or(max_score))
+            .map(|town_pt| match defence_type {
+                DefenceEvalType::Attackable => {
+                    distances.attackable_distance(town_pt).unwrap_or(max_score)
+                }
+                DefenceEvalType::Direct => distances.direct_distance(town_pt).unwrap_or(max_score),
+            })
             .sum();
 
-        (score as f32) / (defense_towns.len() as f32) / (max_score as f32)
+        ((score as f32) / (defense_towns.len().max(1) as f32)) / (max_score as f32)
     }
 
     pub fn eval_word_quality(
@@ -633,7 +671,8 @@ mod tests {
             "###,
             "A",
         );
-        let score_a = game_a.eval_defense_of_towns(1);
+        let dists = game_a.board.flood_fill_attacks(0);
+        let score_a = game_a.eval_defense_of_towns(&dists, 1, DefenceEvalType::Attackable);
         let game_b = test_game(
             r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
@@ -647,7 +686,8 @@ mod tests {
             "###,
             "A",
         );
-        let score_b = game_b.eval_defense_of_towns(1);
+        let dists = game_a.board.flood_fill_attacks(0);
+        let score_b = game_b.eval_defense_of_towns(&dists, 1, DefenceEvalType::Attackable);
 
         insta::with_settings!({
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),

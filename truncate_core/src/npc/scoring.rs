@@ -13,6 +13,8 @@ pub struct BoardScore {
     word_quality: WordQualityScores,
     self_defense: f32,
     self_attack: f32,
+    direct_defence: f32,
+    direct_attack: f32,
     self_win: bool,
     opponent_win: bool,
     pub board: Option<Board>,
@@ -27,6 +29,8 @@ impl Debug for BoardScore {
             .field("word_quality", &self.word_quality)
             .field("self_defense", &self.self_defense)
             .field("self_attack", &self.self_attack)
+            .field("direct_defence", &self.direct_defence)
+            .field("direct_attack", &self.direct_attack)
             .field("self_win", &self.self_win)
             .field("opponent_win", &self.opponent_win)
             .finish()
@@ -56,6 +60,16 @@ impl BoardScore {
 
     pub fn self_attack(mut self, value: f32) -> Self {
         self.self_attack = value;
+        self
+    }
+
+    pub fn direct_defence(mut self, value: f32) -> Self {
+        self.direct_defence = value;
+        self
+    }
+
+    pub fn direct_attack(mut self, value: f32) -> Self {
+        self.direct_attack = value;
         self
     }
 
@@ -90,6 +104,8 @@ impl BoardScore {
     pub fn rank(&self) -> f32 {
         self.self_defense * 3.0
             + self.self_attack * 2.0
+            + self.direct_defence
+            + self.direct_attack
             + self.word_quality.word_validity * 2.0
             + self.word_quality.word_length
             + self.word_quality.word_extensibility
