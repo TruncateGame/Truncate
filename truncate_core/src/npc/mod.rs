@@ -373,7 +373,7 @@ impl Game {
                 |town_pt| matches!(self.board.get(*town_pt), Ok(Square::Town{player: p, ..}) if defender == p),
             ).collect::<Vec<_>>();
 
-        let score: usize = defense_towns
+        let score = defense_towns
             .iter()
             .map(|town_pt| match defence_type {
                 DefenceEvalType::Attackable => {
@@ -381,9 +381,9 @@ impl Game {
                 }
                 DefenceEvalType::Direct => distances.direct_distance(town_pt).unwrap_or(max_score),
             })
-            .sum();
+            .min();
 
-        ((score as f32) / (defense_towns.len().max(1) as f32)) / (max_score as f32)
+        (score.unwrap_or(max_score) as f32) / (max_score as f32)
     }
 
     pub fn eval_word_quality(
