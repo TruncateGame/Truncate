@@ -21,12 +21,14 @@ use xxhash_rust::xxh3;
 pub struct Arborist {
     assessed: usize,
     prune: bool,
+    cap: usize,
 }
 impl Arborist {
     pub fn pruning() -> Self {
         Self {
             assessed: 0,
             prune: true,
+            cap: std::usize::MAX,
         }
     }
 
@@ -34,10 +36,15 @@ impl Arborist {
         self.assessed
     }
 
+    pub fn capped(&mut self, cap: usize) {
+        self.cap = cap;
+    }
+
     fn exhaustive() -> Self {
         Self {
             assessed: 0,
             prune: false,
+            cap: std::usize::MAX,
         }
     }
 
@@ -94,17 +101,36 @@ impl Game {
             )
         };
 
+        let mut latest = None;
+        let mut looked = 0;
+
         let arborist = counter.unwrap_or_else(|| &mut internal_arborist);
         for d in 1..depth {
-            run_mini(d, arborist);
+            let maybelatest = Some(run_mini(d, arborist));
+            if arborist.assessed > arborist.cap {
+                break;
+            }
+            latest = maybelatest;
+            looked = d;
         }
 
-        let (best_score, Some((position, tile))) = run_mini(depth, arborist) else {
+        if arborist.assessed < arborist.cap {
+            let maybelatest = Some(run_mini(depth, arborist));
+            if arborist.assessed < arborist.cap {
+                latest = maybelatest;
+                looked = depth;
+            }
+        }
+
+        let Some((best_score, Some((position, tile)))) = latest else {
             panic!("Expected a valid position to be playable");
         };
 
         if log {
-            println!("Bot checked {} boards", arborist.assessed());
+            println!(
+                "Bot checked {} boards, going to a depth of {looked}",
+                arborist.assessed()
+            );
             println!("Bot has the hand: {}", game.players[evaluation_player].hand);
 
             println!("Chosen tree has the score {best_score:#?}");
@@ -145,12 +171,15 @@ impl Game {
                 - caches
                     .cached_scores
                     .get(&(*position, *tile, layer))
-                    .unwrap_or(&0)
+                    .unwrap_or(&std::usize::MAX)
         });
 
         let mut turn_score =
             |game: &Game, tile: char, position: Coordinate, alpha: BoardScore, beta: BoardScore| {
                 arborist.tick();
+                if arborist.assessed > arborist.cap {
+                    return None;
+                }
                 let mut next_turn = game.clone();
 
                 let (attacker_dict, defender_dict) = if game.next_player == for_player {
@@ -198,7 +227,7 @@ impl Game {
                     );
                 }
 
-                score
+                Some(score)
             };
 
         if game.next_player == for_player {
@@ -206,7 +235,10 @@ impl Game {
             let mut relevant_move = None;
 
             for (position, tile) in possible_moves {
-                let score = turn_score(&game, tile, position, alpha.clone(), beta.clone());
+                let Some(score) = turn_score(&game, tile, position, alpha.clone(), beta.clone())
+                else {
+                    break;
+                };
 
                 if score > max_score {
                     max_score = score.clone();
@@ -229,7 +261,10 @@ impl Game {
             let mut relevant_move = None;
 
             for (position, tile) in possible_moves {
-                let score = turn_score(&game, tile, position, alpha.clone(), beta.clone());
+                let Some(score) = turn_score(&game, tile, position, alpha.clone(), beta.clone())
+                else {
+                    break;
+                };
 
                 if score < min_score {
                     min_score = score.clone();

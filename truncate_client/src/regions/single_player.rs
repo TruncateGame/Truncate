@@ -217,11 +217,12 @@ impl SinglePlayerState {
                 .turn_starts_at
             {
                 if turn_starts_at <= current_time.as_secs() {
-                    let search_depth = (7_usize.saturating_sub(self.turns / 2)).max(3);
+                    let search_depth = 12;
                     println!("Looking forward {search_depth} turns");
 
-                    // let start = time::Instant::now();
+                    let start = time::Instant::now();
                     let mut arb = truncate_core::npc::Arborist::pruning();
+                    arb.capped(30000);
                     next_msg = Some((
                         1,
                         Game::best_move(
@@ -233,11 +234,11 @@ impl SinglePlayerState {
                             true,
                         ),
                     ));
-                    // println!(
-                    //     "Looked at {} leaves in {}ms",
-                    //     arb.assessed(),
-                    //     start.elapsed().whole_milliseconds()
-                    // );
+                    println!(
+                        "Looked at {} leaves in {}ms",
+                        arb.assessed(),
+                        start.elapsed().whole_milliseconds()
+                    );
                 }
             }
         }
