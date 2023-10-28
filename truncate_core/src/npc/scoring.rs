@@ -110,6 +110,10 @@ impl BoardScore {
             + self.word_quality.word_length
             + self.word_quality.word_extensibility
     }
+
+    pub fn usize_rank(&self) -> usize {
+        (self.rank() * 100000.0) as usize
+    }
 }
 
 impl PartialOrd for BoardScore {

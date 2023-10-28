@@ -9,6 +9,7 @@ use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
     judge::{Judge, WordData, WordDict},
+    npc::Caches,
     player::{Hand, Player},
     rules,
 };
@@ -87,14 +88,7 @@ pub fn npc_benches(c: &mut Criterion) {
     let dict = dict();
 
     c.bench_function("total_board_eval", |b| {
-        b.iter(|| {
-            game.static_eval(
-                Some(&dict),
-                1,
-                1,
-                &mut HashMap::with_hasher(xxh3::Xxh3Builder::new()),
-            )
-        })
+        b.iter(|| game.static_eval(Some(&dict), 1, 1, &mut Caches::new()))
     });
 
     c.bench_function("quality_eval", |b| {

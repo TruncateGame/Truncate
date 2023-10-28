@@ -50,7 +50,19 @@ impl Arborist {
     }
 }
 
-type CacheMap = HashMap<Vec<u64>, (BoardDistances, BoardDistances), xxh3::Xxh3Builder>;
+pub struct Caches {
+    cached_floods: HashMap<Vec<u64>, (BoardDistances, BoardDistances), xxh3::Xxh3Builder>,
+    cached_scores: HashMap<(Coordinate, char, usize), usize, xxh3::Xxh3Builder>,
+}
+
+impl Caches {
+    pub fn new() -> Self {
+        Self {
+            cached_floods: HashMap::with_hasher(xxh3::Xxh3Builder::new()),
+            cached_scores: HashMap::with_hasher(xxh3::Xxh3Builder::new()),
+        }
+    }
+}
 
 impl Game {
     pub fn best_move(
@@ -64,25 +76,35 @@ impl Game {
         let evaluation_player = game.next_player;
 
         let mut internal_arborist = Arborist::pruning();
-        let arborist = counter.unwrap_or_else(|| &mut internal_arborist);
-        let mut caches: CacheMap = HashMap::with_hasher(xxh3::Xxh3Builder::new());
+        let mut caches = Caches::new();
 
-        let (best_score, Some((position, tile))) = Game::minimax(
-            game.clone(),
-            self_dictionary,
-            opponent_dictionary,
-            depth,
-            depth,
-            BoardScore::neg_inf(),
-            BoardScore::inf(),
-            evaluation_player,
-            arborist,
-            &mut caches,
-        ) else {
-            panic!("Couldn't determine a move to play");
+        let mut run_mini = |partial_depth: usize, arborist: &mut Arborist| {
+            Game::minimax(
+                game.clone(),
+                self_dictionary,
+                opponent_dictionary,
+                partial_depth,
+                partial_depth,
+                0,
+                BoardScore::neg_inf(),
+                BoardScore::inf(),
+                evaluation_player,
+                arborist,
+                &mut caches,
+            )
+        };
+
+        let arborist = counter.unwrap_or_else(|| &mut internal_arborist);
+        for d in 1..depth {
+            run_mini(d, arborist);
+        }
+
+        let (best_score, Some((position, tile))) = run_mini(depth, arborist) else {
+            panic!("Expected a valid position to be playable");
         };
 
         if log {
+            println!("Bot checked {} boards", arborist.assessed());
             println!("Bot has the hand: {}", game.players[evaluation_player].hand);
 
             println!("Chosen tree has the score {best_score:#?}");
@@ -100,14 +122,31 @@ impl Game {
         opponent_dictionary: Option<&WordDict>,
         total_depth: usize,
         depth: usize,
+        layer: usize,
         mut alpha: BoardScore,
         mut beta: BoardScore,
         for_player: usize,
         arborist: &mut Arborist,
-        caches: &mut CacheMap,
+        caches: &mut Caches,
     ) -> (BoardScore, Option<(Coordinate, char)>) {
         game.instrument_unknown_game_state(for_player, total_depth, depth);
         let pruning = arborist.prune();
+
+        if depth == 0 || game.winner.is_some() {
+            return (
+                game.static_eval(self_dictionary, for_player, depth, caches),
+                None,
+            );
+        }
+
+        let mut possible_moves = game.possible_moves();
+        possible_moves.sort_by_cached_key(|(position, tile)| {
+            std::usize::MAX
+                - caches
+                    .cached_scores
+                    .get(&(*position, *tile, layer))
+                    .unwrap_or(&0)
+        });
 
         let mut turn_score =
             |game: &Game, tile: char, position: Coordinate, alpha: BoardScore, beta: BoardScore| {
@@ -120,6 +159,8 @@ impl Game {
                     (opponent_dictionary, self_dictionary)
                 };
 
+                let is_players_turn = game.next_player == for_player;
+
                 next_turn
                     .play_turn(
                         Move::Place {
@@ -131,31 +172,40 @@ impl Game {
                         defender_dict,
                     )
                     .expect("Should be exploring valid turns");
-                Game::minimax(
+                let score = Game::minimax(
                     next_turn,
                     self_dictionary,
                     opponent_dictionary,
                     total_depth,
                     depth - 1,
+                    layer + 1,
                     alpha,
                     beta,
                     for_player,
                     arborist,
                     caches,
                 )
-                .0
+                .0;
+
+                if is_players_turn {
+                    caches
+                        .cached_scores
+                        .insert((position, tile, layer), score.usize_rank());
+                } else {
+                    caches.cached_scores.insert(
+                        (position, tile, layer),
+                        std::usize::MAX - score.usize_rank(),
+                    );
+                }
+
+                score
             };
 
-        if depth == 0 || game.winner.is_some() {
-            (
-                game.static_eval(self_dictionary, for_player, depth, caches),
-                None,
-            )
-        } else if game.next_player == for_player {
+        if game.next_player == for_player {
             let mut max_score = BoardScore::neg_inf();
             let mut relevant_move = None;
 
-            for (position, tile) in game.possible_moves() {
+            for (position, tile) in possible_moves {
                 let score = turn_score(&game, tile, position, alpha.clone(), beta.clone());
 
                 if score > max_score {
@@ -178,7 +228,7 @@ impl Game {
             let mut min_score = BoardScore::inf();
             let mut relevant_move = None;
 
-            for (position, tile) in game.possible_moves() {
+            for (position, tile) in possible_moves {
                 let score = turn_score(&game, tile, position, alpha.clone(), beta.clone());
 
                 if score < min_score {
@@ -266,7 +316,7 @@ impl Game {
 
         // If we're past the first layer,
         // use a combo tile for the eval player, to reduce permutations.
-        if current_depth == total_depth - 1 {
+        if current_depth + 1 == total_depth {
             let alias = self.judge.set_alias(player.hand.0.clone());
             // Add enough that using them doesn't cause them to run out.
             player.hand = Hand(vec![alias; current_depth]);
@@ -274,7 +324,7 @@ impl Game {
 
         // If we're past the second layer,
         // all opponent tiles become wildcards, to encourage early attacks.
-        if current_depth == total_depth - 2 {
+        if current_depth + 2 == total_depth {
             for row in &mut self.board.squares {
                 for col in row {
                     match col {
@@ -325,7 +375,7 @@ impl Game {
         external_dictionary: Option<&WordDict>,
         for_player: usize,
         depth: usize,
-        caches: &mut CacheMap,
+        caches: &mut Caches,
     ) -> BoardScore {
         let word_quality = if let Some(external_dictionary) = external_dictionary {
             self.eval_word_quality(external_dictionary, for_player)
@@ -336,16 +386,16 @@ impl Game {
 
         let shape = self.board.get_shape();
         let (self_attack_distances, opponent_attack_distances) =
-            if let Some(res) = caches.get(&shape) {
+            if let Some(res) = caches.cached_floods.get(&shape) {
                 res
             } else {
                 let self_attack_distances = self.board.flood_fill_attacks(for_player);
                 let opponent_attack_distances = self.board.flood_fill_attacks(for_opponent);
-                caches.insert(
+                caches.cached_floods.insert(
                     shape.clone(),
                     (self_attack_distances, opponent_attack_distances),
                 );
-                caches.get(&shape).unwrap()
+                caches.cached_floods.get(&shape).unwrap()
             };
 
         BoardScore::default()
@@ -377,7 +427,7 @@ impl Game {
             )
             .self_win(self.winner == Some(for_player))
             .opponent_win(self.winner == Some(for_opponent))
-            .board(self.board.clone())
+        // .board(self.board.clone())
     }
 
     pub fn eval_defense_of_towns(
@@ -626,12 +676,7 @@ mod tests {
             "###,
             "A",
         );
-        let score_a = game_a.static_eval(
-            Some(&dict),
-            1,
-            1,
-            &mut HashMap::with_hasher(xxhash_rust::xxh3::Xxh3Builder::new()),
-        );
+        let score_a = game_a.static_eval(Some(&dict), 1, 1, &mut Caches::new());
         let game_b = test_game(
             r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
@@ -645,12 +690,7 @@ mod tests {
             "###,
             "A",
         );
-        let score_b = game_b.static_eval(
-            Some(&dict),
-            1,
-            1,
-            &mut HashMap::with_hasher(xxhash_rust::xxh3::Xxh3Builder::new()),
-        );
+        let score_b = game_b.static_eval(Some(&dict), 1, 1, &mut Caches::new());
 
         insta::with_settings!({
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
