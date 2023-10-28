@@ -16,6 +16,7 @@ use crate::{
 mod scoring;
 
 use scoring::BoardScore;
+use xxhash_rust::xxh3;
 
 pub struct Arborist {
     assessed: usize,
@@ -49,6 +50,8 @@ impl Arborist {
     }
 }
 
+type CacheMap = HashMap<Vec<bool>, (BoardDistances, BoardDistances), xxh3::Xxh3Builder>;
+
 impl Game {
     pub fn best_move(
         game: &Game,
@@ -62,6 +65,7 @@ impl Game {
 
         let mut internal_arborist = Arborist::pruning();
         let arborist = counter.unwrap_or_else(|| &mut internal_arborist);
+        let mut caches: CacheMap = HashMap::with_hasher(xxh3::Xxh3Builder::new());
 
         let (best_score, Some((position, tile))) = Game::minimax(
             game.clone(),
@@ -73,6 +77,7 @@ impl Game {
             BoardScore::inf(),
             evaluation_player,
             arborist,
+            &mut caches,
         ) else {
             panic!("Couldn't determine a move to play");
         };
@@ -99,6 +104,7 @@ impl Game {
         mut beta: BoardScore,
         for_player: usize,
         arborist: &mut Arborist,
+        caches: &mut CacheMap,
     ) -> (BoardScore, Option<(Coordinate, char)>) {
         game.instrument_unknown_game_state(for_player, total_depth, depth);
         let pruning = arborist.prune();
@@ -135,12 +141,16 @@ impl Game {
                     beta,
                     for_player,
                     arborist,
+                    caches,
                 )
                 .0
             };
 
         if depth == 0 || game.winner.is_some() {
-            (game.static_eval(self_dictionary, for_player, depth), None)
+            (
+                game.static_eval(self_dictionary, for_player, depth, caches),
+                None,
+            )
         } else if game.next_player == for_player {
             let mut max_score = BoardScore::neg_inf();
             let mut relevant_move = None;
@@ -315,6 +325,7 @@ impl Game {
         external_dictionary: Option<&WordDict>,
         for_player: usize,
         depth: usize,
+        caches: &mut CacheMap,
     ) -> BoardScore {
         let word_quality = if let Some(external_dictionary) = external_dictionary {
             self.eval_word_quality(external_dictionary, for_player)
@@ -323,8 +334,19 @@ impl Game {
         };
         let for_opponent = (for_player + 1) % self.players.len();
 
-        let self_attack_distances = self.board.flood_fill_attacks(for_player);
-        let opponent_attack_distances = self.board.flood_fill_attacks(for_opponent);
+        let shape = self.board.get_shape();
+        let (self_attack_distances, opponent_attack_distances) =
+            if let Some(res) = caches.get(&shape) {
+                res
+            } else {
+                let self_attack_distances = self.board.flood_fill_attacks(for_player);
+                let opponent_attack_distances = self.board.flood_fill_attacks(for_opponent);
+                caches.insert(
+                    shape.clone(),
+                    (self_attack_distances, opponent_attack_distances),
+                );
+                caches.get(&shape).unwrap()
+            };
 
         BoardScore::default()
             .turn_number(depth)
@@ -604,7 +626,12 @@ mod tests {
             "###,
             "A",
         );
-        let score_a = game_a.static_eval(Some(&dict), 1, 1);
+        let score_a = game_a.static_eval(
+            Some(&dict),
+            1,
+            1,
+            &mut HashMap::with_hasher(xxhash_rust::xxh3::Xxh3Builder::new()),
+        );
         let game_b = test_game(
             r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
@@ -618,7 +645,12 @@ mod tests {
             "###,
             "A",
         );
-        let score_b = game_b.static_eval(Some(&dict), 1, 1);
+        let score_b = game_b.static_eval(
+            Some(&dict),
+            1,
+            1,
+            &mut HashMap::with_hasher(xxhash_rust::xxh3::Xxh3Builder::new()),
+        );
 
         insta::with_settings!({
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),

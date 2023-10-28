@@ -12,6 +12,7 @@ use truncate_core::{
     player::{Hand, Player},
     rules,
 };
+use xxhash_rust::xxh3;
 
 pub static TESTING_DICT: &str = include_str!("../../word_freqs/final_wordlist.txt");
 
@@ -86,7 +87,14 @@ pub fn npc_benches(c: &mut Criterion) {
     let dict = dict();
 
     c.bench_function("total_board_eval", |b| {
-        b.iter(|| game.static_eval(Some(&dict), 1, 1))
+        b.iter(|| {
+            game.static_eval(
+                Some(&dict),
+                1,
+                1,
+                &mut HashMap::with_hasher(xxh3::Xxh3Builder::new()),
+            )
+        })
     });
 
     c.bench_function("quality_eval", |b| {
@@ -148,6 +156,8 @@ pub fn board_benches(c: &mut Criterion) {
     c.bench_function("flood_fill_attacks", |b| {
         b.iter(|| board.flood_fill_attacks(0))
     });
+
+    c.bench_function("get_shape", |b| b.iter(|| board.get_shape()));
 
     c.bench_function("get_word_coordinates", |b| {
         b.iter(|| board.get_words(Coordinate { x: 2, y: 5 }))

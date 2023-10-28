@@ -659,6 +659,27 @@ impl Board {
         distances
     }
 
+    pub fn get_shape(&self) -> Vec<bool> {
+        let width = self.width();
+        let max_cord = Coordinate {
+            x: self.width() - 1,
+            y: self.height() - 1,
+        }
+        .to_1d(width);
+
+        let mut out = vec![false; max_cord];
+
+        for (y, row) in self.squares.iter().enumerate() {
+            for (x, square) in row.iter().enumerate() {
+                if matches!(square, Square::Occupied(_, _)) {
+                    out[Coordinate { x, y }.to_1d(width)] = true;
+                }
+            }
+        }
+
+        out
+    }
+
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
         let mut words: Vec<Vec<Coordinate>> = Vec::new();
         let owner = match self.get(position) {
@@ -1037,6 +1058,7 @@ impl fmt::Display for Square {
     }
 }
 
+#[derive(Clone)]
 pub struct BoardDistances {
     board_width: usize,
     attackable: Vec<Option<usize>>,
