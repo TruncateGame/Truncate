@@ -104,6 +104,10 @@ pub fn npc_benches(c: &mut Criterion) {
         b.iter(|| Game::best_move(&game, Some(&dict), Some(&dict), 4, None, false))
     });
 
+    c.bench_function("deeper_move_finding", |b| {
+        b.iter(|| Game::best_move(&game, Some(&dict), Some(&dict), 6, None, false))
+    });
+
     let small_hand_game = test_game(
         r###"
         ~~ ~~ |0 ~~ ~~
