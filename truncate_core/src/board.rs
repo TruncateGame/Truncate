@@ -659,20 +659,24 @@ impl Board {
         distances
     }
 
-    pub fn get_shape(&self) -> Vec<bool> {
+    pub fn get_shape(&self) -> Vec<u64> {
         let width = self.width();
-        let max_cord = Coordinate {
+        let num_buckets = Coordinate {
             x: self.width() - 1,
             y: self.height() - 1,
         }
-        .to_1d(width);
+        .to_1d(width)
+            / 64
+            + 1;
 
-        let mut out = vec![false; max_cord];
+        let mut out = vec![0; num_buckets];
 
         for (y, row) in self.squares.iter().enumerate() {
             for (x, square) in row.iter().enumerate() {
                 if matches!(square, Square::Occupied(_, _)) {
-                    out[Coordinate { x, y }.to_1d(width)] = true;
+                    let c = Coordinate { x, y }.to_1d(width);
+                    let bucket = c / 64;
+                    out[bucket] |= 1 << (c % 64);
                 }
             }
         }

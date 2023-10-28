@@ -50,7 +50,7 @@ impl Arborist {
     }
 }
 
-type CacheMap = HashMap<Vec<bool>, (BoardDistances, BoardDistances), xxh3::Xxh3Builder>;
+type CacheMap = HashMap<Vec<u64>, (BoardDistances, BoardDistances), xxh3::Xxh3Builder>;
 
 impl Game {
     pub fn best_move(
