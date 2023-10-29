@@ -436,25 +436,37 @@ impl Game {
         BoardScore::default()
             .turn_number(depth)
             .word_quality(word_quality)
-            .self_defense(self.eval_defense_of_towns(
+            .raced_defense(self.eval_min_raced_distance_to_towns(
+                &opponent_attack_distances,
+                &self_attack_distances,
+                for_player,
+            ))
+            .raced_attack(
+                1.0 - self.eval_min_raced_distance_to_towns(
+                    &self_attack_distances,
+                    &opponent_attack_distances,
+                    for_opponent,
+                ),
+            )
+            .self_defense(self.eval_min_distance_to_towns(
                 &opponent_attack_distances,
                 for_player,
                 DefenceEvalType::Attackable,
             ))
             .self_attack(
-                1.0 - self.eval_defense_of_towns(
+                1.0 - self.eval_min_distance_to_towns(
                     &self_attack_distances,
                     for_opponent,
                     DefenceEvalType::Attackable,
                 ),
             )
-            .direct_defence(self.eval_defense_of_towns(
+            .direct_defence(self.eval_min_distance_to_towns(
                 &opponent_attack_distances,
                 for_player,
                 DefenceEvalType::Direct,
             ))
             .direct_attack(
-                1.0 - self.eval_defense_of_towns(
+                1.0 - self.eval_min_distance_to_towns(
                     &self_attack_distances,
                     for_opponent,
                     DefenceEvalType::Direct,
@@ -462,10 +474,10 @@ impl Game {
             )
             .self_win(self.winner == Some(for_player))
             .opponent_win(self.winner == Some(for_opponent))
-        // .board(self.board.clone())
+            .board(self.board.clone())
     }
 
-    pub fn eval_defense_of_towns(
+    pub fn eval_min_distance_to_towns(
         &self,
         distances: &BoardDistances,
         defender: usize,
@@ -491,6 +503,34 @@ impl Game {
             .min();
 
         (score.unwrap_or(max_score) as f32) / (max_score as f32)
+    }
+
+    pub fn eval_min_raced_distance_to_towns(
+        &self,
+        attackers_tiles: &BoardDistances,
+        defenders_tiles: &BoardDistances,
+        defender: usize,
+    ) -> f32 {
+        let towns = self.board.towns.clone();
+        let max_score = self.board.width() + self.board.height();
+
+        let defense_towns = towns
+            .into_iter()
+            .filter(
+                |town_pt| matches!(self.board.get(*town_pt), Ok(Square::Town{player: p, ..}) if defender == p),
+            ).collect::<Vec<_>>();
+
+        let score = defense_towns
+            .iter()
+            .map(|town_pt| {
+                defenders_tiles
+                    .attackable_distance(town_pt)
+                    .unwrap_or(max_score)
+                    .saturating_sub(attackers_tiles.attackable_distance(town_pt).unwrap_or(0))
+            })
+            .max();
+
+        ((max_score as f32) - score.unwrap_or(max_score) as f32) / (max_score as f32)
     }
 
     pub fn eval_word_quality(
@@ -779,7 +819,7 @@ mod tests {
             "A",
         );
         let dists = game_a.board.flood_fill_attacks(0);
-        let score_a = game_a.eval_defense_of_towns(&dists, 1, DefenceEvalType::Attackable);
+        let score_a = game_a.eval_min_distance_to_towns(&dists, 1, DefenceEvalType::Attackable);
         let game_b = test_game(
             r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
@@ -794,7 +834,7 @@ mod tests {
             "A",
         );
         let dists = game_a.board.flood_fill_attacks(0);
-        let score_b = game_b.eval_defense_of_towns(&dists, 1, DefenceEvalType::Attackable);
+        let score_b = game_b.eval_min_distance_to_towns(&dists, 1, DefenceEvalType::Attackable);
 
         insta::with_settings!({
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),

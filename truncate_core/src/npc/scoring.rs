@@ -11,6 +11,8 @@ pub struct BoardScore {
     neg_infinity: bool,
     turn_number: usize, // Lower number means later turn
     word_quality: WordQualityScores,
+    raced_defense: f32,
+    raced_attack: f32,
     self_defense: f32,
     self_attack: f32,
     direct_defence: f32,
@@ -27,6 +29,8 @@ impl Debug for BoardScore {
             .field("neg_infinity", &self.neg_infinity)
             .field("turn_number", &self.turn_number)
             .field("word_quality", &self.word_quality)
+            .field("raced_defense", &self.raced_defense)
+            .field("raced_attack", &self.raced_attack)
             .field("self_defense", &self.self_defense)
             .field("self_attack", &self.self_attack)
             .field("direct_defence", &self.direct_defence)
@@ -50,6 +54,16 @@ impl BoardScore {
 
     pub fn word_quality(mut self, value: WordQualityScores) -> Self {
         self.word_quality = value;
+        self
+    }
+
+    pub fn raced_defense(mut self, value: f32) -> Self {
+        self.raced_defense = value;
+        self
+    }
+
+    pub fn raced_attack(mut self, value: f32) -> Self {
+        self.raced_attack = value;
         self
     }
 
@@ -102,7 +116,9 @@ impl BoardScore {
 
 impl BoardScore {
     pub fn rank(&self) -> f32 {
-        self.self_defense * 3.0
+        self.raced_defense * 10.0
+            + self.raced_attack * 2.0
+            + self.self_defense
             + self.self_attack * 2.0
             + self.direct_defence
             + self.direct_attack

@@ -98,7 +98,11 @@ pub fn npc_benches(c: &mut Criterion) {
     c.bench_function("defense_eval", |b| {
         b.iter(|| {
             let dists = game.board.flood_fill_attacks(0);
-            game.eval_defense_of_towns(&dists, 1, truncate_core::npc::DefenceEvalType::Attackable)
+            game.eval_min_distance_to_towns(
+                &dists,
+                1,
+                truncate_core::npc::DefenceEvalType::Attackable,
+            )
         })
     });
 
