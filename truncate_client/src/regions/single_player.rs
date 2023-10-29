@@ -222,7 +222,7 @@ impl SinglePlayerState {
 
                     // let start = time::Instant::now();
                     let mut arb = truncate_core::npc::Arborist::pruning();
-                    arb.capped(30000);
+                    arb.capped(15000);
                     next_msg = Some((
                         1,
                         Game::best_move(
