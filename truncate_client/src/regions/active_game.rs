@@ -56,6 +56,7 @@ pub struct GameCtx {
     pub sidebar_visible: bool,
     pub timers_visible: bool,
     pub timers_total_rect: Option<Rect>,
+    pub hand_visible: bool,
     pub hand_total_rect: Option<Rect>,
     pub hand_companion_rect: Option<Rect>,
     pub highlight_tiles: Option<Vec<char>>,
@@ -116,6 +117,7 @@ impl ActiveGame {
                 board_pan: vec2(0.0, 0.0),
                 sidebar_visible: false,
                 timers_visible: true,
+                hand_visible: true,
                 hand_companion_rect: None,
                 timers_total_rect: None,
                 hand_total_rect: None,
@@ -148,7 +150,11 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
-    ) -> (Rect, Option<PlayerMessage>) {
+    ) -> (Option<Rect>, Option<PlayerMessage>) {
+        if !self.ctx.timers_visible {
+            return (None, None);
+        }
+
         let mut msg = None;
 
         let timer_area = ui.available_rect_before_wrap();
@@ -269,7 +275,7 @@ impl ActiveGame {
 
         self.ctx.timers_total_rect = Some(resp.response.rect);
 
-        (resp.response.rect, msg)
+        (Some(resp.response.rect), msg)
     }
 
     pub fn render_control_strip(
@@ -277,7 +283,11 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
-    ) -> (Rect, Option<PlayerMessage>) {
+    ) -> (Option<Rect>, Option<PlayerMessage>) {
+        if !self.ctx.hand_visible {
+            return (None, None);
+        }
+
         let mut msg = None;
         let companion_space = 220.0;
 
@@ -394,7 +404,7 @@ impl ActiveGame {
 
         self.ctx.hand_total_rect = Some(resp.response.rect);
 
-        (resp.response.rect, msg)
+        (Some(resp.response.rect), msg)
     }
 
     pub fn render_sidebar(
@@ -584,8 +594,12 @@ impl ActiveGame {
         let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
         let sidebar_player_message = self.render_sidebar(&mut sidebar_space_ui, theme, winner);
 
-        game_space.set_top(timer_strip_rect.bottom());
-        game_space.set_bottom(control_strip_rect.top());
+        if let Some(timer_strip_rect) = timer_strip_rect {
+            game_space.set_top(timer_strip_rect.bottom());
+        }
+        if let Some(control_strip_rect) = control_strip_rect {
+            game_space.set_bottom(control_strip_rect.top());
+        }
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
         let player_message = BoardUI::new(&self.board)
