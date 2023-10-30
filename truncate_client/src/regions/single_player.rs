@@ -467,6 +467,7 @@ impl SinglePlayerState {
                         );
                         active_game.ctx.timers_visible = false;
                         active_game.ctx.hand_visible = false;
+                        active_game.ctx.sidebar_visible = false;
                         active_game.ctx.interactive = false;
                         self.last_target_game = Some(active_game);
                     }
