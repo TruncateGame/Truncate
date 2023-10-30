@@ -64,6 +64,7 @@ pub struct GameCtx {
     pub is_mobile: bool,
     pub is_touch: bool,
     pub unread_sidebar: bool,
+    pub interactive: bool,
 }
 
 #[derive(Clone)]
@@ -126,6 +127,7 @@ impl ActiveGame {
                 is_mobile: false,
                 is_touch: false,
                 unread_sidebar: false,
+                interactive: true,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -358,7 +360,7 @@ impl ActiveGame {
             .order(Order::Foreground)
             .anchor(Align2::LEFT_BOTTOM, control_anchor);
 
-        let mut resp = area.show(ui.ctx(), |ui| {
+        let resp = area.show(ui.ctx(), |ui| {
             if let Some(bg_rect) = self.ctx.hand_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
@@ -603,6 +605,7 @@ impl ActiveGame {
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
         let player_message = BoardUI::new(&self.board)
+            .interactive(self.ctx.interactive)
             .render(
                 &self.hand,
                 &self.board_changes,

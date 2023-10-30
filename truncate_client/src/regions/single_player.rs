@@ -1,15 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format};
 
 use eframe::egui::{self, DragValue, Frame, Grid, Layout, RichText, ScrollArea, Sense, Window};
-use epaint::{emath::Align, hex_color, vec2, Color32, TextureHandle, Vec2};
+use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
-    board::Board,
+    board::{Board, Square},
     game::Game,
     judge::{WordData, WordDict},
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
-    npc::scoring::BoardWeights,
+    npc::scoring::{BoardScore, BoardWeights},
     reporting::{Change, HandChange, WordMeaning},
 };
 
@@ -36,6 +36,8 @@ pub struct SinglePlayerState {
     turns: usize,
     debugging_npc: bool,
     weights: BoardWeights,
+    last_target_score: Option<BoardScore>,
+    last_target_game: Option<ActiveGame>,
 }
 
 impl SinglePlayerState {
@@ -133,6 +135,8 @@ impl SinglePlayerState {
             turns: 0,
             debugging_npc: false,
             weights: BoardWeights::default(),
+            last_target_score: None,
+            last_target_game: None,
         }
     }
 
@@ -265,7 +269,7 @@ impl SinglePlayerState {
                         ui,
                         true,
                     );
-                    ui.add_space(12.0);
+                    ui.add_space(24.0);
 
                     let BoardWeights {
                         raced_defense,
@@ -294,45 +298,93 @@ impl SinglePlayerState {
                     ]
                     .into();
 
-                    egui::Grid::new("weightings")
-                        .spacing(Vec2::splat(8.0))
-                        .show(ui, |ui| {
-                            ui.label(RichText::new("Raced defense").color(Color32::WHITE));
-                            ui.add(dragger(raced_defense));
-                            ui.end_row();
+                    ui.horizontal(|ui| {
+                        let sp = ui.available_width();
+                        let pad = (sp - 308.0) * 0.5;
+                        ui.add_space(pad);
+                        let r = egui::Grid::new("weightings")
+                            .spacing(Vec2::splat(8.0))
+                            .min_col_width(150.0)
+                            .show(ui, |ui| {
+                                ui.label(RichText::new("Raced defense").color(Color32::WHITE));
+                                ui.add(dragger(raced_defense));
+                                ui.end_row();
 
-                            ui.label(RichText::new("Raced attack").color(Color32::WHITE));
-                            ui.add(dragger(raced_attack));
-                            ui.end_row();
+                                ui.label(RichText::new("Raced attack").color(Color32::WHITE));
+                                ui.add(dragger(raced_attack));
+                                ui.end_row();
 
-                            ui.label(RichText::new("Self defense").color(Color32::WHITE));
-                            ui.add(dragger(self_defense));
-                            ui.end_row();
+                                ui.label(RichText::new("Self defense").color(Color32::WHITE));
+                                ui.add(dragger(self_defense));
+                                ui.end_row();
 
-                            ui.label(RichText::new("Self attack").color(Color32::WHITE));
-                            ui.add(dragger(self_attack));
-                            ui.end_row();
+                                ui.label(RichText::new("Self attack").color(Color32::WHITE));
+                                ui.add(dragger(self_attack));
+                                ui.end_row();
 
-                            ui.label(RichText::new("Direct defense").color(Color32::WHITE));
-                            ui.add(dragger(direct_defence));
-                            ui.end_row();
+                                ui.label(RichText::new("Direct defense").color(Color32::WHITE));
+                                ui.add(dragger(direct_defence));
+                                ui.end_row();
 
-                            ui.label(RichText::new("Direct attack").color(Color32::WHITE));
-                            ui.add(dragger(direct_attack));
-                            ui.end_row();
+                                ui.label(RichText::new("Direct attack").color(Color32::WHITE));
+                                ui.add(dragger(direct_attack));
+                                ui.end_row();
 
-                            ui.label(RichText::new("Word validity").color(Color32::WHITE));
-                            ui.add(dragger(word_validity));
-                            ui.end_row();
+                                ui.label(RichText::new("Word validity").color(Color32::WHITE));
+                                ui.add(dragger(word_validity));
+                                ui.end_row();
 
-                            ui.label(RichText::new("Word length").color(Color32::WHITE));
-                            ui.add(dragger(word_length));
-                            ui.end_row();
+                                ui.label(RichText::new("Word length").color(Color32::WHITE));
+                                ui.add(dragger(word_length));
+                                ui.end_row();
 
-                            ui.label(RichText::new("Word extensibility").color(Color32::WHITE));
-                            ui.add(dragger(word_extensibility));
-                            ui.end_row();
-                        });
+                                ui.label(RichText::new("Word extensibility").color(Color32::WHITE));
+                                ui.add(dragger(word_extensibility));
+                                ui.end_row();
+                            });
+                        ui.painter().rect_stroke(
+                            r.response.rect.expand(12.0),
+                            0.0,
+                            Stroke::new(2.0, self.theme.text),
+                        );
+                    });
+
+                    ui.add_space(28.0);
+
+                    if let Some(last_target_score) = &self.last_target_score {
+                        if let Some(eval_game) = &mut self.last_target_game {
+                            TextHelper::heavy("NPC wanted the board", 14.0, None, ui).paint(
+                                Color32::WHITE,
+                                ui,
+                                true,
+                            );
+                            ui.add_space(12.0);
+
+                            let (game_rect, _) = ui.allocate_exact_size(
+                                vec2(ui.available_width(), 400.0),
+                                Sense::hover(),
+                            );
+                            let mut game_ui =
+                                ui.child_ui(game_rect, Layout::left_to_right(Align::TOP));
+
+                            eval_game.render(&mut game_ui, theme, None, current_time);
+                        }
+                        ui.add_space(12.0);
+
+                        TextHelper::heavy("Scored as", 14.0, None, ui).paint(
+                            Color32::WHITE,
+                            ui,
+                            true,
+                        );
+                        ui.add_space(12.0);
+
+                        ui.label(
+                            RichText::new(format!("{:#?}", last_target_score))
+                                .color(Color32::WHITE),
+                        );
+
+                        ui.add_space(28.0);
+                    }
 
                     ui.style_mut().text_styles = prev_text_styles;
                 });
@@ -378,18 +430,47 @@ impl SinglePlayerState {
 
                     let mut arb = truncate_core::npc::Arborist::pruning();
                     arb.capped(15000);
-                    next_msg = Some((
-                        1,
-                        Game::best_move(
-                            &self.game,
-                            Some(&self.npc_known_dict),
-                            Some(&self.player_known_dict),
-                            search_depth,
-                            Some(&mut arb),
-                            true,
-                            &self.weights,
-                        ),
-                    ));
+                    let (best_move, score) = Game::best_move(
+                        &self.game,
+                        Some(&self.npc_known_dict),
+                        Some(&self.player_known_dict),
+                        search_depth,
+                        Some(&mut arb),
+                        true,
+                        &self.weights,
+                    );
+                    next_msg = Some((1, best_move));
+                    if let Some(eval_board) = &score.board {
+                        let mut game = self.game.clone();
+                        let mut eval_board = eval_board.clone();
+                        for row in &mut eval_board.squares {
+                            for sq in row {
+                                match sq {
+                                    Square::Occupied(p, t) => match t {
+                                        '1' | '2' | '3' | '4' => *sq = Square::Occupied(*p, '%'),
+                                        _ => {}
+                                    },
+                                    _ => {}
+                                }
+                            }
+                        }
+                        game.board = eval_board;
+                        let mut active_game = ActiveGame::new(
+                            "TARGET".into(),
+                            game.players.iter().map(Into::into).collect(),
+                            0,
+                            0,
+                            game.board.clone(),
+                            game.players[0].hand.clone(),
+                            self.map_texture.clone(),
+                            theme.clone(),
+                        );
+                        active_game.ctx.timers_visible = false;
+                        active_game.ctx.hand_visible = false;
+                        active_game.ctx.interactive = false;
+                        self.last_target_game = Some(active_game);
+                    }
+                    self.last_target_score = Some(score);
                 }
             }
         }

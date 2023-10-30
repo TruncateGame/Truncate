@@ -18,11 +18,17 @@ use super::{
 
 pub struct BoardUI<'a> {
     board: &'a Board,
+    interactive: bool
 }
 
 impl<'a> BoardUI<'a> {
     pub fn new(board: &'a Board) -> Self {
-        Self { board }
+        Self { board, interactive: true }
+    }
+    
+    pub fn interactive(mut self, interactive: bool) -> Self {
+        self.interactive = interactive;
+        self
     }
 }
 
@@ -214,6 +220,11 @@ impl<'a> BoardUI<'a> {
                                                 tile.render(Some(coord), ui, ctx, false, None);
                                             }
                                         });
+                                    
+                                    if !self.interactive {
+                                        continue;
+                                    }
+
                                     if matches!(square, Square::Land | Square::Occupied(_, _)) {
                                         if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                                             let drag_offset = if ctx.is_touch { -50.0 } else { 0.0 };
@@ -275,6 +286,10 @@ impl<'a> BoardUI<'a> {
             })
         })
         .inner;
+
+        if !self.interactive {
+            return None;
+        }
 
         let mut board_pos = board_frame.response.rect.clone();
         let previous_state = (ctx.board_zoom, ctx.board_pan);

@@ -82,7 +82,7 @@ impl Game {
         counter: Option<&mut Arborist>,
         log: bool,
         weights: &BoardWeights,
-    ) -> PlayerMessage {
+    ) -> (PlayerMessage, BoardScore) {
         let evaluation_player = game.next_player;
 
         let mut internal_arborist = Arborist::pruning();
@@ -138,12 +138,12 @@ impl Game {
             println!("Bot has the hand: {}", game.players[evaluation_player].hand);
 
             println!("Chosen tree has the score {best_score:#?}");
-            if let Some(board) = best_score.board {
+            if let Some(board) = &best_score.board {
                 println!("Bot is aiming for the board {board}");
             }
         }
 
-        PlayerMessage::Place(position, tile)
+        (PlayerMessage::Place(position, tile), best_score)
     }
 
     fn minimax(
@@ -696,7 +696,7 @@ mod tests {
     /// on how many branches were evaluated.
     fn best_test_move(game: &Game, dict: &WordDict, depth: usize) -> (PlayerMessage, usize, usize) {
         let mut exhaustive_arbor = Arborist::exhaustive();
-        let exhaustive_best_move = Game::best_move(
+        let (exhaustive_best_move, _) = Game::best_move(
             &game,
             Some(&dict),
             Some(&dict),
@@ -707,7 +707,7 @@ mod tests {
         );
 
         let mut pruned_arbor = Arborist::pruning();
-        let pruned_best_move = Game::best_move(
+        let (pruned_best_move, _) = Game::best_move(
             &game,
             Some(&dict),
             Some(&dict),
