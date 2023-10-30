@@ -53,6 +53,7 @@ pub struct GameCtx {
     pub board_moved: bool,
     pub board_zoom: f32,
     pub board_pan: Vec2,
+    pub sidebar_toggled: bool,
     pub sidebar_visible: bool,
     pub timers_visible: bool,
     pub timers_total_rect: Option<Rect>,
@@ -116,7 +117,8 @@ impl ActiveGame {
                 board_moved: false,
                 board_zoom: 1.0,
                 board_pan: vec2(0.0, 0.0),
-                sidebar_visible: false,
+                sidebar_toggled: false,
+                sidebar_visible: true,
                 timers_visible: true,
                 hand_visible: true,
                 hand_companion_rect: None,
@@ -263,7 +265,7 @@ impl ActiveGame {
                         }
 
                         if button_resp.clicked() {
-                            self.ctx.sidebar_visible = !self.ctx.sidebar_visible;
+                            self.ctx.sidebar_toggled = !self.ctx.sidebar_toggled;
                             self.ctx.unread_sidebar = false;
                         }
 
@@ -417,7 +419,7 @@ impl ActiveGame {
     ) -> Option<PlayerMessage> {
         let mut msg = None;
 
-        if self.ctx.is_mobile && !self.ctx.sidebar_visible {
+        if !self.ctx.sidebar_visible || (self.ctx.is_mobile && !self.ctx.sidebar_toggled) {
             return msg;
         }
 
@@ -458,7 +460,7 @@ impl ActiveGame {
                             );
 
                             if button_resp.clicked() {
-                                self.ctx.sidebar_visible = false;
+                                self.ctx.sidebar_toggled = false;
                             }
                         },
                     );
@@ -577,7 +579,7 @@ impl ActiveGame {
         let mut game_space = ui.available_rect_before_wrap();
         let mut sidebar_space = game_space.clone();
 
-        if ui.available_size().x >= self.ctx.theme.mobile_breakpoint {
+        if self.ctx.sidebar_visible && ui.available_size().x >= self.ctx.theme.mobile_breakpoint {
             self.ctx.is_mobile = false;
             game_space.set_right(game_space.right() - 300.0);
             sidebar_space.set_left(sidebar_space.right() - 300.0);
