@@ -363,21 +363,6 @@ impl Game {
             player.hand = Hand(vec![alias; current_depth]);
         }
 
-        // If we're past the second layer,
-        // all opponent tiles become wildcards, to encourage early attacks.
-        if current_depth + 2 == total_depth {
-            for row in &mut self.board.squares {
-                for col in row {
-                    match col {
-                        Square::Occupied(p, _) if *p == unknown_player_index => {
-                            *col = Square::Occupied(unknown_player_index, '*');
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-
         // Prevent the NPC from making decisions based on the opponent's tiles,
         // assume all valid plays.
         self.players[unknown_player_index].hand = Hand(vec!['*']);
