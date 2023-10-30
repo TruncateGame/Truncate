@@ -523,10 +523,18 @@ impl Game {
         let score = defense_towns
             .iter()
             .map(|town_pt| {
-                defenders_tiles
+                let mut can_defend_in = defenders_tiles
                     .attackable_distance(town_pt)
-                    .unwrap_or(max_score)
-                    .saturating_sub(attackers_tiles.attackable_distance(town_pt).unwrap_or(0))
+                    .unwrap_or(max_score);
+                let mut can_attack_in = attackers_tiles
+                    .attackable_distance(town_pt)
+                    .unwrap_or(max_score);
+
+                // Fudge the numbers so that even races look bad for the defender
+                can_defend_in += 1;
+                can_attack_in = can_attack_in.saturating_sub(1);
+
+                can_defend_in.saturating_sub(can_attack_in)
             })
             .max();
 
@@ -842,6 +850,72 @@ mod tests {
         }, {
             insta::assert_snapshot!(format!("(Defense score) A: {} / B: {}", score_a, score_b), @"(Defense score) A: 0.4 / B: 1");
         });
+    }
+
+    #[test]
+    fn defense_racing_tests() {
+        {
+            let fully_defended = test_game(
+                r###"
+            ~~ ~~ ~~ |0 ~~ ~~ ~~
+            __ __ S0 O0 __ __ __
+            __ __ __ __ __ __ __
+            __ __ __ __ __ __ __
+            __ __ A1 T1 __ H1 __
+            __ __ __ A1 __ A1 __
+            #1 #1 __ R1 A1 T1 #1
+            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            "###,
+                "A",
+            );
+            let opponent_dists = fully_defended.board.flood_fill_attacks(0);
+            let own_dists = fully_defended.board.flood_fill_attacks(1);
+            assert_eq!(
+                opponent_dists.attackable_distance(&Coordinate { x: 0, y: 6 }),
+                Some(6)
+            );
+            assert_eq!(
+                own_dists.attackable_distance(&Coordinate { x: 0, y: 6 }),
+                Some(3)
+            );
+            let defense_score =
+                fully_defended.eval_min_raced_distance_to_towns(&opponent_dists, &own_dists, 1);
+            assert_eq!(defense_score, 1.0);
+        }
+
+        {
+            let even_race = test_game(
+                r###"
+            ~~ ~~ ~~ |0 ~~ ~~ ~~
+            __ __ S0 O0 __ __ __
+            __ __ __ __ __ __ __
+            #1 __ __ __ __ __ __
+            __ __ __ __ __ __ __
+            __ __ A1 T1 __ H1 __
+            __ __ __ A1 __ A1 __
+            #1 #1 __ R1 A1 T1 #1
+            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            "###,
+                "A",
+            );
+            let opponent_dists = even_race.board.flood_fill_attacks(0);
+            let own_dists = even_race.board.flood_fill_attacks(1);
+            assert_eq!(
+                opponent_dists.attackable_distance(&Coordinate { x: 0, y: 3 }),
+                Some(3)
+            );
+            assert_eq!(
+                own_dists.attackable_distance(&Coordinate { x: 0, y: 3 }),
+                Some(3)
+            );
+            let defense_score =
+                even_race.eval_min_raced_distance_to_towns(&opponent_dists, &own_dists, 1);
+
+            let expected_max = (even_race.board.width() + even_race.board.height()) as f32;
+            let expected_score = (expected_max - 2.0) / expected_max;
+
+            assert_eq!(defense_score, expected_score);
+        }
     }
 
     #[test]
