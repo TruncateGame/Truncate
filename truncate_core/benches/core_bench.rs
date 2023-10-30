@@ -9,7 +9,7 @@ use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
     judge::{Judge, WordData, WordDict},
-    npc::Caches,
+    npc::{scoring::BoardWeights, Caches},
     player::{Hand, Player},
     rules,
 };
@@ -88,7 +88,15 @@ pub fn npc_benches(c: &mut Criterion) {
     let dict = dict();
 
     c.bench_function("total_board_eval", |b| {
-        b.iter(|| game.static_eval(Some(&dict), 1, 1, &mut Caches::new()))
+        b.iter(|| {
+            game.static_eval(
+                Some(&dict),
+                1,
+                1,
+                &mut Caches::new(),
+                &BoardWeights::default(),
+            )
+        })
     });
 
     c.bench_function("quality_eval", |b| {
@@ -107,11 +115,31 @@ pub fn npc_benches(c: &mut Criterion) {
     });
 
     c.bench_function("move_finding", |b| {
-        b.iter(|| Game::best_move(&game, Some(&dict), Some(&dict), 4, None, false))
+        b.iter(|| {
+            Game::best_move(
+                &game,
+                Some(&dict),
+                Some(&dict),
+                4,
+                None,
+                false,
+                &BoardWeights::default(),
+            )
+        })
     });
 
     c.bench_function("deeper_move_finding", |b| {
-        b.iter(|| Game::best_move(&game, Some(&dict), Some(&dict), 6, None, false))
+        b.iter(|| {
+            Game::best_move(
+                &game,
+                Some(&dict),
+                Some(&dict),
+                6,
+                None,
+                false,
+                &BoardWeights::default(),
+            )
+        })
     });
 
     let small_hand_game = test_game(
@@ -129,7 +157,17 @@ pub fn npc_benches(c: &mut Criterion) {
     );
 
     c.bench_function("monotile_move_finder", |b| {
-        b.iter(|| Game::best_move(&small_hand_game, Some(&dict), Some(&dict), 3, None, false))
+        b.iter(|| {
+            Game::best_move(
+                &small_hand_game,
+                Some(&dict),
+                Some(&dict),
+                3,
+                None,
+                false,
+                &BoardWeights::default(),
+            )
+        })
     });
 }
 

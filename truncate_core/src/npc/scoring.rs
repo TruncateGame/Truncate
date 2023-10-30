@@ -5,6 +5,35 @@ use crate::board::Board;
 
 use super::WordQualityScores;
 
+#[derive(Clone, Copy, PartialEq)]
+pub struct BoardWeights {
+    pub raced_defense: f32,
+    pub raced_attack: f32,
+    pub self_defense: f32,
+    pub self_attack: f32,
+    pub direct_defence: f32,
+    pub direct_attack: f32,
+    pub word_validity: f32,
+    pub word_length: f32,
+    pub word_extensibility: f32,
+}
+
+impl Default for BoardWeights {
+    fn default() -> Self {
+        Self {
+            raced_defense: 6.0,
+            raced_attack: 2.0,
+            self_defense: 1.0,
+            self_attack: 2.0,
+            direct_defence: 1.0,
+            direct_attack: 1.0,
+            word_validity: 2.0,
+            word_length: 1.0,
+            word_extensibility: 1.0,
+        }
+    }
+}
+
 #[derive(Clone, Default, PartialEq)]
 pub struct BoardScore {
     infinity: bool,
@@ -19,6 +48,7 @@ pub struct BoardScore {
     direct_attack: f32,
     self_win: bool,
     opponent_win: bool,
+    weights: BoardWeights,
     pub board: Option<Board>,
 }
 
@@ -44,6 +74,11 @@ impl Debug for BoardScore {
 impl BoardScore {
     pub fn board(mut self, value: Board) -> Self {
         self.board = Some(value);
+        self
+    }
+
+    pub fn weights(mut self, value: BoardWeights) -> Self {
+        self.weights = value;
         self
     }
 
@@ -116,15 +151,15 @@ impl BoardScore {
 
 impl BoardScore {
     pub fn rank(&self) -> f32 {
-        self.raced_defense * 10.0
-            + self.raced_attack * 2.0
-            + self.self_defense
-            + self.self_attack * 2.0
-            + self.direct_defence
-            + self.direct_attack
-            + self.word_quality.word_validity * 2.0
-            + self.word_quality.word_length
-            + self.word_quality.word_extensibility
+        self.raced_defense * self.weights.raced_defense
+            + self.raced_attack * self.weights.raced_attack
+            + self.self_defense * self.weights.self_defense
+            + self.self_attack * self.weights.self_attack
+            + self.direct_defence * self.weights.direct_defence
+            + self.direct_attack * self.weights.direct_attack
+            + self.word_quality.word_validity * self.weights.word_validity
+            + self.word_quality.word_length * self.weights.word_length
+            + self.word_quality.word_extensibility * self.weights.word_extensibility
     }
 
     pub fn usize_rank(&self) -> usize {

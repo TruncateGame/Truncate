@@ -235,7 +235,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
             let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
             outer_frame.show(ui, |ui| {
-                msg_text.paint(Color32::WHITE, ui);
+                msg_text.paint(Color32::WHITE, ui, false);
                 ui.add_space(8.0);
                 if button_text
                     .centered_button(
@@ -274,7 +274,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
             let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
             outer_frame.show(ui, |ui| {
-                msg_text.paint(Color32::WHITE, ui);
+                msg_text.paint(Color32::WHITE, ui, false);
                 ui.add_space(8.0);
                 if button_text
                     .centered_button(

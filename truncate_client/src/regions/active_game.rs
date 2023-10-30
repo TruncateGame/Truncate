@@ -151,12 +151,13 @@ impl ActiveGame {
     ) -> (Rect, Option<PlayerMessage>) {
         let mut msg = None;
 
+        let timer_area = ui.available_rect_before_wrap();
         let avail_width = ui.available_width();
 
         let area = egui::Area::new(egui::Id::new("timers_layer"))
             .movable(false)
             .order(Order::Foreground)
-            .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
+            .anchor(Align2::LEFT_TOP, vec2(timer_area.left(), timer_area.top()));
 
         let mut resp = area.show(ui.ctx(), |ui| {
             if let Some(bg_rect) = self.ctx.timers_total_rect {

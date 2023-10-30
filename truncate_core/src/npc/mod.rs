@@ -13,10 +13,12 @@ use crate::{
     reporting::{BoardChange, Change},
 };
 
-mod scoring;
+pub mod scoring;
 
 use scoring::BoardScore;
 use xxhash_rust::xxh3;
+
+use self::scoring::BoardWeights;
 
 pub struct Arborist {
     assessed: usize,
@@ -79,6 +81,7 @@ impl Game {
         depth: usize,
         counter: Option<&mut Arborist>,
         log: bool,
+        weights: &BoardWeights,
     ) -> PlayerMessage {
         let evaluation_player = game.next_player;
 
@@ -98,6 +101,7 @@ impl Game {
                 evaluation_player,
                 arborist,
                 &mut caches,
+                weights,
             )
         };
 
@@ -154,13 +158,14 @@ impl Game {
         for_player: usize,
         arborist: &mut Arborist,
         caches: &mut Caches,
+        weights: &BoardWeights,
     ) -> (BoardScore, Option<(Coordinate, char)>) {
         game.instrument_unknown_game_state(for_player, total_depth, depth);
         let pruning = arborist.prune();
 
         if depth == 0 || game.winner.is_some() {
             return (
-                game.static_eval(self_dictionary, for_player, depth, caches),
+                game.static_eval(self_dictionary, for_player, depth, caches, weights),
                 None,
             );
         }
@@ -213,6 +218,7 @@ impl Game {
                     for_player,
                     arborist,
                     caches,
+                    weights,
                 )
                 .0;
 
@@ -411,6 +417,7 @@ impl Game {
         for_player: usize,
         depth: usize,
         caches: &mut Caches,
+        weights: &BoardWeights,
     ) -> BoardScore {
         let word_quality = if let Some(external_dictionary) = external_dictionary {
             self.eval_word_quality(external_dictionary, for_player)
@@ -434,6 +441,7 @@ impl Game {
             };
 
         BoardScore::default()
+            .weights(*weights)
             .turn_number(depth)
             .word_quality(word_quality)
             .raced_defense(self.eval_min_raced_distance_to_towns(
@@ -695,6 +703,7 @@ mod tests {
             depth,
             Some(&mut exhaustive_arbor),
             false,
+            &BoardWeights::default(),
         );
 
         let mut pruned_arbor = Arborist::pruning();
@@ -705,6 +714,7 @@ mod tests {
             depth,
             Some(&mut pruned_arbor),
             false,
+            &BoardWeights::default(),
         );
 
         assert_eq!(
@@ -759,7 +769,13 @@ mod tests {
             "###,
             "A",
         );
-        let score_a = game_a.static_eval(Some(&dict), 1, 1, &mut Caches::new());
+        let score_a = game_a.static_eval(
+            Some(&dict),
+            1,
+            1,
+            &mut Caches::new(),
+            &BoardWeights::default(),
+        );
         let game_b = test_game(
             r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
@@ -773,7 +789,13 @@ mod tests {
             "###,
             "A",
         );
-        let score_b = game_b.static_eval(Some(&dict), 1, 1, &mut Caches::new());
+        let score_b = game_b.static_eval(
+            Some(&dict),
+            1,
+            1,
+            &mut Caches::new(),
+            &BoardWeights::default(),
+        );
 
         insta::with_settings!({
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),

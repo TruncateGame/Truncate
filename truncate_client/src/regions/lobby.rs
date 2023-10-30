@@ -93,13 +93,13 @@ impl Lobby {
                     ui.horizontal(|ui| {
                         ui.label(RichText::new("Room Code:").color(Color32::WHITE));
                         let text = TextHelper::heavy(&self.room_code, 14.0, None, ui);
-                        text.paint(Color32::WHITE, ui);
+                        text.paint(Color32::WHITE, ui, false);
                     });
 
                     if self.players.len() == 1 {
                         if self.copied_code {
                             let text = TextHelper::heavy("Copied link", 10.0, None, ui);
-                            text.paint(Color32::WHITE, ui);
+                            text.paint(Color32::WHITE, ui, false);
                         }
 
                         let text = TextHelper::heavy("COPY GAME LINK", 14.0, None, ui);

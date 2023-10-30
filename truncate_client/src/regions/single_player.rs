@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use eframe::egui;
-use epaint::TextureHandle;
+use eframe::egui::{self, DragValue, Frame, Grid, Layout, RichText, ScrollArea, Sense, Window};
+use epaint::{emath::Align, hex_color, vec2, Color32, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     board::Board,
@@ -9,10 +9,14 @@ use truncate_core::{
     judge::{WordData, WordDict},
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
-    reporting::WordMeaning,
+    npc::scoring::BoardWeights,
+    reporting::{Change, HandChange, WordMeaning},
 };
 
-use crate::utils::Theme;
+use crate::{
+    lil_bits::HandUI,
+    utils::{text::TextHelper, Lighten, Theme},
+};
 
 use super::active_game::ActiveGame;
 
@@ -30,6 +34,8 @@ pub struct SinglePlayerState {
     map_texture: TextureHandle,
     theme: Theme,
     turns: usize,
+    debugging_npc: bool,
+    weights: BoardWeights,
 }
 
 impl SinglePlayerState {
@@ -125,6 +131,8 @@ impl SinglePlayerState {
             map_texture,
             theme,
             turns: 0,
+            debugging_npc: false,
+            weights: BoardWeights::default(),
         }
     }
 
@@ -187,10 +195,158 @@ impl SinglePlayerState {
     ) -> Option<PlayerMessage> {
         let mut msg_to_server = None;
 
+        if self.debugging_npc {
+            ui.painter().rect_filled(
+                ui.available_rect_before_wrap(),
+                0.0,
+                hex_color!("#00000055"),
+            );
+        }
+
+        if matches!(option_env!("TR_ENV"), Some("outpost")) {
+            let (top_banner, _) =
+                ui.allocate_at_least(vec2(ui.available_width(), 40.0), Sense::hover());
+            let mut banner_ui = ui.child_ui(top_banner, Layout::left_to_right(Align::Center));
+
+            let text = if self.debugging_npc {
+                TextHelper::heavy("CLOSE NPC DEBUGGER", 12.0, None, ui)
+            } else {
+                TextHelper::heavy("NPC DEBUGGER", 12.0, None, ui)
+            };
+            if text
+                .centered_button(
+                    theme.selection.lighten().lighten(),
+                    theme.text,
+                    &self.map_texture,
+                    &mut banner_ui,
+                )
+                .clicked()
+            {
+                self.debugging_npc = !self.debugging_npc;
+            }
+        }
+
+        if self.debugging_npc {
+            Frame::none().inner_margin(8.0).show(ui, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    TextHelper::heavy("NPC's current hand", 14.0, None, ui).paint(
+                        Color32::WHITE,
+                        ui,
+                        true,
+                    );
+                    TextHelper::heavy("(new tiles highlighted)", 8.0, None, ui).paint(
+                        Color32::WHITE,
+                        ui,
+                        true,
+                    );
+
+                    let added_tiles = self
+                        .game
+                        .recent_changes
+                        .iter()
+                        .filter_map(|change| match change {
+                            Change::Hand(HandChange { player, added, .. }) if *player == 1 => {
+                                Some(added)
+                            }
+                            _ => None,
+                        })
+                        .next();
+
+                    self.active_game.ctx.highlight_tiles = added_tiles.cloned();
+                    HandUI::new(&mut self.game.players[1].hand)
+                        .interactive(false)
+                        .render(&mut self.active_game.ctx, ui);
+                    self.active_game.ctx.highlight_tiles = None;
+
+                    ui.add_space(28.0);
+
+                    TextHelper::heavy("Play with weights", 14.0, None, ui).paint(
+                        Color32::WHITE,
+                        ui,
+                        true,
+                    );
+                    ui.add_space(12.0);
+
+                    let BoardWeights {
+                        raced_defense,
+                        raced_attack,
+                        self_defense,
+                        self_attack,
+                        direct_defence,
+                        direct_attack,
+                        word_validity,
+                        word_length,
+                        word_extensibility,
+                    } = &mut self.weights;
+
+                    fn dragger(v: &mut f32) -> DragValue {
+                        DragValue::new(v).clamp_range(0.0..=100.0).speed(0.1)
+                    }
+
+                    let prev_text_styles = ui.style().text_styles.clone();
+                    use egui::{FontFamily, FontId, TextStyle::*};
+                    ui.style_mut().text_styles = [
+                        (Heading, FontId::new(32.0, FontFamily::Proportional)),
+                        (Body, FontId::new(24.0, FontFamily::Proportional)),
+                        (Monospace, FontId::new(24.0, FontFamily::Monospace)),
+                        (Button, FontId::new(24.0, FontFamily::Proportional)),
+                        (Small, FontId::new(16.0, FontFamily::Proportional)),
+                    ]
+                    .into();
+
+                    egui::Grid::new("weightings")
+                        .spacing(Vec2::splat(8.0))
+                        .show(ui, |ui| {
+                            ui.label(RichText::new("Raced defense").color(Color32::WHITE));
+                            ui.add(dragger(raced_defense));
+                            ui.end_row();
+
+                            ui.label(RichText::new("Raced attack").color(Color32::WHITE));
+                            ui.add(dragger(raced_attack));
+                            ui.end_row();
+
+                            ui.label(RichText::new("Self defense").color(Color32::WHITE));
+                            ui.add(dragger(self_defense));
+                            ui.end_row();
+
+                            ui.label(RichText::new("Self attack").color(Color32::WHITE));
+                            ui.add(dragger(self_attack));
+                            ui.end_row();
+
+                            ui.label(RichText::new("Direct defense").color(Color32::WHITE));
+                            ui.add(dragger(direct_defence));
+                            ui.end_row();
+
+                            ui.label(RichText::new("Direct attack").color(Color32::WHITE));
+                            ui.add(dragger(direct_attack));
+                            ui.end_row();
+
+                            ui.label(RichText::new("Word validity").color(Color32::WHITE));
+                            ui.add(dragger(word_validity));
+                            ui.end_row();
+
+                            ui.label(RichText::new("Word length").color(Color32::WHITE));
+                            ui.add(dragger(word_length));
+                            ui.end_row();
+
+                            ui.label(RichText::new("Word extensibility").color(Color32::WHITE));
+                            ui.add(dragger(word_extensibility));
+                            ui.end_row();
+                        });
+
+                    ui.style_mut().text_styles = prev_text_styles;
+                });
+            });
+            return None;
+        }
+
+        let (mut rect, _) = ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
+        let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
+
         // Standard game helper
         let mut next_msg = self
             .active_game
-            .render(ui, theme, self.winner, current_time)
+            .render(&mut ui, theme, self.winner, current_time)
             .map(|msg| (0, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
@@ -220,7 +376,6 @@ impl SinglePlayerState {
                     let search_depth = 12;
                     println!("Looking forward {search_depth} turns");
 
-                    // let start = time::Instant::now();
                     let mut arb = truncate_core::npc::Arborist::pruning();
                     arb.capped(15000);
                     next_msg = Some((
@@ -232,13 +387,9 @@ impl SinglePlayerState {
                             search_depth,
                             Some(&mut arb),
                             true,
+                            &self.weights,
                         ),
                     ));
-                    // println!(
-                    //     "Looked at {} leaves in {}ms",
-                    //     arb.assessed(),
-                    //     start.elapsed().whole_milliseconds()
-                    // );
                 }
             }
         }

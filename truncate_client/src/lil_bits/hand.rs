@@ -11,15 +11,25 @@ use super::{tile::TilePlayer, HandSquareUI, TileUI};
 pub struct HandUI<'a> {
     hand: &'a mut Hand,
     active: bool,
+    interactive: bool,
 }
 
 impl<'a> HandUI<'a> {
     pub fn new(hand: &'a mut Hand) -> Self {
-        Self { hand, active: true }
+        Self {
+            hand,
+            active: true,
+            interactive: true,
+        }
     }
 
     pub fn active(mut self, active: bool) -> Self {
         self.active = active;
+        self
+    }
+
+    pub fn interactive(mut self, interactive: bool) -> Self {
+        self.interactive = interactive;
         self
     }
 }
@@ -73,6 +83,10 @@ impl<'a> HandUI<'a> {
                             .selected(Some(i) == ctx.selected_tile_in_hand)
                             .highlighted(highlight)
                             .render(None, ui, ctx, true, None);
+
+                        if !self.interactive {
+                            return;
+                        }
 
                         if tile_response.drag_started() {
                             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
