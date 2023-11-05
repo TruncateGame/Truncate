@@ -1,32 +1,34 @@
 // TODO: Maximum consecutive swaps / stalemate rule
 
-#[derive(Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TownDefense {
     BeatenByContact,
     BeatenByValidity,
     BeatenWithDefenseStrength(usize),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WinCondition {
     Destination { town_defense: TownDefense }, // TODO: Implement
     Elimination,                               // TODO: Implement
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Visibility {
     Standard,
     FogOfWar,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Truncation {
     Root,
     Larger, // TODO: Implement
     None,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OvertimeRule {
     FreeWildcard { period: usize },                   // TODO: Implement
     Bomb { period: usize },                           // TODO: Implement
@@ -34,7 +36,7 @@ pub enum OvertimeRule {
     Elimination,                                      // TODO: Implement
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Timing {
     PerPlayer {
         time_allowance: usize,
@@ -51,30 +53,30 @@ pub enum Timing {
     None, // TODO: Implement
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TileDistribution {
     Standard,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TileBagBehaviour {
     Standard, // TODO: Implement
     Infinite, // TODO: Implement
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BattleRules {
     pub length_delta: isize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Swapping {
     Contiguous(SwapPenalty),
     Universal(SwapPenalty),
     None,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SwapPenalty {
     Time {
         swap_threshold: usize,
@@ -85,7 +87,7 @@ pub enum SwapPenalty {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameRules {
     pub win_condition: WinCondition,
     pub visibility: Visibility,

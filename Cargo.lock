@@ -3718,6 +3718,7 @@ dependencies = [
  "hashbrown 0.13.2",
  "image",
  "instant",
+ "js-sys",
  "serde",
  "serde_json",
  "serde_yaml",

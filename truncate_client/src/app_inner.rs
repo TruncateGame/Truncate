@@ -42,6 +42,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         map_texture,
         launched_room,
         error,
+        backchannel,
     } = client;
 
     let mut send = |msg| {
@@ -211,7 +212,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         }
         GameStatus::SinglePlayer(sp) => {
             // Single player _can_ talk to the server, e.g. to ask for word definitions
-            if let Some(msg) = sp.render(ui, theme, current_time) {
+            if let Some(msg) = sp.render(ui, theme, current_time, &backchannel) {
                 send(msg);
             };
         }

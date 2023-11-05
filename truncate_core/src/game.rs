@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use serde::{Deserialize, Serialize};
 use time::Duration;
 
 use crate::bag::TileBag;

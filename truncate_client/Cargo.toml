@@ -35,6 +35,7 @@ tungstenite = { version = "0.18", default-features = false }
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features = ["HtmlAudioElement"] }
+js-sys = "0.3"
 ws_stream_wasm = "0.7"
 console_error_panic_hook = "0.1.6"
 tracing-wasm = "0.2"

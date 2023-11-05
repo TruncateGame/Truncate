@@ -872,13 +872,42 @@
             }
 
             (async function () {
+                const truncate_worker = new Worker('static/worker.js');
+
+                const wasm_bytes = await (await fetch("/static/truncate_client_bg.wasm?commit={{ env.commit }}")).arrayBuffer();
+
                 while (typeof wasm_bindgen === "undefined") {
                     await new Promise(r => setTimeout(r, 100));
                 }
 
-                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.commit }}")
+                wasm_bindgen(wasm_bytes)
                     .then(on_wasm_loaded)
                     .catch(on_wasm_error);
+
+                const pending_msgs = [];
+
+                truncate_worker.onmessage = function (e) {
+                    if (e.data.action === 'result' && e.data.result) {
+                        pending_msgs[e.data.id].result = e.data.result;
+                    }
+                }
+
+                function backchannel_conduit(msg) {
+                    parsed_msg = JSON.parse(msg);
+                    // check if parsed_msg.type is for JS to consume, otherwise forward on
+                    if (parsed_msg.type === "QueryFor") {
+                        const id = parseInt(parsed_msg.content.id);
+                        if (pending_msgs[id].result !== null) {
+                            return pending_msgs[id].result;
+                        }
+                        return null;
+                    }
+
+                    const msg_id = pending_msgs.length.toString();
+                    pending_msgs.push({ result: null });
+                    truncate_worker.postMessage({ action: 'backchannel', msg, id: msg_id });
+                    return msg_id;
+                }
 
                 function on_wasm_loaded() {
                     console.debug("Loaded Truncate webassembly");
@@ -894,10 +923,17 @@
                     }
 
                     truncate_runner.make_ready((room_code) => {
-                        window.__truncate_handle = wasm_bindgen.start("truncate_canvas", server, room_code ?? "");
+                        window.__truncate_handle = wasm_bindgen.start("truncate_canvas", server, room_code ?? "", backchannel_conduit);
                     });
 
                     console.debug("Truncate game initialized");
+
+                    // Initialize the backend that we use for single player algorithms
+                    truncate_worker.postMessage({
+                        action: 'loadWasm',
+                        backend: 'truncate_client.js?commit={{ env.commit }}',
+                        wasm_bytes
+                    }, [wasm_bytes]);
                 }
 
                 function on_wasm_error(error) {

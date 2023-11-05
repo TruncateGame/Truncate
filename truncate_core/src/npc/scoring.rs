@@ -1,11 +1,13 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
 
+use serde::{Deserialize, Serialize};
+
 use crate::board::Board;
 
 use super::WordQualityScores;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BoardWeights {
     pub raced_defense: f32,
     pub raced_attack: f32,

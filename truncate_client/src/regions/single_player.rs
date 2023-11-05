@@ -14,21 +14,21 @@ use truncate_core::{
 };
 
 use crate::{
+    app_outer::Backchannel,
     lil_bits::HandUI,
-    utils::{text::TextHelper, Lighten, Theme},
+    utils::{
+        game_evals::{best_move, get_main_dict, remember, WORDNIK},
+        text::TextHelper,
+        Lighten, Theme,
+    },
 };
 
 use super::active_game::ActiveGame;
-
-pub static WORDNIK: &str = include_str!("../../../word_freqs/final_wordlist.txt");
 
 pub struct SinglePlayerState {
     game: Game,
     original_board: Board,
     pub active_game: ActiveGame,
-    dict: WordDict,
-    npc_known_dict: WordDict,
-    player_known_dict: WordDict,
     next_response_at: Option<Duration>,
     winner: Option<usize>,
     map_texture: TextureHandle,
@@ -38,6 +38,7 @@ pub struct SinglePlayerState {
     weights: BoardWeights,
     last_target_score: Option<BoardScore>,
     last_target_game: Option<ActiveGame>,
+    waiting_on_backchannel: Option<String>,
 }
 
 impl SinglePlayerState {
@@ -62,72 +63,10 @@ impl SinglePlayerState {
             theme.clone(),
         );
 
-        let mut valid_words = HashMap::new();
-        let mut npc_known_words = HashMap::new();
-        let mut player_known_words = HashMap::new();
-        let lines = WORDNIK.lines();
-
-        for line in lines {
-            let mut chunks = line.split(' ');
-
-            let mut word = chunks.next().unwrap().to_string();
-            let extensions = chunks.next().unwrap().parse().unwrap();
-            let rel_freq = chunks.next().unwrap().parse().unwrap();
-
-            let objectionable = word.chars().next() == Some('*');
-            if objectionable {
-                word.remove(0);
-            }
-
-            valid_words.insert(
-                word.clone(),
-                WordData {
-                    extensions,
-                    rel_freq,
-                    objectionable,
-                },
-            );
-
-            // These are the words the NPC has recall of,
-            // and will play during their turn.
-            if rel_freq > 0.95 && !objectionable {
-                npc_known_words.insert(
-                    word.clone(),
-                    WordData {
-                        extensions,
-                        rel_freq,
-                        objectionable,
-                    },
-                );
-            }
-
-            // These are the words the NPC will think it recognizes,
-            // and won't challenge if they're on the board.
-            if rel_freq > 0.90 {
-                player_known_words.insert(
-                    word,
-                    WordData {
-                        extensions,
-                        rel_freq,
-                        objectionable,
-                    },
-                );
-            }
-        }
-
-        println!("NPC playing with {} known words", npc_known_words.len());
-        println!(
-            "NPC thinks it knows {} words that the player plays",
-            player_known_words.len()
-        );
-
         Self {
             game,
             active_game,
             original_board: board,
-            dict: valid_words,
-            npc_known_dict: npc_known_words,
-            player_known_dict: player_known_words,
             next_response_at: None,
             winner: None,
             map_texture,
@@ -137,6 +76,7 @@ impl SinglePlayerState {
             weights: BoardWeights::default(),
             last_target_score: None,
             last_target_game: None,
+            waiting_on_backchannel: None,
         }
     }
 
@@ -196,6 +136,7 @@ impl SinglePlayerState {
         ui: &mut egui::Ui,
         theme: &Theme,
         current_time: Duration,
+        backchannel: &Backchannel,
     ) -> Option<PlayerMessage> {
         let mut msg_to_server = None;
 
@@ -349,43 +290,6 @@ impl SinglePlayerState {
                         );
                     });
 
-                    ui.add_space(28.0);
-
-                    if let Some(last_target_score) = &self.last_target_score {
-                        if let Some(eval_game) = &mut self.last_target_game {
-                            TextHelper::heavy("NPC wanted the board", 14.0, None, ui).paint(
-                                Color32::WHITE,
-                                ui,
-                                true,
-                            );
-                            ui.add_space(12.0);
-
-                            let (game_rect, _) = ui.allocate_exact_size(
-                                vec2(ui.available_width(), 400.0),
-                                Sense::hover(),
-                            );
-                            let mut game_ui =
-                                ui.child_ui(game_rect, Layout::left_to_right(Align::TOP));
-
-                            eval_game.render(&mut game_ui, theme, None, current_time);
-                        }
-                        ui.add_space(12.0);
-
-                        TextHelper::heavy("Scored as", 14.0, None, ui).paint(
-                            Color32::WHITE,
-                            ui,
-                            true,
-                        );
-                        ui.add_space(12.0);
-
-                        ui.label(
-                            RichText::new(format!("{:#?}", last_target_score))
-                                .color(Color32::WHITE),
-                        );
-
-                        ui.add_space(28.0);
-                    }
-
                     ui.style_mut().text_styles = prev_text_styles;
                 });
             });
@@ -424,54 +328,40 @@ impl SinglePlayerState {
                 .unwrap()
                 .turn_starts_at
             {
-                if turn_starts_at <= current_time.as_secs() {
-                    let search_depth = 12;
-                    println!("Looking forward {search_depth} turns");
-
-                    let mut arb = truncate_core::npc::Arborist::pruning();
-                    arb.capped(15000);
-                    let (best_move, score) = Game::best_move(
-                        &self.game,
-                        Some(&self.npc_known_dict),
-                        Some(&self.player_known_dict),
-                        search_depth,
-                        Some(&mut arb),
-                        true,
-                        &self.weights,
-                    );
-                    next_msg = Some((1, best_move));
-                    if let Some(eval_board) = &score.board {
-                        let mut game = self.game.clone();
-                        let mut eval_board = eval_board.clone();
-                        for row in &mut eval_board.squares {
-                            for sq in row {
-                                match sq {
-                                    Square::Occupied(p, t) => match t {
-                                        '1' | '2' | '3' | '4' => *sq = Square::Occupied(*p, '%'),
-                                        _ => {}
-                                    },
-                                    _ => {}
-                                }
+                if backchannel.is_open() {
+                    if let Some(pending_msg) = &self.waiting_on_backchannel {
+                        // Do nothing if a message is pending but our turn hasn't yet started,
+                        // we'll fetch the turn once we're allowed to play.
+                        if turn_starts_at <= current_time.as_secs() {
+                            let msg_response =
+                                backchannel.send_msg(crate::app_outer::BackchannelMsg::QueryFor {
+                                    id: pending_msg.clone(),
+                                });
+                            if let Some(msg_response) = msg_response {
+                                let player_msg: PlayerMessage = serde_json::from_str(&msg_response)
+                                    .expect("Backchannel should be sending valid JSON");
+                                next_msg = Some((1, player_msg));
+                                self.waiting_on_backchannel = None;
                             }
                         }
-                        game.board = eval_board;
-                        let mut active_game = ActiveGame::new(
-                            "TARGET".into(),
-                            game.players.iter().map(Into::into).collect(),
-                            0,
-                            0,
-                            game.board.clone(),
-                            game.players[0].hand.clone(),
-                            self.map_texture.clone(),
-                            theme.clone(),
-                        );
-                        active_game.ctx.timers_visible = false;
-                        active_game.ctx.hand_visible = false;
-                        active_game.ctx.sidebar_visible = false;
-                        active_game.ctx.interactive = false;
-                        self.last_target_game = Some(active_game);
+                    } else {
+                        let pending_msg =
+                            backchannel.send_msg(crate::app_outer::BackchannelMsg::EvalGame {
+                                board: self.game.board.clone(),
+                                rules: self.game.rules.clone(),
+                                players: self.game.players.clone(),
+                                next_player: self.game.next_player,
+                                weights: self.weights,
+                            });
+                        self.waiting_on_backchannel = pending_msg;
                     }
-                    self.last_target_score = Some(score);
+                } else {
+                    // If we have no backchannel available to evaluate moves through,
+                    // just evaluate the move on this thread and live with blocking.
+                    if turn_starts_at <= current_time.as_secs() {
+                        let best = best_move(&self.game, &self.weights);
+                        next_msg = Some((1, best));
+                    }
                 }
             }
         }
@@ -491,13 +381,12 @@ impl SinglePlayerState {
 
         if let Some(next_move) = next_move {
             self.turns += 1;
+            let dict_lock = get_main_dict();
+            let dict = dict_lock.as_ref().unwrap();
 
             // When actually playing the turn, make sure we pass in the real dict
             // for both the attack and defense roles.
-            match self
-                .game
-                .play_turn(next_move, Some(&self.dict), Some(&self.dict))
-            {
+            match self.game.play_turn(next_move, Some(dict), Some(dict)) {
                 Ok(winner) => {
                     self.winner = winner;
 
@@ -534,31 +423,18 @@ impl SinglePlayerState {
                         truncate_core::reporting::Change::Battle(battle) => Some(battle),
                         _ => None,
                     }) {
-                        for word in &battle.attackers {
+                        for word in battle.attackers.iter().chain(battle.defenders.iter()) {
                             if word.valid == Some(true) {
                                 let dict_word = word.original_word.to_lowercase();
-                                if let Some(word_data) = self.dict.get(&dict_word).cloned() {
-                                    self.player_known_dict
-                                        .insert(dict_word.clone(), word_data.clone());
 
-                                    // We don't want the NPC to learn bad words from the player
-                                    if !word_data.objectionable {
-                                        self.npc_known_dict.insert(dict_word, word_data);
-                                    }
-                                }
-                            }
-                        }
-                        for word in &battle.defenders {
-                            if word.valid == Some(true) {
-                                let dict_word = word.original_word.to_lowercase();
-                                if let Some(word_data) = self.dict.get(&dict_word).cloned() {
-                                    self.player_known_dict
-                                        .insert(dict_word.clone(), word_data.clone());
-
-                                    // We don't want the NPC to learn bad words from the player
-                                    if !word_data.objectionable {
-                                        self.npc_known_dict.insert(dict_word, word_data);
-                                    }
+                                if backchannel.is_open() {
+                                    backchannel.send_msg(
+                                        crate::app_outer::BackchannelMsg::Remember {
+                                            word: dict_word,
+                                        },
+                                    );
+                                } else {
+                                    remember(&dict_word);
                                 }
                             }
                         }
