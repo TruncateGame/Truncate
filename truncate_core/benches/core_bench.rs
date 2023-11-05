@@ -142,6 +142,34 @@ pub fn npc_benches(c: &mut Criterion) {
         })
     });
 
+    let open_game = test_game(
+        r###"
+        ~~ ~~ |0 ~~ ~~
+        #0 #0 __ #0 #0
+        __ __ __ __ __
+        __ __ __ __ __
+        __ __ __ __ __
+        __ __ __ __ __
+        #1 #1 __ #1 #1
+        ~~ ~~ |1 ~~ ~~
+        "###,
+        "SPACERX",
+    );
+
+    c.bench_function("open_board_moves", |b| {
+        b.iter(|| {
+            Game::best_move(
+                &open_game,
+                Some(&dict),
+                Some(&dict),
+                10,
+                None,
+                false,
+                &BoardWeights::default(),
+            )
+        })
+    });
+
     let small_hand_game = test_game(
         r###"
         ~~ ~~ |0 ~~ ~~
