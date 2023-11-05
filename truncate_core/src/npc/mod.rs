@@ -62,6 +62,7 @@ impl Arborist {
 pub struct Caches {
     cached_floods: HashMap<Vec<u64>, (BoardDistances, BoardDistances), xxh3::Xxh3Builder>,
     cached_scores: HashMap<(Coordinate, char, usize), usize, xxh3::Xxh3Builder>,
+    cached_words: HashMap<String, bool, xxh3::Xxh3Builder>,
 }
 
 impl Caches {
@@ -69,6 +70,7 @@ impl Caches {
         Self {
             cached_floods: HashMap::with_hasher(xxh3::Xxh3Builder::new()),
             cached_scores: HashMap::with_hasher(xxh3::Xxh3Builder::new()),
+            cached_words: HashMap::with_hasher(xxh3::Xxh3Builder::new()),
         }
     }
 }
@@ -204,6 +206,7 @@ impl Game {
                         },
                         attacker_dict,
                         defender_dict,
+                        Some(&mut caches.cached_words),
                     )
                     .expect("Should be exploring valid turns");
                 let score = Game::minimax(
@@ -405,7 +408,7 @@ impl Game {
         weights: &BoardWeights,
     ) -> BoardScore {
         let word_quality = if let Some(external_dictionary) = external_dictionary {
-            self.eval_word_quality(external_dictionary, for_player)
+            self.eval_word_quality(external_dictionary, for_player, caches)
         } else {
             WordQualityScores::default()
         };
@@ -537,6 +540,7 @@ impl Game {
         &self,
         external_dictionary: &WordDict,
         player: usize,
+        caches: &mut Caches,
     ) -> WordQualityScores {
         let mut assessed_tiles: HashSet<Coordinate> = HashSet::new();
         let mut num_words = 0;
@@ -565,6 +569,7 @@ impl Game {
                             &crate::rules::WinCondition::Elimination,
                             Some(external_dictionary),
                             None,
+                            &mut Some(&mut caches.cached_words),
                         );
                         if let Some(resolved_word) = resolved {
                             if let Some(word_data) =
@@ -648,7 +653,7 @@ mod tests {
         }) else {
             panic!("Unhandle-able message");
         };
-        game.play_turn(next_move, Some(dict), Some(dict))
+        game.play_turn(next_move, Some(dict), Some(dict), None)
             .expect("Move was valid");
     }
 

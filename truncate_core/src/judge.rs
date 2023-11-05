@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use xxhash_rust::xxh3;
 
 use crate::{
     error::GamePlayError,
@@ -117,6 +118,7 @@ impl Judge {
         win_rules: &rules::WinCondition,
         attacker_dictionary: Option<&WordDict>,
         defender_dictionary: Option<&WordDict>,
+        mut cached_word_judgements: Option<&mut HashMap<String, bool, xxh3::Xxh3Builder>>,
     ) -> Option<BattleReport> {
         // If there are no attackers or no defenders there is no battle
         if attackers.is_empty() || defenders.is_empty() {
@@ -128,7 +130,13 @@ impl Judge {
             attackers: attackers
                 .iter()
                 .map(|w| {
-                    let valid = self.valid(w, win_rules, attacker_dictionary, None);
+                    let valid = self.valid(
+                        w,
+                        win_rules,
+                        attacker_dictionary,
+                        None,
+                        &mut cached_word_judgements,
+                    );
                     BattleWord {
                         original_word: w.to_string(),
                         valid: Some(valid.is_some()),
@@ -165,6 +173,7 @@ impl Judge {
                 win_rules,
                 defender_dictionary,
                 None,
+                &mut cached_word_judgements,
             );
             if let Some(valid) = valid {
                 defense.resolved_word = valid;
@@ -272,6 +281,7 @@ impl Judge {
         win_rules: &rules::WinCondition,
         external_dictionary: Option<&WordDict>,
         used_aliases: Option<HashMap<char, Vec<usize>>>,
+        cached_word_judgements: &mut Option<&mut HashMap<String, bool, xxh3::Xxh3Builder>>,
     ) -> Option<String> {
         // If the word is entirely wildcards, skip the lookup and just say it is valid.
         if word.as_ref().len() > 1 && word.as_ref().chars().all(|c| c == '*') {
@@ -298,10 +308,18 @@ impl Judge {
             };
         }
 
+        if let Some(cached_word_judgements) = cached_word_judgements {
+            match cached_word_judgements.get(word.as_ref()) {
+                Some(true) => return Some(word.as_ref().to_string()),
+                Some(false) => return None,
+                None => { /* No cached result, need to compute */ }
+            }
+        }
+
         // Handle the first matching alias we find (others will be handled in the next recursion)
         for (alias, resolved) in &self.aliases {
             if word.as_ref().contains(*alias) {
-                return resolved.iter().enumerate().find_map(|(i, c)| {
+                let valid = resolved.iter().enumerate().find_map(|(i, c)| {
                     let mut used = used_aliases.clone().unwrap_or_default();
                     if used.get(c).map(|tiles| tiles.contains(&i)) == Some(true) {
                         return None;
@@ -318,22 +336,32 @@ impl Judge {
                         win_rules,
                         external_dictionary,
                         Some(used),
+                        cached_word_judgements,
                     )
                 });
+                if let Some(cached_word_judgements) = cached_word_judgements.as_mut() {
+                    cached_word_judgements.insert(word.as_ref().to_string(), valid.is_some());
+                }
+                return valid;
             }
         }
 
         if word.as_ref().contains('*') {
             // Try all letters in the first wildcard spot
             // TODO: find a fun way to optimize this to not be 26^wildcard_count (regex?)
-            return (97..=122_u8).find_map(|c| {
+            let valid = (97..=122_u8).find_map(|c| {
                 self.valid(
                     word.as_ref().replacen('*', &(c as char).to_string(), 1),
                     win_rules,
                     external_dictionary,
                     used_aliases.clone(),
+                    cached_word_judgements,
                 )
             });
+            if let Some(cached_word_judgements) = cached_word_judgements.as_mut() {
+                cached_word_judgements.insert(word.as_ref().to_string(), valid.is_some());
+            }
+            return valid;
         }
 
         if external_dictionary
@@ -373,6 +401,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             ),
             None
@@ -383,6 +412,7 @@ mod tests {
                 vec!["WORD"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             ),
@@ -395,6 +425,7 @@ mod tests {
                 vec![],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             ),
@@ -412,6 +443,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -424,6 +456,7 @@ mod tests {
                 vec!["BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -438,6 +471,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -451,6 +485,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -463,6 +498,7 @@ mod tests {
                 vec!["BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -482,6 +518,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -494,6 +531,7 @@ mod tests {
                 vec!["XYZXYZXYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -508,6 +546,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -520,6 +559,7 @@ mod tests {
                 vec!["XYZ", "BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -539,6 +579,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -551,6 +592,7 @@ mod tests {
                 vec!["FOLK"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -570,6 +612,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -583,6 +626,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -595,6 +639,7 @@ mod tests {
                 vec!["FAT", "BIG", "JOLLY", "FOLK", "XYZXYZXYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -616,7 +661,8 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 Some(&short_dict().builtin_dictionary),
-                Some(&b_dict().builtin_dictionary)
+                Some(&b_dict().builtin_dictionary),
+                None
             )
             .unwrap()
             .outcome,
@@ -631,7 +677,8 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 Some(&b_dict().builtin_dictionary),
-                Some(&short_dict().builtin_dictionary)
+                Some(&short_dict().builtin_dictionary),
+                None
             )
             .unwrap()
             .outcome,
@@ -649,6 +696,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -661,6 +709,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -675,6 +724,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -687,6 +737,7 @@ mod tests {
                 vec!["JOLL*"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -710,6 +761,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -723,6 +775,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -735,6 +788,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -750,6 +804,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -762,6 +817,7 @@ mod tests {
                 vec!["BAG"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -786,6 +842,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -800,6 +857,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             )
             .unwrap()
@@ -813,6 +871,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             )
@@ -831,6 +890,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             ),
@@ -857,6 +917,7 @@ mod tests {
                 vec!["XYZ"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             ),
@@ -885,6 +946,7 @@ mod tests {
                 &test_battle_rules(),
                 &test_win_rules(),
                 None,
+                None,
                 None
             ),
             Some(BattleReport {
@@ -910,6 +972,7 @@ mod tests {
                 vec!["JOLL*"],
                 &test_battle_rules(),
                 &test_win_rules(),
+                None,
                 None,
                 None
             ),

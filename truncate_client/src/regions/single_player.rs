@@ -386,7 +386,7 @@ impl SinglePlayerState {
 
             // When actually playing the turn, make sure we pass in the real dict
             // for both the attack and defense roles.
-            match self.game.play_turn(next_move, Some(dict), Some(dict)) {
+            match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
                 Ok(winner) => {
                     self.winner = winner;
 

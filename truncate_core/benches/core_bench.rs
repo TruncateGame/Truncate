@@ -100,7 +100,7 @@ pub fn npc_benches(c: &mut Criterion) {
     });
 
     c.bench_function("quality_eval", |b| {
-        b.iter(|| game.eval_word_quality(&dict, 1))
+        b.iter(|| game.eval_word_quality(&dict, 1, &mut Caches::new()))
     });
 
     c.bench_function("defense_eval", |b| {
@@ -244,12 +244,28 @@ pub fn judge_benches(c: &mut Criterion) {
     };
 
     c.bench_function("judge_with_double_alias", |b| {
-        b.iter(|| judge.valid(&aliased_judge_word, &win_condition, Some(&dict), None))
+        b.iter(|| {
+            judge.valid(
+                &aliased_judge_word,
+                &win_condition,
+                Some(&dict),
+                None,
+                &mut None,
+            )
+        })
     });
 
     let wildcard_judge_word = format!("PAR*ITION");
     c.bench_function("judge_with_wildcard", |b| {
-        b.iter(|| judge.valid(&wildcard_judge_word, &win_condition, Some(&dict), None))
+        b.iter(|| {
+            judge.valid(
+                &wildcard_judge_word,
+                &win_condition,
+                Some(&dict),
+                None,
+                &mut None,
+            )
+        })
     });
 }
 

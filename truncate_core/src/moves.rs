@@ -100,7 +100,7 @@ mod tests {
             ..Game::new(3, 3)
         };
         assert_eq!(
-            game.make_move(out_of_bounds, None, None),
+            game.make_move(out_of_bounds, None, None, None),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
@@ -111,7 +111,7 @@ mod tests {
             position,
         };
         assert_eq!(
-            game.make_move(out_of_bounds, None, None),
+            game.make_move(out_of_bounds, None, None, None),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
@@ -122,7 +122,7 @@ mod tests {
             position,
         };
         assert_eq!(
-            game.make_move(dead, None, None),
+            game.make_move(dead, None, None, None),
             Err(GamePlayError::InvalidPosition { position })
         );
     }
@@ -146,6 +146,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 2, y: 1 },
             },
+            None,
             None,
             None,
         );
@@ -189,6 +190,7 @@ mod tests {
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::OccupiedPlace)
         );
@@ -203,6 +205,7 @@ mod tests {
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::NonAdjacentPlace)
         );
@@ -217,6 +220,7 @@ mod tests {
                 },
                 None,
                 None,
+                None
             )
             .map(|c| {
                 c.into_iter()
@@ -242,6 +246,7 @@ mod tests {
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::OccupiedPlace)
         );
@@ -255,6 +260,7 @@ mod tests {
                 },
                 None,
                 None,
+                None
             ),
             Ok(vec![
                 Change::Board(BoardChange {
@@ -299,6 +305,7 @@ mod tests {
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::NonAdjacentPlace)
         );
@@ -312,6 +319,7 @@ mod tests {
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::PlayerDoesNotHaveTile {
                 player: 0,
@@ -445,6 +453,7 @@ mod tests {
             },
             None,
             None,
+            None,
         )
         .unwrap();
 
@@ -487,6 +496,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
+            None,
             None,
             None,
         )
@@ -543,6 +553,7 @@ mod tests {
             },
             None,
             None,
+            None,
         )
         .unwrap();
 
@@ -595,6 +606,7 @@ mod tests {
             },
             None,
             None,
+            None,
         )
         .unwrap();
 
@@ -642,6 +654,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
+            None,
             None,
             None,
         );
@@ -700,6 +713,7 @@ mod tests {
             },
             None,
             None,
+            None,
         );
 
         assert_eq!(
@@ -754,6 +768,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
+            None,
             None,
             None,
         );
@@ -812,6 +827,7 @@ mod tests {
             },
             None,
             None,
+            None,
         );
 
         assert_eq!(
@@ -868,6 +884,7 @@ mod tests {
             },
             None,
             None,
+            None,
         );
 
         assert_eq!(
@@ -921,6 +938,7 @@ mod tests {
             },
             None,
             None,
+            None,
         )
         .unwrap();
 
@@ -966,6 +984,7 @@ mod tests {
                 position: Coordinate { x: 1, y: 3 },
             },
             Some(&b_dict().builtin_dictionary),
+            None,
             None,
         )
         .unwrap();
@@ -1015,6 +1034,7 @@ mod tests {
             },
             None,
             Some(&b_dict().builtin_dictionary),
+            None,
         )
         .unwrap();
 
