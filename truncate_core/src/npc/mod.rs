@@ -467,7 +467,6 @@ impl Game {
             )
             .self_win(self.winner == Some(for_player))
             .opponent_win(self.winner == Some(for_opponent))
-            .board(self.board.clone())
     }
 
     pub fn eval_min_distance_to_towns(
