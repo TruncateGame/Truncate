@@ -283,29 +283,89 @@ impl Judge {
         used_aliases: Option<HashMap<char, Vec<usize>>>,
         cached_word_judgements: &mut Option<&mut HashMap<String, bool, xxh3::Xxh3Builder>>,
     ) -> Option<String> {
-        // If the word is entirely wildcards, skip the lookup and just say it is valid.
-        if word.as_ref().len() > 1 && word.as_ref().chars().all(|c| c == '*') {
-            return Some(word.as_ref().to_string());
-        }
+        /// Recursive function for resolving word validity through aliases
+        fn valid_inner<S: AsRef<str>>(
+            judge: &Judge,
+            word: S,
+            win_rules: &rules::WinCondition,
+            external_dictionary: Option<&WordDict>,
+            used_aliases: Option<HashMap<char, Vec<usize>>>,
+        ) -> Option<String> {
+            // If the word is entirely wildcards, skip the lookup and just say it is valid.
+            if word.as_ref().len() > 1 && word.as_ref().chars().all(|c| c == '*') {
+                return Some(word.as_ref().to_string());
+            }
 
-        if word.as_ref().contains('¤') {
-            return Some(word.as_ref().to_string().to_uppercase());
-        }
+            if word.as_ref().contains('¤') {
+                return Some(word.as_ref().to_string().to_uppercase());
+            }
 
-        if word.as_ref().contains('#') {
-            return match win_rules {
-                rules::WinCondition::Destination { town_defense } => match town_defense {
-                    rules::TownDefense::BeatenByContact => None,
-                    rules::TownDefense::BeatenByValidity => None,
-                    rules::TownDefense::BeatenWithDefenseStrength(town_strength) => {
-                        Some(vec!['#'; *town_strength].into_iter().collect())
+            if word.as_ref().contains('#') {
+                return match win_rules {
+                    rules::WinCondition::Destination { town_defense } => match town_defense {
+                        rules::TownDefense::BeatenByContact => None,
+                        rules::TownDefense::BeatenByValidity => None,
+                        rules::TownDefense::BeatenWithDefenseStrength(town_strength) => {
+                            Some(vec!['#'; *town_strength].into_iter().collect())
+                        }
+                    },
+                    rules::WinCondition::Elimination => {
+                        debug_assert!(false);
+                        None
                     }
-                },
-                rules::WinCondition::Elimination => {
-                    debug_assert!(false);
-                    None
+                };
+            }
+
+            // Handle the first matching alias we find (others will be handled in the next recursion)
+            for (alias, resolved) in &judge.aliases {
+                if word.as_ref().contains(*alias) {
+                    let valid = resolved.iter().enumerate().find_map(|(i, c)| {
+                        let mut used = used_aliases.clone().unwrap_or_default();
+                        if used.get(c).map(|tiles| tiles.contains(&i)) == Some(true) {
+                            return None;
+                        }
+
+                        if let Some(used_alias) = used.get_mut(c) {
+                            used_alias.push(i);
+                        } else {
+                            used.insert(*c, vec![i]);
+                        }
+
+                        valid_inner(
+                            judge,
+                            word.as_ref().replacen(*alias, &c.to_string(), 1),
+                            win_rules,
+                            external_dictionary,
+                            Some(used),
+                        )
+                    });
+                    return valid;
                 }
-            };
+            }
+
+            if word.as_ref().contains('*') {
+                // Try all letters in the first wildcard spot
+                // TODO: find a fun way to optimize this to not be 26^wildcard_count (regex?)
+                let valid = (97..=122_u8).find_map(|c| {
+                    valid_inner(
+                        judge,
+                        word.as_ref().replacen('*', &(c as char).to_string(), 1),
+                        win_rules,
+                        external_dictionary,
+                        used_aliases.clone(),
+                    )
+                });
+                return valid;
+            }
+
+            if external_dictionary
+                .unwrap_or(&judge.builtin_dictionary)
+                .contains_key(&word.as_ref().to_lowercase())
+            {
+                Some(word.as_ref().to_string().to_uppercase())
+            } else {
+                None
+            }
         }
 
         if let Some(cached_word_judgements) = cached_word_judgements {
@@ -316,62 +376,14 @@ impl Judge {
             }
         }
 
-        // Handle the first matching alias we find (others will be handled in the next recursion)
-        for (alias, resolved) in &self.aliases {
-            if word.as_ref().contains(*alias) {
-                let valid = resolved.iter().enumerate().find_map(|(i, c)| {
-                    let mut used = used_aliases.clone().unwrap_or_default();
-                    if used.get(c).map(|tiles| tiles.contains(&i)) == Some(true) {
-                        return None;
-                    }
+        let word_str = word.as_ref().to_string();
+        let valid = valid_inner(self, word, win_rules, external_dictionary, used_aliases);
 
-                    if let Some(used_alias) = used.get_mut(c) {
-                        used_alias.push(i);
-                    } else {
-                        used.insert(*c, vec![i]);
-                    }
-
-                    self.valid(
-                        word.as_ref().replacen(*alias, &c.to_string(), 1),
-                        win_rules,
-                        external_dictionary,
-                        Some(used),
-                        cached_word_judgements,
-                    )
-                });
-                if let Some(cached_word_judgements) = cached_word_judgements.as_mut() {
-                    cached_word_judgements.insert(word.as_ref().to_string(), valid.is_some());
-                }
-                return valid;
-            }
+        if let Some(cached_word_judgements) = cached_word_judgements.as_mut() {
+            cached_word_judgements.insert(word_str, valid.is_some());
         }
 
-        if word.as_ref().contains('*') {
-            // Try all letters in the first wildcard spot
-            // TODO: find a fun way to optimize this to not be 26^wildcard_count (regex?)
-            let valid = (97..=122_u8).find_map(|c| {
-                self.valid(
-                    word.as_ref().replacen('*', &(c as char).to_string(), 1),
-                    win_rules,
-                    external_dictionary,
-                    used_aliases.clone(),
-                    cached_word_judgements,
-                )
-            });
-            if let Some(cached_word_judgements) = cached_word_judgements.as_mut() {
-                cached_word_judgements.insert(word.as_ref().to_string(), valid.is_some());
-            }
-            return valid;
-        }
-
-        if external_dictionary
-            .unwrap_or(&self.builtin_dictionary)
-            .contains_key(&word.as_ref().to_lowercase())
-        {
-            Some(word.as_ref().to_string().to_uppercase())
-        } else {
-            None
-        }
+        valid
     }
 }
 
