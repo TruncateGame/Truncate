@@ -195,6 +195,7 @@ impl GameManager {
                 },
                 Some(&words_db.valid_words),
                 Some(&words_db.valid_words),
+                None,
             ) {
                 Ok(Some(winner)) => {
                     for (player_index, player) in self.players.iter().enumerate() {
@@ -253,6 +254,7 @@ impl GameManager {
                 },
                 Some(&words_db.valid_words),
                 Some(&words_db.valid_words),
+                None,
             ) {
                 Ok(Some(_)) => {
                     unreachable!("Cannot win by swapping")
