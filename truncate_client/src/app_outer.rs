@@ -6,10 +6,9 @@ type S = Sender<PlayerMessage>;
 use super::debug;
 use super::utils::Theme;
 use crate::{app_inner, utils::glyph_meaure::GlyphMeasure};
-use eframe::{
-    egui::{self, Frame, Id, Margin, TextureOptions},
-    wasm_bindgen::JsValue,
-};
+use eframe::egui::{self, Frame, Id, Margin, TextureOptions};
+#[cfg(target_arch = "wasm32")]
+use eframe::wasm_bindgen::JsValue;
 use epaint::{hex_color, vec2, TextureHandle};
 use truncate_core::{
     board::Board,

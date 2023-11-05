@@ -1,5 +1,6 @@
 use std::sync::{Mutex, MutexGuard};
 
+use instant::Duration;
 use truncate_core::{
     game::Game,
     judge::{WordData, WordDict},
@@ -90,6 +91,11 @@ pub fn best_move(game: &Game, weights: &BoardWeights) -> PlayerMessage {
     let npc_known_dict = NPC_KNOWN_DICT.lock().unwrap();
     let player_known_dict = PLAYER_KNOWN_DICT.lock().unwrap();
 
+    let start = instant::SystemTime::now()
+        .duration_since(instant::SystemTime::UNIX_EPOCH)
+        .expect("Please don't play Truncate before 1970")
+        .as_millis();
+
     let mut arb = truncate_core::npc::Arborist::pruning();
     arb.capped(15000);
     let search_depth = 12;
@@ -102,6 +108,17 @@ pub fn best_move(game: &Game, weights: &BoardWeights) -> PlayerMessage {
         Some(&mut arb),
         true,
         weights,
+    );
+
+    let end = instant::SystemTime::now()
+        .duration_since(instant::SystemTime::UNIX_EPOCH)
+        .expect("Please don't play Truncate before 1970")
+        .as_millis();
+
+    println!("Looked at {} leaves in {}ms", arb.assessed(), end - start);
+    #[cfg(target_arch = "wasm32")]
+    web_sys::console::log_1(
+        &format!("Looked at {} leaves in {}ms", arb.assessed(), end - start).into(),
     );
 
     best_move
