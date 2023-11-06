@@ -874,10 +874,12 @@ mod tests {
     #[test]
     fn defense_racing_tests() {
         {
-            let fully_defended = test_game(
+            let mostly_defended = test_game(
                 r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
             __ __ S0 O0 __ __ __
+            __ __ __ __ __ __ __
+            __ __ __ __ __ __ __
             __ __ __ __ __ __ __
             __ __ __ __ __ __ __
             __ __ A1 T1 __ H1 __
@@ -887,18 +889,19 @@ mod tests {
             "###,
                 "A",
             );
-            let opponent_dists = fully_defended.board.flood_fill_attacks(0);
-            let own_dists = fully_defended.board.flood_fill_attacks(1);
+            let opponent_dists = mostly_defended.board.flood_fill_attacks(0);
+            let own_dists = mostly_defended.board.flood_fill_attacks(1);
             assert_eq!(
-                opponent_dists.attackable_distance(&Coordinate { x: 0, y: 6 }),
-                Some(6)
+                opponent_dists.attackable_distance(&Coordinate { x: 0, y: 8 }),
+                Some(8)
             );
             assert_eq!(
-                own_dists.attackable_distance(&Coordinate { x: 0, y: 6 }),
+                own_dists.attackable_distance(&Coordinate { x: 0, y: 8 }),
                 Some(3)
             );
             let defense_score =
-                fully_defended.eval_min_raced_distance_to_towns(&opponent_dists, &own_dists, 1);
+                mostly_defended.eval_min_raced_distance_to_towns(&opponent_dists, &own_dists, 1);
+
             assert_eq!(defense_score, 1.0);
         }
 
@@ -931,7 +934,7 @@ mod tests {
                 even_race.eval_min_raced_distance_to_towns(&opponent_dists, &own_dists, 1);
 
             let expected_max = (even_race.board.width() + even_race.board.height()) as f32;
-            let expected_score = (expected_max - 2.0) / expected_max;
+            let expected_score = (expected_max - 4.0) / expected_max;
 
             assert_eq!(defense_score, expected_score);
         }
@@ -1226,7 +1229,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 6130 possible leaves
-                  - 849 after pruning
+                  - 873 after pruning
                   - Move: Place U at (4, 7)
 
                 ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
