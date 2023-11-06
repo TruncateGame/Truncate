@@ -2,8 +2,10 @@ use epaint::{
     emath::{Align, Align2},
     hex_color, vec2, Color32, Stroke, TextureHandle, Vec2,
 };
+use instant::Duration;
 use truncate_core::{
     board::Board,
+    generation::BoardParams,
     messages::{LobbyPlayerMessage, PlayerMessage, RoomCode},
 };
 
@@ -45,21 +47,28 @@ impl Lobby {
         room_code: RoomCode,
         players: Vec<LobbyPlayerMessage>,
         player_index: u64,
-        board: Board,
+        _board: Board,
         map_texture: TextureHandle,
+        current_time: Duration,
     ) -> Self {
         let player_colors: Vec<_> = players
             .iter()
             .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
             .collect();
+
+        let mut rand_board = truncate_core::generation::generate_board(
+            BoardParams::default().seed(current_time.subsec_millis()),
+        );
+        rand_board.cache_special_squares();
+
         Self {
             room_code,
-            mapped_board: MappedBoard::new(&board, map_texture.clone(), false, &player_colors),
+            mapped_board: MappedBoard::new(&rand_board, map_texture.clone(), false, &player_colors),
             players,
             player_index,
             player_colors,
             map_texture,
-            board,
+            board: rand_board,
             editing_mode: BoardEditingMode::None,
             copied_code: false,
         }

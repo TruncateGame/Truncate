@@ -3,13 +3,18 @@ use epaint::{vec2, Color32};
 use instant::Duration;
 use truncate_core::{
     board::Board,
+    game::Game,
+    generation::generate_board,
     messages::RoomCode,
     messages::{LobbyPlayerMessage, Token},
 };
 
 use crate::{
     regions::active_game::ActiveGame,
-    regions::{lobby::Lobby, single_player::SinglePlayerState, tutorial::TutorialState},
+    regions::{
+        generator::GeneratorState, lobby::Lobby, single_player::SinglePlayerState,
+        tutorial::TutorialState,
+    },
     utils::{text::TextHelper, Lighten},
 };
 
@@ -21,6 +26,7 @@ use truncate_core::{
 
 pub enum GameStatus {
     None(RoomCode, Option<Token>),
+    Generator(GeneratorState),
     Tutorial(TutorialState),
     PendingSinglePlayer(Lobby),
     SinglePlayer(SinglePlayerState),
@@ -90,6 +96,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 0,
                 Board::new(9, 9),
                 map_texture.clone(),
+                current_time,
             )));
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
@@ -140,6 +147,12 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
 
     match game_status {
         GameStatus::None(room_code, token) => {
+            if ui.button("Generator").clicked() {
+                new_game_status = Some(GameStatus::Generator(GeneratorState::new(
+                    map_texture.clone(),
+                    theme.clone(),
+                )));
+            }
             if ui.button("Tutorial").clicked() {
                 new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                     map_texture.clone(),
@@ -164,6 +177,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     0,
                     Board::new(9, 9),
                     map_texture.clone(),
+                    current_time,
                 )));
             }
             if ui.button("New Game").clicked() {
@@ -189,6 +203,9 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     new_game_status = Some(GameStatus::PendingJoin("...".into()));
                 }
             }
+        }
+        GameStatus::Generator(generator) => {
+            generator.render(ui, theme, current_time);
         }
         GameStatus::Tutorial(tutorial) => {
             tutorial.render(ui, theme, current_time);
@@ -351,6 +368,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     player_index,
                     board,
                     map_texture.clone(),
+                    current_time,
                 ))
             }
             GameMessage::LobbyUpdate(player_index, id, players, board) => {

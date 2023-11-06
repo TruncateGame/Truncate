@@ -527,43 +527,28 @@ impl Board {
         visited
     }
 
-    pub fn flood_fill_attacks(&self, attacker: usize) -> BoardDistances {
+    pub fn flood_fill(&self, starting_pos: &Coordinate) -> BoardDistances {
         let mut distances = BoardDistances::new(self);
+        let attacker = self
+            .get(*starting_pos)
+            .ok()
+            .map(|sq| match sq {
+                Square::Occupied(player, _) => Some(player),
+                Square::Dock(player) => Some(player),
+                _ => None,
+            })
+            .flatten();
 
-        let pos_is_attacker = |pos: &Coordinate| match self.get(*pos) {
-            Ok(Square::Occupied(player, _)) if player == attacker => true,
-            _ => false,
-        };
         let adjacent_to_opponent = |sqs: &Vec<(Coordinate, Square)>| {
-            sqs.iter()
-                .any(|(_, n)| matches!(n, Square::Occupied(player, _) if *player != attacker))
+            sqs.iter().any(|(_, n)| match n {
+                Square::Occupied(player, _) if Some(*player) != attacker => true,
+                Square::Town { player, .. } if Some(*player) != attacker => true,
+                _ => false,
+            })
         };
 
-        let rows = self.height();
-        let cols = self.width();
-
-        // Always evaluate tiles furthest down the board first
-        let outermost_attacker = if attacker == 0 {
-            (0..rows)
-                .rev()
-                .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
-                .map(|(x, y)| Coordinate { x, y })
-                .find(pos_is_attacker)
-        } else {
-            (0..rows)
-                .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
-                .map(|(x, y)| Coordinate { x, y })
-                .find(pos_is_attacker)
-        };
-
-        let Some(outermost_attacker) = outermost_attacker else {
-            // Attacker has no tiles, cannot reach anywhere.
-            // TODO: count from docks?
-            return distances;
-        };
-
-        distances.set_attackable(&outermost_attacker, 0);
-        let initial_neighbors = self.neighbouring_squares(outermost_attacker);
+        distances.set_attackable(starting_pos, 0);
+        let initial_neighbors = self.neighbouring_squares(*starting_pos);
         let mut attackable_pts: VecDeque<_> = initial_neighbors.iter().map(|n| (n.0, 0)).collect();
         let mut direct_pts: VecDeque<(Coordinate, usize)> = VecDeque::new();
 
@@ -586,7 +571,7 @@ impl Board {
             }
 
             match self.get(pt) {
-                Ok(Square::Occupied(player, _)) if player == attacker => {
+                Ok(Square::Occupied(player, _)) if Some(player) == attacker => {
                     let neighbors = self.neighbouring_squares(pt);
 
                     // We found another one of our tiles — search its neighbors with a new starting distance
@@ -657,6 +642,38 @@ impl Board {
         }
 
         distances
+    }
+
+    pub fn flood_fill_attacks(&self, attacker: usize) -> BoardDistances {
+        let pos_is_attacker = |pos: &Coordinate| match self.get(*pos) {
+            Ok(Square::Occupied(player, _)) if player == attacker => true,
+            _ => false,
+        };
+
+        let rows = self.height();
+        let cols = self.width();
+
+        // Always evaluate tiles furthest down the board first
+        let outermost_attacker = if attacker == 0 {
+            (0..rows)
+                .rev()
+                .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+                .map(|(x, y)| Coordinate { x, y })
+                .find(pos_is_attacker)
+        } else {
+            (0..rows)
+                .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+                .map(|(x, y)| Coordinate { x, y })
+                .find(pos_is_attacker)
+        };
+
+        let Some(outermost_attacker) = outermost_attacker else {
+            // Attacker has no tiles, cannot reach anywhere.
+            // TODO: count from docks?
+            return BoardDistances::new(self);
+        };
+
+        self.flood_fill(&outermost_attacker)
     }
 
     pub fn get_shape(&self) -> Vec<u64> {
@@ -1020,6 +1037,10 @@ impl Coordinate {
             self.add(West),
         ]
     }
+
+    pub fn distance_to(&self, other: &Coordinate) -> usize {
+        self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
+    }
 }
 
 impl fmt::Display for Coordinate {
@@ -1115,6 +1136,40 @@ impl BoardDistances {
     pub fn direct_distance(&self, coord: &Coordinate) -> Option<usize> {
         let pos = coord.to_1d(self.board_width);
         self.direct[pos]
+    }
+
+    pub fn difference(&self, other: &BoardDistances) -> Self {
+        assert_eq!(self.attackable.len(), other.attackable.len());
+
+        let diff_attackable = self
+            .attackable
+            .iter()
+            .zip(other.attackable.iter())
+            .map(|dists| {
+                let (Some(a), Some(b)) = dists else {
+                    return None;
+                };
+                Some(a.abs_diff(*b))
+            })
+            .collect();
+
+        let diff_direct = self
+            .direct
+            .iter()
+            .zip(other.direct.iter())
+            .map(|dists| {
+                let (Some(a), Some(b)) = dists else {
+                    return None;
+                };
+                Some(a.abs_diff(*b))
+            })
+            .collect();
+
+        BoardDistances {
+            board_width: self.board_width,
+            attackable: diff_attackable,
+            direct: diff_direct,
+        }
     }
 }
 
