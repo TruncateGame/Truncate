@@ -79,6 +79,7 @@ pub struct ActiveGame {
     pub new_hand_tiles: Vec<usize>,
     pub time_changes: Vec<TimeChange>,
     pub turn_reports: Vec<Vec<Change>>,
+    pub share_copied: bool,
 }
 
 impl ActiveGame {
@@ -144,6 +145,7 @@ impl ActiveGame {
             new_hand_tiles: vec![],
             time_changes: vec![],
             turn_reports: vec![],
+            share_copied: false,
         }
     }
 }
@@ -391,6 +393,26 @@ impl ActiveGame {
                             .clicked()
                         {
                             msg = Some(PlayerMessage::Rematch);
+                        }
+
+                        let msg = if self.share_copied {
+                            "COPIED TEXT!"
+                        } else {
+                            "SHARE"
+                        };
+                        let text = TextHelper::heavy(msg, 12.0, None, ui);
+                        if text
+                            .centered_button(
+                                theme.selection.lighten().lighten(),
+                                theme.text,
+                                &self.ctx.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            let text = self.board.emojify(winner);
+                            ui.ctx().output_mut(|o| o.copied_text = text);
+                            self.share_copied = true;
                         }
                     }
 

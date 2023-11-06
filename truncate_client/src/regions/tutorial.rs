@@ -146,6 +146,7 @@ impl TutorialState {
             bag: TileBag::new(&TileDistribution::Standard),
             judge: Judge::new(loaded_tutorial.dict.keys().cloned().collect()),
             battle_count: 0,
+            turn_count: 0,
             recent_changes: vec![],
             started_at: None,
             next_player: 0,

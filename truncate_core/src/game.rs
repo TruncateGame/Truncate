@@ -33,6 +33,7 @@ pub struct Game {
     pub bag: TileBag,
     pub judge: Judge,
     pub battle_count: u32,
+    pub turn_count: u32,
     pub recent_changes: Vec<Change>,
     pub started_at: Option<u64>,
     pub next_player: usize,
@@ -56,6 +57,7 @@ impl Game {
             bag: TileBag::new(&rules.tile_distribution),
             judge: Judge::default(),
             battle_count: 0,
+            turn_count: 0,
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
@@ -187,6 +189,8 @@ impl Game {
                 return Err(format!("{msg}")); // TODO: propogate error post polonius
             }
         };
+
+        self.turn_count += 1;
 
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
