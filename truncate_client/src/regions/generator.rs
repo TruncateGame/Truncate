@@ -144,6 +144,6 @@ impl GeneratorState {
         let mut game_ui = ui.child_ui(game_rect, Layout::left_to_right(Align::TOP));
 
         self.active_game
-            .render(&mut game_ui, theme, None, current_time);
+            .render(&mut game_ui, theme, None, current_time, None);
     }
 }

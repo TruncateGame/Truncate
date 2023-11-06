@@ -892,6 +892,26 @@
                     }
                 }
 
+                // Whever we get an event for the end of an interaction,
+                // we want to check if the wasm wants us to copy anything,
+                // and write that to the clipboard.
+                // Browsers like copies coming from short-lived user events,
+                // so this is a good place to trigger the action.
+                let pending_copy = null;
+                const handleInteractionEnd = (e) => {
+                    if (!pending_copy) return;
+                    return navigator?.clipboard?.writeText?.(pending_copy).then(function () {
+                        console.log(`Text copied to clipboard`);
+                    }).catch(function (error) {
+                        console.error('Could not copy text to clipboard: ', error);
+                    });
+                    pending_copy = null;
+                }
+                const truncate_canvas = document.querySelector("#truncate_canvas");
+                truncate_canvas.addEventListener('mouseup', handleInteractionEnd);
+                truncate_canvas.addEventListener('touchend', handleInteractionEnd);
+                truncate_canvas.addEventListener('touchcancel', handleInteractionEnd);
+
                 function backchannel_conduit(msg) {
                     parsed_msg = JSON.parse(msg);
                     // check if parsed_msg.type is for JS to consume, otherwise forward on
@@ -901,6 +921,8 @@
                             return pending_msgs[id].result;
                         }
                         return null;
+                    } else if (parsed_msg.type === "Copy") {
+                        pending_copy = parsed_msg.content.text;
                     }
 
                     const msg_id = pending_msgs.length.toString();

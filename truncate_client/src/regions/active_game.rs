@@ -16,6 +16,7 @@ use eframe::{
 use hashbrown::HashMap;
 
 use crate::{
+    app_outer::Backchannel,
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
     utils::{
         mapper::MappedBoard,
@@ -289,6 +290,7 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
+        backchannel: Option<&Backchannel>,
     ) -> (Option<Rect>, Option<PlayerMessage>) {
         if !self.ctx.hand_visible {
             return (None, None);
@@ -401,17 +403,29 @@ impl ActiveGame {
                             "SHARE"
                         };
                         let text = TextHelper::heavy(msg, 12.0, None, ui);
-                        if text
-                            .centered_button(
-                                theme.selection.lighten().lighten(),
-                                theme.text,
-                                &self.ctx.map_texture,
-                                ui,
-                            )
-                            .clicked()
+                        let share_button = text.centered_button(
+                            theme.selection.lighten().lighten(),
+                            theme.text,
+                            &self.ctx.map_texture,
+                            ui,
+                        );
+                        if share_button.clicked()
+                            || share_button.drag_started()
+                            || share_button.is_pointer_button_down_on()
                         {
                             let text = self.board.emojify(winner);
-                            ui.ctx().output_mut(|o| o.copied_text = text);
+
+                            if let Some(backchannel) = backchannel {
+                                if backchannel.is_open() {
+                                    backchannel
+                                        .send_msg(crate::app_outer::BackchannelMsg::Copy { text });
+                                } else {
+                                    ui.ctx().output_mut(|o| o.copied_text = text.clone());
+                                }
+                            } else {
+                                ui.ctx().output_mut(|o| o.copied_text = text.clone());
+                            }
+
                             self.share_copied = true;
                         }
                     }
@@ -577,6 +591,7 @@ impl ActiveGame {
         theme: &Theme,
         winner: Option<usize>,
         current_time: Duration,
+        backchannel: Option<&Backchannel>,
     ) -> Option<PlayerMessage> {
         self.ctx.current_time = current_time;
         let cur_tick = current_time.as_secs() * 4 + current_time.subsec_millis() as u64 / 250;
@@ -611,7 +626,7 @@ impl ActiveGame {
 
         let mut control_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (control_strip_rect, control_player_message) =
-            self.render_control_strip(&mut control_strip_ui, theme, winner);
+            self.render_control_strip(&mut control_strip_ui, theme, winner, backchannel);
 
         let mut timer_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (timer_strip_rect, timer_player_message) =

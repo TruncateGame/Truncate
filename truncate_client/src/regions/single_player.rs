@@ -309,7 +309,7 @@ impl SinglePlayerState {
         // Standard game helper
         let mut next_msg = self
             .active_game
-            .render(&mut ui, theme, self.winner, current_time)
+            .render(&mut ui, theme, self.winner, current_time, Some(backchannel))
             .map(|msg| (0, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {

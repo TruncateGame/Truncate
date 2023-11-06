@@ -163,5 +163,8 @@ pub fn backchannel(msg: String) -> String {
         BackchannelMsg::QueryFor { .. } => {
             unreachable!("Backchannel should not be passing through QueryFor")
         }
+        BackchannelMsg::Copy { .. } => {
+            unreachable!("Backchannel should not be passing through Copy")
+        }
     }
 }

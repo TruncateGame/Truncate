@@ -317,13 +317,13 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         }
         GameStatus::Active(game) => {
-            if let Some(msg) = game.render(ui, theme, None, current_time) {
+            if let Some(msg) = game.render(ui, theme, None, current_time, None) {
                 send(msg);
             }
         }
         GameStatus::Concluded(game, winner) => {
             if let Some(PlayerMessage::Rematch) =
-                game.render(ui, theme, Some(*winner as usize), current_time)
+                game.render(ui, theme, Some(*winner as usize), current_time, None)
             {
                 send(PlayerMessage::Rematch);
             }

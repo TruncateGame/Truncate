@@ -213,7 +213,7 @@ impl TutorialState {
         }
 
         // Standard game helper
-        if let Some(msg) = self.active_game.render(ui, theme, None, current_time) {
+        if let Some(msg) = self.active_game.render(ui, theme, None, current_time, None) {
             let Some(game_move) = (match msg {
                 PlayerMessage::Place(position, tile) => Some(Move::Place {
                     player: 0,

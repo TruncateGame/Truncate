@@ -38,9 +38,16 @@ pub enum BackchannelMsg {
         weights: BoardWeights,
     },
     /// Checks if any answer has been posted for a given message
-    QueryFor { id: String },
+    QueryFor {
+        id: String,
+    },
     /// Tells the outer host to add a given word to the NPC's known dictionaries
-    Remember { word: String },
+    Remember {
+        word: String,
+    },
+    Copy {
+        text: String,
+    },
 }
 
 impl Backchannel {
