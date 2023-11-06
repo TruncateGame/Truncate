@@ -418,6 +418,10 @@ impl SinglePlayerState {
                         .map(|b| b.resolved_word.clone())
                         .collect();
 
+                    // Need to release our dict mutex, so that
+                    // the remember() function below can lock it itself.
+                    drop(dict_lock);
+
                     // NPC learns words as a result of battles that reveal validity
                     for battle in changes.iter().filter_map(|change| match change {
                         truncate_core::reporting::Change::Battle(battle) => Some(battle),
