@@ -526,8 +526,8 @@ impl Game {
                     .unwrap_or(max_score);
 
                 // Fudge the numbers so that even races look bad for the defender
-                can_defend_in += 1;
-                can_attack_in = can_attack_in.saturating_sub(1);
+                can_defend_in += 2;
+                can_attack_in = can_attack_in.saturating_sub(2);
 
                 can_defend_in.saturating_sub(can_attack_in)
             })
