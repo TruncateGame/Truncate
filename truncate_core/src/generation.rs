@@ -21,8 +21,8 @@ impl Default for BoardParams {
     fn default() -> Self {
         Self {
             seed: 1234,
-            width: 14,
-            height: 16,
+            width: 16,
+            height: 18,
             water_level: 0.5,
             town_density: 0.5,
             jitter: 0.5,

@@ -6,6 +6,7 @@ use instant::Duration;
 use truncate_core::{
     board::{Board, Square},
     game::Game,
+    generation::BoardParams,
     judge::{WordData, WordDict},
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
@@ -80,11 +81,17 @@ impl SinglePlayerState {
         }
     }
 
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self, current_time: Duration) {
         let mut game = Game::new(9, 9);
         game.add_player("You".into());
         game.add_player("Computer".into());
-        game.board = self.original_board.clone();
+
+        let mut rand_board = truncate_core::generation::generate_board(
+            BoardParams::default().seed(current_time.subsec_millis()),
+        );
+        rand_board.cache_special_squares();
+
+        game.board = rand_board;
         game.start();
 
         let active_game = ActiveGame::new(
@@ -306,7 +313,7 @@ impl SinglePlayerState {
             .map(|msg| (0, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
-            self.reset();
+            self.reset(current_time);
             return msg_to_server;
         }
 
