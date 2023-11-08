@@ -142,6 +142,12 @@ impl Game {
                 _ => {}
             }
         }
+        for (player_index, _player) in self.players.iter().enumerate() {
+            if self.board.playable_positions(player_index).is_empty() {
+                self.board.defeat_player(player_index);
+                self.winner = Some((player_index + 1) % 2);
+            }
+        }
     }
 
     pub fn play_turn(
@@ -192,9 +198,16 @@ impl Game {
 
         self.turn_count += 1;
 
+        // Check for winning via defeated towns
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
             return Ok(Some(winner));
+        }
+
+        // Check for de-facto winning by blocking all moves
+        self.calculate_game_over();
+        if self.winner.is_some() {
+            return Ok(self.winner);
         }
 
         self.next_player = (self.next_player + 1) % self.players.len();

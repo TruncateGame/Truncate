@@ -812,6 +812,25 @@ impl Board {
         }
     }
 
+    pub fn playable_positions(&self, for_player: usize) -> HashSet<Coordinate> {
+        let mut playable_squares = HashSet::new();
+        for dock in &self.docks {
+            let sq = self.get(*dock).unwrap();
+            if !matches!(sq, Square::Dock(p) if p == for_player) {
+                continue;
+            }
+
+            playable_squares.extend(
+                self.depth_first_search(*dock)
+                    .iter()
+                    .flat_map(|sq| sq.neighbors_4())
+                    .filter(|sq| matches!(self.get(*sq), Ok(Square::Land)))
+                    .collect::<HashSet<_>>(),
+            );
+        }
+        playable_squares
+    }
+
     pub fn fog_of_war(&self, player_index: usize) -> Self {
         let mut visible_coords: HashSet<Coordinate> = HashSet::new();
 

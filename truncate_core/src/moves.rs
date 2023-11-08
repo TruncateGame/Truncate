@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::board::{Board, Coordinate, Square};
 use super::judge::{Judge, Outcome};
 use super::reporting::{BoardChange, BoardChangeAction};
@@ -899,6 +901,61 @@ mod tests {
         );
         assert_eq!(
             game.board.get(Coordinate { x: 2, y: 6 }).unwrap(),
+            Square::Town {
+                player: 1,
+                defeated: true
+            }
+        );
+        assert_eq!(game.winner, Some(0));
+    }
+
+    #[test]
+    fn resolve_win_via_blocking() {
+        let b = Board::from_string(
+            "__ __ __ __ S0 |0 __\n\
+             #1 __ __ __ T0 __ __\n\
+             ~~ __ __ A0 R0 __ __\n\
+             |1 __ D0 B0 __ __ __\n\
+             ~~ __ __ __ __ __ __\n\
+             #1 __ __ __ __ __ __",
+        );
+        let mut bag = TileUtils::trivial_bag();
+        let players = vec![
+            Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
+        ];
+
+        let mut game = Game {
+            board: b,
+            bag,
+            players,
+            judge: short_dict(),
+            ..Game::new(3, 1)
+        };
+        game.start();
+
+        _ = game.play_turn(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            None,
+            None,
+            None,
+        );
+
+        assert_eq!(
+            game.board.to_string(),
+            "__ __ __ __ S0 |0 __\n\
+             ⊭1 __ __ __ T0 __ __\n\
+             ~~ __ __ A0 R0 __ __\n\
+             |1 A0 D0 B0 __ __ __\n\
+             ~~ __ __ __ __ __ __\n\
+             ⊭1 __ __ __ __ __ __",
+        );
+        assert_eq!(
+            game.board.get(Coordinate { x: 0, y: 1 }).unwrap(),
             Square::Town {
                 player: 1,
                 defeated: true

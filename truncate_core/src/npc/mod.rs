@@ -308,25 +308,10 @@ impl Game {
 
         playable_tiles.sort();
 
-        let mut playable_squares = HashSet::new();
-        for dock in &self.board.docks {
-            let sq = self.board.get(*dock).unwrap();
-            if !matches!(sq, Square::Dock(p) if p == self.next_player) {
-                continue;
-            }
-
-            playable_squares.extend(
-                self.board
-                    .depth_first_search(*dock)
-                    .iter()
-                    .flat_map(|sq| sq.neighbors_4())
-                    .collect::<HashSet<_>>(),
-            );
-        }
+        let playable_squares = self.board.playable_positions(self.next_player);
 
         let mut coords: Vec<_> = playable_squares
             .into_iter()
-            .filter(|sq| matches!(self.board.get(*sq), Ok(Square::Land)))
             .flat_map(|sq| playable_tiles.iter().cloned().map(move |t| (sq, t)))
             .collect();
 
