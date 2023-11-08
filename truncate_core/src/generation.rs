@@ -8,8 +8,10 @@ use crate::board::{self, Board, Coordinate, Square};
 #[derive(Clone)]
 pub struct BoardParams {
     pub seed: u32,
-    pub width: usize,
-    pub height: usize,
+    pub bounding_width: usize,
+    pub bounding_height: usize,
+    pub maximum_land_width: Option<usize>,
+    pub maximum_land_height: Option<usize>,
     pub water_level: f64,
     pub town_density: f64,
     pub jitter: f64,
@@ -21,8 +23,10 @@ impl Default for BoardParams {
     fn default() -> Self {
         Self {
             seed: 1234,
-            width: 16,
-            height: 18,
+            bounding_width: 16,
+            bounding_height: 18,
+            maximum_land_width: Some(9),
+            maximum_land_height: Some(14),
             water_level: 0.5,
             town_density: 0.5,
             jitter: 0.5,
@@ -49,8 +53,10 @@ impl BoardParams {
 pub fn generate_board(mut params: BoardParams) -> Board {
     let BoardParams {
         seed,
-        width,
-        height,
+        bounding_width: width,
+        bounding_height: height,
+        maximum_land_width,
+        maximum_land_height,
         water_level,
         town_density,
         jitter,
@@ -95,6 +101,21 @@ pub fn generate_board(mut params: BoardParams) -> Board {
     if board.trim_nubs().is_err() {
         params.water_level *= 0.5;
         return generate_board(params);
+    }
+
+    // Remove extraneous water
+    board.trim();
+    if let Some(maximum_land_width) = maximum_land_width {
+        if board.width() > maximum_land_width + 2 {
+            params.bounding_width -= 1;
+            return generate_board(params);
+        }
+    }
+    if let Some(maximum_land_height) = maximum_land_height {
+        if board.height() > maximum_land_height + 2 {
+            params.bounding_height -= 1;
+            return generate_board(params);
+        }
     }
 
     board.drop_docks(seed);

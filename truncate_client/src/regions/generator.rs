@@ -121,8 +121,10 @@ impl GeneratorState {
 
         let board = generate_board(BoardParams {
             seed: self.seed,
-            width: self.width,
-            height: self.height,
+            bounding_width: self.width,
+            bounding_height: self.height,
+            maximum_land_width: None,
+            maximum_land_height: None,
             water_level: self.water_level,
             town_density: self.town_density,
             jitter: self.jitter,

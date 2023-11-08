@@ -61,37 +61,30 @@ impl Board {
             };
         }
 
-        // Remove all non-tile rows from the top
+        // Remove all non-water rows from the top
         while grid
             .first()
-            .is_some_and(|row| !row.iter().any(|s| s == &tile))
+            .is_some_and(|row| !row.iter().all(|s| s == &water))
         {
             trim_grid(&mut grid, D::Top);
         }
 
-        // Remove all non-tile rows from the bottom
+        // Remove all non-water rows from the bottom
         while grid
             .last()
-            .is_some_and(|row| !row.iter().any(|s| s == &tile))
+            .is_some_and(|row| !row.iter().any(|s| s == &water))
         {
             trim_grid(&mut grid, D::Bottom);
         }
 
-        // Remove all non-tile columns from the left
-        while !grid.iter().any(|row| row.first() == Some(&tile)) {
+        // Remove all non-water columns from the left
+        while !grid.iter().any(|row| row.first() == Some(&water)) {
             trim_grid(&mut grid, D::Left);
         }
 
-        // Remove all non-tile columns from the right
-        while !grid.iter().any(|row| row.last() == Some(&tile)) {
+        // Remove all non-water columns from the right
+        while !grid.iter().any(|row| row.last() == Some(&water)) {
             trim_grid(&mut grid, D::Right);
-        }
-
-        // Keep thinning the sides until we get to 7 emoji
-        while grid.first().is_some_and(|row| row.len() > 7) {
-            let left = grid.iter().filter(|row| row.first() == Some(&tile)).count();
-            let right = grid.iter().filter(|row| row.first() == Some(&tile)).count();
-            trim_grid(&mut grid, if left < right { D::Left } else { D::Right });
         }
 
         let joined_grid = grid
