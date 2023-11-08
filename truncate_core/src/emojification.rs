@@ -64,7 +64,7 @@ impl Board {
         // Remove all non-water rows from the top
         while grid
             .first()
-            .is_some_and(|row| !row.iter().all(|s| s == &water))
+            .is_some_and(|row| row.iter().all(|s| s == &water))
         {
             trim_grid(&mut grid, D::Top);
         }
@@ -72,18 +72,18 @@ impl Board {
         // Remove all non-water rows from the bottom
         while grid
             .last()
-            .is_some_and(|row| !row.iter().any(|s| s == &water))
+            .is_some_and(|row| row.iter().all(|s| s == &water))
         {
             trim_grid(&mut grid, D::Bottom);
         }
 
         // Remove all non-water columns from the left
-        while !grid.iter().any(|row| row.first() == Some(&water)) {
+        while grid.iter().all(|row| row.first() == Some(&water)) {
             trim_grid(&mut grid, D::Left);
         }
 
         // Remove all non-water columns from the right
-        while !grid.iter().any(|row| row.last() == Some(&water)) {
+        while grid.iter().all(|row| row.last() == Some(&water)) {
             trim_grid(&mut grid, D::Right);
         }
 
