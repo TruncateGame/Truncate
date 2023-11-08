@@ -25,7 +25,7 @@ impl Default for BoardParams {
             seed: 1234,
             bounding_width: 16,
             bounding_height: 18,
-            maximum_land_width: Some(9),
+            maximum_land_width: Some(10),
             maximum_land_height: Some(14),
             water_level: 0.5,
             town_density: 0.5,
