@@ -107,13 +107,13 @@ pub fn generate_board(mut params: BoardParams) -> Board {
     board.trim();
     if let Some(maximum_land_width) = maximum_land_width {
         if board.width() > maximum_land_width + 2 {
-            params.bounding_width -= 1;
+            params.water_level *= 1.05;
             return generate_board(params);
         }
     }
     if let Some(maximum_land_height) = maximum_land_height {
         if board.height() > maximum_land_height + 2 {
-            params.bounding_height -= 1;
+            params.water_level *= 1.05;
             return generate_board(params);
         }
     }
