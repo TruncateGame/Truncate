@@ -812,6 +812,7 @@ impl Board {
         }
     }
 
+    // TODO: This needs to look at all tiles to work in no truncation mode
     pub fn playable_positions(&self, for_player: usize) -> HashSet<Coordinate> {
         let mut playable_squares = HashSet::new();
         for dock in &self.docks {
