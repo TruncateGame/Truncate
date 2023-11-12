@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 use noise::{NoiseFn, Simplex};
 use oorandom::Rand32;
@@ -28,7 +28,7 @@ impl Default for BoardParams {
             maximum_land_width: Some(10),
             maximum_land_height: Some(14),
             water_level: 0.5,
-            town_density: 0.5,
+            town_density: 0.37,
             jitter: 0.5,
             town_jitter: 0.5,
             current_iteration: 0,
@@ -62,7 +62,7 @@ pub fn generate_board(mut params: BoardParams) -> Board {
         jitter,
         town_jitter,
         current_iteration,
-    } = params.clone();
+    } = params;
 
     if current_iteration > 10000 {
         panic!("Wow that's deep");
@@ -118,7 +118,10 @@ pub fn generate_board(mut params: BoardParams) -> Board {
         }
     }
 
-    board.drop_docks(seed);
+    if board.drop_docks(seed).is_err() {
+        params.regen();
+        return generate_board(params);
+    }
 
     if board
         .generate_towns(seed, town_density, town_jitter)
@@ -141,7 +144,7 @@ pub fn generate_board(mut params: BoardParams) -> Board {
 trait BoardGenerator {
     fn trim_nubs(&mut self) -> Result<(), ()>;
 
-    fn drop_docks(&mut self, seed: u32);
+    fn drop_docks(&mut self, seed: u32) -> Result<(), ()>;
 
     fn generate_towns(&mut self, seed: u32, town_density: f64, town_jitter: f64) -> Result<(), ()>;
 
@@ -211,9 +214,10 @@ impl BoardGenerator for Board {
         Ok(())
     }
 
-    fn drop_docks(&mut self, seed: u32) {
+    fn drop_docks(&mut self, seed: u32) -> Result<(), ()> {
+        let mut rng = Rand32::new(seed as u64);
         let mut visited: HashSet<Coordinate> = HashSet::from([Coordinate { x: 0, y: 0 }]);
-        let mut land_adjacent: Vec<Coordinate> = Vec::new();
+        let mut coastal_land: HashSet<Coordinate> = HashSet::new();
         let mut pts = VecDeque::from(vec![Coordinate { x: 0, y: 0 }]);
 
         while !pts.is_empty() {
@@ -231,39 +235,96 @@ impl BoardGenerator for Board {
                     }
                     Ok(Square::Land) => {
                         visited.insert(*neighbor);
-                        land_adjacent.push(pt);
+                        coastal_land.insert(pt);
                     }
                     _ => {}
                 }
             }
         }
 
-        assert_eq!(land_adjacent.is_empty(), false);
+        assert_eq!(coastal_land.is_empty(), false);
 
-        let mut rng = Rand32::new(seed as u64);
-        let chosen_zero = rng.rand_range(0..land_adjacent.len() as u32);
-        let dock_zero = land_adjacent[chosen_zero as usize];
+        let center_point = Coordinate {
+            x: self.width() / 2,
+            y: self.height() / 2,
+        };
+        if self.get(center_point) != Ok(Square::Land) {
+            return Err(());
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct DistanceToCoord {
+            coord: Coordinate,
+            distance: usize,
+        }
+
+        impl Ord for DistanceToCoord {
+            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                match self.distance.cmp(&other.distance) {
+                    std::cmp::Ordering::Equal => self.coord.to_1d(100).cmp(&other.coord.to_1d(100)),
+                    o => o,
+                }
+            }
+        }
+        impl PartialOrd for DistanceToCoord {
+            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        let distances = self.flood_fill(&center_point);
+        let mut distances = distances
+            .direct
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, d)| {
+                d.map(|d| DistanceToCoord {
+                    coord: Coordinate::from_1d(idx, self.width()),
+                    distance: d,
+                })
+            })
+            .filter(|DistanceToCoord { coord, .. }| coastal_land.contains(coord))
+            .collect::<BinaryHeap<_>>();
+
+        let mut pt = distances.pop();
+        for _ in 0..rng.rand_range(0..6) {
+            pt = distances.pop().or(pt);
+        }
+        let Some(DistanceToCoord {
+            coord: dock_zero, ..
+        }) = pt
+        else {
+            return Err(());
+        };
+
         self.set_square(dock_zero, Square::Dock(0))
             .expect("Board position should be settable");
 
-        let furthest_distance = land_adjacent
+        let mut antipodes: BinaryHeap<_> = coastal_land
             .iter()
-            .map(|l| l.distance_to(&dock_zero))
-            .max()
-            .expect("Other water exists");
+            .map(|l| DistanceToCoord {
+                coord: l.clone(),
+                distance: l.distance_to(&dock_zero),
+            })
+            .collect();
 
-        let min_distance = (furthest_distance / 3) * 2;
-        let far_positions = land_adjacent
-            .into_iter()
-            .filter(|pt| pt.distance_to(&dock_zero) >= min_distance)
-            .collect::<Vec<_>>();
+        let mut pt = antipodes.pop();
+        for _ in 0..rng.rand_range(0..6) {
+            pt = antipodes.pop().or(pt);
+        }
+        let Some(DistanceToCoord {
+            coord: dock_one, ..
+        }) = pt
+        else {
+            return Err(());
+        };
 
-        let chosen_one = rng.rand_range(0..far_positions.len() as u32);
-        let dock_one = far_positions[chosen_one as usize];
         self.set_square(dock_one, Square::Dock(1))
             .expect("Board position should be settable");
 
         self.cache_special_squares();
+
+        Ok(())
     }
 
     fn generate_towns(&mut self, seed: u32, town_density: f64, town_jitter: f64) -> Result<(), ()> {

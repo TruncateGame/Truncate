@@ -1030,6 +1030,13 @@ impl Coordinate {
         return self.x + self.y * width;
     }
 
+    pub fn from_1d(oned: usize, width: usize) -> Self {
+        Self {
+            x: oned % width,
+            y: oned / width,
+        }
+    }
+
     /// Return coordinates of the horizontal and vertical neighbors, from north clockwise
     pub fn neighbors_4(&self) -> [Coordinate; 4] {
         use Direction::*;
@@ -1105,9 +1112,9 @@ impl fmt::Display for Square {
 
 #[derive(Clone)]
 pub struct BoardDistances {
-    board_width: usize,
-    attackable: Vec<Option<usize>>,
-    direct: Vec<Option<usize>>,
+    pub board_width: usize,
+    pub attackable: Vec<Option<usize>>,
+    pub direct: Vec<Option<usize>>,
 }
 
 impl BoardDistances {
@@ -1198,6 +1205,13 @@ pub mod tests {
     use crate::rules::SwapPenalty;
 
     use super::*;
+
+    #[test]
+    fn coord_flattening() {
+        let coord = Coordinate { x: 4, y: 123 };
+        let flat = coord.to_1d(51);
+        assert_eq!(coord, Coordinate::from_1d(flat, 51));
+    }
 
     fn default_swap_rules() -> SwapPenalty {
         SwapPenalty::Disallowed { allowed_swaps: 1 }
