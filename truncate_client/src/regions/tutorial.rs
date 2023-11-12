@@ -143,7 +143,7 @@ impl TutorialState {
             ],
             board: Board::from_string(loaded_tutorial.board.clone()),
             // TODO: Use some special infinite bag?
-            bag: TileBag::new(&TileDistribution::Standard),
+            bag: TileBag::new(&TileDistribution::Standard, None),
             judge: Judge::new(loaded_tutorial.dict.keys().cloned().collect()),
             battle_count: 0,
             turn_count: 0,
@@ -155,6 +155,7 @@ impl TutorialState {
 
         let mut active_game = ActiveGame::new(
             "TUTORIAL_01".into(),
+            None,
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -482,7 +483,7 @@ impl TutorialState {
                 Some(TutorialStep::ComputerMove { gets, .. }) => Some(gets),
                 _ => None,
             } {
-                self.game.bag = TileBag::explicit(vec![*next_tile]);
+                self.game.bag = TileBag::explicit(vec![*next_tile], None);
             }
 
             match self.game.make_move(game_move, None, None, None) {

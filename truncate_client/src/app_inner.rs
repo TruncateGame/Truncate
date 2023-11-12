@@ -218,6 +218,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                             map_texture.clone(),
                             theme.clone(),
                             editor_state.board.clone(),
+                            editor_state.game_seed,
                         );
                         new_game_status = Some(GameStatus::SinglePlayer(single_player_game));
                     }
@@ -410,6 +411,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
 
                 *game_status = GameStatus::Active(ActiveGame::new(
                     room_code.to_uppercase(),
+                    None,
                     players,
                     player_number,
                     next_player_number,

@@ -35,6 +35,7 @@ pub struct HoveredRegion {
 
 #[derive(Clone)]
 pub struct GameCtx {
+    pub game_seed: Option<u32>,
     pub theme: Theme,
     pub current_time: Duration,
     pub prev_to_next_turn: (Duration, Duration),
@@ -86,6 +87,7 @@ pub struct ActiveGame {
 impl ActiveGame {
     pub fn new(
         room_code: RoomCode,
+        game_seed: Option<u32>,
         players: Vec<GamePlayerMessage>,
         player_number: u64,
         next_player_number: u64,
@@ -100,6 +102,7 @@ impl ActiveGame {
             .collect::<Vec<_>>();
         Self {
             ctx: GameCtx {
+                game_seed,
                 theme,
                 current_time: Duration::from_secs(0),
                 prev_to_next_turn: (Duration::from_secs(0), Duration::from_secs(0)),
@@ -413,7 +416,7 @@ impl ActiveGame {
                             || share_button.drag_started()
                             || share_button.is_pointer_button_down_on()
                         {
-                            let text = self.board.emojify(winner);
+                            let text = self.board.emojify(winner, self.ctx.game_seed);
 
                             if let Some(backchannel) = backchannel {
                                 if backchannel.is_open() {

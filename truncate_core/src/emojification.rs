@@ -14,7 +14,7 @@ const SQ_WHITE_IN_BLACK: &str = "🔲";
 const SQ_ERR: &str = "🆘";
 
 impl Board {
-    pub fn emojify(&self, won: Option<usize>) -> String {
+    pub fn emojify(&self, won: Option<usize>, seed: Option<u32>) -> String {
         let water = if won == Some(0) { SQ_BLUE } else { SQ_BLACK };
         let land = if won == Some(0) { SQ_GREEN } else { SQ_BROWN };
         let tile = if won == Some(0) { SQ_YELLOW } else { SQ_ORANGE };
@@ -94,9 +94,19 @@ impl Board {
             .join("\n");
 
         if won == Some(0) {
-            format!("Truncate — won in ... turns\n{}\n", joined_grid)
+            format!(
+                "Truncate — won in ... turns\nPuzzle ID: {}\n{}\n",
+                seed.map(|d| d.to_string())
+                    .unwrap_or_else(|| "Random".to_string()),
+                joined_grid
+            )
         } else {
-            format!("Truncate — lost in ... turns\n{}\n", joined_grid)
+            format!(
+                "Truncate — lost in ... turns\nPuzzle ID: {}\n{}\n",
+                seed.map(|d| d.to_string())
+                    .unwrap_or_else(|| "Random".to_string()),
+                joined_grid
+            )
         }
     }
 }

@@ -32,6 +32,7 @@ pub enum BoardEditingMode {
 #[derive(Clone)]
 pub struct Lobby {
     pub board: Board,
+    pub game_seed: u64,
     pub room_code: RoomCode,
     pub players: Vec<LobbyPlayerMessage>,
     pub player_index: u64,
@@ -56,13 +57,14 @@ impl Lobby {
             .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
             .collect();
 
-        let mut rand_board = truncate_core::generation::generate_board(
-            BoardParams::default().seed(current_time.subsec_millis()),
-        );
+        let seed = current_time.subsec_micros();
+        let mut rand_board =
+            truncate_core::generation::generate_board(BoardParams::default().seed(seed));
         rand_board.cache_special_squares();
 
         Self {
             room_code,
+            game_seed: seed as u64,
             mapped_board: MappedBoard::new(&rand_board, map_texture.clone(), false, &player_colors),
             players,
             player_index,

@@ -58,7 +58,7 @@ fn test_game(board: &str, hand: &str) -> Game {
         bag,
         players,
         next_player,
-        ..Game::new(3, 1)
+        ..Game::new(3, 1, None)
     };
     game.players[next_player].hand = Hand(hand.chars().collect());
     game.start();

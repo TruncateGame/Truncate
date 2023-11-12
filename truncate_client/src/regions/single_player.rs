@@ -43,8 +43,8 @@ pub struct SinglePlayerState {
 }
 
 impl SinglePlayerState {
-    pub fn new(map_texture: TextureHandle, theme: Theme, mut board: Board) -> Self {
-        let mut game = Game::new(9, 9);
+    pub fn new(map_texture: TextureHandle, theme: Theme, mut board: Board, seed: u64) -> Self {
+        let mut game = Game::new(9, 9, Some(seed));
         game.add_player("You".into());
         game.add_player("Computer".into());
 
@@ -55,6 +55,7 @@ impl SinglePlayerState {
 
         let active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
+            Some(seed as u32),
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -82,13 +83,13 @@ impl SinglePlayerState {
     }
 
     pub fn reset(&mut self, current_time: Duration) {
-        let mut game = Game::new(9, 9);
+        let next_seed = current_time.subsec_micros();
+        let mut game = Game::new(9, 9, Some(next_seed as u64));
         game.add_player("You".into());
         game.add_player("Computer".into());
 
-        let mut rand_board = truncate_core::generation::generate_board(
-            BoardParams::default().seed(current_time.subsec_millis()),
-        );
+        let mut rand_board =
+            truncate_core::generation::generate_board(BoardParams::default().seed(next_seed));
         rand_board.cache_special_squares();
 
         game.board = rand_board;
@@ -96,6 +97,7 @@ impl SinglePlayerState {
 
         let active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
+            Some(next_seed),
             game.players.iter().map(Into::into).collect(),
             0,
             0,

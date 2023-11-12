@@ -30,7 +30,7 @@ pub struct GameManager {
 
 impl GameManager {
     pub fn new(game_id: String) -> Self {
-        let game = Game::new(9, 11);
+        let game = Game::new(9, 11, None);
 
         Self {
             game_id,

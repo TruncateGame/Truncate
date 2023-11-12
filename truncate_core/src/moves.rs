@@ -99,7 +99,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 3)
+            ..Game::new(3, 3, None)
         };
         assert_eq!(
             game.make_move(out_of_bounds, None, None, None),
@@ -138,7 +138,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 3)
+            ..Game::new(3, 3, None)
         };
 
         // Places beside dock
@@ -295,7 +295,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 3)
+            ..Game::new(3, 3, None)
         };
 
         assert_eq!(
@@ -444,7 +444,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(1, 1)
+            ..Game::new(1, 1, None)
         };
 
         game.make_move(
@@ -489,7 +489,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
 
         game.make_move(
@@ -544,7 +544,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
 
         game.make_move(
@@ -597,7 +597,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
 
         game.make_move(
@@ -646,7 +646,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -703,7 +703,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -760,7 +760,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -817,7 +817,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -874,7 +874,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -930,7 +930,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -984,7 +984,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
 
         game.make_move(
@@ -1031,7 +1031,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(1, 1)
+            ..Game::new(1, 1, None)
         };
 
         game.make_move(
@@ -1080,7 +1080,7 @@ mod tests {
             bag,
             players,
             judge: short_dict(),
-            ..Game::new(1, 1)
+            ..Game::new(1, 1, None)
         };
 
         game.make_move(
