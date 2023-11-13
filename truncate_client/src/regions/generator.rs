@@ -123,6 +123,7 @@ impl GeneratorState {
         let board = generate_board(BoardSeed {
             generation: 999999,
             seed: self.seed,
+            day: None,
             current_iteration: 0,
             params: BoardParams {
                 bounding_width: self.width,

@@ -98,6 +98,21 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 map_texture.clone(),
                 current_time,
             )));
+        } else if launched_room == "DAILY_PUZZLE" {
+            let seed = (current_time.as_secs() / (60 * 60 * 24)) as u32;
+            let day = seed - 19673; // Nov 13, 2023
+            let board_seed = BoardSeed::new(seed).day(day);
+            let board = generate_board(board_seed.clone());
+            let puzzle_game =
+                SinglePlayerState::new(map_texture.clone(), theme.clone(), board, Some(board_seed));
+            new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+        } else if launched_room == "RANDOM_PUZZLE" {
+            let seed = (current_time.as_micros() % 243985691) as u32;
+            let board_seed = BoardSeed::new(seed);
+            let board = generate_board(board_seed.clone());
+            let puzzle_game =
+                SinglePlayerState::new(map_texture.clone(), theme.clone(), board, Some(board_seed));
+            new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room.starts_with("PUZZLE:") {
             let mut parts = launched_room.split(':').skip(1);
             let generation = parts.next().map(str::parse::<u32>);
@@ -110,7 +125,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let board_seed = BoardSeed::new_with_generation(generation, seed);
             let board = generate_board(board_seed.clone());
             let puzzle_game =
-                SinglePlayerState::new(map_texture.clone(), theme.clone(), board, board_seed);
+                SinglePlayerState::new(map_texture.clone(), theme.clone(), board, Some(board_seed));
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room.is_empty() {
             // No room code means we start a new game.

@@ -50,6 +50,7 @@ impl BoardParams {
 pub struct BoardSeed {
     pub generation: u32,
     pub seed: u32,
+    pub day: Option<u32>,
     pub params: BoardParams,
     pub current_iteration: usize,
 }
@@ -60,6 +61,7 @@ impl BoardSeed {
         Self {
             generation,
             seed,
+            day: None,
             params,
             current_iteration: 0,
         }
@@ -70,9 +72,15 @@ impl BoardSeed {
         Self {
             generation,
             seed,
+            day: None,
             params,
             current_iteration: 0,
         }
+    }
+
+    pub fn day(mut self, day: u32) -> Self {
+        self.day = Some(day);
+        self
     }
 
     pub fn seed(mut self, seed: u32) -> Self {
@@ -90,8 +98,9 @@ impl BoardSeed {
 
 pub fn generate_board(mut board_seed: BoardSeed) -> Board {
     let BoardSeed {
-        generation,
+        generation: _,
         seed,
+        day: _,
         current_iteration,
         params:
             BoardParams {

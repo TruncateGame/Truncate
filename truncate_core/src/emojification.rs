@@ -99,9 +99,9 @@ impl Board {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let url = if let Some(seed) = seed {
+        let url = if let Some(seed) = seed.clone() {
             format!(
-                "Puzzle: {url_prefix}PUZZLE:{}:{}\n",
+                "Play Puzzle: {url_prefix}PUZZLE:{}:{}\n",
                 seed.generation, seed.seed
             )
         } else {
@@ -120,10 +120,14 @@ impl Board {
             "".to_string()
         };
 
-        if won == Some(0) {
-            format!("Truncate Town; Won{counts}.\n{url}{joined_grid}\n")
+        if let Some(day) = seed.map(|s| s.day).flatten() {
+            format!("🌟 Truncate Town Day #{day} 🌟\nWon{counts}.\n{joined_grid}\n")
         } else {
-            format!("Truncate Town; Lost{counts}.\n{url}{joined_grid}\n")
+            if won == Some(0) {
+                format!("Truncate Town Custom Puzzle\nWon{counts}.\n{url}{joined_grid}\n")
+            } else {
+                format!("Truncate Town Custom Puzzle\nLost{counts}.\n{url}{joined_grid}\n")
+            }
         }
     }
 }

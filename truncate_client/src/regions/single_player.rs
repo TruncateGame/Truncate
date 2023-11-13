@@ -47,9 +47,9 @@ impl SinglePlayerState {
         map_texture: TextureHandle,
         theme: Theme,
         mut board: Board,
-        seed: BoardSeed,
+        seed: Option<BoardSeed>,
     ) -> Self {
-        let mut game = Game::new(9, 9, Some(seed.seed as u64));
+        let mut game = Game::new(9, 9, seed.clone().map(|s| s.seed as u64));
         game.add_player("You".into());
         game.add_player("Computer".into());
 
@@ -60,7 +60,7 @@ impl SinglePlayerState {
 
         let active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
-            Some(seed),
+            seed,
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -100,7 +100,7 @@ impl SinglePlayerState {
         game.board = rand_board;
         game.start();
 
-        let active_game = ActiveGame::new(
+        let mut active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
             Some(next_board_seed),
             game.players.iter().map(Into::into).collect(),
