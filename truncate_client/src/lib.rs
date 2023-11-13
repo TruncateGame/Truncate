@@ -139,7 +139,7 @@ pub fn backchannel(msg: String) -> String {
         } => {
             web_sys::console::log_1(&"Evaluating best move".into());
 
-            let mut game = truncate_core::game::Game::new(3, 3);
+            let mut game = truncate_core::game::Game::new(3, 3, None);
             game.board = board;
             game.rules = rules;
             game.players = players;

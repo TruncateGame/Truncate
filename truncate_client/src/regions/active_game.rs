@@ -2,6 +2,7 @@ use epaint::{emath::Align2, hex_color, vec2, Color32, FontId, Rect, Stroke, Text
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Square},
+    generation::BoardSeed,
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
     player::Hand,
     reporting::{BoardChange, Change, TimeChange},
@@ -35,7 +36,7 @@ pub struct HoveredRegion {
 
 #[derive(Clone)]
 pub struct GameCtx {
-    pub game_seed: Option<u32>,
+    pub board_seed: Option<BoardSeed>,
     pub theme: Theme,
     pub current_time: Duration,
     pub prev_to_next_turn: (Duration, Duration),
@@ -87,7 +88,7 @@ pub struct ActiveGame {
 impl ActiveGame {
     pub fn new(
         room_code: RoomCode,
-        game_seed: Option<u32>,
+        game_seed: Option<BoardSeed>,
         players: Vec<GamePlayerMessage>,
         player_number: u64,
         next_player_number: u64,
@@ -102,7 +103,7 @@ impl ActiveGame {
             .collect::<Vec<_>>();
         Self {
             ctx: GameCtx {
-                game_seed,
+                board_seed: game_seed,
                 theme,
                 current_time: Duration::from_secs(0),
                 prev_to_next_turn: (Duration::from_secs(0), Duration::from_secs(0)),
@@ -294,6 +295,7 @@ impl ActiveGame {
         theme: &Theme,
         winner: Option<usize>,
         backchannel: Option<&Backchannel>,
+        game_ref: Option<&truncate_core::game::Game>,
     ) -> (Option<Rect>, Option<PlayerMessage>) {
         if !self.ctx.hand_visible {
             return (None, None);
@@ -416,7 +418,25 @@ impl ActiveGame {
                             || share_button.drag_started()
                             || share_button.is_pointer_button_down_on()
                         {
-                            let text = self.board.emojify(winner, self.ctx.game_seed);
+                            #[allow(unused_mut)]
+                            let mut url_prefix = "".to_string();
+
+                            #[cfg(target_arch = "wasm32")]
+                            {
+                                let host = web_sys::window()
+                                    .unwrap()
+                                    .location()
+                                    .host()
+                                    .unwrap_or_else(|_| "truncate.town".into());
+                                url_prefix = format!("https://{host}/#");
+                            }
+
+                            let text = self.board.emojify(
+                                winner,
+                                game_ref,
+                                self.ctx.board_seed.clone(),
+                                url_prefix,
+                            );
 
                             if let Some(backchannel) = backchannel {
                                 if backchannel.is_open() {
@@ -595,6 +615,7 @@ impl ActiveGame {
         winner: Option<usize>,
         current_time: Duration,
         backchannel: Option<&Backchannel>,
+        game_ref: Option<&truncate_core::game::Game>,
     ) -> Option<PlayerMessage> {
         self.ctx.current_time = current_time;
         let cur_tick = current_time.as_secs() * 4 + current_time.subsec_millis() as u64 / 250;
@@ -629,7 +650,7 @@ impl ActiveGame {
 
         let mut control_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (control_strip_rect, control_player_message) =
-            self.render_control_strip(&mut control_strip_ui, theme, winner, backchannel);
+            self.render_control_strip(&mut control_strip_ui, theme, winner, backchannel, game_ref);
 
         let mut timer_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (timer_strip_rect, timer_player_message) =

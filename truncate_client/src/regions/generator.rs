@@ -3,7 +3,7 @@ use epaint::{emath::Align, hex_color, vec2, Color32, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     game::Game,
-    generation::{generate_board, BoardParams},
+    generation::{generate_board, BoardParams, BoardSeed},
 };
 
 use crate::utils::Theme;
@@ -120,18 +120,22 @@ impl GeneratorState {
 
         ui.add_space(8.0);
 
-        let board = generate_board(BoardParams {
+        let board = generate_board(BoardSeed {
+            generation: 999999,
             seed: self.seed,
-            bounding_width: self.width,
-            bounding_height: self.height,
-            maximum_land_width: None,
-            maximum_land_height: None,
-            water_level: self.water_level,
-            town_density: self.town_density,
-            jitter: self.jitter,
-            town_jitter: self.town_jitter,
             current_iteration: 0,
+            params: BoardParams {
+                bounding_width: self.width,
+                bounding_height: self.height,
+                maximum_land_width: None,
+                maximum_land_height: None,
+                water_level: self.water_level,
+                town_density: self.town_density,
+                jitter: self.jitter,
+                town_jitter: self.town_jitter,
+            },
         });
+
         self.active_game.board = board;
         self.active_game.board.cache_special_squares();
         self.active_game.mapped_board.remap(
@@ -147,6 +151,6 @@ impl GeneratorState {
         let mut game_ui = ui.child_ui(game_rect, Layout::left_to_right(Align::TOP));
 
         self.active_game
-            .render(&mut game_ui, theme, None, current_time, None);
+            .render(&mut game_ui, theme, None, current_time, None, None);
     }
 }

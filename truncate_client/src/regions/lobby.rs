@@ -5,7 +5,7 @@ use epaint::{
 use instant::Duration;
 use truncate_core::{
     board::Board,
-    generation::BoardParams,
+    generation::{BoardParams, BoardSeed},
     messages::{LobbyPlayerMessage, PlayerMessage, RoomCode},
 };
 
@@ -32,7 +32,7 @@ pub enum BoardEditingMode {
 #[derive(Clone)]
 pub struct Lobby {
     pub board: Board,
-    pub game_seed: u64,
+    pub board_seed: BoardSeed,
     pub room_code: RoomCode,
     pub players: Vec<LobbyPlayerMessage>,
     pub player_index: u64,
@@ -58,13 +58,13 @@ impl Lobby {
             .collect();
 
         let seed = current_time.subsec_micros();
-        let mut rand_board =
-            truncate_core::generation::generate_board(BoardParams::default().seed(seed));
+        let board_seed = BoardSeed::new(seed);
+        let mut rand_board = truncate_core::generation::generate_board(board_seed.clone());
         rand_board.cache_special_squares();
 
         Self {
             room_code,
-            game_seed: seed as u64,
+            board_seed,
             mapped_board: MappedBoard::new(&rand_board, map_texture.clone(), false, &player_colors),
             players,
             player_index,

@@ -2,9 +2,9 @@ use eframe::egui::{self, Layout, Margin};
 use epaint::{vec2, Color32};
 use instant::Duration;
 use truncate_core::{
-    board::Board,
+    board::{self, Board},
     game::Game,
-    generation::generate_board,
+    generation::{generate_board, BoardParams, BoardSeed},
     messages::RoomCode,
     messages::{LobbyPlayerMessage, Token},
 };
@@ -98,6 +98,20 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 map_texture.clone(),
                 current_time,
             )));
+        } else if launched_room.starts_with("PUZZLE:") {
+            let mut parts = launched_room.split(':').skip(1);
+            let generation = parts.next().map(str::parse::<u32>);
+            let seed = parts.next().map(str::parse::<u32>);
+
+            let (Some(Ok(generation)), Some(Ok(seed))) = (generation, seed) else {
+                panic!("Bad URL provided for puzzle");
+            };
+
+            let board_seed = BoardSeed::new_with_generation(generation, seed);
+            let board = generate_board(board_seed.clone());
+            let puzzle_game =
+                SinglePlayerState::new(map_texture.clone(), theme.clone(), board, board_seed);
+            new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
             send(PlayerMessage::NewGame(name.clone()));
@@ -218,7 +232,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                             map_texture.clone(),
                             theme.clone(),
                             editor_state.board.clone(),
-                            editor_state.game_seed,
+                            editor_state.board_seed.clone(),
                         );
                         new_game_status = Some(GameStatus::SinglePlayer(single_player_game));
                     }
@@ -318,13 +332,13 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         }
         GameStatus::Active(game) => {
-            if let Some(msg) = game.render(ui, theme, None, current_time, None) {
+            if let Some(msg) = game.render(ui, theme, None, current_time, None, None) {
                 send(msg);
             }
         }
         GameStatus::Concluded(game, winner) => {
             if let Some(PlayerMessage::Rematch) =
-                game.render(ui, theme, Some(*winner as usize), current_time, None)
+                game.render(ui, theme, Some(*winner as usize), current_time, None, None)
             {
                 send(PlayerMessage::Rematch);
             }

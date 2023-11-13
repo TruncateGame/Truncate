@@ -1,4 +1,4 @@
-use crate::{board::Board, game::Game};
+use crate::{board::Board, game::Game, generation::BoardSeed};
 
 const SQ_BLUE: &str = "🟦";
 const SQ_GREEN: &str = "🟩";
@@ -14,7 +14,13 @@ const SQ_WHITE_IN_BLACK: &str = "🔲";
 const SQ_ERR: &str = "🆘";
 
 impl Board {
-    pub fn emojify(&self, won: Option<usize>, seed: Option<u32>) -> String {
+    pub fn emojify(
+        &self,
+        won: Option<usize>,
+        game: Option<&Game>,
+        seed: Option<BoardSeed>,
+        url_prefix: String,
+    ) -> String {
         let water = if won == Some(0) { SQ_BLUE } else { SQ_BLACK };
         let land = if won == Some(0) { SQ_GREEN } else { SQ_BROWN };
         let tile = if won == Some(0) { SQ_YELLOW } else { SQ_ORANGE };
@@ -93,20 +99,31 @@ impl Board {
             .collect::<Vec<_>>()
             .join("\n");
 
-        if won == Some(0) {
+        let url = if let Some(seed) = seed {
             format!(
-                "Truncate — won in ... turns\nPuzzle ID: {}\n{}\n",
-                seed.map(|d| d.to_string())
-                    .unwrap_or_else(|| "Random".to_string()),
-                joined_grid
+                "Puzzle: {url_prefix}PUZZLE:{}:{}\n",
+                seed.generation, seed.seed
             )
         } else {
+            "".to_string()
+        };
+
+        let counts = if let Some(game) = game {
             format!(
-                "Truncate — lost in ... turns\nPuzzle ID: {}\n{}\n",
-                seed.map(|d| d.to_string())
-                    .unwrap_or_else(|| "Random".to_string()),
-                joined_grid
+                " in {} turn{}, {} battle{}",
+                game.turn_count,
+                if game.turn_count == 1 { "" } else { "s" },
+                game.battle_count,
+                if game.battle_count == 1 { "" } else { "s" },
             )
+        } else {
+            "".to_string()
+        };
+
+        if won == Some(0) {
+            format!("Truncate Town; Won{counts}.\n{url}{joined_grid}\n")
+        } else {
+            format!("Truncate Town; Lost{counts}.\n{url}{joined_grid}\n")
         }
     }
 }

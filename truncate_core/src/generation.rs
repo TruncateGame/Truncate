@@ -7,7 +7,6 @@ use crate::board::{self, Board, Coordinate, Square};
 
 #[derive(Clone)]
 pub struct BoardParams {
-    pub seed: u32,
     pub bounding_width: usize,
     pub bounding_height: usize,
     pub maximum_land_width: Option<usize>,
@@ -16,27 +15,66 @@ pub struct BoardParams {
     pub town_density: f64,
     pub jitter: f64,
     pub town_jitter: f64,
-    pub current_iteration: usize,
 }
 
-impl Default for BoardParams {
-    fn default() -> Self {
-        Self {
-            seed: 1234,
-            bounding_width: 16,
-            bounding_height: 18,
-            maximum_land_width: Some(10),
-            maximum_land_height: Some(14),
-            water_level: 0.5,
-            town_density: 0.37,
-            jitter: 0.5,
-            town_jitter: 0.5,
-            current_iteration: 0,
-        }
+// Do not modify any numbered generations.
+// Add a new generation number with new parameters.
+// Updating an existing generation will break puzzle URLs.
+const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
+    bounding_width: 16,
+    bounding_height: 18,
+    maximum_land_width: Some(10),
+    maximum_land_height: Some(14),
+    water_level: 0.5,
+    town_density: 0.37,
+    jitter: 0.5,
+    town_jitter: 0.5,
+}];
+
+impl BoardParams {
+    pub fn generation(gen: u32) -> Self {
+        BOARD_GENERATIONS
+            .get(gen as usize)
+            .expect("Board generation should exist")
+            .clone()
+    }
+
+    pub fn latest() -> (u32, Self) {
+        assert!(!BOARD_GENERATIONS.is_empty());
+        let generation = (BOARD_GENERATIONS.len() - 1) as u32;
+        (generation, BoardParams::generation(generation as u32))
     }
 }
 
-impl BoardParams {
+#[derive(Clone)]
+pub struct BoardSeed {
+    pub generation: u32,
+    pub seed: u32,
+    pub params: BoardParams,
+    pub current_iteration: usize,
+}
+
+impl BoardSeed {
+    pub fn new(seed: u32) -> Self {
+        let (generation, params) = BoardParams::latest();
+        Self {
+            generation,
+            seed,
+            params,
+            current_iteration: 0,
+        }
+    }
+
+    pub fn new_with_generation(generation: u32, seed: u32) -> Self {
+        let params = BoardParams::generation(generation);
+        Self {
+            generation,
+            seed,
+            params,
+            current_iteration: 0,
+        }
+    }
+
     pub fn seed(mut self, seed: u32) -> Self {
         self.seed = seed;
         self
@@ -50,19 +88,23 @@ impl BoardParams {
     }
 }
 
-pub fn generate_board(mut params: BoardParams) -> Board {
-    let BoardParams {
+pub fn generate_board(mut board_seed: BoardSeed) -> Board {
+    let BoardSeed {
+        generation,
         seed,
-        bounding_width: width,
-        bounding_height: height,
-        maximum_land_width,
-        maximum_land_height,
-        water_level,
-        town_density,
-        jitter,
-        town_jitter,
         current_iteration,
-    } = params;
+        params:
+            BoardParams {
+                bounding_width,
+                bounding_height,
+                maximum_land_width,
+                maximum_land_height,
+                water_level,
+                town_density,
+                jitter,
+                town_jitter,
+            },
+    } = board_seed;
 
     if current_iteration > 10000 {
         panic!("Wow that's deep");
@@ -71,12 +113,13 @@ pub fn generate_board(mut params: BoardParams) -> Board {
     let simplex = Simplex::new(seed);
 
     let mut board = Board::new(3, 3);
-    board.squares = vec![vec![crate::board::Square::Water; width + 2]; height + 2];
+    board.squares =
+        vec![vec![crate::board::Square::Water; bounding_width + 2]; bounding_height + 2];
 
-    for i in 1..=width {
-        for j in 1..=height {
-            let ni = i as f64 / (width + 1) as f64; // normalized coordinates
-            let nj = j as f64 / (height + 1) as f64;
+    for i in 1..=bounding_width {
+        for j in 1..=bounding_height {
+            let ni = i as f64 / (bounding_width + 1) as f64; // normalized coordinates
+            let nj = j as f64 / (bounding_height + 1) as f64;
             let x = ni - 0.5; // centering the coordinates
             let y = nj - 0.5;
             let distance_to_center = (x * x + y * y).sqrt();
@@ -99,44 +142,47 @@ pub fn generate_board(mut params: BoardParams) -> Board {
     }
 
     if board.trim_nubs().is_err() {
-        params.water_level *= 0.5;
-        return generate_board(params);
+        board_seed.params.water_level *= 0.5;
+        return generate_board(board_seed);
     }
 
     // Remove extraneous water
     board.trim();
     if let Some(maximum_land_width) = maximum_land_width {
         if board.width() > maximum_land_width + 2 {
-            params.water_level *= 1.05;
-            return generate_board(params);
+            board_seed.params.water_level *= 1.05;
+            return generate_board(board_seed);
         }
     }
     if let Some(maximum_land_height) = maximum_land_height {
         if board.height() > maximum_land_height + 2 {
-            params.water_level *= 1.05;
-            return generate_board(params);
+            board_seed.params.water_level *= 1.05;
+            return generate_board(board_seed);
         }
     }
 
     if board.drop_docks(seed).is_err() {
-        params.regen();
-        return generate_board(params);
+        board_seed.regen();
+        return generate_board(board_seed);
     }
 
     if board
         .generate_towns(seed, town_density, town_jitter)
         .is_err()
     {
-        params.regen();
-        return generate_board(params);
+        board_seed.regen();
+        return generate_board(board_seed);
     };
 
     if board.ensure_paths().is_err() {
-        params.regen();
-        return generate_board(params);
+        board_seed.regen();
+        return generate_board(board_seed);
     }
 
-    println!("Generated a board in {} step(s)", params.current_iteration);
+    println!(
+        "Generated a board in {} step(s)",
+        board_seed.current_iteration
+    );
 
     board
 }

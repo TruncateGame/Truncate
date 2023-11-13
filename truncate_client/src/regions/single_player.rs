@@ -6,7 +6,7 @@ use instant::Duration;
 use truncate_core::{
     board::{Board, Square},
     game::Game,
-    generation::BoardParams,
+    generation::{BoardParams, BoardSeed},
     judge::{WordData, WordDict},
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
@@ -43,8 +43,13 @@ pub struct SinglePlayerState {
 }
 
 impl SinglePlayerState {
-    pub fn new(map_texture: TextureHandle, theme: Theme, mut board: Board, seed: u64) -> Self {
-        let mut game = Game::new(9, 9, Some(seed));
+    pub fn new(
+        map_texture: TextureHandle,
+        theme: Theme,
+        mut board: Board,
+        seed: BoardSeed,
+    ) -> Self {
+        let mut game = Game::new(9, 9, Some(seed.seed as u64));
         game.add_player("You".into());
         game.add_player("Computer".into());
 
@@ -55,7 +60,7 @@ impl SinglePlayerState {
 
         let active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
-            Some(seed as u32),
+            Some(seed),
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -88,8 +93,8 @@ impl SinglePlayerState {
         game.add_player("You".into());
         game.add_player("Computer".into());
 
-        let mut rand_board =
-            truncate_core::generation::generate_board(BoardParams::default().seed(next_seed));
+        let next_board_seed = BoardSeed::new(next_seed);
+        let mut rand_board = truncate_core::generation::generate_board(next_board_seed.clone());
         rand_board.cache_special_squares();
 
         game.board = rand_board;
@@ -97,7 +102,7 @@ impl SinglePlayerState {
 
         let active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
-            Some(next_seed),
+            Some(next_board_seed),
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -311,7 +316,14 @@ impl SinglePlayerState {
         // Standard game helper
         let mut next_msg = self
             .active_game
-            .render(&mut ui, theme, self.winner, current_time, Some(backchannel))
+            .render(
+                &mut ui,
+                theme,
+                self.winner,
+                current_time,
+                Some(backchannel),
+                Some(&self.game),
+            )
             .map(|msg| (0, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
