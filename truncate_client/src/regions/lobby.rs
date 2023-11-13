@@ -57,7 +57,7 @@ impl Lobby {
             .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
             .collect();
 
-        let seed = current_time.subsec_micros();
+        let seed = (current_time.as_micros() % 243985691) as u32;
         let board_seed = BoardSeed::new(seed);
         let mut rand_board = truncate_core::generation::generate_board(board_seed.clone());
         rand_board.cache_special_squares();

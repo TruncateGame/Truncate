@@ -88,7 +88,7 @@ impl SinglePlayerState {
     }
 
     pub fn reset(&mut self, current_time: Duration) {
-        let next_seed = current_time.subsec_micros();
+        let next_seed = (current_time.as_micros() % 243985691) as u32;
         let mut game = Game::new(9, 9, Some(next_seed as u64));
         game.add_player("You".into());
         game.add_player("Computer".into());
