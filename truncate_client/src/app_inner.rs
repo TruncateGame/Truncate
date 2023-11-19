@@ -1,3 +1,4 @@
+use chrono::Offset;
 use eframe::egui::{self, Layout, Margin};
 use epaint::{vec2, Color32};
 use instant::Duration;
@@ -99,7 +100,9 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 current_time,
             )));
         } else if launched_room == "DAILY_PUZZLE" {
-            let seed = (current_time.as_secs() / (60 * 60 * 24)) as u32;
+            let seconds_offset = chrono::Local::now().offset().fix().local_minus_utc();
+            let local_seconds = current_time.as_secs() as i32 + seconds_offset;
+            let seed = (local_seconds / (60 * 60 * 24)) as u32;
             let day = seed - 19673; // Nov 13, 2023
             let board_seed = BoardSeed::new(seed).day(day);
             let board = generate_board(board_seed.clone());

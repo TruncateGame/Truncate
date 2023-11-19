@@ -22,6 +22,7 @@ truncate_core = { path = "../truncate_core" }
 hashbrown = "0.13"
 time = { version = "0.3", features = ["serde"] }
 instant = "0.1"
+chrono = "0.4"
 futures = "0.3"
 image = { version = "0.24", features = ["png"] }
 ab_glyph = "0.2"
