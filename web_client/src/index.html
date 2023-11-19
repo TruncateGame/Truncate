@@ -326,7 +326,7 @@
                     let remaining_hours = 23 - now.getHours();
                     let minutes = 59 - now.getMinutes();
                     let seconds = 59 - now.getSeconds();
-                    el.innerText = `${remaining_hours}:${minutes}:${seconds.toString().padStart(2, "0")} REMAINING`;
+                    el.innerText = `${remaining_hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")} REMAINING`;
                 }
             };
             setInterval(remaining_day, 1000);

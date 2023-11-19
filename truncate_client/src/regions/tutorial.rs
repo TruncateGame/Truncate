@@ -17,7 +17,7 @@ use truncate_core::{
 
 use crate::utils::{text::TextHelper, Diaphanize, Lighten, Theme};
 
-use super::active_game::ActiveGame;
+use super::active_game::{ActiveGame, HeaderType};
 
 const TUTORIAL_01: &[u8] = include_bytes!("../../tutorials/tutorial_01.yml");
 
@@ -147,6 +147,7 @@ impl TutorialState {
             judge: Judge::new(loaded_tutorial.dict.keys().cloned().collect()),
             battle_count: 0,
             turn_count: 0,
+            player_turn_count: vec![0, 0],
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
@@ -164,7 +165,7 @@ impl TutorialState {
             map_texture,
             theme,
         );
-        active_game.ctx.timers_visible = false;
+        active_game.ctx.header_visible = HeaderType::None;
 
         Self {
             game,

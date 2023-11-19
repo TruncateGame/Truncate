@@ -8,7 +8,7 @@ use truncate_core::{
 
 use crate::utils::Theme;
 
-use super::active_game::ActiveGame;
+use super::active_game::{ActiveGame, HeaderType};
 
 pub struct GeneratorState {
     active_game: ActiveGame,
@@ -36,7 +36,7 @@ impl GeneratorState {
             map_texture.clone(),
             theme.clone(),
         );
-        active_game.ctx.timers_visible = false;
+        active_game.ctx.header_visible = HeaderType::None;
         active_game.ctx.hand_visible = false;
         active_game.ctx.sidebar_visible = false;
         active_game.ctx.interactive = false;

@@ -111,8 +111,12 @@ impl Board {
         let counts = if let Some(game) = game {
             format!(
                 " in {} turn{}, {} battle{}",
-                game.turn_count,
-                if game.turn_count == 1 { "" } else { "s" },
+                game.player_turn_count[0],
+                if game.player_turn_count[0] == 1 {
+                    ""
+                } else {
+                    "s"
+                },
                 game.battle_count,
                 if game.battle_count == 1 { "" } else { "s" },
             )

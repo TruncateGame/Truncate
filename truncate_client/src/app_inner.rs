@@ -13,8 +13,8 @@ use truncate_core::{
 use crate::{
     regions::active_game::ActiveGame,
     regions::{
-        generator::GeneratorState, lobby::Lobby, single_player::SinglePlayerState,
-        tutorial::TutorialState,
+        active_game::HeaderType, generator::GeneratorState, lobby::Lobby,
+        single_player::SinglePlayerState, tutorial::TutorialState,
     },
     utils::{text::TextHelper, Lighten},
 };
@@ -106,15 +106,31 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let day = seed - 19673; // Nov 13, 2023
             let board_seed = BoardSeed::new(seed).day(day);
             let board = generate_board(board_seed.clone());
-            let puzzle_game =
-                SinglePlayerState::new(map_texture.clone(), theme.clone(), board, Some(board_seed));
+            let header = HeaderType::Summary {
+                title: format!("Truncate Town Day #{day}"),
+            };
+            let puzzle_game = SinglePlayerState::new(
+                map_texture.clone(),
+                theme.clone(),
+                board,
+                Some(board_seed),
+                header,
+            );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room == "RANDOM_PUZZLE" {
             let seed = (current_time.as_micros() % 243985691) as u32;
             let board_seed = BoardSeed::new(seed);
             let board = generate_board(board_seed.clone());
-            let puzzle_game =
-                SinglePlayerState::new(map_texture.clone(), theme.clone(), board, Some(board_seed));
+            let header = HeaderType::Summary {
+                title: format!("Random Puzzle"),
+            };
+            let puzzle_game = SinglePlayerState::new(
+                map_texture.clone(),
+                theme.clone(),
+                board,
+                Some(board_seed),
+                header,
+            );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room.starts_with("PUZZLE:") {
             let mut parts = launched_room.split(':').skip(1);
@@ -127,8 +143,16 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
 
             let board_seed = BoardSeed::new_with_generation(generation, seed);
             let board = generate_board(board_seed.clone());
-            let puzzle_game =
-                SinglePlayerState::new(map_texture.clone(), theme.clone(), board, Some(board_seed));
+            let header = HeaderType::Summary {
+                title: format!("Truncate Puzzle {generation}:{seed}"),
+            };
+            let puzzle_game = SinglePlayerState::new(
+                map_texture.clone(),
+                theme.clone(),
+                board,
+                Some(board_seed),
+                header,
+            );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
@@ -251,6 +275,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                             theme.clone(),
                             editor_state.board.clone(),
                             editor_state.board_seed.clone(),
+                            HeaderType::Timers,
                         );
                         new_game_status = Some(GameStatus::SinglePlayer(single_player_game));
                     }

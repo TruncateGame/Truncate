@@ -35,6 +35,13 @@ pub struct HoveredRegion {
 }
 
 #[derive(Clone)]
+pub enum HeaderType {
+    Timers,
+    Summary { title: String },
+    None,
+}
+
+#[derive(Clone)]
 pub struct GameCtx {
     pub board_seed: Option<BoardSeed>,
     pub theme: Theme,
@@ -58,8 +65,8 @@ pub struct GameCtx {
     pub board_pan: Vec2,
     pub sidebar_toggled: bool,
     pub sidebar_visible: bool,
-    pub timers_visible: bool,
-    pub timers_total_rect: Option<Rect>,
+    pub header_visible: HeaderType,
+    pub headers_total_rect: Option<Rect>,
     pub hand_visible: bool,
     pub hand_total_rect: Option<Rect>,
     pub hand_companion_rect: Option<Rect>,
@@ -125,10 +132,10 @@ impl ActiveGame {
                 board_pan: vec2(0.0, 0.0),
                 sidebar_toggled: false,
                 sidebar_visible: true,
-                timers_visible: true,
+                header_visible: HeaderType::Timers,
                 hand_visible: true,
                 hand_companion_rect: None,
-                timers_total_rect: None,
+                headers_total_rect: None,
                 hand_total_rect: None,
                 highlight_tiles: None,
                 highlight_squares: None,
@@ -156,13 +163,14 @@ impl ActiveGame {
 }
 
 impl ActiveGame {
-    pub fn render_timer_strip(
+    pub fn render_header_strip(
         &mut self,
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
+        game_ref: Option<&truncate_core::game::Game>,
     ) -> (Option<Rect>, Option<PlayerMessage>) {
-        if !self.ctx.timers_visible {
+        if matches!(self.ctx.header_visible, HeaderType::None) {
             return (None, None);
         }
 
@@ -177,7 +185,7 @@ impl ActiveGame {
             .anchor(Align2::LEFT_TOP, vec2(timer_area.left(), timer_area.top()));
 
         let mut resp = area.show(ui.ctx(), |ui| {
-            if let Some(bg_rect) = self.ctx.timers_total_rect {
+            if let Some(bg_rect) = self.ctx.headers_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
                     0.0,
@@ -205,45 +213,113 @@ impl ActiveGame {
                         }
                     }
 
+                    let item_spacing = 10.0;
                     let outer_x_padding = if !self.ctx.is_mobile {
                         (ui.available_width() - total_width) / 2.0
                     } else {
                         0.0
                     };
-                    let item_spacing = 10.0;
+                    ui.add_space(outer_x_padding);
 
-                    ui.add_space(outer_x_padding + item_spacing);
+                    match &self.ctx.header_visible {
+                        HeaderType::Timers => {
+                            ui.add_space(item_spacing);
 
-                    let timer_width = (total_width - item_spacing * 3.0) / 2.0;
+                            let timer_width = (total_width - item_spacing * 3.0) / 2.0;
 
-                    if let Some(player) = self
-                        .players
-                        .iter()
-                        .find(|p| p.index == self.ctx.player_number as usize)
-                    {
-                        TimerUI::new(player, self.ctx.current_time, &self.time_changes)
-                            .friend(true)
-                            .active(player.index == self.ctx.next_player_number as usize)
-                            .winner(winner.clone())
-                            .render(Some(timer_width), false, ui, theme, &mut self.ctx);
+                            if let Some(player) = self
+                                .players
+                                .iter()
+                                .find(|p| p.index == self.ctx.player_number as usize)
+                            {
+                                TimerUI::new(player, self.ctx.current_time, &self.time_changes)
+                                    .friend(true)
+                                    .active(player.index == self.ctx.next_player_number as usize)
+                                    .winner(winner.clone())
+                                    .render(Some(timer_width), false, ui, theme, &mut self.ctx);
+                            }
+
+                            ui.add_space(item_spacing);
+
+                            if let Some(opponent) = self
+                                .players
+                                .iter()
+                                .find(|p| p.index != self.ctx.player_number as usize)
+                            {
+                                TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
+                                    .friend(false)
+                                    .active(opponent.index == self.ctx.next_player_number as usize)
+                                    .winner(winner.clone())
+                                    .right_align()
+                                    .render(Some(timer_width), false, ui, theme, &mut self.ctx);
+                            }
+
+                            ui.add_space(item_spacing);
+                        }
+                        HeaderType::Summary { title } => {
+                            let summary_height = 50.0;
+                            let (rect, _) = ui.allocate_exact_size(
+                                vec2(total_width, summary_height),
+                                Sense::hover(),
+                            );
+                            let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
+
+                            let summary = if let Some(game) = game_ref {
+                                format!(
+                                    "{} turn{} • {} battle{}",
+                                    game.player_turn_count[0],
+                                    if game.player_turn_count[0] == 1 {
+                                        ""
+                                    } else {
+                                        "s"
+                                    },
+                                    game.battle_count,
+                                    if game.battle_count == 1 { "" } else { "s" },
+                                )
+                            } else {
+                                "".to_string()
+                            };
+
+                            let title_text = TextHelper::heavy(title, 14.0, None, &mut ui);
+                            let title_text_mesh_size = title_text.mesh_size();
+                            let title_x_offset = (total_width - title_text_mesh_size.x) / 2.0;
+
+                            let summary_text = TextHelper::heavy(&summary, 10.0, None, &mut ui);
+                            let summary_text_mesh_size = summary_text.mesh_size();
+                            let summary_x_offset = (total_width - summary_text_mesh_size.x) / 2.0;
+
+                            let spacing = 5.0;
+                            let y_offset = (summary_height
+                                - summary_text_mesh_size.y
+                                - title_text_mesh_size.y)
+                                / 2.0;
+                            ui.add_space(y_offset);
+
+                            let (rect, _) = ui.allocate_exact_size(
+                                vec2(ui.available_width(), title_text_mesh_size.y),
+                                Sense::hover(),
+                            );
+                            title_text.paint_at(
+                                rect.min + vec2(title_x_offset, 0.0),
+                                self.ctx.theme.text,
+                                &mut ui,
+                            );
+                            ui.add_space(spacing);
+
+                            let (rect, _) = ui.allocate_exact_size(
+                                vec2(ui.available_width(), summary_text_mesh_size.y),
+                                Sense::hover(),
+                            );
+                            summary_text.paint_at(
+                                rect.min + vec2(summary_x_offset, 0.0),
+                                self.ctx.theme.text,
+                                &mut ui,
+                            );
+
+                            ui.add_space(y_offset);
+                        }
+                        HeaderType::None => unreachable!(),
                     }
-
-                    ui.add_space(item_spacing);
-
-                    if let Some(opponent) = self
-                        .players
-                        .iter()
-                        .find(|p| p.index != self.ctx.player_number as usize)
-                    {
-                        TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
-                            .friend(false)
-                            .active(opponent.index == self.ctx.next_player_number as usize)
-                            .winner(winner.clone())
-                            .right_align()
-                            .render(Some(timer_width), false, ui, theme, &mut self.ctx);
-                    }
-
-                    ui.add_space(item_spacing);
 
                     if !self.ctx.is_mobile {
                         ui.add_space(outer_x_padding);
@@ -284,7 +360,7 @@ impl ActiveGame {
             ui.add_space(10.0);
         });
 
-        self.ctx.timers_total_rect = Some(resp.response.rect);
+        self.ctx.headers_total_rect = Some(resp.response.rect);
 
         (Some(resp.response.rect), msg)
     }
@@ -304,13 +380,13 @@ impl ActiveGame {
         let mut msg = None;
         let companion_space = 220.0;
 
-        let control_anchor = if self.ctx.timers_visible {
+        let control_anchor = if !matches!(self.ctx.header_visible, HeaderType::None) {
             vec2(0.0, 0.0)
         } else {
             vec2(0.0, -companion_space)
         };
 
-        if !self.ctx.timers_visible {
+        if matches!(self.ctx.header_visible, HeaderType::None) {
             let mut companion_pos = ui.available_rect_before_wrap();
             companion_pos.set_top(companion_pos.bottom() - companion_space);
             self.ctx.hand_companion_rect = Some(companion_pos);
@@ -654,7 +730,7 @@ impl ActiveGame {
 
         let mut timer_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (timer_strip_rect, timer_player_message) =
-            self.render_timer_strip(&mut timer_strip_ui, theme, winner);
+            self.render_header_strip(&mut timer_strip_ui, theme, winner, game_ref);
 
         let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
         let sidebar_player_message = self.render_sidebar(&mut sidebar_space_ui, theme, winner);

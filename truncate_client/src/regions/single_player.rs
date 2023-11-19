@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-use super::active_game::ActiveGame;
+use super::active_game::{ActiveGame, HeaderType};
 
 pub struct SinglePlayerState {
     game: Game,
@@ -48,6 +48,7 @@ impl SinglePlayerState {
         theme: Theme,
         mut board: Board,
         seed: Option<BoardSeed>,
+        header: HeaderType,
     ) -> Self {
         let mut game = Game::new(9, 9, seed.clone().map(|s| s.seed as u64));
         game.add_player("You".into());
@@ -58,7 +59,7 @@ impl SinglePlayerState {
 
         game.start();
 
-        let active_game = ActiveGame::new(
+        let mut active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
             seed,
             game.players.iter().map(Into::into).collect(),
@@ -69,6 +70,7 @@ impl SinglePlayerState {
             map_texture.clone(),
             theme.clone(),
         );
+        active_game.ctx.header_visible = header;
 
         Self {
             game,

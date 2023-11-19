@@ -34,6 +34,7 @@ pub struct Game {
     pub judge: Judge,
     pub battle_count: u32,
     pub turn_count: u32,
+    pub player_turn_count: Vec<u32>,
     pub recent_changes: Vec<Change>,
     pub started_at: Option<u64>,
     pub next_player: usize,
@@ -58,6 +59,7 @@ impl Game {
             judge: Judge::default(),
             battle_count: 0,
             turn_count: 0,
+            player_turn_count: Vec::with_capacity(2),
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
@@ -83,6 +85,7 @@ impl Game {
             time_allowance,
             GAME_COLORS[self.players.len()],
         ));
+        self.player_turn_count.push(0);
     }
 
     pub fn get_player(&self, player: usize) -> Option<&Player> {
@@ -197,6 +200,7 @@ impl Game {
         };
 
         self.turn_count += 1;
+        self.player_turn_count[player] += 1;
 
         // Check for winning via defeated towns
         if let Some(winner) = Judge::winner(&(self.board)) {
