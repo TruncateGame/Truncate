@@ -1,44 +1,67 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format};
 
-use eframe::egui;
-use epaint::TextureHandle;
+use eframe::egui::{self, DragValue, Frame, Grid, Layout, RichText, ScrollArea, Sense, Window};
+use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
+    board::{Board, Square},
     game::Game,
+    generation::{BoardParams, BoardSeed},
     judge::{WordData, WordDict},
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
-    reporting::WordMeaning,
+    npc::scoring::{BoardScore, BoardWeights},
+    reporting::{Change, HandChange, WordMeaning},
 };
 
-use crate::utils::Theme;
+use crate::{
+    app_outer::Backchannel,
+    lil_bits::HandUI,
+    utils::{
+        game_evals::{best_move, get_main_dict, remember, WORDNIK},
+        text::TextHelper,
+        Lighten, Theme,
+    },
+};
 
-use super::active_game::ActiveGame;
-
-pub static WORDNIK: &str = include_str!("../../../word_freqs/final_wordlist.txt");
+use super::active_game::{ActiveGame, HeaderType};
 
 pub struct SinglePlayerState {
     game: Game,
+    original_board: Board,
     pub active_game: ActiveGame,
-    dict: WordDict,
-    npc_known_dict: WordDict,
-    player_known_dict: WordDict,
     next_response_at: Option<Duration>,
     winner: Option<usize>,
     map_texture: TextureHandle,
     theme: Theme,
     turns: usize,
+    debugging_npc: bool,
+    weights: BoardWeights,
+    last_target_score: Option<BoardScore>,
+    last_target_game: Option<ActiveGame>,
+    waiting_on_backchannel: Option<String>,
 }
 
 impl SinglePlayerState {
-    pub fn new(map_texture: TextureHandle, theme: Theme) -> Self {
-        let mut game = Game::new(9, 9);
+    pub fn new(
+        map_texture: TextureHandle,
+        theme: Theme,
+        mut board: Board,
+        seed: Option<BoardSeed>,
+        header: HeaderType,
+    ) -> Self {
+        let mut game = Game::new(9, 9, seed.clone().map(|s| s.seed as u64));
         game.add_player("You".into());
         game.add_player("Computer".into());
+
+        board.cache_special_squares();
+        game.board = board.clone();
+
         game.start();
 
-        let active_game = ActiveGame::new(
+        let mut active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
+            seed,
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -47,88 +70,41 @@ impl SinglePlayerState {
             map_texture.clone(),
             theme.clone(),
         );
-
-        let mut valid_words = HashMap::new();
-        let mut npc_known_words = HashMap::new();
-        let mut player_known_words = HashMap::new();
-        let lines = WORDNIK.lines();
-
-        for line in lines {
-            let mut chunks = line.split(' ');
-
-            let mut word = chunks.next().unwrap().to_string();
-            let extensions = chunks.next().unwrap().parse().unwrap();
-            let rel_freq = chunks.next().unwrap().parse().unwrap();
-
-            let objectionable = word.chars().next() == Some('*');
-            if objectionable {
-                word.remove(0);
-            }
-
-            valid_words.insert(
-                word.clone(),
-                WordData {
-                    extensions,
-                    rel_freq,
-                    objectionable,
-                },
-            );
-
-            // These are the words the NPC has recall of,
-            // and will play during their turn.
-            if rel_freq > 0.95 && !objectionable {
-                npc_known_words.insert(
-                    word.clone(),
-                    WordData {
-                        extensions,
-                        rel_freq,
-                        objectionable,
-                    },
-                );
-            }
-
-            // These are the words the NPC will think it recognizes,
-            // and won't challenge if they're on the board.
-            if rel_freq > 0.90 {
-                player_known_words.insert(
-                    word,
-                    WordData {
-                        extensions,
-                        rel_freq,
-                        objectionable,
-                    },
-                );
-            }
-        }
-
-        println!("NPC playing with {} known words", npc_known_words.len());
-        println!(
-            "NPC thinks it knows {} words that the player plays",
-            player_known_words.len()
-        );
+        active_game.ctx.header_visible = header;
 
         Self {
             game,
             active_game,
-            dict: valid_words,
-            npc_known_dict: npc_known_words,
-            player_known_dict: player_known_words,
+            original_board: board,
             next_response_at: None,
             winner: None,
             map_texture,
             theme,
             turns: 0,
+            debugging_npc: false,
+            weights: BoardWeights::default(),
+            last_target_score: None,
+            last_target_game: None,
+            waiting_on_backchannel: None,
         }
     }
 
-    pub fn reset(&mut self) {
-        let mut game = Game::new(9, 9);
+    pub fn reset(&mut self, current_time: Duration) {
+        let next_seed = (current_time.as_micros() % 243985691) as u32;
+        let mut game = Game::new(9, 9, Some(next_seed as u64));
         game.add_player("You".into());
         game.add_player("Computer".into());
+
+        let next_board_seed = BoardSeed::new(next_seed);
+        let mut rand_board = truncate_core::generation::generate_board(next_board_seed.clone());
+        rand_board.cache_special_squares();
+
+        game.board = rand_board;
         game.start();
 
-        let active_game = ActiveGame::new(
+        let mut active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
+            Some(next_board_seed),
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -176,17 +152,184 @@ impl SinglePlayerState {
         ui: &mut egui::Ui,
         theme: &Theme,
         current_time: Duration,
+        backchannel: &Backchannel,
     ) -> Option<PlayerMessage> {
         let mut msg_to_server = None;
+
+        if self.debugging_npc {
+            ui.painter().rect_filled(
+                ui.available_rect_before_wrap(),
+                0.0,
+                hex_color!("#00000055"),
+            );
+        }
+
+        if matches!(option_env!("TR_ENV"), Some("outpost")) {
+            let (top_banner, _) =
+                ui.allocate_at_least(vec2(ui.available_width(), 40.0), Sense::hover());
+            let mut banner_ui = ui.child_ui(top_banner, Layout::left_to_right(Align::Center));
+
+            let text = if self.debugging_npc {
+                TextHelper::heavy("CLOSE NPC DEBUGGER", 12.0, None, ui)
+            } else {
+                TextHelper::heavy("NPC DEBUGGER", 12.0, None, ui)
+            };
+            if text
+                .centered_button(
+                    theme.selection.lighten().lighten(),
+                    theme.text,
+                    &self.map_texture,
+                    &mut banner_ui,
+                )
+                .clicked()
+            {
+                self.debugging_npc = !self.debugging_npc;
+            }
+        }
+
+        if self.debugging_npc {
+            Frame::none().inner_margin(8.0).show(ui, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    TextHelper::heavy("NPC's current hand", 14.0, None, ui).paint(
+                        Color32::WHITE,
+                        ui,
+                        true,
+                    );
+                    TextHelper::heavy("(new tiles highlighted)", 8.0, None, ui).paint(
+                        Color32::WHITE,
+                        ui,
+                        true,
+                    );
+
+                    let added_tiles = self
+                        .game
+                        .recent_changes
+                        .iter()
+                        .filter_map(|change| match change {
+                            Change::Hand(HandChange { player, added, .. }) if *player == 1 => {
+                                Some(added)
+                            }
+                            _ => None,
+                        })
+                        .next();
+
+                    self.active_game.ctx.highlight_tiles = added_tiles.cloned();
+                    HandUI::new(&mut self.game.players[1].hand)
+                        .interactive(false)
+                        .render(&mut self.active_game.ctx, ui);
+                    self.active_game.ctx.highlight_tiles = None;
+
+                    ui.add_space(28.0);
+
+                    TextHelper::heavy("Play with weights", 14.0, None, ui).paint(
+                        Color32::WHITE,
+                        ui,
+                        true,
+                    );
+                    ui.add_space(24.0);
+
+                    let BoardWeights {
+                        raced_defense,
+                        raced_attack,
+                        self_defense,
+                        self_attack,
+                        direct_defence,
+                        direct_attack,
+                        word_validity,
+                        word_length,
+                        word_extensibility,
+                    } = &mut self.weights;
+
+                    fn dragger(v: &mut f32) -> DragValue {
+                        DragValue::new(v).clamp_range(0.0..=100.0).speed(0.1)
+                    }
+
+                    let prev_text_styles = ui.style().text_styles.clone();
+                    use egui::{FontFamily, FontId, TextStyle::*};
+                    ui.style_mut().text_styles = [
+                        (Heading, FontId::new(32.0, FontFamily::Proportional)),
+                        (Body, FontId::new(24.0, FontFamily::Proportional)),
+                        (Monospace, FontId::new(24.0, FontFamily::Monospace)),
+                        (Button, FontId::new(24.0, FontFamily::Proportional)),
+                        (Small, FontId::new(16.0, FontFamily::Proportional)),
+                    ]
+                    .into();
+
+                    ui.horizontal(|ui| {
+                        let sp = ui.available_width();
+                        let pad = (sp - 308.0) * 0.5;
+                        ui.add_space(pad);
+                        let r = egui::Grid::new("weightings")
+                            .spacing(Vec2::splat(8.0))
+                            .min_col_width(150.0)
+                            .show(ui, |ui| {
+                                ui.label(RichText::new("Raced defense").color(Color32::WHITE));
+                                ui.add(dragger(raced_defense));
+                                ui.end_row();
+
+                                ui.label(RichText::new("Raced attack").color(Color32::WHITE));
+                                ui.add(dragger(raced_attack));
+                                ui.end_row();
+
+                                ui.label(RichText::new("Self defense").color(Color32::WHITE));
+                                ui.add(dragger(self_defense));
+                                ui.end_row();
+
+                                ui.label(RichText::new("Self attack").color(Color32::WHITE));
+                                ui.add(dragger(self_attack));
+                                ui.end_row();
+
+                                ui.label(RichText::new("Direct defense").color(Color32::WHITE));
+                                ui.add(dragger(direct_defence));
+                                ui.end_row();
+
+                                ui.label(RichText::new("Direct attack").color(Color32::WHITE));
+                                ui.add(dragger(direct_attack));
+                                ui.end_row();
+
+                                ui.label(RichText::new("Word validity").color(Color32::WHITE));
+                                ui.add(dragger(word_validity));
+                                ui.end_row();
+
+                                ui.label(RichText::new("Word length").color(Color32::WHITE));
+                                ui.add(dragger(word_length));
+                                ui.end_row();
+
+                                ui.label(RichText::new("Word extensibility").color(Color32::WHITE));
+                                ui.add(dragger(word_extensibility));
+                                ui.end_row();
+                            });
+                        ui.painter().rect_stroke(
+                            r.response.rect.expand(12.0),
+                            0.0,
+                            Stroke::new(2.0, self.theme.text),
+                        );
+                    });
+
+                    ui.style_mut().text_styles = prev_text_styles;
+                });
+            });
+            return None;
+        }
+
+        let (mut rect, _) = ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
+        let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
         // Standard game helper
         let mut next_msg = self
             .active_game
-            .render(ui, theme, self.winner, current_time)
+            .render(
+                &mut ui,
+                theme,
+                self.winner,
+                current_time,
+                Some(backchannel),
+                Some(&self.game),
+            )
             .map(|msg| (0, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
-            self.reset();
+            self.reset(current_time);
             return msg_to_server;
         }
 
@@ -208,27 +351,40 @@ impl SinglePlayerState {
                 .unwrap()
                 .turn_starts_at
             {
-                if turn_starts_at <= current_time.as_secs() {
-                    let search_depth = (7_usize.saturating_sub(self.turns / 2)).max(3);
-                    println!("Looking forward {search_depth} turns");
-
-                    // let start = time::Instant::now();
-                    let mut arb = truncate_core::npc::Arborist::pruning();
-                    next_msg = Some((
-                        1,
-                        Game::best_move(
-                            &self.game,
-                            Some(&self.npc_known_dict),
-                            Some(&self.player_known_dict),
-                            search_depth,
-                            Some(&mut arb),
-                        ),
-                    ));
-                    // println!(
-                    //     "Looked at {} leaves in {}ms",
-                    //     arb.assessed(),
-                    //     start.elapsed().whole_milliseconds()
-                    // );
+                if backchannel.is_open() {
+                    if let Some(pending_msg) = &self.waiting_on_backchannel {
+                        // Do nothing if a message is pending but our turn hasn't yet started,
+                        // we'll fetch the turn once we're allowed to play.
+                        if turn_starts_at <= current_time.as_secs() {
+                            let msg_response =
+                                backchannel.send_msg(crate::app_outer::BackchannelMsg::QueryFor {
+                                    id: pending_msg.clone(),
+                                });
+                            if let Some(msg_response) = msg_response {
+                                let player_msg: PlayerMessage = serde_json::from_str(&msg_response)
+                                    .expect("Backchannel should be sending valid JSON");
+                                next_msg = Some((1, player_msg));
+                                self.waiting_on_backchannel = None;
+                            }
+                        }
+                    } else {
+                        let pending_msg =
+                            backchannel.send_msg(crate::app_outer::BackchannelMsg::EvalGame {
+                                board: self.game.board.clone(),
+                                rules: self.game.rules.clone(),
+                                players: self.game.players.clone(),
+                                next_player: self.game.next_player,
+                                weights: self.weights,
+                            });
+                        self.waiting_on_backchannel = pending_msg;
+                    }
+                } else {
+                    // If we have no backchannel available to evaluate moves through,
+                    // just evaluate the move on this thread and live with blocking.
+                    if turn_starts_at <= current_time.as_secs() {
+                        let best = best_move(&self.game, &self.weights);
+                        next_msg = Some((1, best));
+                    }
                 }
             }
         }
@@ -248,13 +404,12 @@ impl SinglePlayerState {
 
         if let Some(next_move) = next_move {
             self.turns += 1;
+            let dict_lock = get_main_dict();
+            let dict = dict_lock.as_ref().unwrap();
 
             // When actually playing the turn, make sure we pass in the real dict
             // for both the attack and defense roles.
-            match self
-                .game
-                .play_turn(next_move, Some(&self.dict), Some(&self.dict))
-            {
+            match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
                 Ok(winner) => {
                     self.winner = winner;
 
@@ -286,36 +441,27 @@ impl SinglePlayerState {
                         .map(|b| b.resolved_word.clone())
                         .collect();
 
+                    // Need to release our dict mutex, so that
+                    // the remember() function below can lock it itself.
+                    drop(dict_lock);
+
                     // NPC learns words as a result of battles that reveal validity
                     for battle in changes.iter().filter_map(|change| match change {
                         truncate_core::reporting::Change::Battle(battle) => Some(battle),
                         _ => None,
                     }) {
-                        for word in &battle.attackers {
+                        for word in battle.attackers.iter().chain(battle.defenders.iter()) {
                             if word.valid == Some(true) {
                                 let dict_word = word.original_word.to_lowercase();
-                                if let Some(word_data) = self.dict.get(&dict_word).cloned() {
-                                    self.player_known_dict
-                                        .insert(dict_word.clone(), word_data.clone());
 
-                                    // We don't want the NPC to learn bad words from the player
-                                    if !word_data.objectionable {
-                                        self.npc_known_dict.insert(dict_word, word_data);
-                                    }
-                                }
-                            }
-                        }
-                        for word in &battle.defenders {
-                            if word.valid == Some(true) {
-                                let dict_word = word.original_word.to_lowercase();
-                                if let Some(word_data) = self.dict.get(&dict_word).cloned() {
-                                    self.player_known_dict
-                                        .insert(dict_word.clone(), word_data.clone());
-
-                                    // We don't want the NPC to learn bad words from the player
-                                    if !word_data.objectionable {
-                                        self.npc_known_dict.insert(dict_word, word_data);
-                                    }
+                                if backchannel.is_open() {
+                                    backchannel.send_msg(
+                                        crate::app_outer::BackchannelMsg::Remember {
+                                            word: dict_word,
+                                        },
+                                    );
+                                } else {
+                                    remember(&dict_word);
                                 }
                             }
                         }

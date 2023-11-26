@@ -1,7 +1,9 @@
 pub mod bag;
 pub mod board;
+pub mod emojification;
 pub mod error;
 pub mod game;
+pub mod generation;
 pub mod judge;
 pub mod messages;
 pub mod moves;

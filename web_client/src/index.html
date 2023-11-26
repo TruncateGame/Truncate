@@ -72,51 +72,78 @@
             top: 0;
             left: 0;
             width: 400px;
-            height: 100px;
             display: flex;
             align-items: center;
-            justify-content: space-around;
+            flex-direction: column;
+            gap: 40px;
         }
 
-        @media (max-width: 900px) {
-            #controls {
-                justify-content: space-between;
-                align-items: flex-start;
-            }
-        }
-
-        #controls .sub {
+        #menu_region {
             display: flex;
-            gap: 10px;
+            flex-direction: column;
+            gap: 15px;
+            width: 400px;
+            max-width: 100%;
+            padding-top: 15px;
         }
 
-        @media (max-width: 900px) {
-            #controls .sub {
-                flex: 1;
-                flex-direction: column;
-                align-items: stretch;
-            }
-        }
-
-        #controls .split {
+        .row {
             display: flex;
-            gap: 10px;
+            flex-direction: row;
+            gap: 15px;
+            flex-wrap: wrap;
         }
-
 
         #controls button {
+            flex: 1;
             position: relative;
             appearance: none;
             border: 0;
-            background-color: #ffffffbb;
+            background-color: #fff9d8;
             font-family: Truncate;
             font-size: clamp(10px, 2vw, 13px);
-            padding: 10px clamp(15px, 4vw, 30px);
+            padding: 10px 15px;
             cursor: pointer;
             border-radius: 4px 4px 6px 6px;
-            border-bottom: solid 2px #b9b9b9bb;
+            border-bottom: solid 2px #e1d590;
             z-index: 3;
             transition: transform .1s ease-in;
+            text-transform: uppercase;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #controls button:hover {
+            background-color: #fffef9;
+            border-bottom: solid 2px #efe5af;
+            transform: translateY(-2px);
+        }
+
+        #controls button.thin {
+            flex: unset;
+        }
+
+        #controls button[disabled] {
+            pointer-events: none;
+            color: #444;
+            background-color: transparent;
+            border: solid 2px #d2d2d288;
+        }
+
+        #controls button.special {
+            background-color: #edbbff;
+            border-bottom: solid 2px #c694d9;
+        }
+
+        #controls button.special:hover {
+            background-color: #f6dcff;
+            border-bottom: solid 2px #deb6ee;
+            transform: translateY(-2px);
+        }
+
+        #controls button span:first-of-type {
+            font-size: 0.6em;
         }
 
         #controls #about_control {
@@ -134,30 +161,23 @@
             padding: 11px 10px;
             border-radius: 4px;
             z-index: 3;
-            min-width: 200px;
+            width: 250px;
             text-transform: uppercase;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 800px) {
             #controls input {
                 width: 100%;
             }
         }
 
-        #controls button.thin {
-            padding: 10px 15px;
+        .back {
+            margin-top: 20px;
+            opacity: 0.6;
         }
 
-        @media (max-width: 900px) {
-            #controls button.fill {
-                flex: 1;
-            }
-        }
-
-        #controls button:hover {
-            background-color: #ffffffff;
-            border-bottom: solid 2px #b9b9b9ff;
-            transform: translateY(-2px);
+        .back:hover {
+            opacity: 0.9;
         }
 
         #about_truncate {
@@ -228,42 +248,6 @@
             padding-left: 1em;
             color: #888;
         }
-
-        [data-stage] {
-            display: none !important;
-        }
-
-        [data-control-stage="root"] [data-stage="root"] {
-            display: flex !important;
-        }
-
-        [data-control-stage="create"] [data-stage="create"] {
-            display: flex !important;
-        }
-
-        [data-control-stage="join"] [data-stage="join"] {
-            display: flex !important;
-        }
-
-        [data-control-stage="multi"] [data-stage="multi"] {
-            display: flex !important;
-        }
-
-        [data-control-stage="error"] [data-stage="error"] {
-            display: flex !important;
-        }
-
-        [data-control-stage="loading"] [data-stage="loading"] {
-            display: flex !important;
-        }
-
-        [data-control-stage="rejoin"] [data-stage="rejoin"] {
-            display: flex !important;
-        }
-
-        [data-control-stage="about"] [data-stage="about"] {
-            display: flex !important;
-        }
     </style>
 </head>
 
@@ -272,56 +256,10 @@
     <canvas id="truncate_canvas"></canvas>
 
     <div id="controls" data-control-stage="root">
+        <button data-stage="root" id="about_control" data-control="to_about">ABOUT & CREDITS</button>
 
-        <button data-stage="root" id="about_control" data-control="to_about">ABOUT + CREDITS</button>
-
-        <button data-stage="root" data-control="tutorial">TUTORIAL</button>
-        <button data-stage="root" data-control="to_create_game">PLAY GAME</button>
-
-        <div class="sub" data-stage="create">
-            <div class="split">
-                <button data-control="new_single" class="fill">SINGLE PLAYER</button>
-            </div>
-            <div class="split">
-                <button data-control="to_multi_game" class="fill">MULTI PLAYER</button>
-                <button type="button" data-control="cancel_to_root" class="thin"
-                    aria-label="Cancel play game selection">X</button>
-            </div>
+        <div id="menu_region">
         </div>
-
-        <div class="sub" data-stage="multi">
-            <div class="split">
-                <button data-control="to_join_game" class="fill">JOIN GAME</button>
-            </div>
-            <div class="split">
-                <button data-control="new_multi" class="fill">CREATE GAME</button>
-                <button type="button" data-control="cancel_to_root" class="thin"
-                    aria-label="Cancel new game selection">X</button>
-            </div>
-        </div>
-
-        <div class="sub" data-stage="rejoin">
-            <div class="split">
-                <button data-control="rejoin" class="fill">REJOIN ACTIVE GAME</button>
-                <button type="button" data-control="cancel_rejoin" class="thin"
-                    aria-label="Cancel rejoining recent game">X</button>
-            </div>
-        </div>
-
-        <form class="sub" data-stage="join" action="javascript:void(0);">
-            <div class="split">
-                <input data-control="room_code" aria-label="Room code of an existing Truncate game" type="text"
-                    placeholder="ROOM CODE" />
-            </div>
-            <div class="split">
-                <button type="submit" data-control="join_game" class="fill">JOIN</button>
-                <button type="button" data-control="cancel_to_root" class="thin"
-                    aria-label="Cancel join game selection">X</button>
-            </div>
-        </form>
-
-        <p data-stage="error">An error occurred loading Truncate</p>
-        <p data-stage="loading">Loading...</p>
 
         <dialog id="about_truncate">
             <div class="inner">
@@ -361,9 +299,37 @@
     <script defer src="static/truncate_client.js?commit={{ env.commit }}"></script>
     <script>
         (function () {
-            const stage = (s) => controls.setAttribute("data-control-stage", s);
-            const control_plural = (t) => document.querySelectorAll(`[data-control="${t}"]`);
-            const control = (t) => document.querySelector(`[data-control="${t}"]`);
+            let menu;
+            let past_events = [];
+            let event = (ev) => {
+                if (typeof fathom === "undefined") {
+                    past_events.push(ev);
+                    send_past_events();
+                } else {
+                    fathom?.trackEvent?.(ev);
+                }
+            }
+            let send_past_events = () => {
+                if (typeof fathom === "undefined") {
+                    setTimeout(send_past_events, 50);
+                } else {
+                    for (const past_ev of past_events) {
+                        fathom?.trackEvent?.(past_ev);
+                    }
+                    past_events = [];
+                }
+            }
+            let remaining_day = () => {
+                let el = document.querySelector(".REMAINING_TIME");
+                if (el) {
+                    let now = new Date();
+                    let remaining_hours = 23 - now.getHours();
+                    let minutes = 59 - now.getMinutes();
+                    let seconds = 59 - now.getSeconds();
+                    el.innerText = `${remaining_hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")} REMAINING`;
+                }
+            };
+            setInterval(remaining_day, 1000);
 
             class TruncateRunner {
                 constructor() {
@@ -382,7 +348,7 @@
 
                 error(e) {
                     this.errored = e;
-                    stage("error");
+                    menu.errorStage();
                 }
 
                 create_game() {
@@ -404,7 +370,7 @@
                     console.log("Trying to start Truncate...");
                     if (this.errored || this.started) return;
                     if (!this.startFn) {
-                        stage("loading");
+                        menu.loadingStage();
                         return;
                     };
 
@@ -432,6 +398,201 @@
                 }
             }
             const truncate_runner = new TruncateRunner();
+
+            class Menu {
+                constructor(el) {
+                    this.el = el;
+
+                    this.rootStage();
+                }
+
+                add(child) {
+                    this.el.appendChild(child);
+                }
+
+                button(text, onclick, classes) {
+                    let b = document.createElement("button");
+                    b.innerHTML = text.toUpperCase();
+                    if (classes) {
+                        b.className = classes;
+                    }
+                    b.addEventListener("click", onclick);
+                    this.add(b);
+                }
+
+                reset() {
+                    this.el.innerHTML = "";
+                }
+
+                backButton() {
+                    this.button("← Back", () => this.rootStage(), "back");
+                }
+
+                rootStage() {
+                    this.reset();
+
+                    const existing_game_token = window.localStorage.getItem("truncate_active_token");
+                    let has_played_tut = localStorage.getItem("tutorial_played");
+
+                    if (existing_game_token) {
+                        event('prompted to rejoin');
+
+                        let row = document.createElement("div");
+                        row.classList.add("row");
+
+                        let button = document.createElement("button");
+                        button.innerHTML = `Rejoin Game`;
+                        button.addEventListener("click", () => {
+                            event('rejoining a game');
+                            truncate_runner.rejoin_game();
+                        });
+                        row.appendChild(button);
+
+                        let close = document.createElement("button");
+                        close.classList.add("thin");
+                        close.innerHTML = `x`;
+                        close.addEventListener("click", () => {
+                            event('dismissing rejoin');
+                            window.localStorage.removeItem("truncate_active_token");
+                            this.rootStage();
+                        });
+                        row.appendChild(close);
+
+                        this.add(row);
+                    }
+
+                    if (!has_played_tut) {
+                        this.button("Tutorial", () => {
+                            event('started tutorial');
+                            localStorage.setItem("tutorial_played", "true");
+                            truncate_runner.join_game('TUTORIAL_01');
+                        }, "special");
+                    }
+
+                    this.button("<span class='remaining_time'>__:__:__ remaining</span><span>Daily Puzzle</span>", () => {
+                        event('started daily puzzle');
+                        truncate_runner.join_game('DAILY_PUZZLE');
+                    }, has_played_tut ? "special" : "");
+                    remaining_day();
+
+                    this.button("Single Player", () => {
+                        event('investigating single player');
+                        this.singleStage();
+                    });
+
+                    this.button("Multi Player", () => {
+                        event('investigating multi player');
+                        this.multiStage();
+                    });
+
+                    this.button("Learn To Play", () => {
+                        event('investigating learn section');
+                        this.learnStage();
+                    });
+                }
+
+                learnStage() {
+                    this.reset();
+
+                    this.button("Tutorial", () => {
+                        event('started tutorial');
+                        localStorage.setItem("tutorial_played", "true");
+                        truncate_runner.join_game('TUTORIAL_01');
+                    });
+
+                    let b = document.createElement("button");
+                    b.innerHTML = `<span>Coming Soon</span><span>Rules</span>`;
+                    b.disabled = true;
+                    this.add(b);
+
+                    this.backButton();
+                }
+
+                singleStage() {
+                    this.reset();
+
+                    this.button("Random Puzzle", () => {
+                        event('started random puzzle');
+                        truncate_runner.join_game("RANDOM_PUZZLE");
+                    });
+
+                    this.button("Classic", () => {
+                        event('started single player');
+                        truncate_runner.join_game("SINGLE_PLAYER");
+                    });
+
+                    this.backButton();
+                }
+
+                multiStage() {
+                    this.reset();
+
+                    let row = document.createElement("form");
+                    row.setAttribute("action", "javascript:void(0);");
+                    row.classList.add("row");
+
+                    let input = document.createElement("input");
+                    input.setAttribute("aria-label", "Room code of an existing Truncate game");
+                    input.setAttribute("placeholder", "ROOM CODE");
+                    input.type = "text";
+                    row.appendChild(input);
+
+                    let join_button = document.createElement("button");
+                    join_button.innerHTML = `JOIN`;
+                    join_button.addEventListener("click", () => {
+                        const room = input.value;
+                        if (!room) {
+                            input.setAttribute("placeholder", "REQUIRED!");
+                            setTimeout(() => {
+                                input.setAttribute("placeholder", "ROOM CODE");
+                            }, 500);
+                            return;
+                        }
+                        event('joined multiplayer game via input');
+
+                        truncate_runner.join_game(room);
+                    });
+                    row.appendChild(join_button);
+                    input.addEventListener("keydown", e => {
+                        if (e?.key === "Enter") {
+                            join_button.click();
+                        }
+                    });
+                    this.add(row);
+
+                    this.button("Create Game", () => {
+                        event('started multiplayer game');
+                        truncate_runner.create_game();
+                    });
+
+                    this.backButton();
+                }
+
+                loadingStage() {
+                    this.reset();
+
+                    let p = document.createElement("p");
+                    p.innerText = "Loading...";
+                    this.add(p);
+                }
+
+                errorStage() {
+                    this.reset();
+
+                    let p = document.createElement("p");
+                    p.innerText = "An error occurred loading Truncate";
+                    this.add(p);
+
+                    event('truncate loading error');
+                }
+            }
+            menu = new Menu(document.querySelector("#menu_region"));
+
+            let room_code = window.location.hash.substring(1);
+            if (room_code) {
+                event('joined multiplayer game via url');
+                truncate_runner.join_game(room_code);
+            }
 
             {% include "noise.js" %}
             const islander = get_islander();
@@ -466,7 +627,7 @@
                 }
                 const calc_midpoint = () => {
                     let x = Math.round(canvas.width / 2);
-                    let y = Math.round(canvas.height / 2);
+                    let y = Math.round(canvas.height / 3);
                     return [x - (x % 2), y - (y % 2)];
                 }
 
@@ -729,7 +890,7 @@
                         };
 
                         // Clear space around text
-                        const space_below = mobile ? 3 : 1;
+                        const space_below = mobile ? 7 : 4;
                         if (tile_data.x >= metrics.x - logical_tile_size
                             && tile_data.x < metrics.x + metrics.name_width + logical_tile_size
                             && tile_data.y >= metrics.y - logical_tile_size
@@ -779,7 +940,7 @@
 
                 controls.style.left = `${screen_x}px`;
                 controls.style.top = `${screen_y + screen_tile * 3}px`;
-                controls.style.height = `${screen_tile * (mobile ? 5 : 2)}px`;
+                // controls.style.height = `${screen_tile * (mobile ? 8 : 5)}px`;
                 controls.style.width = `${metrics.name_width / 2}px`;
             }
 
@@ -791,94 +952,65 @@
                 })
             };
 
-            const existing_game_token = window.localStorage.getItem("truncate_active_token");
-            if (existing_game_token) {
-                window.addEventListener('load', (event) => {
-                    window?.fathom?.trackGoal?.("{{ env.analytics_events.PROMPT_REJOIN }}", 0);
-                });
-                stage("rejoin");
-            }
-
-            control_plural("cancel_to_root").forEach(c => c.addEventListener("click", e => {
-                stage("root");
-            }));
-            control("cancel_rejoin").addEventListener("click", e => {
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.CANCEL_REJOIN }}", 0);
-                stage("root");
-            });
-            control("to_about").addEventListener("click", e => {
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.VIEW_CREDITS }}", 0);
-                stage("about");
-                document.querySelector("#about_truncate").showModal();
-            });
-
-            control("rejoin").addEventListener("click", e => {
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.REJOIN }}", 0);
-                truncate_runner.rejoin_game();
-            });
-            control("to_multi_game").addEventListener("click", e => {
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.MULTI_PLAYER }}", 0);
-                stage("multi");
-            });
-            control("tutorial").addEventListener("click", e => {
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.START_TUTORIAL }}", 0);
-                truncate_runner.join_game("TUTORIAL_01");
-            });
-            control("to_create_game").addEventListener("click", e => {
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.PLAY_GAME }}", 0);
-                stage("create");
-            });
-            control("new_single").addEventListener("click", e => {
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.START_SOLO }}", 0);
-                truncate_runner.join_game("SINGLE_PLAYER");
-            });
-            control("new_multi").addEventListener("click", e => {
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.START_MULTI }}", 0);
-                truncate_runner.create_game();
-            });
-            control("to_join_game").addEventListener("click", e => {
-                stage("join");
-                control("room_code").value = "";
-                control("room_code").focus();
-            });
-            control("room_code").addEventListener("keydown", e => {
-                if (e?.key === "Enter") {
-                    control("join_game").click();
-                }
-            });
-            control("join_game").addEventListener("click", e => {
-                const room = control("room_code").value;
-                if (!room) {
-                    control("room_code").setAttribute("placeholder", "REQUIRED!");
-                    setTimeout(() => {
-                        control("room_code").setAttribute("placeholder", "ROOM CODE");
-                    }, 500);
-                    return;
-                }
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.JOIN_ROOM }}", 0);
-
-                truncate_runner.join_game(room);
-
-                // HA code path:
-                // const url = new URL(window.location);
-                // url.pathname = room.toUpperCase();
-                // window.location = url;
-            });
-
-            let room_code = window.location.hash.substring(1);
-            if (room_code) {
-                window?.fathom?.trackGoal?.("{{ env.analytics_events.JOIN_BY_LINK }}", 0);
-                truncate_runner.join_game(room_code);
-            }
-
             (async function () {
+                const truncate_worker = new Worker('static/worker.js');
+
+                const wasm_bytes = await (await fetch("/static/truncate_client_bg.wasm?commit={{ env.commit }}")).arrayBuffer();
+
                 while (typeof wasm_bindgen === "undefined") {
                     await new Promise(r => setTimeout(r, 100));
                 }
 
-                wasm_bindgen("./static/truncate_client_bg.wasm?commit={{ env.commit }}")
+                wasm_bindgen(wasm_bytes)
                     .then(on_wasm_loaded)
                     .catch(on_wasm_error);
+
+                const pending_msgs = [];
+
+                truncate_worker.onmessage = function (e) {
+                    if (e.data.action === 'result' && e.data.result) {
+                        pending_msgs[e.data.id].result = e.data.result;
+                    }
+                }
+
+                // Whever we get an event for the end of an interaction,
+                // we want to check if the wasm wants us to copy anything,
+                // and write that to the clipboard.
+                // Browsers like copies coming from short-lived user events,
+                // so this is a good place to trigger the action.
+                let pending_copy = null;
+                const handleInteractionEnd = (e) => {
+                    if (!pending_copy) return;
+                    return navigator?.clipboard?.writeText?.(pending_copy).then(function () {
+                        console.log(`Text copied to clipboard`);
+                    }).catch(function (error) {
+                        console.error('Could not copy text to clipboard: ', error);
+                    });
+                    pending_copy = null;
+                }
+                const truncate_canvas = document.querySelector("#truncate_canvas");
+                truncate_canvas.addEventListener('mouseup', handleInteractionEnd);
+                truncate_canvas.addEventListener('touchend', handleInteractionEnd);
+                truncate_canvas.addEventListener('touchcancel', handleInteractionEnd);
+
+                function backchannel_conduit(msg) {
+                    parsed_msg = JSON.parse(msg);
+                    // check if parsed_msg.type is for JS to consume, otherwise forward on
+                    if (parsed_msg.type === "QueryFor") {
+                        const id = parseInt(parsed_msg.content.id);
+                        if (pending_msgs[id].result !== null) {
+                            return pending_msgs[id].result;
+                        }
+                        return null;
+                    } else if (parsed_msg.type === "Copy") {
+                        pending_copy = parsed_msg.content.text;
+                    }
+
+                    const msg_id = pending_msgs.length.toString();
+                    pending_msgs.push({ result: null });
+                    truncate_worker.postMessage({ action: 'backchannel', msg, id: msg_id });
+                    return msg_id;
+                }
 
                 function on_wasm_loaded() {
                     console.debug("Loaded Truncate webassembly");
@@ -894,10 +1026,17 @@
                     }
 
                     truncate_runner.make_ready((room_code) => {
-                        window.__truncate_handle = wasm_bindgen.start("truncate_canvas", server, room_code ?? "");
+                        window.__truncate_handle = wasm_bindgen.start("truncate_canvas", server, room_code ?? "", backchannel_conduit);
                     });
 
                     console.debug("Truncate game initialized");
+
+                    // Initialize the backend that we use for single player algorithms
+                    truncate_worker.postMessage({
+                        action: 'loadWasm',
+                        backend: 'truncate_client.js?commit={{ env.commit }}',
+                        wasm_bytes
+                    }, [wasm_bytes]);
                 }
 
                 function on_wasm_error(error) {

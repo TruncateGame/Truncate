@@ -17,7 +17,7 @@ use truncate_core::{
 
 use crate::utils::{text::TextHelper, Diaphanize, Lighten, Theme};
 
-use super::active_game::ActiveGame;
+use super::active_game::{ActiveGame, HeaderType};
 
 const TUTORIAL_01: &[u8] = include_bytes!("../../tutorials/tutorial_01.yml");
 
@@ -143,9 +143,11 @@ impl TutorialState {
             ],
             board: Board::from_string(loaded_tutorial.board.clone()),
             // TODO: Use some special infinite bag?
-            bag: TileBag::new(&TileDistribution::Standard),
+            bag: TileBag::new(&TileDistribution::Standard, None),
             judge: Judge::new(loaded_tutorial.dict.keys().cloned().collect()),
             battle_count: 0,
+            turn_count: 0,
+            player_turn_count: vec![0, 0],
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
@@ -154,6 +156,7 @@ impl TutorialState {
 
         let mut active_game = ActiveGame::new(
             "TUTORIAL_01".into(),
+            None,
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -162,7 +165,7 @@ impl TutorialState {
             map_texture,
             theme,
         );
-        active_game.ctx.timers_visible = false;
+        active_game.ctx.header_visible = HeaderType::None;
 
         Self {
             game,
@@ -212,7 +215,10 @@ impl TutorialState {
         }
 
         // Standard game helper
-        if let Some(msg) = self.active_game.render(ui, theme, None, current_time) {
+        if let Some(msg) = self
+            .active_game
+            .render(ui, theme, None, current_time, None, None)
+        {
             let Some(game_move) = (match msg {
                 PlayerMessage::Place(position, tile) => Some(Move::Place {
                     player: 0,
@@ -481,10 +487,10 @@ impl TutorialState {
                 Some(TutorialStep::ComputerMove { gets, .. }) => Some(gets),
                 _ => None,
             } {
-                self.game.bag = TileBag::explicit(vec![*next_tile]);
+                self.game.bag = TileBag::explicit(vec![*next_tile], None);
             }
 
-            match self.game.make_move(game_move, None, None) {
+            match self.game.make_move(game_move, None, None, None) {
                 Ok(changes) => {
                     let changes = changes
                         .into_iter()

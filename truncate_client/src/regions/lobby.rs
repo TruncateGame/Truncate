@@ -2,8 +2,10 @@ use epaint::{
     emath::{Align, Align2},
     hex_color, vec2, Color32, Stroke, TextureHandle, Vec2,
 };
+use instant::Duration;
 use truncate_core::{
     board::Board,
+    generation::{BoardParams, BoardSeed},
     messages::{LobbyPlayerMessage, PlayerMessage, RoomCode},
 };
 
@@ -30,6 +32,7 @@ pub enum BoardEditingMode {
 #[derive(Clone)]
 pub struct Lobby {
     pub board: Board,
+    pub board_seed: Option<BoardSeed>,
     pub room_code: RoomCode,
     pub players: Vec<LobbyPlayerMessage>,
     pub player_index: u64,
@@ -47,13 +50,16 @@ impl Lobby {
         player_index: u64,
         board: Board,
         map_texture: TextureHandle,
+        current_time: Duration,
     ) -> Self {
         let player_colors: Vec<_> = players
             .iter()
             .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
             .collect();
+
         Self {
             room_code,
+            board_seed: None,
             mapped_board: MappedBoard::new(&board, map_texture.clone(), false, &player_colors),
             players,
             player_index,
@@ -70,7 +76,7 @@ impl Lobby {
         self.board = board;
     }
 
-    pub fn render_sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme) -> Option<PlayerMessage> {
+    pub fn render_lobby(&mut self, ui: &mut egui::Ui, theme: &Theme) -> Option<PlayerMessage> {
         let mut msg = None;
 
         let area = egui::Area::new(egui::Id::new("lobby_sidebar_layer"))
@@ -80,13 +86,12 @@ impl Lobby {
 
         let sidebar_padding = 8.0;
 
-        let mut outer_sidebar_area = ui.max_rect().shrink2(vec2(0.0, sidebar_padding));
-        outer_sidebar_area.set_right(outer_sidebar_area.right() - sidebar_padding);
+        let outer_sidebar_area = ui.max_rect();
         let inner_sidebar_area = outer_sidebar_area.shrink(sidebar_padding);
 
         let resp = area.show(ui.ctx(), |ui| {
             ui.painter()
-                .rect_filled(outer_sidebar_area, 4.0, hex_color!("#111111aa"));
+                .rect_filled(outer_sidebar_area, 0.0, hex_color!("#111111aa"));
 
             ui.allocate_ui_at_rect(inner_sidebar_area, |ui| {
                 ui.style_mut().spacing.item_spacing = Vec2::splat(6.0);
@@ -94,13 +99,13 @@ impl Lobby {
                     ui.horizontal(|ui| {
                         ui.label(RichText::new("Room Code:").color(Color32::WHITE));
                         let text = TextHelper::heavy(&self.room_code, 14.0, None, ui);
-                        text.paint(Color32::WHITE, ui);
+                        text.paint(Color32::WHITE, ui, false);
                     });
 
                     if self.players.len() == 1 {
                         if self.copied_code {
                             let text = TextHelper::heavy("Copied link", 10.0, None, ui);
-                            text.paint(Color32::WHITE, ui);
+                            text.paint(Color32::WHITE, ui, false);
                         }
 
                         let text = TextHelper::heavy("COPY GAME LINK", 14.0, None, ui);
@@ -198,102 +203,18 @@ impl Lobby {
 
                     ui.add_space(32.0);
 
-                    if matches!(self.editing_mode, BoardEditingMode::None) {
-                        let text = TextHelper::heavy("EDIT BOARD", 10.0, None, ui);
-                        if text
-                            .button(
-                                Color32::WHITE.diaphanize(),
-                                theme.text,
-                                &self.map_texture,
-                                ui,
-                            )
-                            .clicked()
-                        {
-                            self.editing_mode = BoardEditingMode::Land;
-                        }
+                    let text = TextHelper::heavy("EDIT BOARD", 10.0, None, ui);
+                    if text
+                        .button(
+                            Color32::WHITE.diaphanize(),
+                            theme.text,
+                            &self.map_texture,
+                            ui,
+                        )
+                        .clicked()
+                    {
+                        self.editing_mode = BoardEditingMode::Land;
                     }
-
-                    if !matches!(self.editing_mode, BoardEditingMode::None) {
-                        let mut highlights = [None; 5];
-                        match self.editing_mode {
-                            BoardEditingMode::Land => highlights[0] = Some(theme.selection),
-                            BoardEditingMode::Town(0) => highlights[1] = Some(theme.selection),
-                            BoardEditingMode::Town(1) => highlights[2] = Some(theme.selection),
-                            BoardEditingMode::Dock(0) => highlights[3] = Some(theme.selection),
-                            BoardEditingMode::Dock(1) => highlights[4] = Some(theme.selection),
-                            _ => unreachable!(
-                                "Unknown board editing mode — player count has likely increased"
-                            ),
-                        }
-
-                        let tiled_button = |quads: Vec<TexQuad>, ui: &mut egui::Ui| {
-                            let (mut rect, resp) =
-                                ui.allocate_exact_size(Vec2::splat(48.0), Sense::click());
-                            if resp.hovered() {
-                                ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
-                                rect = rect.translate(vec2(0.0, -2.0));
-                            }
-                            render_tex_quads(&quads, rect, &self.map_texture, ui);
-                            resp
-                        };
-
-                        let pcol = |pnum: usize| self.player_colors.get(pnum).copied();
-
-                        ui.label(RichText::new("Land & Water").color(Color32::WHITE));
-                        if tiled_button(Tex::land_button(highlights[0]), ui).clicked() {
-                            self.editing_mode = BoardEditingMode::Land;
-                        }
-
-                        ui.label(RichText::new("Towns").color(Color32::WHITE));
-                        ui.horizontal(|ui| {
-                            if tiled_button(Tex::town_button(pcol(0), highlights[1]), ui).clicked()
-                            {
-                                self.editing_mode = BoardEditingMode::Town(0);
-                            }
-
-                            if tiled_button(Tex::town_button(pcol(1), highlights[2]), ui).clicked()
-                            {
-                                self.editing_mode = BoardEditingMode::Town(1);
-                            }
-                        });
-
-                        ui.label(RichText::new("Docks").color(Color32::WHITE));
-                        ui.horizontal(|ui| {
-                            if tiled_button(Tex::dock_button(pcol(0), highlights[3]), ui).clicked()
-                            {
-                                self.editing_mode = BoardEditingMode::Dock(0);
-                            }
-
-                            if tiled_button(Tex::dock_button(pcol(1), highlights[4]), ui).clicked()
-                            {
-                                self.editing_mode = BoardEditingMode::Dock(1);
-                            }
-                        });
-
-                        ui.label(RichText::new("Actions").color(Color32::WHITE));
-
-                        let text = TextHelper::heavy("GROW BOARD", 10.0, None, ui);
-                        if text
-                            .button(Color32::WHITE, theme.text, &self.map_texture, ui)
-                            .clicked()
-                        {
-                            self.board.grow();
-                            msg = Some(PlayerMessage::EditBoard(self.board.clone()));
-                        }
-
-                        let text = TextHelper::heavy("STOP EDITING BOARD", 10.0, None, ui);
-                        if text
-                            .button(
-                                Color32::RED.lighten().lighten().lighten(),
-                                theme.text,
-                                &self.map_texture,
-                                ui,
-                            )
-                            .clicked()
-                        {
-                            self.editing_mode = BoardEditingMode::None;
-                        }
-                    };
                 });
             });
         });
@@ -304,32 +225,25 @@ impl Lobby {
     pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme) -> Option<PlayerMessage> {
         let mut msg = None;
 
-        let mut board_space = ui.available_rect_before_wrap();
-        let mut sidebar_space = board_space.clone();
-        sidebar_space.set_left(sidebar_space.right() - 300.0);
+        let render_space = ui.available_rect_before_wrap();
 
-        if ui.available_size().x >= theme.mobile_breakpoint {
-            board_space.set_right(board_space.right() - 300.0);
-        }
-
-        let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
-        if let Some(board_update) = self.render_sidebar(&mut sidebar_space_ui, theme) {
-            msg = Some(board_update);
-        }
-
-        let board_space_ui = ui.child_ui(board_space, Layout::top_down(Align::LEFT));
-
-        {
-            let mut ui = board_space_ui;
-
+        if matches!(self.editing_mode, BoardEditingMode::None) {
+            let mut lobby_ui = ui.child_ui(render_space, Layout::top_down(Align::LEFT));
+            if let Some(board_update) = self.render_lobby(&mut lobby_ui, theme) {
+                msg = Some(board_update);
+            }
+        } else {
+            let mut lobby_ui = ui.child_ui(render_space, Layout::bottom_up(Align::RIGHT));
             if let Some(board_update) = EditorUI::new(
                 &mut self.board,
-                &self.mapped_board,
+                &mut self.mapped_board,
                 &mut self.editing_mode,
+                &self.player_colors,
             )
-            .render(true, &mut ui, theme, &self.map_texture)
+            .render(true, &mut lobby_ui, theme, &self.map_texture)
             {
                 msg = Some(board_update);
+                self.mapped_board.remap(&self.board, &self.player_colors, 0);
             }
         }
 

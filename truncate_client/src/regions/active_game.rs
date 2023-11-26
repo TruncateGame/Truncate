@@ -2,6 +2,7 @@ use epaint::{emath::Align2, hex_color, vec2, Color32, FontId, Rect, Stroke, Text
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Square},
+    generation::BoardSeed,
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
     player::Hand,
     reporting::{BoardChange, Change, TimeChange},
@@ -16,6 +17,7 @@ use eframe::{
 use hashbrown::HashMap;
 
 use crate::{
+    app_outer::Backchannel,
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
     utils::{
         mapper::MappedBoard,
@@ -33,7 +35,15 @@ pub struct HoveredRegion {
 }
 
 #[derive(Clone)]
+pub enum HeaderType {
+    Timers,
+    Summary { title: String },
+    None,
+}
+
+#[derive(Clone)]
 pub struct GameCtx {
+    pub board_seed: Option<BoardSeed>,
     pub theme: Theme,
     pub current_time: Duration,
     pub prev_to_next_turn: (Duration, Duration),
@@ -53,9 +63,11 @@ pub struct GameCtx {
     pub board_moved: bool,
     pub board_zoom: f32,
     pub board_pan: Vec2,
+    pub sidebar_toggled: bool,
     pub sidebar_visible: bool,
-    pub timers_visible: bool,
-    pub timers_total_rect: Option<Rect>,
+    pub header_visible: HeaderType,
+    pub headers_total_rect: Option<Rect>,
+    pub hand_visible: bool,
     pub hand_total_rect: Option<Rect>,
     pub hand_companion_rect: Option<Rect>,
     pub highlight_tiles: Option<Vec<char>>,
@@ -63,6 +75,7 @@ pub struct GameCtx {
     pub is_mobile: bool,
     pub is_touch: bool,
     pub unread_sidebar: bool,
+    pub interactive: bool,
 }
 
 #[derive(Clone)]
@@ -76,11 +89,13 @@ pub struct ActiveGame {
     pub new_hand_tiles: Vec<usize>,
     pub time_changes: Vec<TimeChange>,
     pub turn_reports: Vec<Vec<Change>>,
+    pub share_copied: bool,
 }
 
 impl ActiveGame {
     pub fn new(
         room_code: RoomCode,
+        game_seed: Option<BoardSeed>,
         players: Vec<GamePlayerMessage>,
         player_number: u64,
         next_player_number: u64,
@@ -95,6 +110,7 @@ impl ActiveGame {
             .collect::<Vec<_>>();
         Self {
             ctx: GameCtx {
+                board_seed: game_seed,
                 theme,
                 current_time: Duration::from_secs(0),
                 prev_to_next_turn: (Duration::from_secs(0), Duration::from_secs(0)),
@@ -114,16 +130,19 @@ impl ActiveGame {
                 board_moved: false,
                 board_zoom: 1.0,
                 board_pan: vec2(0.0, 0.0),
-                sidebar_visible: false,
-                timers_visible: true,
+                sidebar_toggled: false,
+                sidebar_visible: true,
+                header_visible: HeaderType::Timers,
+                hand_visible: true,
                 hand_companion_rect: None,
-                timers_total_rect: None,
+                headers_total_rect: None,
                 hand_total_rect: None,
                 highlight_tiles: None,
                 highlight_squares: None,
                 is_mobile: false,
                 is_touch: false,
                 unread_sidebar: false,
+                interactive: true,
             },
             mapped_board: MappedBoard::new(
                 &board,
@@ -138,28 +157,35 @@ impl ActiveGame {
             new_hand_tiles: vec![],
             time_changes: vec![],
             turn_reports: vec![],
+            share_copied: false,
         }
     }
 }
 
 impl ActiveGame {
-    pub fn render_timer_strip(
+    pub fn render_header_strip(
         &mut self,
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
-    ) -> (Rect, Option<PlayerMessage>) {
+        game_ref: Option<&truncate_core::game::Game>,
+    ) -> (Option<Rect>, Option<PlayerMessage>) {
+        if matches!(self.ctx.header_visible, HeaderType::None) {
+            return (None, None);
+        }
+
         let mut msg = None;
 
+        let timer_area = ui.available_rect_before_wrap();
         let avail_width = ui.available_width();
 
         let area = egui::Area::new(egui::Id::new("timers_layer"))
             .movable(false)
             .order(Order::Foreground)
-            .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
+            .anchor(Align2::LEFT_TOP, vec2(timer_area.left(), timer_area.top()));
 
         let mut resp = area.show(ui.ctx(), |ui| {
-            if let Some(bg_rect) = self.ctx.timers_total_rect {
+            if let Some(bg_rect) = self.ctx.headers_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
                     0.0,
@@ -187,45 +213,113 @@ impl ActiveGame {
                         }
                     }
 
+                    let item_spacing = 10.0;
                     let outer_x_padding = if !self.ctx.is_mobile {
                         (ui.available_width() - total_width) / 2.0
                     } else {
                         0.0
                     };
-                    let item_spacing = 10.0;
+                    ui.add_space(outer_x_padding);
 
-                    ui.add_space(outer_x_padding + item_spacing);
+                    match &self.ctx.header_visible {
+                        HeaderType::Timers => {
+                            ui.add_space(item_spacing);
 
-                    let timer_width = (total_width - item_spacing * 3.0) / 2.0;
+                            let timer_width = (total_width - item_spacing * 3.0) / 2.0;
 
-                    if let Some(player) = self
-                        .players
-                        .iter()
-                        .find(|p| p.index == self.ctx.player_number as usize)
-                    {
-                        TimerUI::new(player, self.ctx.current_time, &self.time_changes)
-                            .friend(true)
-                            .active(player.index == self.ctx.next_player_number as usize)
-                            .winner(winner.clone())
-                            .render(Some(timer_width), false, ui, theme, &mut self.ctx);
+                            if let Some(player) = self
+                                .players
+                                .iter()
+                                .find(|p| p.index == self.ctx.player_number as usize)
+                            {
+                                TimerUI::new(player, self.ctx.current_time, &self.time_changes)
+                                    .friend(true)
+                                    .active(player.index == self.ctx.next_player_number as usize)
+                                    .winner(winner.clone())
+                                    .render(Some(timer_width), false, ui, theme, &mut self.ctx);
+                            }
+
+                            ui.add_space(item_spacing);
+
+                            if let Some(opponent) = self
+                                .players
+                                .iter()
+                                .find(|p| p.index != self.ctx.player_number as usize)
+                            {
+                                TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
+                                    .friend(false)
+                                    .active(opponent.index == self.ctx.next_player_number as usize)
+                                    .winner(winner.clone())
+                                    .right_align()
+                                    .render(Some(timer_width), false, ui, theme, &mut self.ctx);
+                            }
+
+                            ui.add_space(item_spacing);
+                        }
+                        HeaderType::Summary { title } => {
+                            let summary_height = 50.0;
+                            let (rect, _) = ui.allocate_exact_size(
+                                vec2(total_width, summary_height),
+                                Sense::hover(),
+                            );
+                            let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
+
+                            let summary = if let Some(game) = game_ref {
+                                format!(
+                                    "{} turn{} • {} battle{}",
+                                    game.player_turn_count[0],
+                                    if game.player_turn_count[0] == 1 {
+                                        ""
+                                    } else {
+                                        "s"
+                                    },
+                                    game.battle_count,
+                                    if game.battle_count == 1 { "" } else { "s" },
+                                )
+                            } else {
+                                "".to_string()
+                            };
+
+                            let title_text = TextHelper::heavy(title, 14.0, None, &mut ui);
+                            let title_text_mesh_size = title_text.mesh_size();
+                            let title_x_offset = (total_width - title_text_mesh_size.x) / 2.0;
+
+                            let summary_text = TextHelper::heavy(&summary, 10.0, None, &mut ui);
+                            let summary_text_mesh_size = summary_text.mesh_size();
+                            let summary_x_offset = (total_width - summary_text_mesh_size.x) / 2.0;
+
+                            let spacing = 5.0;
+                            let y_offset = (summary_height
+                                - summary_text_mesh_size.y
+                                - title_text_mesh_size.y)
+                                / 2.0;
+                            ui.add_space(y_offset);
+
+                            let (rect, _) = ui.allocate_exact_size(
+                                vec2(ui.available_width(), title_text_mesh_size.y),
+                                Sense::hover(),
+                            );
+                            title_text.paint_at(
+                                rect.min + vec2(title_x_offset, 0.0),
+                                self.ctx.theme.text,
+                                &mut ui,
+                            );
+                            ui.add_space(spacing);
+
+                            let (rect, _) = ui.allocate_exact_size(
+                                vec2(ui.available_width(), summary_text_mesh_size.y),
+                                Sense::hover(),
+                            );
+                            summary_text.paint_at(
+                                rect.min + vec2(summary_x_offset, 0.0),
+                                self.ctx.theme.text,
+                                &mut ui,
+                            );
+
+                            ui.add_space(y_offset);
+                        }
+                        HeaderType::None => unreachable!(),
                     }
-
-                    ui.add_space(item_spacing);
-
-                    if let Some(opponent) = self
-                        .players
-                        .iter()
-                        .find(|p| p.index != self.ctx.player_number as usize)
-                    {
-                        TimerUI::new(opponent, self.ctx.current_time, &self.time_changes)
-                            .friend(false)
-                            .active(opponent.index == self.ctx.next_player_number as usize)
-                            .winner(winner.clone())
-                            .right_align()
-                            .render(Some(timer_width), false, ui, theme, &mut self.ctx);
-                    }
-
-                    ui.add_space(item_spacing);
 
                     if !self.ctx.is_mobile {
                         ui.add_space(outer_x_padding);
@@ -254,7 +348,7 @@ impl ActiveGame {
                         }
 
                         if button_resp.clicked() {
-                            self.ctx.sidebar_visible = !self.ctx.sidebar_visible;
+                            self.ctx.sidebar_toggled = !self.ctx.sidebar_toggled;
                             self.ctx.unread_sidebar = false;
                         }
 
@@ -266,9 +360,9 @@ impl ActiveGame {
             ui.add_space(10.0);
         });
 
-        self.ctx.timers_total_rect = Some(resp.response.rect);
+        self.ctx.headers_total_rect = Some(resp.response.rect);
 
-        (resp.response.rect, msg)
+        (Some(resp.response.rect), msg)
     }
 
     pub fn render_control_strip(
@@ -276,17 +370,23 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         theme: &Theme,
         winner: Option<usize>,
-    ) -> (Rect, Option<PlayerMessage>) {
+        backchannel: Option<&Backchannel>,
+        game_ref: Option<&truncate_core::game::Game>,
+    ) -> (Option<Rect>, Option<PlayerMessage>) {
+        if !self.ctx.hand_visible {
+            return (None, None);
+        }
+
         let mut msg = None;
         let companion_space = 220.0;
 
-        let control_anchor = if self.ctx.timers_visible {
+        let control_anchor = if !matches!(self.ctx.header_visible, HeaderType::None) {
             vec2(0.0, 0.0)
         } else {
             vec2(0.0, -companion_space)
         };
 
-        if !self.ctx.timers_visible {
+        if matches!(self.ctx.header_visible, HeaderType::None) {
             let mut companion_pos = ui.available_rect_before_wrap();
             companion_pos.set_top(companion_pos.bottom() - companion_space);
             self.ctx.hand_companion_rect = Some(companion_pos);
@@ -347,7 +447,7 @@ impl ActiveGame {
             .order(Order::Foreground)
             .anchor(Align2::LEFT_BOTTOM, control_anchor);
 
-        let mut resp = area.show(ui.ctx(), |ui| {
+        let resp = area.show(ui.ctx(), |ui| {
             if let Some(bg_rect) = self.ctx.hand_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
@@ -377,6 +477,56 @@ impl ActiveGame {
                         {
                             msg = Some(PlayerMessage::Rematch);
                         }
+
+                        let msg = if self.share_copied {
+                            "COPIED TEXT!"
+                        } else {
+                            "SHARE"
+                        };
+                        let text = TextHelper::heavy(msg, 12.0, None, ui);
+                        let share_button = text.centered_button(
+                            theme.selection.lighten().lighten(),
+                            theme.text,
+                            &self.ctx.map_texture,
+                            ui,
+                        );
+                        if share_button.clicked()
+                            || share_button.drag_started()
+                            || share_button.is_pointer_button_down_on()
+                        {
+                            #[allow(unused_mut)]
+                            let mut url_prefix = "".to_string();
+
+                            #[cfg(target_arch = "wasm32")]
+                            {
+                                let host = web_sys::window()
+                                    .unwrap()
+                                    .location()
+                                    .host()
+                                    .unwrap_or_else(|_| "truncate.town".into());
+                                url_prefix = format!("https://{host}/#");
+                            }
+
+                            let text = self.board.emojify(
+                                winner,
+                                game_ref,
+                                self.ctx.board_seed.clone(),
+                                url_prefix,
+                            );
+
+                            if let Some(backchannel) = backchannel {
+                                if backchannel.is_open() {
+                                    backchannel
+                                        .send_msg(crate::app_outer::BackchannelMsg::Copy { text });
+                                } else {
+                                    ui.ctx().output_mut(|o| o.copied_text = text.clone());
+                                }
+                            } else {
+                                ui.ctx().output_mut(|o| o.copied_text = text.clone());
+                            }
+
+                            self.share_copied = true;
+                        }
                     }
 
                     let (hand_alloc, _) =
@@ -393,7 +543,7 @@ impl ActiveGame {
 
         self.ctx.hand_total_rect = Some(resp.response.rect);
 
-        (resp.response.rect, msg)
+        (Some(resp.response.rect), msg)
     }
 
     pub fn render_sidebar(
@@ -404,7 +554,7 @@ impl ActiveGame {
     ) -> Option<PlayerMessage> {
         let mut msg = None;
 
-        if self.ctx.is_mobile && !self.ctx.sidebar_visible {
+        if !self.ctx.sidebar_visible || (self.ctx.is_mobile && !self.ctx.sidebar_toggled) {
             return msg;
         }
 
@@ -445,7 +595,7 @@ impl ActiveGame {
                             );
 
                             if button_resp.clicked() {
-                                self.ctx.sidebar_visible = false;
+                                self.ctx.sidebar_toggled = false;
                             }
                         },
                     );
@@ -540,6 +690,8 @@ impl ActiveGame {
         theme: &Theme,
         winner: Option<usize>,
         current_time: Duration,
+        backchannel: Option<&Backchannel>,
+        game_ref: Option<&truncate_core::game::Game>,
     ) -> Option<PlayerMessage> {
         self.ctx.current_time = current_time;
         let cur_tick = current_time.as_secs() * 4 + current_time.subsec_millis() as u64 / 250;
@@ -564,7 +716,7 @@ impl ActiveGame {
         let mut game_space = ui.available_rect_before_wrap();
         let mut sidebar_space = game_space.clone();
 
-        if ui.available_size().x >= self.ctx.theme.mobile_breakpoint {
+        if self.ctx.sidebar_visible && ui.available_size().x >= self.ctx.theme.mobile_breakpoint {
             self.ctx.is_mobile = false;
             game_space.set_right(game_space.right() - 300.0);
             sidebar_space.set_left(sidebar_space.right() - 300.0);
@@ -574,20 +726,25 @@ impl ActiveGame {
 
         let mut control_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (control_strip_rect, control_player_message) =
-            self.render_control_strip(&mut control_strip_ui, theme, winner);
+            self.render_control_strip(&mut control_strip_ui, theme, winner, backchannel, game_ref);
 
         let mut timer_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (timer_strip_rect, timer_player_message) =
-            self.render_timer_strip(&mut timer_strip_ui, theme, winner);
+            self.render_header_strip(&mut timer_strip_ui, theme, winner, game_ref);
 
         let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
         let sidebar_player_message = self.render_sidebar(&mut sidebar_space_ui, theme, winner);
 
-        game_space.set_top(timer_strip_rect.bottom());
-        game_space.set_bottom(control_strip_rect.top());
+        if let Some(timer_strip_rect) = timer_strip_rect {
+            game_space.set_top(timer_strip_rect.bottom());
+        }
+        if let Some(control_strip_rect) = control_strip_rect {
+            game_space.set_bottom(control_strip_rect.top());
+        }
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
         let player_message = BoardUI::new(&self.board)
+            .interactive(self.ctx.interactive)
             .render(
                 &self.hand,
                 &self.board_changes,

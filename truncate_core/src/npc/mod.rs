@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    board::{self, Board, Coordinate, Square},
+    board::{self, Board, BoardDistances, Coordinate, Square},
     game::Game,
     judge::WordDict,
     messages::PlayerMessage,
@@ -13,19 +13,24 @@ use crate::{
     reporting::{BoardChange, Change},
 };
 
-mod scoring;
+pub mod scoring;
 
 use scoring::BoardScore;
+use xxhash_rust::xxh3;
+
+use self::scoring::BoardWeights;
 
 pub struct Arborist {
     assessed: usize,
     prune: bool,
+    cap: usize,
 }
 impl Arborist {
     pub fn pruning() -> Self {
         Self {
             assessed: 0,
             prune: true,
+            cap: std::usize::MAX,
         }
     }
 
@@ -33,10 +38,15 @@ impl Arborist {
         self.assessed
     }
 
+    pub fn capped(&mut self, cap: usize) {
+        self.cap = cap;
+    }
+
     fn exhaustive() -> Self {
         Self {
             assessed: 0,
             prune: false,
+            cap: std::usize::MAX,
         }
     }
 
@@ -49,6 +59,22 @@ impl Arborist {
     }
 }
 
+pub struct Caches {
+    cached_floods: HashMap<Vec<u64>, (BoardDistances, BoardDistances), xxh3::Xxh3Builder>,
+    cached_scores: HashMap<(Coordinate, char, usize), usize, xxh3::Xxh3Builder>,
+    cached_words: HashMap<String, bool, xxh3::Xxh3Builder>,
+}
+
+impl Caches {
+    pub fn new() -> Self {
+        Self {
+            cached_floods: HashMap::with_hasher(xxh3::Xxh3Builder::new()),
+            cached_scores: HashMap::with_hasher(xxh3::Xxh3Builder::new()),
+            cached_words: HashMap::with_hasher(xxh3::Xxh3Builder::new()),
+        }
+    }
+}
+
 impl Game {
     pub fn best_move(
         game: &Game,
@@ -56,34 +82,70 @@ impl Game {
         opponent_dictionary: Option<&WordDict>,
         depth: usize,
         counter: Option<&mut Arborist>,
-    ) -> PlayerMessage {
+        log: bool,
+        weights: &BoardWeights,
+    ) -> (PlayerMessage, BoardScore) {
         let evaluation_player = game.next_player;
 
         let mut internal_arborist = Arborist::pruning();
-        let arborist = counter.unwrap_or_else(|| &mut internal_arborist);
+        let mut caches = Caches::new();
 
-        let (best_score, Some((position, tile))) = Game::minimax(
-            game.clone(),
-            self_dictionary,
-            opponent_dictionary,
-            depth,
-            depth,
-            BoardScore::neg_inf(),
-            BoardScore::inf(),
-            evaluation_player,
-            arborist
-        ) else {
-            panic!("Couldn't determine a move to play");
+        let mut run_mini = |partial_depth: usize, arborist: &mut Arborist| {
+            Game::minimax(
+                game.clone(),
+                self_dictionary,
+                opponent_dictionary,
+                partial_depth,
+                partial_depth,
+                0,
+                BoardScore::neg_inf(),
+                BoardScore::inf(),
+                evaluation_player,
+                arborist,
+                &mut caches,
+                weights,
+            )
         };
 
-        println!("Bot has the hand: {}", game.players[evaluation_player].hand);
+        let mut latest = None;
+        let mut looked = 0;
 
-        println!("Chosen tree has the score {best_score:#?}");
-        if let Some(board) = best_score.board {
-            println!("Bot is aiming for the board {board}");
+        let arborist = counter.unwrap_or_else(|| &mut internal_arborist);
+        for d in 1..depth {
+            let maybelatest = Some(run_mini(d, arborist));
+            if arborist.assessed > arborist.cap {
+                break;
+            }
+            latest = maybelatest;
+            looked = d;
         }
 
-        PlayerMessage::Place(position, tile)
+        if arborist.assessed < arborist.cap {
+            let maybelatest = Some(run_mini(depth, arborist));
+            if arborist.assessed < arborist.cap {
+                latest = maybelatest;
+                looked = depth;
+            }
+        }
+
+        let Some((best_score, Some((position, tile)))) = latest else {
+            panic!("Expected a valid position to be playable");
+        };
+
+        if log {
+            println!(
+                "Bot checked {} boards, going to a depth of {looked}",
+                arborist.assessed()
+            );
+            println!("Bot has the hand: {}", game.players[evaluation_player].hand);
+
+            println!("Chosen tree has the score {best_score:#?}");
+            if let Some(board) = &best_score.board {
+                println!("Bot is aiming for the board {board}");
+            }
+        }
+
+        (PlayerMessage::Place(position, tile), best_score)
     }
 
     fn minimax(
@@ -92,17 +154,39 @@ impl Game {
         opponent_dictionary: Option<&WordDict>,
         total_depth: usize,
         depth: usize,
+        layer: usize,
         mut alpha: BoardScore,
         mut beta: BoardScore,
         for_player: usize,
         arborist: &mut Arborist,
+        caches: &mut Caches,
+        weights: &BoardWeights,
     ) -> (BoardScore, Option<(Coordinate, char)>) {
         game.instrument_unknown_game_state(for_player, total_depth, depth);
         let pruning = arborist.prune();
 
+        if depth == 0 || game.winner.is_some() {
+            return (
+                game.static_eval(self_dictionary, for_player, depth, caches, weights),
+                None,
+            );
+        }
+
+        let mut possible_moves = game.possible_moves();
+        possible_moves.sort_by_cached_key(|(position, tile)| {
+            std::usize::MAX
+                - caches
+                    .cached_scores
+                    .get(&(*position, *tile, layer))
+                    .unwrap_or(&std::usize::MAX)
+        });
+
         let mut turn_score =
             |game: &Game, tile: char, position: Coordinate, alpha: BoardScore, beta: BoardScore| {
                 arborist.tick();
+                if arborist.assessed > arborist.cap {
+                    return None;
+                }
                 let mut next_turn = game.clone();
 
                 let (attacker_dict, defender_dict) = if game.next_player == for_player {
@@ -110,6 +194,8 @@ impl Game {
                 } else {
                     (opponent_dictionary, self_dictionary)
                 };
+
+                let is_players_turn = game.next_player == for_player;
 
                 next_turn
                     .play_turn(
@@ -120,30 +206,48 @@ impl Game {
                         },
                         attacker_dict,
                         defender_dict,
+                        Some(&mut caches.cached_words),
                     )
                     .expect("Should be exploring valid turns");
-                Game::minimax(
+                let score = Game::minimax(
                     next_turn,
                     self_dictionary,
                     opponent_dictionary,
                     total_depth,
                     depth - 1,
+                    layer + 1,
                     alpha,
                     beta,
                     for_player,
                     arborist,
+                    caches,
+                    weights,
                 )
-                .0
+                .0;
+
+                if is_players_turn {
+                    caches
+                        .cached_scores
+                        .insert((position, tile, layer), score.usize_rank());
+                } else {
+                    caches.cached_scores.insert(
+                        (position, tile, layer),
+                        std::usize::MAX - score.usize_rank(),
+                    );
+                }
+
+                Some(score)
             };
 
-        if depth == 0 || game.winner.is_some() {
-            (game.static_eval(self_dictionary, for_player, depth), None)
-        } else if game.next_player == for_player {
+        if game.next_player == for_player {
             let mut max_score = BoardScore::neg_inf();
             let mut relevant_move = None;
 
-            for (position, tile) in game.possible_moves() {
-                let score = turn_score(&game, tile, position, alpha.clone(), beta.clone());
+            for (position, tile) in possible_moves {
+                let Some(score) = turn_score(&game, tile, position, alpha.clone(), beta.clone())
+                else {
+                    break;
+                };
 
                 if score > max_score {
                     max_score = score.clone();
@@ -165,8 +269,11 @@ impl Game {
             let mut min_score = BoardScore::inf();
             let mut relevant_move = None;
 
-            for (position, tile) in game.possible_moves() {
-                let score = turn_score(&game, tile, position, alpha.clone(), beta.clone());
+            for (position, tile) in possible_moves {
+                let Some(score) = turn_score(&game, tile, position, alpha.clone(), beta.clone())
+                else {
+                    break;
+                };
 
                 if score < min_score {
                     min_score = score.clone();
@@ -201,25 +308,10 @@ impl Game {
 
         playable_tiles.sort();
 
-        let mut playable_squares = HashSet::new();
-        for dock in &self.board.docks {
-            let sq = self.board.get(*dock).unwrap();
-            if !matches!(sq, Square::Dock(p) if p == self.next_player) {
-                continue;
-            }
-
-            playable_squares.extend(
-                self.board
-                    .depth_first_search(*dock)
-                    .iter()
-                    .flat_map(|sq| sq.neighbors_4())
-                    .collect::<HashSet<_>>(),
-            );
-        }
+        let playable_squares = self.board.playable_positions(self.next_player);
 
         let mut coords: Vec<_> = playable_squares
             .into_iter()
-            .filter(|sq| matches!(self.board.get(*sq), Ok(Square::Land)))
             .flat_map(|sq| playable_tiles.iter().cloned().map(move |t| (sq, t)))
             .collect();
 
@@ -253,25 +345,10 @@ impl Game {
 
         // If we're past the first layer,
         // use a combo tile for the eval player, to reduce permutations.
-        if current_depth == total_depth - 1 {
+        if current_depth + 1 == total_depth {
             let alias = self.judge.set_alias(player.hand.0.clone());
             // Add enough that using them doesn't cause them to run out.
             player.hand = Hand(vec![alias; current_depth]);
-        }
-
-        // If we're past the second layer,
-        // all opponent tiles become wildcards, to encourage early attacks.
-        if current_depth == total_depth - 2 {
-            for row in &mut self.board.squares {
-                for col in row {
-                    match col {
-                        Square::Occupied(p, _) if *p == unknown_player_index => {
-                            *col = Square::Occupied(unknown_player_index, '*');
-                        }
-                        _ => {}
-                    }
-                }
-            }
         }
 
         // Prevent the NPC from making decisions based on the opponent's tiles,
@@ -299,6 +376,11 @@ impl Div<f32> for WordQualityScores {
     }
 }
 
+pub enum DefenceEvalType {
+    Attackable,
+    Direct,
+}
+
 // Evaluation functions
 impl Game {
     /// Top-most evaluation function for looking at the game and calculating a score
@@ -307,95 +389,143 @@ impl Game {
         external_dictionary: Option<&WordDict>,
         for_player: usize,
         depth: usize,
+        caches: &mut Caches,
+        weights: &BoardWeights,
     ) -> BoardScore {
         let word_quality = if let Some(external_dictionary) = external_dictionary {
-            self.eval_word_quality(external_dictionary, for_player)
+            self.eval_word_quality(external_dictionary, for_player, caches)
         } else {
             WordQualityScores::default()
         };
         let for_opponent = (for_player + 1) % self.players.len();
 
+        let shape = self.board.get_shape();
+        let (self_attack_distances, opponent_attack_distances) =
+            if let Some(res) = caches.cached_floods.get(&shape) {
+                res
+            } else {
+                let self_attack_distances = self.board.flood_fill_attacks(for_player);
+                let opponent_attack_distances = self.board.flood_fill_attacks(for_opponent);
+                caches.cached_floods.insert(
+                    shape.clone(),
+                    (self_attack_distances, opponent_attack_distances),
+                );
+                caches.cached_floods.get(&shape).unwrap()
+            };
+
         BoardScore::default()
+            .weights(*weights)
             .turn_number(depth)
             .word_quality(word_quality)
-            .self_frontline(self.eval_board_frontline(for_player))
-            .opponent_frontline(self.eval_board_frontline(for_opponent))
-            .self_progress(self.eval_board_positions(for_player))
-            .opponent_progress(self.eval_board_positions(for_opponent))
-            .self_defense(self.eval_defense(for_player))
+            .raced_defense(self.eval_min_raced_distance_to_towns(
+                &opponent_attack_distances,
+                &self_attack_distances,
+                for_player,
+            ))
+            .raced_attack(
+                1.0 - self.eval_min_raced_distance_to_towns(
+                    &self_attack_distances,
+                    &opponent_attack_distances,
+                    for_opponent,
+                ),
+            )
+            .self_defense(self.eval_min_distance_to_towns(
+                &opponent_attack_distances,
+                for_player,
+                DefenceEvalType::Attackable,
+            ))
+            .self_attack(
+                1.0 - self.eval_min_distance_to_towns(
+                    &self_attack_distances,
+                    for_opponent,
+                    DefenceEvalType::Attackable,
+                ),
+            )
+            .direct_defence(self.eval_min_distance_to_towns(
+                &opponent_attack_distances,
+                for_player,
+                DefenceEvalType::Direct,
+            ))
+            .direct_attack(
+                1.0 - self.eval_min_distance_to_towns(
+                    &self_attack_distances,
+                    for_opponent,
+                    DefenceEvalType::Direct,
+                ),
+            )
             .self_win(self.winner == Some(for_player))
             .opponent_win(self.winner == Some(for_opponent))
-            .board(self.board.clone())
     }
 
-    /// How many <player> tiles are there, and how far down the board are they?
-    pub fn eval_board_positions(&self, player: usize) -> f32 {
-        let mut score = 0.0;
-        let max_score = (self.board.height() * self.board.width()) as f32;
-
-        for (rownum, row) in self.board.squares.iter().enumerate() {
-            let row_score = if player == 0 {
-                rownum as f32
-            } else {
-                (&self.board.squares.len() - rownum) as f32
-            };
-
-            for sq in row {
-                if matches!(sq, Square::Occupied(p, _) if player == *p) {
-                    score += row_score;
-                }
-            }
-        }
-
-        (score / max_score).min(1.0)
-    }
-
-    /// How far forward are our furthest tiles?
-    pub fn eval_board_frontline(&self, player: usize) -> f32 {
-        let mut score = 0.0;
-
-        for (rownum, row) in self.board.squares.iter().enumerate() {
-            let row_score = if player == 0 {
-                rownum as f32
-            } else {
-                (&self.board.squares.len() - rownum) as f32
-            };
-
-            for sq in row {
-                if matches!(sq, Square::Occupied(p, _) if player == *p) {
-                    if row_score > score {
-                        score = row_score;
-                    }
-                }
-            }
-        }
-
-        score / self.board.squares.len() as f32
-    }
-
-    pub fn eval_defense(&self, player: usize) -> f32 {
+    pub fn eval_min_distance_to_towns(
+        &self,
+        distances: &BoardDistances,
+        defender: usize,
+        defence_type: DefenceEvalType,
+    ) -> f32 {
         let towns = self.board.towns.clone();
-        let attacker = (player + 1) % self.players.len();
         let max_score = self.board.width() + self.board.height();
 
-        let mut score = max_score;
+        let defense_towns = towns
+            .into_iter()
+            .filter(
+                |town_pt| matches!(self.board.get(*town_pt), Ok(Square::Town{player: p, ..}) if defender == p),
+            ).collect::<Vec<_>>();
 
-        for town in towns.into_iter().filter(
-            |town| matches!(self.board.get(*town), Ok(Square::Town{player: p, ..}) if player == p),
-        ) {
-            let Some(town_dist) = self.board.distance_from_attack(town, attacker) else { continue };
-            if town_dist < score {
-                score = town_dist;
-            }
-        }
+        let score = defense_towns
+            .iter()
+            .map(|town_pt| match defence_type {
+                DefenceEvalType::Attackable => {
+                    distances.attackable_distance(town_pt).unwrap_or(max_score)
+                }
+                DefenceEvalType::Direct => distances.direct_distance(town_pt).unwrap_or(max_score),
+            })
+            .min();
 
-        score as f32 / max_score as f32
+        (score.unwrap_or(max_score) as f32) / (max_score as f32)
+    }
+
+    pub fn eval_min_raced_distance_to_towns(
+        &self,
+        attackers_tiles: &BoardDistances,
+        defenders_tiles: &BoardDistances,
+        defender: usize,
+    ) -> f32 {
+        let towns = self.board.towns.clone();
+        let max_score = self.board.width() + self.board.height();
+
+        let defense_towns = towns
+            .into_iter()
+            .filter(
+                |town_pt| matches!(self.board.get(*town_pt), Ok(Square::Town{player: p, ..}) if defender == p),
+            ).collect::<Vec<_>>();
+
+        let score = defense_towns
+            .iter()
+            .map(|town_pt| {
+                let mut can_defend_in = defenders_tiles
+                    .attackable_distance(town_pt)
+                    .unwrap_or(max_score);
+                let mut can_attack_in = attackers_tiles
+                    .attackable_distance(town_pt)
+                    .unwrap_or(max_score);
+
+                // Fudge the numbers so that even races look bad for the defender
+                can_defend_in += 2;
+                can_attack_in = can_attack_in.saturating_sub(2);
+
+                can_defend_in.saturating_sub(can_attack_in)
+            })
+            .max();
+
+        ((max_score as f32) - score.unwrap_or(max_score) as f32) / (max_score as f32)
     }
 
     pub fn eval_word_quality(
         &self,
         external_dictionary: &WordDict,
         player: usize,
+        caches: &mut Caches,
     ) -> WordQualityScores {
         let mut assessed_tiles: HashSet<Coordinate> = HashSet::new();
         let mut num_words = 0;
@@ -424,6 +554,7 @@ impl Game {
                             &crate::rules::WinCondition::Elimination,
                             Some(external_dictionary),
                             None,
+                            &mut Some(&mut caches.cached_words),
                         );
                         if let Some(resolved_word) = resolved {
                             if let Some(word_data) =
@@ -507,7 +638,7 @@ mod tests {
         }) else {
             panic!("Unhandle-able message");
         };
-        game.play_turn(next_move, Some(dict), Some(dict))
+        game.play_turn(next_move, Some(dict), Some(dict), None)
             .expect("Move was valid");
     }
 
@@ -526,8 +657,9 @@ mod tests {
             board: b.clone(),
             bag,
             players,
+            player_turn_count: vec![0, 0],
             next_player,
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.players[next_player].hand = Hand(hand.chars().collect());
         game.start();
@@ -539,21 +671,25 @@ mod tests {
     /// on how many branches were evaluated.
     fn best_test_move(game: &Game, dict: &WordDict, depth: usize) -> (PlayerMessage, usize, usize) {
         let mut exhaustive_arbor = Arborist::exhaustive();
-        let exhaustive_best_move = Game::best_move(
+        let (exhaustive_best_move, _) = Game::best_move(
             &game,
             Some(&dict),
             Some(&dict),
             depth,
             Some(&mut exhaustive_arbor),
+            false,
+            &BoardWeights::default(),
         );
 
         let mut pruned_arbor = Arborist::pruning();
-        let pruned_best_move = Game::best_move(
+        let (pruned_best_move, _) = Game::best_move(
             &game,
             Some(&dict),
             Some(&dict),
             depth,
             Some(&mut pruned_arbor),
+            false,
+            &BoardWeights::default(),
         );
 
         assert_eq!(
@@ -608,7 +744,13 @@ mod tests {
             "###,
             "A",
         );
-        let score_a = game_a.static_eval(Some(&dict), 1, 1);
+        let score_a = game_a.static_eval(
+            Some(&dict),
+            1,
+            1,
+            &mut Caches::new(),
+            &BoardWeights::default(),
+        );
         let game_b = test_game(
             r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
@@ -622,7 +764,13 @@ mod tests {
             "###,
             "A",
         );
-        let score_b = game_b.static_eval(Some(&dict), 1, 1);
+        let score_b = game_b.static_eval(
+            Some(&dict),
+            1,
+            1,
+            &mut Caches::new(),
+            &BoardWeights::default(),
+        );
 
         insta::with_settings!({
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
@@ -638,11 +786,12 @@ mod tests {
                     word_validity: 1.0,
                     word_extensibility: 1.0,
                 },
-                self_frontline: 0.5,
-                opponent_frontline: 0.375,
-                self_progress: 0.35714287,
-                opponent_progress: 0.125,
+                raced_defense: 0.0,
+                raced_attack: 1.0,
                 self_defense: 1.0,
+                self_attack: 0.0,
+                direct_defence: 1.0,
+                direct_attack: 0.0,
                 self_win: false,
                 opponent_win: false,
             } / B: BoardScore {
@@ -654,11 +803,12 @@ mod tests {
                     word_validity: 1.0,
                     word_extensibility: 1.0,
                 },
-                self_frontline: 0.5,
-                opponent_frontline: 0.375,
-                self_progress: 0.32142857,
-                opponent_progress: 0.125,
+                raced_defense: 0.0,
+                raced_attack: 1.0,
                 self_defense: 1.0,
+                self_attack: 0.0,
+                direct_defence: 1.0,
+                direct_attack: 0.0,
                 self_win: false,
                 opponent_win: false,
             }
@@ -681,7 +831,8 @@ mod tests {
             "###,
             "A",
         );
-        let score_a = game_a.eval_defense(1);
+        let dists = game_a.board.flood_fill_attacks(0);
+        let score_a = game_a.eval_min_distance_to_towns(&dists, 1, DefenceEvalType::Attackable);
         let game_b = test_game(
             r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
@@ -695,7 +846,8 @@ mod tests {
             "###,
             "A",
         );
-        let score_b = game_b.eval_defense(1);
+        let dists = game_b.board.flood_fill_attacks(0);
+        let score_b = game_b.eval_min_distance_to_towns(&dists, 1, DefenceEvalType::Attackable);
 
         insta::with_settings!({
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
@@ -703,6 +855,75 @@ mod tests {
         }, {
             insta::assert_snapshot!(format!("(Defense score) A: {} / B: {}", score_a, score_b), @"(Defense score) A: 0.4 / B: 1");
         });
+    }
+
+    #[test]
+    fn defense_racing_tests() {
+        {
+            let mostly_defended = test_game(
+                r###"
+            ~~ ~~ ~~ |0 ~~ ~~ ~~
+            __ __ S0 O0 __ __ __
+            __ __ __ __ __ __ __
+            __ __ __ __ __ __ __
+            __ __ __ __ __ __ __
+            __ __ __ __ __ __ __
+            __ __ A1 T1 __ H1 __
+            __ __ __ A1 __ A1 __
+            #1 #1 __ R1 A1 T1 #1
+            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            "###,
+                "A",
+            );
+            let opponent_dists = mostly_defended.board.flood_fill_attacks(0);
+            let own_dists = mostly_defended.board.flood_fill_attacks(1);
+            assert_eq!(
+                opponent_dists.attackable_distance(&Coordinate { x: 0, y: 8 }),
+                Some(8)
+            );
+            assert_eq!(
+                own_dists.attackable_distance(&Coordinate { x: 0, y: 8 }),
+                Some(3)
+            );
+            let defense_score =
+                mostly_defended.eval_min_raced_distance_to_towns(&opponent_dists, &own_dists, 1);
+
+            assert_eq!(defense_score, 1.0);
+        }
+
+        {
+            let even_race = test_game(
+                r###"
+            ~~ ~~ ~~ |0 ~~ ~~ ~~
+            __ __ S0 O0 __ __ __
+            __ __ __ __ __ __ __
+            #1 __ __ __ __ __ __
+            __ __ __ __ __ __ __
+            __ __ A1 T1 __ H1 __
+            __ __ __ A1 __ A1 __
+            #1 #1 __ R1 A1 T1 #1
+            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            "###,
+                "A",
+            );
+            let opponent_dists = even_race.board.flood_fill_attacks(0);
+            let own_dists = even_race.board.flood_fill_attacks(1);
+            assert_eq!(
+                opponent_dists.attackable_distance(&Coordinate { x: 0, y: 3 }),
+                Some(3)
+            );
+            assert_eq!(
+                own_dists.attackable_distance(&Coordinate { x: 0, y: 3 }),
+                Some(3)
+            );
+            let defense_score =
+                even_race.eval_min_raced_distance_to_towns(&opponent_dists, &own_dists, 1);
+
+            let expected_max = (even_race.board.width() + even_race.board.height()) as f32;
+            let expected_score = (expected_max - 4.0) / expected_max;
+
+            assert_eq!(defense_score, expected_score);
+        }
     }
 
     #[test]
@@ -738,17 +959,17 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1337 possible leaves
-                  - 396 after pruning
-                  - Move: Place S at (2, 3)
+                  - 1573 possible leaves
+                  - 481 after pruning
+                  - Move: Place E at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
-                __ __ O0 __ __
-                __ __ __ __ __
-                __ __ S1 __ __
+                __ S0 O0 __ __
+                __ T0 __ __ __
+                __ R0 __ __ __
                 __ __ T1 __ __
                 __ __ A1 __ __
-                __ __ R1 __ __
+                __ __ R1 E1 __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -779,17 +1000,17 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1366 possible leaves
-                  - 404 after pruning
-                  - Move: Place A at (3, 5)
+                  - 1618 possible leaves
+                  - 529 after pruning
+                  - Move: Place E at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 __ A0 __ __ __
                 __ R0 __ __ __
                 __ __ T1 __ __
-                __ __ A1 A1 __
-                __ __ R1 __ __
+                __ __ A1 __ __
+                __ __ R1 E1 __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -820,17 +1041,17 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1384 possible leaves
-                  - 760 after pruning
-                  - Move: Place A at (3, 4)
+                  - 1608 possible leaves
+                  - 375 after pruning
+                  - Move: Place E at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 __ A0 __ __ __
                 __ __ __ __ __
-                __ X1 T1 A1 __
+                __ X1 T1 __ __
                 __ __ A1 __ __
-                __ __ R1 __ __
+                __ __ R1 E1 __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -861,17 +1082,17 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1399 possible leaves
-                  - 379 after pruning
-                  - Move: Place S at (3, 4)
+                  - 1623 possible leaves
+                  - 454 after pruning
+                  - Move: Place T at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 D0 A0 __ __ __
                 __ __ __ __ __
-                T1 E1 E1 S1 __
+                T1 E1 E1 __ __
                 __ __ A1 __ __
-                R1 I1 T1 __ __
+                R1 I1 T1 T1 __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -902,15 +1123,15 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1400 possible leaves
-                  - 431 after pruning
-                  - Move: Place S at (1, 3)
+                  - 1640 possible leaves
+                  - 483 after pruning
+                  - Move: Place S at (2, 3)
 
                 ~~ ~~ |0 ~~ ~~
-                __ T0 O0 __ __
-                D0 A0 Q0 __ __
                 __ __ __ __ __
-                __ __ E1 __ __
+                __ __ __ __ __
+                __ __ S1 __ __
+                Q1 E1 E1 __ __
                 __ __ A1 __ __
                 R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
@@ -946,9 +1167,9 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 12345 possible leaves
-                  - 2337 after pruning
-                  - Move: Place A at (6, 7)
+                  - 13605 possible leaves
+                  - 2767 after pruning
+                  - Move: Place A at (3, 9)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -957,9 +1178,9 @@ mod tests {
                 __ __ C0 T0 __ __ __
                 __ __ __ A0 __ __ __
                 __ __ __ B0 __ __ __
-                __ __ I1 __ __ __ A1
+                __ __ I1 __ __ __ __
                 __ __ D1 A1 T1 E1 S1
-                __ __ E1 __ __ __ __
+                __ __ E1 A1 __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~
                 "###);
             });
@@ -993,9 +1214,9 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 5080 possible leaves
-                  - 1101 after pruning
-                  - Move: Place E at (6, 7)
+                  - 6130 possible leaves
+                  - 873 after pruning
+                  - Move: Place U at (4, 7)
 
                 ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
                 ~~ #0 #0 #0 #0 E0 #0 #0 #0 #0 ~~
@@ -1004,7 +1225,7 @@ mod tests {
                 ~~ __ __ __ __ __ __ __ __ __ ~~
                 ~~ __ __ __ __ __ __ __ __ __ ~~
                 ~~ __ __ __ __ __ __ __ __ __ ~~
-                ~~ __ __ __ __ N1 E1 __ __ __ ~~
+                ~~ __ __ __ U1 N1 __ __ __ __ ~~
                 ~~ __ __ __ __ E1 __ __ __ __ ~~
                 ~~ #1 #1 #1 #1 E1 #1 #1 #1 #1 ~~
                 ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~

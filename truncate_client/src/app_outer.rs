@@ -1,4 +1,5 @@
 use futures::channel::mpsc::{Receiver, Sender};
+use serde::{Deserialize, Serialize};
 type R = Receiver<GameMessage>;
 type S = Sender<PlayerMessage>;
 
@@ -6,8 +7,82 @@ use super::debug;
 use super::utils::Theme;
 use crate::{app_inner, utils::glyph_meaure::GlyphMeasure};
 use eframe::egui::{self, Frame, Id, Margin, TextureOptions};
+#[cfg(target_arch = "wasm32")]
+use eframe::wasm_bindgen::JsValue;
 use epaint::{hex_color, vec2, TextureHandle};
-use truncate_core::messages::{GameMessage, PlayerMessage};
+use truncate_core::{
+    board::Board,
+    game::Game,
+    messages::{GameMessage, PlayerMessage},
+    npc::scoring::BoardWeights,
+    player::Player,
+    rules::GameRules,
+};
+
+/// A way to communicate with an outer host, if one exists.
+pub struct Backchannel {
+    #[cfg(target_arch = "wasm32")]
+    pub backchannel: js_sys::Function,
+}
+
+/// Messages that can be sent to an outer host
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", content = "content")]
+pub enum BackchannelMsg {
+    /// Finds the best move for the next player in a given game state
+    EvalGame {
+        board: Board,
+        rules: GameRules,
+        players: Vec<Player>,
+        next_player: usize,
+        weights: BoardWeights,
+    },
+    /// Checks if any answer has been posted for a given message
+    QueryFor {
+        id: String,
+    },
+    /// Tells the outer host to add a given word to the NPC's known dictionaries
+    Remember {
+        word: String,
+    },
+    Copy {
+        text: String,
+    },
+}
+
+impl Backchannel {
+    pub fn new(#[cfg(target_arch = "wasm32")] backchannel: js_sys::Function) -> Self {
+        Self {
+            #[cfg(target_arch = "wasm32")]
+            backchannel,
+        }
+    }
+
+    pub fn is_open(&self) -> bool {
+        #[cfg(target_arch = "wasm32")]
+        return true;
+        #[cfg(not(target_arch = "wasm32"))]
+        return false;
+    }
+
+    /// Passes a message through to the outer host, optionally
+    /// returning an ID that can be used to query for an async result
+    /// at a later time
+    pub fn send_msg(&self, msg: BackchannelMsg) -> Option<String> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let msg_id = self
+                .backchannel
+                .call1(
+                    &JsValue::NULL,
+                    &JsValue::from(serde_json::to_string(&msg).unwrap()),
+                )
+                .expect("Backchannel message should be sendable");
+            return msg_id.as_string();
+        }
+        None
+    }
+}
 
 pub struct OuterApplication {
     pub name: String,
@@ -19,6 +94,7 @@ pub struct OuterApplication {
     pub map_texture: TextureHandle,
     pub launched_room: Option<String>,
     pub error: Option<String>,
+    pub backchannel: Backchannel,
 }
 
 impl OuterApplication {
@@ -27,6 +103,7 @@ impl OuterApplication {
         rx_game: R,
         tx_player: S,
         room_code: Option<String>,
+        #[cfg(target_arch = "wasm32")] backchannel: js_sys::Function,
     ) -> Self {
         let mut fonts = egui::FontDefinitions::default();
 
@@ -102,6 +179,11 @@ impl OuterApplication {
             cc.egui_ctx.set_style(style);
         }
 
+        #[cfg(target_arch = "wasm32")]
+        let backchannel = Backchannel::new(backchannel);
+        #[cfg(not(target_arch = "wasm32"))]
+        let backchannel = Backchannel::new();
+
         Self {
             name: player_name,
             theme,
@@ -112,6 +194,7 @@ impl OuterApplication {
             map_texture: load_map_texture(&cc.egui_ctx),
             launched_room: room_code,
             error: None,
+            backchannel,
         }
     }
 }

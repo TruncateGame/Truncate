@@ -1,14 +1,14 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashSet, VecDeque};
-use std::fmt;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::slice::Iter;
+use std::{fmt, iter};
 
 use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
 use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::reporting::Change;
-use crate::rules;
+use crate::{player, rules};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -527,41 +527,178 @@ impl Board {
         visited
     }
 
-    /// Manhattan distance from a point on the board to the closest
-    /// tile of a given player that has a path to attack
-    pub fn distance_from_attack(&self, position: Coordinate, attacker: usize) -> Option<usize> {
-        let mut visited = HashSet::new();
-        let defended = |sqs: &Vec<(Coordinate, Square)>| {
-            sqs.iter()
-                .any(|(_, n)| matches!(n, Square::Occupied(player, _) if *player != attacker))
+    pub fn flood_fill(&self, starting_pos: &Coordinate) -> BoardDistances {
+        let mut distances = BoardDistances::new(self);
+        let attacker = self
+            .get(*starting_pos)
+            .ok()
+            .map(|sq| match sq {
+                Square::Occupied(player, _) => Some(player),
+                Square::Dock(player) => Some(player),
+                _ => None,
+            })
+            .flatten();
+
+        let adjacent_to_opponent = |sqs: &Vec<(Coordinate, Square)>| {
+            sqs.iter().any(|(_, n)| match n {
+                Square::Occupied(player, _) if Some(*player) != attacker => true,
+                Square::Town { player, .. } if Some(*player) != attacker => true,
+                _ => false,
+            })
         };
 
-        let neighbors = self.neighbouring_squares(position);
-        let mut pts: VecDeque<_> = neighbors.iter().map(|n| (n.0, 0)).collect();
+        distances.set_attackable(starting_pos, 0);
+        let initial_neighbors = self.neighbouring_squares(*starting_pos);
+        let mut attackable_pts: VecDeque<_> = initial_neighbors.iter().map(|n| (n.0, 0)).collect();
+        let mut direct_pts: VecDeque<(Coordinate, usize)> = VecDeque::new();
 
-        while !pts.is_empty() {
-            let (pt, dist) = pts.pop_front().unwrap();
+        while !attackable_pts.is_empty() {
+            let (pt, dist) = attackable_pts.pop_front().unwrap();
 
-            if visited.contains(&pt) {
-                continue;
-            }
-            visited.insert(pt);
-
-            match self.get(pt) {
-                Ok(Square::Occupied(player, _)) if player == attacker => return Some(dist),
-                Ok(Square::Land) => {
-                    let neighbors = self.neighbouring_squares(pt);
-                    if defended(&neighbors) {
-                        // Square is defended.
+            match distances.attackable_distance_mut(&pt) {
+                Some(Some(visited_dist)) => {
+                    if *visited_dist > dist {
+                        // We have now found a better path to this point, so we will reprocess it
+                        *visited_dist = dist;
+                    } else {
+                        // We have previously found a better (or equal) path to this point, move to the next
                         continue;
                     }
-                    pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                _ => {
+                    distances.set_attackable(&pt, dist);
+                }
+            }
+
+            match self.get(pt) {
+                Ok(Square::Occupied(player, _)) if Some(player) == attacker => {
+                    let neighbors = self.neighbouring_squares(pt);
+
+                    // We found another one of our tiles — search its neighbors with a new starting distance
+                    attackable_pts.extend(neighbors.iter().map(|n| (n.0, 0)));
+                    distances.set_attackable(&pt, 0);
+                }
+                Ok(Square::Land) => {
+                    let neighbors = self.neighbouring_squares(pt);
+
+                    if adjacent_to_opponent(&neighbors) {
+                        // This tile is touching the opponent.
+                        // We don't want to flood fill any more adjacent land since we
+                        // can't play _through_ this tile, but we do want to visit any
+                        // adjacent towns and tiles since they would be attacked by playing here.
+                        attackable_pts.extend(
+                            neighbors
+                                .iter()
+                                .filter(|(_, sq)| !matches!(sq, Square::Land))
+                                .map(|n| (n.0, dist + 1)),
+                        );
+                        // We also put these neighbor tiles into the list for the next stage,
+                        // when BFSing the rest of the board
+                        direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                    } else {
+                        // This tile is clear land — continue to flood fill everything
+                        attackable_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                    }
+                }
+                Ok(Square::Water) => continue,
+                Ok(_) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    // Falling through from the above, these tiles are the edges of our attacking BFS.
+                    // We put them aside to use as the starting list for our full-board DFS
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
                 }
                 _ => continue,
             }
         }
 
-        None
+        distances.copy_to_direct();
+
+        while !direct_pts.is_empty() {
+            let (pt, dist) = direct_pts.pop_front().unwrap();
+
+            match distances.direct_distance_mut(&pt) {
+                Some(Some(visited_dist)) => {
+                    if *visited_dist > dist {
+                        // We have now found a better path to this point, so we will reprocess it
+                        *visited_dist = dist;
+                    } else {
+                        // We have previously found a better (or equal) path to this point, move to the next
+                        continue;
+                    }
+                }
+                _ => {
+                    distances.set_direct(&pt, dist);
+                }
+            }
+
+            match self.get(pt) {
+                Ok(Square::Water) => continue,
+                Ok(_) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                _ => continue,
+            }
+        }
+
+        distances
+    }
+
+    pub fn flood_fill_attacks(&self, attacker: usize) -> BoardDistances {
+        let pos_is_attacker = |pos: &Coordinate| match self.get(*pos) {
+            Ok(Square::Occupied(player, _)) if player == attacker => true,
+            _ => false,
+        };
+
+        let rows = self.height();
+        let cols = self.width();
+
+        // Always evaluate tiles furthest down the board first
+        let outermost_attacker = if attacker == 0 {
+            (0..rows)
+                .rev()
+                .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+                .map(|(x, y)| Coordinate { x, y })
+                .find(pos_is_attacker)
+        } else {
+            (0..rows)
+                .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+                .map(|(x, y)| Coordinate { x, y })
+                .find(pos_is_attacker)
+        };
+
+        let Some(outermost_attacker) = outermost_attacker else {
+            // Attacker has no tiles, cannot reach anywhere.
+            // TODO: count from docks?
+            return BoardDistances::new(self);
+        };
+
+        self.flood_fill(&outermost_attacker)
+    }
+
+    pub fn get_shape(&self) -> Vec<u64> {
+        let width = self.width();
+        let num_buckets = Coordinate {
+            x: self.width() - 1,
+            y: self.height() - 1,
+        }
+        .to_1d(width)
+            / 64
+            + 1;
+
+        let mut out = vec![0; num_buckets];
+
+        for (y, row) in self.squares.iter().enumerate() {
+            for (x, square) in row.iter().enumerate() {
+                if matches!(square, Square::Occupied(_, _)) {
+                    let c = Coordinate { x, y }.to_1d(width);
+                    let bucket = c / 64;
+                    out[bucket] |= 1 << (c % 64);
+                }
+            }
+        }
+
+        out
     }
 
     pub fn get_words(&self, position: Coordinate) -> Vec<Vec<Coordinate>> {
@@ -673,6 +810,26 @@ impl Board {
         } else {
             Ok(strings)
         }
+    }
+
+    // TODO: This needs to look at all tiles to work in no truncation mode
+    pub fn playable_positions(&self, for_player: usize) -> HashSet<Coordinate> {
+        let mut playable_squares = HashSet::new();
+        for dock in &self.docks {
+            let sq = self.get(*dock).unwrap();
+            if !matches!(sq, Square::Dock(p) if p == for_player) {
+                continue;
+            }
+
+            playable_squares.extend(
+                self.depth_first_search(*dock)
+                    .iter()
+                    .flat_map(|sq| sq.neighbors_4())
+                    .filter(|sq| matches!(self.get(*sq), Ok(Square::Land)))
+                    .collect::<HashSet<_>>(),
+            );
+        }
+        playable_squares
     }
 
     pub fn fog_of_war(&self, player_index: usize) -> Self {
@@ -869,6 +1026,17 @@ impl Coordinate {
         }
     }
 
+    pub fn to_1d(&self, width: usize) -> usize {
+        return self.x + self.y * width;
+    }
+
+    pub fn from_1d(oned: usize, width: usize) -> Self {
+        Self {
+            x: oned % width,
+            y: oned / width,
+        }
+    }
+
     /// Return coordinates of the horizontal and vertical neighbors, from north clockwise
     pub fn neighbors_4(&self) -> [Coordinate; 4] {
         use Direction::*;
@@ -895,6 +1063,10 @@ impl Coordinate {
             self.add(SouthWest),
             self.add(West),
         ]
+    }
+
+    pub fn distance_to(&self, other: &Coordinate) -> usize {
+        self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
     }
 }
 
@@ -938,11 +1110,108 @@ impl fmt::Display for Square {
     }
 }
 
+#[derive(Clone)]
+pub struct BoardDistances {
+    pub board_width: usize,
+    pub attackable: Vec<Option<usize>>,
+    pub direct: Vec<Option<usize>>,
+}
+
+impl BoardDistances {
+    pub fn new(board: &Board) -> Self {
+        let max_cord = Coordinate {
+            x: board.width() - 1,
+            y: board.height() - 1,
+        };
+        let len = max_cord.to_1d(board.width()) + 1;
+        Self {
+            board_width: board.width(),
+            attackable: vec![None; len],
+            direct: vec![None; len],
+        }
+    }
+
+    pub fn copy_to_direct(&mut self) {
+        self.direct = self.attackable.clone();
+    }
+
+    pub fn set_attackable(&mut self, coord: &Coordinate, distance: usize) {
+        let pos = coord.to_1d(self.board_width);
+        self.attackable[pos] = Some(distance);
+    }
+
+    pub fn set_direct(&mut self, coord: &Coordinate, distance: usize) {
+        let pos = coord.to_1d(self.board_width);
+        self.direct[pos] = Some(distance);
+    }
+
+    pub fn attackable_distance_mut(&mut self, coord: &Coordinate) -> Option<&mut Option<usize>> {
+        let pos = coord.to_1d(self.board_width);
+        self.attackable.get_mut(pos)
+    }
+
+    pub fn direct_distance_mut(&mut self, coord: &Coordinate) -> Option<&mut Option<usize>> {
+        let pos = coord.to_1d(self.board_width);
+        self.direct.get_mut(pos)
+    }
+
+    pub fn attackable_distance(&self, coord: &Coordinate) -> Option<usize> {
+        let pos = coord.to_1d(self.board_width);
+        self.attackable[pos]
+    }
+
+    pub fn direct_distance(&self, coord: &Coordinate) -> Option<usize> {
+        let pos = coord.to_1d(self.board_width);
+        self.direct[pos]
+    }
+
+    pub fn difference(&self, other: &BoardDistances) -> Self {
+        assert_eq!(self.attackable.len(), other.attackable.len());
+
+        let diff_attackable = self
+            .attackable
+            .iter()
+            .zip(other.attackable.iter())
+            .map(|dists| {
+                let (Some(a), Some(b)) = dists else {
+                    return None;
+                };
+                Some(a.abs_diff(*b))
+            })
+            .collect();
+
+        let diff_direct = self
+            .direct
+            .iter()
+            .zip(other.direct.iter())
+            .map(|dists| {
+                let (Some(a), Some(b)) = dists else {
+                    return None;
+                };
+                Some(a.abs_diff(*b))
+            })
+            .collect();
+
+        BoardDistances {
+            board_width: self.board_width,
+            attackable: diff_attackable,
+            direct: diff_direct,
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::rules::SwapPenalty;
 
     use super::*;
+
+    #[test]
+    fn coord_flattening() {
+        let coord = Coordinate { x: 4, y: 123 };
+        let flat = coord.to_1d(51);
+        assert_eq!(coord, Coordinate::from_1d(flat, 51));
+    }
 
     fn default_swap_rules() -> SwapPenalty {
         SwapPenalty::Disallowed { allowed_swaps: 1 }
@@ -1287,50 +1556,111 @@ pub mod tests {
     }
 
     #[test]
-    fn attack_dist() {
+    fn simple_flood_fill_attacks() {
         let board = Board::from_string(
             r###"
-            ~~ ~~ ~~ |0 ~~ ~~ ~~
-            #0 __ __ R0 __ __ __
-            __ __ __ A0 __ X0 __
-            __ __ A0 T0 E0 __ __
-            __ __ __ __ __ __ __
-            __ __ __ __ __ T1 __
-            __ __ __ __ E1 __ __
-            __ __ __ __ __ __ __
-            ~~ ~~ ~~ |1 ~~ ~~ ~~
+            ~~ ~~ |0 ~~ ~~
+            __ __ R0 __ __
+            __ __ A0 __ X0
+            __ __ __ __ __
+            __ __ __ __ __
+            __ __ __ __ __
+            ~~ ~~ |1 ~~ ~~
             "###,
         );
 
-        assert_eq!(
-            board.distance_from_attack(Coordinate { x: 0, y: 1 }, 1),
-            Some(8)
-        );
+        let dists = board.flood_fill_attacks(0);
+        let width = board.width();
 
         assert_eq!(
-            board.distance_from_attack(Coordinate { x: 1, y: 1 }, 1),
-            Some(9)
+            dists.attackable_distance(&Coordinate { x: 0, y: 1 }),
+            Some(1)
         );
-
         assert_eq!(
-            board.distance_from_attack(Coordinate { x: 2, y: 1 }, 1),
-            Some(10)
+            dists.attackable_distance(&Coordinate { x: 3, y: 1 }),
+            Some(0)
         );
-
         assert_eq!(
-            board.distance_from_attack(Coordinate { x: 6, y: 1 }, 1),
-            None
-        );
-
-        assert_eq!(
-            board.distance_from_attack(Coordinate { x: 6, y: 7 }, 0),
-            None
-        );
-
-        assert_eq!(
-            board.distance_from_attack(Coordinate { x: 3, y: 6 }, 0),
+            dists.attackable_distance(&Coordinate { x: 4, y: 5 }),
             Some(2)
         );
+        assert_eq!(
+            dists.attackable_distance(&Coordinate { x: 3, y: 5 }),
+            Some(3)
+        );
+        assert_eq!(
+            dists.attackable_distance(&Coordinate { x: 2, y: 5 }),
+            Some(2)
+        );
+        assert_eq!(
+            dists.attackable_distance(&Coordinate { x: 0, y: 5 }),
+            Some(4)
+        );
+
+        // Player 1's dock
+        assert_eq!(
+            dists.attackable_distance(&Coordinate { x: 2, y: 6 }),
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn complex_flood_fill_attacks() {
+        let board = Board::from_string(
+            r###"
+            ~~ ~~ |0 ~~ ~~ __ __ __ __ __
+            __ __ R0 __ __ __ __ __ __ __
+            __ __ A0 __ X0 __ __ Q1 __ __
+            __ __ __ __ __ __ __ Q1 __ __
+            __ __ __ __ __ __ __ Q1 __ __
+            __ __ F1 __ __ __ __ Q1 __ __
+            T1 __ A1 __ __ __ __ Q1 __ __
+            A1 __ X1 __ G1 __ __ Q1 __ __
+            ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+            "###,
+        );
+
+        let dists = board.flood_fill_attacks(0);
+
+        // Probing the left, we can't get between T1 and A1
+        assert_eq!(
+            dists.attackable_distance(&Coordinate { x: 1, y: 5 }),
+            Some(3)
+        );
+        assert_eq!(
+            dists.attackable_distance(&Coordinate { x: 0, y: 5 }),
+            Some(4)
+        );
+        assert_eq!(dists.direct_distance(&Coordinate { x: 0, y: 6 }), Some(5));
+        assert_eq!(dists.attackable_distance(&Coordinate { x: 1, y: 6 }), None);
+
+        // If we had a direct path there though, we can look up how far it is.
+        assert_eq!(dists.direct_distance(&Coordinate { x: 1, y: 6 }), Some(4));
+
+        // In the middle, the G1 blocks us from being adjacent to the A1
+        assert_eq!(dists.attackable_distance(&Coordinate { x: 3, y: 6 }), None);
+
+        // Far right, we have to go back and around the Q1 tower to reach the end
+        assert_eq!(
+            dists.attackable_distance(&Coordinate { x: 9, y: 7 }),
+            Some(13)
+        );
+        // Though if we could go straight there...
+        assert_eq!(dists.direct_distance(&Coordinate { x: 9, y: 7 }), Some(9));
+        // And to attack the bottom-most Q1, we would have to visit all the way from the right
+        assert_eq!(
+            dists.attackable_distance(&Coordinate { x: 7, y: 7 }),
+            Some(15)
+        );
+        // Though if we could go straight there...
+        assert_eq!(dists.direct_distance(&Coordinate { x: 7, y: 7 }), Some(7));
+        // The one above it we could attack from the left, though
+        assert_eq!(
+            dists.attackable_distance(&Coordinate { x: 7, y: 6 }),
+            Some(6)
+        );
+        // Which is also the best we could do anyway
+        assert_eq!(dists.direct_distance(&Coordinate { x: 7, y: 6 }), Some(6));
     }
 
     #[test]
