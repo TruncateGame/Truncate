@@ -115,6 +115,7 @@ pub fn generate_board(mut board_seed: BoardSeed) -> Board {
             },
     } = board_seed;
 
+    println!("Starting a board generation");
     if current_iteration > 10000 {
         panic!("Wow that's deep");
     }
@@ -391,7 +392,7 @@ impl BoardGenerator for Board {
             return Err(());
         };
 
-        let max_ratio = 0.4;
+        let max_defense_imbalance_ratio = 0.4;
         let candidates = self
             .squares
             .iter()
@@ -409,9 +410,10 @@ impl BoardGenerator for Board {
                 let distance_zero = coord.distance_to(&docks[0]);
                 let distance_one = coord.distance_to(&docks[1]);
 
-                if (distance_zero as f32 / distance_one as f32) < max_ratio {
+                if (distance_zero as f32 / distance_one as f32) < max_defense_imbalance_ratio {
                     Some((player_zero, coord))
-                } else if (distance_one as f32 / distance_zero as f32) < max_ratio {
+                } else if (distance_one as f32 / distance_zero as f32) < max_defense_imbalance_ratio
+                {
                     Some((player_one, coord))
                 } else {
                     None
@@ -451,7 +453,58 @@ impl BoardGenerator for Board {
             }
         }
 
-        self.cache_special_squares();
+        'recheck_towns: loop {
+            self.cache_special_squares();
+
+            let dock_zero_dists = self.flood_fill(&self.docks[0]);
+            let dock_one_dists = self.flood_fill(&self.docks[1]);
+
+            let positions = self.towns.iter().flat_map(|town| {
+                let Ok(Square::Town { player, .. }) = self.get(*town) else {
+                    panic!("Town position is invalid");
+                };
+                town.neighbors_4()
+                    .into_iter()
+                    .filter_map(|coord| {
+                        if matches!(self.get(coord), Ok(Square::Land)) {
+                            Some((town, coord, player))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            });
+
+            for (town, attackable_land, defending_player) in positions {
+                let (attacker_distances, defender_distances) = match defending_player {
+                    0 => (&dock_one_dists, &dock_zero_dists),
+                    1 => (&dock_zero_dists, &dock_one_dists),
+                    _ => unimplemented!(),
+                };
+
+                let Some(attack_distance) =
+                    attacker_distances.attackable_distance(&attackable_land)
+                else {
+                    continue;
+                };
+                let Some(defense_distance) =
+                    defender_distances.attackable_distance(&attackable_land)
+                else {
+                    println!("Removing a town at {town}");
+                    self.set_square(*town, Square::Land).unwrap();
+                    continue 'recheck_towns;
+                };
+
+                let ratio = defense_distance as f32 / attack_distance as f32;
+                if ratio > max_defense_imbalance_ratio {
+                    println!("Removing a town at {town}");
+                    self.set_square(*town, Square::Land).unwrap();
+                    continue 'recheck_towns;
+                }
+            }
+
+            break 'recheck_towns;
+        }
 
         let check_player_has_town = |p: usize| {
             self.towns.iter().any(
@@ -468,7 +521,6 @@ impl BoardGenerator for Board {
 
     fn ensure_paths(&mut self) -> Result<(), ()> {
         let dock_zero_dists = self.flood_fill(&self.docks[0]);
-        let dock_one_dists = self.flood_fill(&self.docks[1]);
 
         if dock_zero_dists
             .attackable_distance(&self.docks[1])
