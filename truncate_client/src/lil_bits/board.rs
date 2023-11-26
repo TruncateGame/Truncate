@@ -90,9 +90,10 @@ impl<'a> BoardUI<'a> {
                         |rownum, row: Box<dyn Iterator<Item = (usize, &Square)>>| {
                             ui.horizontal(|ui| {
                                 for (colnum, square) in row {
-                                    // TODO: An extra row is being clipped off the bottom here in some cases.
                                     let grid_cell = Rect::from_min_size(ui.next_widget_position(), Vec2::splat(ctx.theme.grid_size));
-                                    if !ui.is_rect_visible(grid_cell) {
+                                    // An extra row seems to be clipped off the bottom in a normal calculation,
+                                    // so we expand each grid cell's check (painting one cell "outside" the screen)
+                                    if !ui.is_rect_visible(grid_cell.expand(ctx.theme.grid_size)) {
                                         // Skip all work for board that is offscreen, just move the cursor.
                                         _ = ui.allocate_exact_size(
                                             Vec2::splat(ctx.theme.grid_size),
