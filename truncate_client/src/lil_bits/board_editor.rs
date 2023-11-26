@@ -144,7 +144,9 @@ impl<'a> EditorUI<'a> {
             ui.label(RichText::new("Land & Water").color(Color32::WHITE));
         });
 
-        ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
+        let styles = ui.style_mut();
+        styles.spacing.item_spacing = egui::vec2(0.0, 0.0);
+        styles.spacing.interact_size = egui::vec2(0.0, 0.0);
 
         ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
             let (_, margin, theme) = theme.calc_rescale(

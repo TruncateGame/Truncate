@@ -82,7 +82,9 @@ impl<'a> BoardUI<'a> {
         let area_id = area.layer();
 
         let board_frame = area.show(ui.ctx(), |ui| {
-            ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
+            let styles = ui.style_mut();
+            styles.spacing.item_spacing = egui::vec2(0.0, 0.0);
+            styles.spacing.interact_size = egui::vec2(0.0, 0.0);
 
             outer_frame.show(ui, |ui| {
                 let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
