@@ -299,7 +299,7 @@ impl<'a> BoardUI<'a> {
 
         if let Some(hover_pos) = board_frame.response.hover_pos() {
             // Move the drag focus to our board layer if it looks like a drag is starting.
-            // NB: This is possible sensitive to the board being painted _last_ on our screen,
+            // NB: This is sensitive to the board being painted _last_ on our screen,
             // such that anything else that should be getting the drag this frame will already
             // exist in the `is_anything_being_dragged` check.
             // (The `layer_id_at` check should avoid this issue in most cases, I imagine)
@@ -380,10 +380,35 @@ impl<'a> BoardUI<'a> {
             board_pos = board_pos.translate(touch.translation_delta);
         }
 
-        let visible = board_pos.intersect(game_area);
-        if visible.width() < ctx.theme.grid_size * 2.0 || visible.height() < ctx.theme.grid_size * 2.0 {
-            ctx.board_zoom = previous_state.0;
-            ctx.board_pan = previous_state.1;
+
+        let buffer = game_area.size() * 0.25;
+        let bounce = 0.3;
+
+        let left_overage = game_area.left() - board_pos.right() + buffer.x;
+        let right_overage = board_pos.left() - game_area.right() + buffer.x;
+        let top_overage = game_area.top() - board_pos.bottom() + buffer.y;
+        let bottom_overage = board_pos.top() - game_area.bottom() + buffer.y;
+
+        let mut bounced = false;
+        if left_overage > 0.0 {
+            ctx.board_pan.x += (left_overage * bounce).max(bounce).min(left_overage);
+            bounced = true;
+        }
+        if right_overage > 0.0 {
+            ctx.board_pan.x -= (right_overage * bounce).max(bounce).min(right_overage);
+            bounced = true;
+        }
+        if top_overage > 0.0 {
+            ctx.board_pan.y += (top_overage * bounce).max(bounce).min(top_overage);
+            bounced = true;
+        }
+        if bottom_overage > 0.0 {
+            ctx.board_pan.y -= (bottom_overage * bounce).max(bounce).min(bottom_overage);
+            bounced = true;
+        }
+        if bounced {
+            // Paint at a high FPS while animating the board back to stasis.
+            ui.ctx().request_repaint();
         }
 
         // let resolved_x = (self.board.width() * ctx.theme.grid_size * ctx.board_zoom) ctx.board_pan
