@@ -657,6 +657,7 @@ mod tests {
             board: b.clone(),
             bag,
             players,
+            player_turn_count: vec![0, 0],
             next_player,
             ..Game::new(3, 1, None)
         };

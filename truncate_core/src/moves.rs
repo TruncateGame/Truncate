@@ -98,6 +98,7 @@ mod tests {
         let mut game = Game {
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 3, None)
         };
@@ -137,6 +138,7 @@ mod tests {
         let mut game = Game {
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 3, None)
         };
@@ -294,6 +296,7 @@ mod tests {
         let mut game = Game {
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 3, None)
         };
@@ -443,6 +446,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(1, 1, None)
         };
@@ -488,6 +492,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -543,6 +548,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -596,6 +602,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -645,6 +652,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -702,6 +710,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -759,6 +768,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -816,6 +826,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -873,6 +884,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -929,6 +941,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -983,6 +996,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(3, 1, None)
         };
@@ -1030,6 +1044,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(1, 1, None)
         };
@@ -1079,6 +1094,7 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
             ..Game::new(1, 1, None)
         };
