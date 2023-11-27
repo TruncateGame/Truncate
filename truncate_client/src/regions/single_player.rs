@@ -10,7 +10,7 @@ use truncate_core::{
     judge::{WordData, WordDict},
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
-    npc::scoring::{BoardScore, BoardWeights},
+    npc::scoring::BoardWeights,
     reporting::{Change, HandChange, WordMeaning},
 };
 
@@ -37,8 +37,6 @@ pub struct SinglePlayerState {
     turns: usize,
     debugging_npc: bool,
     weights: BoardWeights,
-    last_target_score: Option<BoardScore>,
-    last_target_game: Option<ActiveGame>,
     waiting_on_backchannel: Option<String>,
 }
 
@@ -83,8 +81,6 @@ impl SinglePlayerState {
             turns: 0,
             debugging_npc: false,
             weights: BoardWeights::default(),
-            last_target_score: None,
-            last_target_game: None,
             waiting_on_backchannel: None,
         }
     }

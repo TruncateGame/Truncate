@@ -8,6 +8,7 @@ use crate::error::GamePlayError;
 use crate::player::Player;
 use crate::reporting::Change;
 
+#[derive(Debug, Clone)]
 pub enum Move {
     // TODO: make Move a struct and make player a top level property of it
     Place {
