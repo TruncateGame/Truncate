@@ -55,7 +55,7 @@ fn get_galleys<'a>(
                         ),
                         match (transparent, w.valid) {
                             (true, _) => Color32::TRANSPARENT,
-                            (false, Some(true)) => ctx.theme.addition.darken(),
+                            (false, Some(true)) => ctx.theme.addition.darken().darken(),
                             (false, Some(false)) => ctx.theme.defeated.darken(),
                             (false, None) => ctx.theme.outlines.darken().darken(),
                         },
@@ -69,7 +69,7 @@ fn get_galleys<'a>(
                         ),
                         match (transparent, w.valid) {
                             (true, _) => Color32::TRANSPARENT,
-                            (false, Some(true)) => ctx.theme.addition.darken(),
+                            (false, Some(true)) => ctx.theme.addition.darken().darken(),
                             (false, Some(false)) => ctx.theme.defeated.darken(),
                             (false, None) => ctx.theme.outlines.darken().darken(),
                         },

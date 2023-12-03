@@ -206,7 +206,7 @@ impl TileUI {
 
         if ui.is_rect_visible(base_rect) {
             let outline = if self.added {
-                Some(theme.selection)
+                Some(theme.addition)
             } else if self.modified {
                 Some(theme.modification)
             } else if self.selected || self.victor {
