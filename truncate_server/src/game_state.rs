@@ -30,7 +30,7 @@ pub struct GameManager {
 
 impl GameManager {
     pub fn new(game_id: String) -> Self {
-        let game = Game::new(9, 11);
+        let game = Game::new(9, 11, None);
 
         Self {
             game_id,
@@ -195,6 +195,7 @@ impl GameManager {
                 },
                 Some(&words_db.valid_words),
                 Some(&words_db.valid_words),
+                None,
             ) {
                 Ok(Some(winner)) => {
                     for (player_index, player) in self.players.iter().enumerate() {
@@ -253,6 +254,7 @@ impl GameManager {
                 },
                 Some(&words_db.valid_words),
                 Some(&words_db.valid_words),
+                None,
             ) {
                 Ok(Some(_)) => {
                     unreachable!("Cannot win by swapping")

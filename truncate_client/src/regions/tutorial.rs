@@ -17,7 +17,7 @@ use truncate_core::{
 
 use crate::utils::{text::TextHelper, Diaphanize, Lighten, Theme};
 
-use super::active_game::ActiveGame;
+use super::active_game::{ActiveGame, HeaderType};
 
 const TUTORIAL_01: &[u8] = include_bytes!("../../tutorials/tutorial_01.yml");
 
@@ -46,6 +46,9 @@ enum TutorialStep {
     },
     Dialog {
         message: String,
+    },
+    EndAction {
+        end_message: String,
     },
 }
 
@@ -87,6 +90,7 @@ impl PartialEq<Move> for TutorialStep {
             }
             TutorialStep::ComputerMove { .. } => false,
             TutorialStep::Dialog { .. } => false,
+            TutorialStep::EndAction { .. } => false,
         }
     }
 }
@@ -139,9 +143,11 @@ impl TutorialState {
             ],
             board: Board::from_string(loaded_tutorial.board.clone()),
             // TODO: Use some special infinite bag?
-            bag: TileBag::new(&TileDistribution::Standard),
+            bag: TileBag::new(&TileDistribution::Standard, None),
             judge: Judge::new(loaded_tutorial.dict.keys().cloned().collect()),
             battle_count: 0,
+            turn_count: 0,
+            player_turn_count: vec![0, 0],
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
@@ -150,6 +156,7 @@ impl TutorialState {
 
         let mut active_game = ActiveGame::new(
             "TUTORIAL_01".into(),
+            None,
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -158,7 +165,7 @@ impl TutorialState {
             map_texture,
             theme,
         );
-        active_game.ctx.timers_visible = false;
+        active_game.ctx.header_visible = HeaderType::None;
 
         Self {
             game,
@@ -208,7 +215,10 @@ impl TutorialState {
         }
 
         // Standard game helper
-        if let Some(msg) = self.active_game.render(ui, theme, None, current_time) {
+        if let Some(msg) = self
+            .active_game
+            .render(ui, theme, None, current_time, None, None)
+        {
             let Some(game_move) = (match msg {
                 PlayerMessage::Place(position, tile) => Some(Move::Place {
                     player: 0,
@@ -400,6 +410,68 @@ impl TutorialState {
                                     });
                                 }
                             }
+                            TutorialStep::EndAction { end_message } => {
+                                let dialog_text = TextHelper::light(
+                                    &end_message,
+                                    tut_fz,
+                                    Some((ui.available_width() - 16.0).max(0.0)),
+                                    ui,
+                                );
+
+                                let animated_text =
+                                    dialog_text.get_partial_slice(time_in_stage, ui);
+                                let has_animation = animated_text.is_some();
+                                if has_animation {
+                                    ui.ctx().request_repaint();
+                                }
+
+                                let final_size = dialog_text.mesh_size();
+                                let dialog_resp = animated_text.unwrap_or(dialog_text).dialog(
+                                    final_size,
+                                    Color32::WHITE.diaphanize(),
+                                    Color32::BLACK,
+                                    button_spacing,
+                                    &self.active_game.ctx.map_texture,
+                                    ui,
+                                );
+
+                                if !has_animation {
+                                    let mut dialog_rect = dialog_resp.rect;
+                                    dialog_rect.set_top(dialog_rect.bottom() - button_spacing);
+
+                                    let text = TextHelper::heavy("RETURN TO MENU", 14.0, None, ui);
+                                    ui.allocate_ui_at_rect(dialog_rect, |ui| {
+                                        ui.with_layout(
+                                            Layout::centered_and_justified(
+                                                egui::Direction::LeftToRight,
+                                            ),
+                                            |ui| {
+                                                if text
+                                                    .button(
+                                                        theme.water.lighten(),
+                                                        theme.text,
+                                                        &self.active_game.ctx.map_texture,
+                                                        ui,
+                                                    )
+                                                    .clicked()
+                                                {
+                                                    // TODO: A more elegant way to show the menu over the game would be nice,
+                                                    // but we would need to add extra endpoints to the lib.rs file,
+                                                    // and also give those endpoints a way to access the active game to change its state.
+                                                    // As an MVP here, we simply reload the page to get back to the menu.
+                                                    #[cfg(target_arch = "wasm32")]
+                                                    {
+                                                        _ = web_sys::window()
+                                                            .unwrap()
+                                                            .location()
+                                                            .reload();
+                                                    }
+                                                }
+                                            },
+                                        );
+                                    });
+                                }
+                            }
                         },
                         None => {
                             // TODO: Tutorial complete screen, back to menu
@@ -415,10 +487,10 @@ impl TutorialState {
                 Some(TutorialStep::ComputerMove { gets, .. }) => Some(gets),
                 _ => None,
             } {
-                self.game.bag = TileBag::explicit(vec![*next_tile]);
+                self.game.bag = TileBag::explicit(vec![*next_tile], None);
             }
 
-            match self.game.make_move(game_move, None, None) {
+            match self.game.make_move(game_move, None, None, None) {
                 Ok(changes) => {
                     let changes = changes
                         .into_iter()

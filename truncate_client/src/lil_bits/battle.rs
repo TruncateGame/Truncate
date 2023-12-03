@@ -307,7 +307,7 @@ impl<'a> BattleUI<'a> {
                     }
                     ui.add_space(12.0);
                     TextHelper::heavy(&word.resolved_word, ctx.theme.letter_size * 0.5, None, ui)
-                        .paint(ctx.theme.text, ui);
+                        .paint(ctx.theme.text, ui, false);
 
                     match (word.valid, &word.meanings) {
                         (Some(true), Some(meanings)) if !meanings.is_empty() => TextHelper::light(
@@ -316,21 +316,21 @@ impl<'a> BattleUI<'a> {
                             Some(ui.available_width()),
                             ui,
                         )
-                        .paint(ctx.theme.text, ui),
+                        .paint(ctx.theme.text, ui, false),
                         (Some(true), _) => TextHelper::light(
                             "Definition unknown",
                             24.0,
                             Some(ui.available_width()),
                             ui,
                         )
-                        .paint(ctx.theme.text, ui),
+                        .paint(ctx.theme.text, ui, false),
                         (Some(false), _) => {
                             TextHelper::light("Invalid word", 24.0, Some(ui.available_width()), ui)
-                                .paint(ctx.theme.text, ui)
+                                .paint(ctx.theme.text, ui, false)
                         }
                         (None, _) => {
                             TextHelper::light("Unchecked", 24.0, Some(ui.available_width()), ui)
-                                .paint(ctx.theme.text, ui)
+                                .paint(ctx.theme.text, ui, false)
                         }
                     };
 

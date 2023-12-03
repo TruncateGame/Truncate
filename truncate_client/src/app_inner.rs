@@ -1,12 +1,22 @@
+use chrono::Offset;
 use eframe::egui::{self, Layout, Margin};
 use epaint::{vec2, Color32};
 use instant::Duration;
-use truncate_core::{messages::RoomCode, messages::Token};
+use truncate_core::{
+    board::{self, Board},
+    game::Game,
+    generation::{generate_board, BoardParams, BoardSeed},
+    messages::RoomCode,
+    messages::{LobbyPlayerMessage, Token},
+};
 
 use crate::{
     regions::active_game::ActiveGame,
-    regions::{lobby::Lobby, single_player::SinglePlayerState, tutorial::TutorialState},
-    utils::{text::TextHelper, Lighten},
+    regions::{
+        active_game::HeaderType, generator::GeneratorState, lobby::Lobby,
+        single_player::SinglePlayerState, tutorial::TutorialState,
+    },
+    utils::{daily::get_daily_puzzle, text::TextHelper, Lighten},
 };
 
 use super::OuterApplication;
@@ -17,7 +27,9 @@ use truncate_core::{
 
 pub enum GameStatus {
     None(RoomCode, Option<Token>),
+    Generator(GeneratorState),
     Tutorial(TutorialState),
+    PendingSinglePlayer(Lobby),
     SinglePlayer(SinglePlayerState),
     PendingJoin(RoomCode),
     PendingCreate,
@@ -37,6 +49,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         map_texture,
         launched_room,
         error,
+        backchannel,
     } = client;
 
     let mut send = |msg| {
@@ -67,10 +80,73 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 theme.clone(),
             )));
         } else if launched_room == "SINGLE_PLAYER" {
-            new_game_status = Some(GameStatus::SinglePlayer(SinglePlayerState::new(
+            new_game_status = Some(GameStatus::PendingSinglePlayer(Lobby::new(
+                "Single Player".into(),
+                vec![
+                    LobbyPlayerMessage {
+                        name: "You".into(),
+                        index: 0,
+                        color: (128, 128, 255),
+                    },
+                    LobbyPlayerMessage {
+                        name: "Computer".into(),
+                        index: 1,
+                        color: (255, 80, 80),
+                    },
+                ],
+                0,
+                Board::new(9, 9),
+                map_texture.clone(),
+                current_time,
+            )));
+        } else if launched_room == "DAILY_PUZZLE" {
+            let puzzle_game = get_daily_puzzle(current_time, map_texture, theme);
+            new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+        } else if launched_room == "RANDOM_PUZZLE" {
+            let seed = (current_time.as_micros() % 243985691) as u32;
+            let board_seed = BoardSeed::new(seed);
+            let board = generate_board(board_seed.clone());
+            let header = HeaderType::Summary {
+                title: format!("Random Puzzle"),
+                sentinel: '•',
+            };
+            let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),
                 theme.clone(),
-            )));
+                board,
+                Some(board_seed),
+                true,
+                header,
+            );
+            new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+        } else if launched_room.starts_with("PUZZLE:") {
+            let mut parts = launched_room.split(':').skip(1);
+            let generation = parts.next().map(str::parse::<u32>);
+            let seed = parts.next().map(str::parse::<u32>);
+            let player = parts
+                .next()
+                .map(|p| p.parse::<usize>().unwrap_or(0))
+                .unwrap_or(0);
+
+            let (Some(Ok(generation)), Some(Ok(seed))) = (generation, seed) else {
+                panic!("Bad URL provided for puzzle");
+            };
+
+            let board_seed = BoardSeed::new_with_generation(generation, seed);
+            let board = generate_board(board_seed.clone());
+            let header = HeaderType::Summary {
+                title: format!("Truncate Puzzle {generation}:{seed}"),
+                sentinel: '•',
+            };
+            let puzzle_game = SinglePlayerState::new(
+                map_texture.clone(),
+                theme.clone(),
+                board,
+                Some(board_seed),
+                player == 0,
+                header,
+            );
+            new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
             send(PlayerMessage::NewGame(name.clone()));
@@ -120,6 +196,12 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
 
     match game_status {
         GameStatus::None(room_code, token) => {
+            if ui.button("Generator").clicked() {
+                new_game_status = Some(GameStatus::Generator(GeneratorState::new(
+                    map_texture.clone(),
+                    theme.clone(),
+                )));
+            }
             if ui.button("Tutorial").clicked() {
                 new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                     map_texture.clone(),
@@ -127,9 +209,24 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 )));
             }
             if ui.button("Single Player").clicked() {
-                new_game_status = Some(GameStatus::SinglePlayer(SinglePlayerState::new(
+                new_game_status = Some(GameStatus::PendingSinglePlayer(Lobby::new(
+                    "Single Player".into(),
+                    vec![
+                        LobbyPlayerMessage {
+                            name: "You".into(),
+                            index: 0,
+                            color: (128, 128, 255),
+                        },
+                        LobbyPlayerMessage {
+                            name: "Computer".into(),
+                            index: 1,
+                            color: (255, 80, 80),
+                        },
+                    ],
+                    0,
+                    Board::new(9, 9),
                     map_texture.clone(),
-                    theme.clone(),
+                    current_time,
                 )));
             }
             if ui.button("New Game").clicked() {
@@ -156,12 +253,35 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 }
             }
         }
+        GameStatus::Generator(generator) => {
+            generator.render(ui, theme, current_time);
+        }
         GameStatus::Tutorial(tutorial) => {
             tutorial.render(ui, theme, current_time);
         }
+        GameStatus::PendingSinglePlayer(editor_state) => {
+            if let Some(msg) = editor_state.render(ui, theme) {
+                match msg {
+                    PlayerMessage::StartGame => {
+                        let single_player_game = SinglePlayerState::new(
+                            map_texture.clone(),
+                            theme.clone(),
+                            editor_state.board.clone(),
+                            editor_state.board_seed.clone(),
+                            true,
+                            HeaderType::Timers,
+                        );
+                        new_game_status = Some(GameStatus::SinglePlayer(single_player_game));
+                    }
+                    _ => {
+                        // Ignore anything else the lobby might return.
+                    }
+                }
+            }
+        }
         GameStatus::SinglePlayer(sp) => {
             // Single player _can_ talk to the server, e.g. to ask for word definitions
-            if let Some(msg) = sp.render(ui, theme, current_time) {
+            if let Some(msg) = sp.render(ui, theme, current_time, &backchannel) {
                 send(msg);
             };
         }
@@ -185,7 +305,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
             let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
             outer_frame.show(ui, |ui| {
-                msg_text.paint(Color32::WHITE, ui);
+                msg_text.paint(Color32::WHITE, ui, false);
                 ui.add_space(8.0);
                 if button_text
                     .centered_button(
@@ -224,7 +344,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
             let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
             outer_frame.show(ui, |ui| {
-                msg_text.paint(Color32::WHITE, ui);
+                msg_text.paint(Color32::WHITE, ui, false);
                 ui.add_space(8.0);
                 if button_text
                     .centered_button(
@@ -249,13 +369,13 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         }
         GameStatus::Active(game) => {
-            if let Some(msg) = game.render(ui, theme, None, current_time) {
+            if let Some(msg) = game.render(ui, theme, None, current_time, None, None) {
                 send(msg);
             }
         }
         GameStatus::Concluded(game, winner) => {
             if let Some(PlayerMessage::Rematch) =
-                game.render(ui, theme, Some(*winner as usize), current_time)
+                game.render(ui, theme, Some(*winner as usize), current_time, None, None)
             {
                 send(PlayerMessage::Rematch);
             }
@@ -300,6 +420,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     player_index,
                     board,
                     map_texture.clone(),
+                    current_time,
                 ))
             }
             GameMessage::LobbyUpdate(player_index, id, players, board) => {
@@ -341,6 +462,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
 
                 *game_status = GameStatus::Active(ActiveGame::new(
                     room_code.to_uppercase(),
+                    None,
                     players,
                     player_number,
                     next_player_number,

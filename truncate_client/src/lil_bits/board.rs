@@ -18,11 +18,17 @@ use super::{
 
 pub struct BoardUI<'a> {
     board: &'a Board,
+    interactive: bool
 }
 
 impl<'a> BoardUI<'a> {
     pub fn new(board: &'a Board) -> Self {
-        Self { board }
+        Self { board, interactive: true }
+    }
+    
+    pub fn interactive(mut self, interactive: bool) -> Self {
+        self.interactive = interactive;
+        self
     }
 }
 
@@ -76,7 +82,9 @@ impl<'a> BoardUI<'a> {
         let area_id = area.layer();
 
         let board_frame = area.show(ui.ctx(), |ui| {
-            ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
+            let styles = ui.style_mut();
+            styles.spacing.item_spacing = egui::vec2(0.0, 0.0);
+            styles.spacing.interact_size = egui::vec2(0.0, 0.0);
 
             outer_frame.show(ui, |ui| {
                 let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
@@ -84,9 +92,10 @@ impl<'a> BoardUI<'a> {
                         |rownum, row: Box<dyn Iterator<Item = (usize, &Square)>>| {
                             ui.horizontal(|ui| {
                                 for (colnum, square) in row {
-                                    // TODO: An extra row is being clipped off the bottom here in some cases.
                                     let grid_cell = Rect::from_min_size(ui.next_widget_position(), Vec2::splat(ctx.theme.grid_size));
-                                    if !ui.is_rect_visible(grid_cell) {
+                                    // An extra row seems to be clipped off the bottom in a normal calculation,
+                                    // so we expand each grid cell's check (painting one cell "outside" the screen)
+                                    if !ui.is_rect_visible(grid_cell.expand(ctx.theme.grid_size)) {
                                         // Skip all work for board that is offscreen, just move the cursor.
                                         _ = ui.allocate_exact_size(
                                             Vec2::splat(ctx.theme.grid_size),
@@ -214,6 +223,11 @@ impl<'a> BoardUI<'a> {
                                                 tile.render(Some(coord), ui, ctx, false, None);
                                             }
                                         });
+                                    
+                                    if !self.interactive {
+                                        continue;
+                                    }
+
                                     if matches!(square, Square::Land | Square::Occupied(_, _)) {
                                         if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                                             let drag_offset = if ctx.is_touch { -50.0 } else { 0.0 };
@@ -236,12 +250,16 @@ impl<'a> BoardUI<'a> {
                                             } else if is_selected {
                                                 next_selection = Some(None);
                                             } else if let Some(selected_coord) = ctx.selected_square_on_board {
+                                                // Only try to swap onto a tile, otherwise just deselect
                                                 if matches!(square, Square::Occupied(_, _)) {
                                                     msg = Some(PlayerMessage::Swap(coord, selected_coord));
                                                 }
                                                 next_selection = Some(None);
                                             } else {
-                                                next_selection = Some(Some(coord));
+                                                // Don't select coordinates that are empty
+                                                if matches!(square, Square::Occupied(_, _)) {
+                                                    next_selection = Some(Some(coord));
+                                                }
                                             }
                                         } else if let Some(tile) = ctx.released_tile {
                                             if tile.1 == coord {
@@ -272,12 +290,16 @@ impl<'a> BoardUI<'a> {
         })
         .inner;
 
+        if !self.interactive {
+            return None;
+        }
+
         let mut board_pos = board_frame.response.rect.clone();
         let previous_state = (ctx.board_zoom, ctx.board_pan);
 
         if let Some(hover_pos) = board_frame.response.hover_pos() {
             // Move the drag focus to our board layer if it looks like a drag is starting.
-            // NB: This is possible sensitive to the board being painted _last_ on our screen,
+            // NB: This is sensitive to the board being painted _last_ on our screen,
             // such that anything else that should be getting the drag this frame will already
             // exist in the `is_anything_being_dragged` check.
             // (The `layer_id_at` check should avoid this issue in most cases, I imagine)
@@ -358,10 +380,35 @@ impl<'a> BoardUI<'a> {
             board_pos = board_pos.translate(touch.translation_delta);
         }
 
-        let visible = board_pos.intersect(game_area);
-        if visible.width() < ctx.theme.grid_size * 2.0 || visible.height() < ctx.theme.grid_size * 2.0 {
-            ctx.board_zoom = previous_state.0;
-            ctx.board_pan = previous_state.1;
+
+        let buffer = game_area.size() * 0.25;
+        let bounce = 0.3;
+
+        let left_overage = game_area.left() - board_pos.right() + buffer.x;
+        let right_overage = board_pos.left() - game_area.right() + buffer.x;
+        let top_overage = game_area.top() - board_pos.bottom() + buffer.y;
+        let bottom_overage = board_pos.top() - game_area.bottom() + buffer.y;
+
+        let mut bounced = false;
+        if left_overage > 0.0 {
+            ctx.board_pan.x += (left_overage * bounce).max(bounce).min(left_overage);
+            bounced = true;
+        }
+        if right_overage > 0.0 {
+            ctx.board_pan.x -= (right_overage * bounce).max(bounce).min(right_overage);
+            bounced = true;
+        }
+        if top_overage > 0.0 {
+            ctx.board_pan.y += (top_overage * bounce).max(bounce).min(top_overage);
+            bounced = true;
+        }
+        if bottom_overage > 0.0 {
+            ctx.board_pan.y -= (bottom_overage * bounce).max(bounce).min(bottom_overage);
+            bounced = true;
+        }
+        if bounced {
+            // Paint at a high FPS while animating the board back to stasis.
+            ui.ctx().request_repaint();
         }
 
         // let resolved_x = (self.board.width() * ctx.theme.grid_size * ctx.board_zoom) ctx.board_pan
