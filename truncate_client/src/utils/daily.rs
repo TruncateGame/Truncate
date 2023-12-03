@@ -42,7 +42,8 @@ pub fn get_daily_puzzle(
     let day = seed - 19673; // Nov 13, 2023
     let mut board_seed = BoardSeed::new(seed).day(day);
     let mut header = HeaderType::Summary {
-        title: format!("Truncate Town Day #{day} [unchecked]"),
+        title: format!("Truncate Town Day #{day}"),
+        sentinel: '*',
     };
     let mut human_starts = true;
 
@@ -50,7 +51,8 @@ pub fn get_daily_puzzle(
     if let Some(notes) = notes {
         human_starts = notes.best_player == 0;
         header = HeaderType::Summary {
-            title: format!("Truncate Town Day #{day} [verified]"),
+            title: format!("Truncate Town Day #{day}"),
+            sentinel: '★',
         };
         for _ in 0..notes.rerolls {
             board_seed.external_reroll();
@@ -71,7 +73,8 @@ pub fn get_daily_puzzle(
         let verification = get_game_verification(&game_state.game);
         if verification != notes.verification {
             header = HeaderType::Summary {
-                title: format!("Truncate Town Day #{day} [verification failed]"),
+                title: format!("Truncate Town Day #{day}"),
+                sentinel: '¤',
             };
         }
     }

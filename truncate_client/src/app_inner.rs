@@ -108,6 +108,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let board = generate_board(board_seed.clone());
             let header = HeaderType::Summary {
                 title: format!("Random Puzzle"),
+                sentinel: '•',
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),
@@ -131,6 +132,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let board = generate_board(board_seed.clone());
             let header = HeaderType::Summary {
                 title: format!("Truncate Puzzle {generation}:{seed}"),
+                sentinel: '•',
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),
