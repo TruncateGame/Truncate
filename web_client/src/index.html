@@ -648,7 +648,11 @@
             const paint = {
                 tile_size: 16,
                 tinted: (index, x, y, tint) => {
-                    let tile_pos = index * (paint.tile_size + 2);
+                    const row = Math.floor(index / 50);
+                    const col = index % 50;
+
+                    const tile_x = col * (paint.tile_size + 2);
+                    const tile_y = row * (paint.tile_size + 2);
 
                     const buffer = document.createElement('canvas');
                     buffer.width = paint.tile_size;
@@ -657,7 +661,7 @@
 
                     btx.drawImage(
                         image,
-                        tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                        tile_x + 1, tile_y + 1, paint.tile_size, paint.tile_size,
                         0, 0, paint.tile_size, paint.tile_size
                     );
 
@@ -667,7 +671,7 @@
 
                     btx.globalCompositeOperation = 'destination-in';
                     btx.drawImage(image,
-                        tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                        tile_x + 1, tile_y + 1, paint.tile_size, paint.tile_size,
                         0, 0, paint.tile_size, paint.tile_size
                     );
 
@@ -683,10 +687,15 @@
                     } else if (Array.isArray(index)) {
                         paint.tinted(index[0], x, y, index[1])
                     } else {
-                        let tile_pos = index * (paint.tile_size + 2);
+                        const row = Math.floor(index / 50);
+                        const col = index % 50;
+
+                        const tile_x = col * (paint.tile_size + 2);
+                        const tile_y = row * (paint.tile_size + 2);
+
                         ctx.drawImage(
                             image,
-                            tile_pos + 1, 1, paint.tile_size, paint.tile_size,
+                            tile_x + 1, tile_y + 1, paint.tile_size, paint.tile_size,
                             x, y, output_size, output_size
                         );
                     }

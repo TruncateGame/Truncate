@@ -3,7 +3,7 @@ const path = require('path');
 const subsetFont = require('subset-font');
 
 const load_tiles = () => {
-    const tile_asset = path.join(__dirname, "../../../truncate_client/img/truncate_processed.png");
+    const tile_asset = path.join(__dirname, "../../../truncate_client/img/truncate_packed.png");
     const tile_data = fs.readFileSync(tile_asset);
     const tile_string = tile_data.toString('base64');
     return `data:image/png;base64,${tile_string}`;
