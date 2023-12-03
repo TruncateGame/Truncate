@@ -44,19 +44,37 @@ fn get_galleys<'a>(
         .iter()
         .flat_map(|w| {
             [
-                ui.painter().layout_no_wrap(
-                    w.resolved_word.clone(),
-                    FontId::new(
-                        ctx.theme.letter_size * 0.75,
-                        egui::FontFamily::Name("Truncate-Heavy".into()),
-                    ),
-                    match (transparent, w.valid) {
-                        (true, _) => Color32::TRANSPARENT,
-                        (false, Some(true)) => ctx.theme.addition.darken().darken(),
-                        (false, Some(false)) => ctx.theme.defeated.darken(),
-                        (false, None) => ctx.theme.outlines.darken().darken(),
-                    },
-                ),
+                if &w.original_word == "#" {
+                    ui.painter().layout_no_wrap(
+                        // TODO: It would be nice to phrase this as <player_name>'s town,
+                        // but we don't have player data in the battle UI yet so this is a good first step.
+                        "A TOWN".into(),
+                        FontId::new(
+                            ctx.theme.letter_size * 0.75,
+                            egui::FontFamily::Name("Truncate-Heavy".into()),
+                        ),
+                        match (transparent, w.valid) {
+                            (true, _) => Color32::TRANSPARENT,
+                            (false, Some(true)) => ctx.theme.addition.darken().darken(),
+                            (false, Some(false)) => ctx.theme.defeated.darken(),
+                            (false, None) => ctx.theme.outlines.darken().darken(),
+                        },
+                    )
+                } else {
+                    ui.painter().layout_no_wrap(
+                        w.resolved_word.clone(),
+                        FontId::new(
+                            ctx.theme.letter_size * 0.75,
+                            egui::FontFamily::Name("Truncate-Heavy".into()),
+                        ),
+                        match (transparent, w.valid) {
+                            (true, _) => Color32::TRANSPARENT,
+                            (false, Some(true)) => ctx.theme.addition.darken().darken(),
+                            (false, Some(false)) => ctx.theme.defeated.darken(),
+                            (false, None) => ctx.theme.outlines.darken().darken(),
+                        },
+                    )
+                },
                 dot.clone(),
             ]
         })
@@ -284,9 +302,12 @@ impl<'a> BattleUI<'a> {
                     .iter()
                     .chain(self.battle.defenders.iter())
                 {
+                    if &word.original_word == "#" {
+                        continue;
+                    }
                     ui.add_space(12.0);
-                    TextHelper::heavy(&word.original_word, ctx.theme.letter_size * 0.5, None, ui)
-                        .paint(ctx.theme.text, ui);
+                    TextHelper::heavy(&word.resolved_word, ctx.theme.letter_size * 0.5, None, ui)
+                        .paint(ctx.theme.text, ui, false);
 
                     match (word.valid, &word.meanings) {
                         (Some(true), Some(meanings)) if !meanings.is_empty() => TextHelper::light(
@@ -295,21 +316,21 @@ impl<'a> BattleUI<'a> {
                             Some(ui.available_width()),
                             ui,
                         )
-                        .paint(ctx.theme.text, ui),
+                        .paint(ctx.theme.text, ui, false),
                         (Some(true), _) => TextHelper::light(
                             "Definition unknown",
                             24.0,
                             Some(ui.available_width()),
                             ui,
                         )
-                        .paint(ctx.theme.text, ui),
+                        .paint(ctx.theme.text, ui, false),
                         (Some(false), _) => {
                             TextHelper::light("Invalid word", 24.0, Some(ui.available_width()), ui)
-                                .paint(ctx.theme.text, ui)
+                                .paint(ctx.theme.text, ui, false)
                         }
                         (None, _) => {
                             TextHelper::light("Unchecked", 24.0, Some(ui.available_width()), ui)
-                                .paint(ctx.theme.text, ui)
+                                .paint(ctx.theme.text, ui, false)
                         }
                     };
 

@@ -1,5 +1,7 @@
 use std::ops::Range;
 
+pub mod daily;
+pub mod game_evals;
 pub mod glyph_meaure;
 pub mod mapper;
 pub mod tex;

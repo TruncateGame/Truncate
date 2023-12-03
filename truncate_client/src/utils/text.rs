@@ -102,11 +102,19 @@ impl<'a> TextHelper<'a> {
         ))
     }
 
-    pub fn paint(self, color: Color32, ui: &mut egui::Ui) -> egui::Response {
+    pub fn paint(self, color: Color32, ui: &mut egui::Ui, centered: bool) -> egui::Response {
         let text_size = self.galley.galley.mesh_bounds.size();
 
-        let (text_rect, text_resp) =
-            ui.allocate_exact_size(vec2(text_size.x, text_size.y), Sense::hover());
+        let (text_rect, text_resp) = if centered {
+            ui.horizontal(|ui| {
+                let centered_offset = (ui.available_width() - text_size.x) * 0.5;
+                ui.add_space(centered_offset);
+                ui.allocate_exact_size(vec2(text_size.x, text_size.y), Sense::hover())
+            })
+            .inner
+        } else {
+            ui.allocate_exact_size(vec2(text_size.x, text_size.y), Sense::hover())
+        };
 
         let mut offset = (text_rect.size() - text_size) / 2.0;
 

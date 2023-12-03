@@ -11,41 +11,42 @@ pub struct TileBag {
 }
 
 impl TileBag {
-    pub fn new(tile_distribution: &rules::TileDistribution) -> Self {
+    pub fn new(tile_distribution: &rules::TileDistribution, seed: Option<u64>) -> Self {
         match tile_distribution {
-            rules::TileDistribution::Standard => Self::custom([
-                // banagrams letter distribution
-                13, 3, 3, 6, 18, 3, 4, 3, 12, 2, 2, 5, 3, 8, 11, 3, 2, 9, 6, 9, 6, 3, 3, 2, 3, 2,
-            ]),
+            rules::TileDistribution::Standard => Self::custom(
+                [
+                    // banagrams letter distribution
+                    13, 3, 3, 6, 18, 3, 4, 3, 12, 2, 2, 5, 3, 8, 11, 3, 2, 9, 6, 9, 6, 3, 3, 2, 3, 2,
+                ],
+                seed,
+            ),
         }
     }
 
-    pub fn custom(letter_distribution: [usize; 26]) -> Self {
+    pub fn custom(letter_distribution: [usize; 26], seed: Option<u64>) -> Self {
         let mut tile_bag = TileBag {
             bag: Vec::new(),
-            rng: Rand32::new(
-                // TODO: Use some other RNG to get a seed for the game
+            rng: Rand32::new(seed.unwrap_or_else(|| {
                 instant::SystemTime::now()
                     .duration_since(instant::SystemTime::UNIX_EPOCH)
                     .expect("Please don't play Truncate earlier than 1970")
-                    .as_secs(),
-            ),
+                    .as_secs()
+            })),
             letter_distribution: Some(letter_distribution),
         };
         tile_bag.fill();
         tile_bag
     }
 
-    pub fn explicit(tiles: Vec<char>) -> Self {
+    pub fn explicit(tiles: Vec<char>, seed: Option<u64>) -> Self {
         TileBag {
             bag: tiles,
-            rng: Rand32::new(
-                // TODO: Use some other RNG to get a seed for the game
+            rng: Rand32::new(seed.unwrap_or_else(|| {
                 instant::SystemTime::now()
                     .duration_since(instant::SystemTime::UNIX_EPOCH)
                     .expect("Please don't play Truncate earlier than 1970")
-                    .as_secs(),
-            ),
+                    .as_secs()
+            })),
             letter_distribution: None,
         }
     }
@@ -77,7 +78,7 @@ impl TileBag {
 
 impl Default for TileBag {
     fn default() -> Self {
-        Self::new(&rules::TileDistribution::Standard)
+        Self::new(&rules::TileDistribution::Standard, None)
     }
 }
 
@@ -110,12 +111,12 @@ pub mod tests {
         let mut dist = [0; 26];
         dist[0] = 1; // There is 1 A and
         dist[1] = 1; // 1 B in the bag
-        TileBag::custom(dist)
+        TileBag::custom(dist, Some(12345))
     }
 
     pub fn trivial_bag() -> TileBag {
         let mut dist = [0; 26];
         dist[0] = 1;
-        TileBag::custom(dist)
+        TileBag::custom(dist, Some(12345))
     }
 }
