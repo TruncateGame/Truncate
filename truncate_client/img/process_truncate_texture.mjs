@@ -3,46 +3,32 @@ import Jimp from "jimp";
 const img = await Jimp.read("truncate.png");
 const { width, height } = img.bitmap;
 
-const tile_size = 16;
+const tile_size = 18;
 if (height !== tile_size || width % tile_size !== 0) {
-    throw new Error('Input image must be 16px high and a multiple of 16px wide.');
+    throw new Error(`Input image must be ${tile_size}px high and a multiple of ${tile_size}px wide.`);
 }
 
 const num_tiles = width / tile_size;
-const num_columns = num_tiles * 2;
 
-const output_img = await new Jimp(width + num_columns, height + 2);
+const num_cols = 50;
+const num_rows = Math.floor(num_tiles / num_cols) + 1;
 
-const is_col_to_dupe = x => x % tile_size === 0 || x % tile_size === 15;
+const output_width = num_cols * tile_size;
+const output_height = num_rows * tile_size;
 
-// Duplicate the column pixels between sprites
-let skip_x = 0;
+const output_img = await new Jimp(output_width, output_height);
+
 for (let x = 0; x < width; x += 1) {
     for (let y = 0; y < height; y += 1) {
         const color = img.getPixelColor(x, y);
 
-        let output_x = x + skip_x;
-        let output_y = y + 1;
+        const new_x = x % output_width;
+        const new_y = y + (Math.floor(x / output_width) * tile_size);
 
-        output_img.setPixelColor(color, output_x, output_y);
-        if (is_col_to_dupe(x)) {
-            output_img.setPixelColor(color, output_x + 1, output_y);
-        }
-
-        // Also duplicate the top and bottom pixels to new header and footer rows
-        if (y === 0) {
-            output_img.setPixelColor(color, output_x, 0);
-            output_img.setPixelColor(color, output_x + 1, 0);
-        } else if (y === height - 1) {
-            output_img.setPixelColor(color, output_x, output_y + 1);
-            output_img.setPixelColor(color, output_x + 1, output_y + 1);
-        }
-    }
-    if (is_col_to_dupe(x)) {
-        skip_x += 1;
+        output_img.setPixelColor(color, new_x, new_y);
     }
 }
 
-console.log(`New tiles are ${output_img.bitmap.width / num_tiles}px wide with padding`);
+console.log(`New image is ${num_cols}x${num_rows} tiles; ${output_width}x${output_height} pixels`);
 
-await output_img.writeAsync("truncate_processed.png");
+await output_img.writeAsync("truncate_packed.png");
