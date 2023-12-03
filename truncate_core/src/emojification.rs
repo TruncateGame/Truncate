@@ -16,6 +16,7 @@ const SQ_ERR: &str = "🆘";
 impl Board {
     pub fn emojify(
         &self,
+        player: usize,
         won: Option<usize>,
         game: Option<&Game>,
         seed: Option<BoardSeed>,
@@ -101,8 +102,8 @@ impl Board {
 
         let url = if let Some(seed) = seed.clone() {
             format!(
-                "Play Puzzle: {url_prefix}PUZZLE:{}:{}\n",
-                seed.generation, seed.seed
+                "Play Puzzle: {url_prefix}PUZZLE:{}:{}:{}\n",
+                seed.generation, seed.seed, player
             )
         } else {
             "".to_string()

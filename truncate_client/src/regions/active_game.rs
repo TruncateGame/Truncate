@@ -509,6 +509,7 @@ impl ActiveGame {
                             }
 
                             let text = self.board.emojify(
+                                self.ctx.player_number as usize,
                                 winner,
                                 game_ref,
                                 self.ctx.board_seed.clone(),

@@ -123,6 +123,10 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let mut parts = launched_room.split(':').skip(1);
             let generation = parts.next().map(str::parse::<u32>);
             let seed = parts.next().map(str::parse::<u32>);
+            let player = parts
+                .next()
+                .map(|p| p.parse::<usize>().unwrap_or(0))
+                .unwrap_or(0);
 
             let (Some(Ok(generation)), Some(Ok(seed))) = (generation, seed) else {
                 panic!("Bad URL provided for puzzle");
@@ -139,7 +143,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 theme.clone(),
                 board,
                 Some(board_seed),
-                true,
+                player == 0,
                 header,
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
