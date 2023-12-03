@@ -27,7 +27,7 @@ use crate::{
 use super::active_game::{ActiveGame, HeaderType};
 
 pub struct SinglePlayerState {
-    game: Game,
+    pub game: Game,
     human_starts: bool,
     original_board: Board,
     pub active_game: ActiveGame,
