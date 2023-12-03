@@ -37,7 +37,7 @@ pub struct HoveredRegion {
 #[derive(Clone)]
 pub enum HeaderType {
     Timers,
-    Summary { title: String },
+    Summary { title: String, sentinel: char },
     None,
 }
 
@@ -256,7 +256,7 @@ impl ActiveGame {
 
                             ui.add_space(item_spacing);
                         }
-                        HeaderType::Summary { title } => {
+                        HeaderType::Summary { title, sentinel } => {
                             let summary_height = 50.0;
                             let (rect, _) = ui.allocate_exact_size(
                                 vec2(total_width, summary_height),
@@ -266,13 +266,14 @@ impl ActiveGame {
 
                             let summary = if let Some(game) = game_ref {
                                 format!(
-                                    "{} turn{} • {} battle{}",
+                                    "{} turn{}  {}  {} battle{}",
                                     game.player_turn_count[0],
                                     if game.player_turn_count[0] == 1 {
                                         ""
                                     } else {
                                         "s"
                                     },
+                                    sentinel,
                                     game.battle_count,
                                     if game.battle_count == 1 { "" } else { "s" },
                                 )
@@ -508,6 +509,7 @@ impl ActiveGame {
                             }
 
                             let text = self.board.emojify(
+                                self.ctx.player_number as usize,
                                 winner,
                                 game_ref,
                                 self.ctx.board_seed.clone(),

@@ -1,11 +1,17 @@
-use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
+use std::{
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    hash::Hash,
+};
 
 use noise::{NoiseFn, Simplex};
 use oorandom::Rand32;
 
-use crate::board::{self, Board, Coordinate, Square};
+use crate::{
+    board::{self, Board, Coordinate, Square},
+    game::Game,
+};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BoardParams {
     pub bounding_width: usize,
     pub bounding_height: usize,
@@ -46,7 +52,7 @@ impl BoardParams {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BoardSeed {
     pub generation: u32,
     pub seed: u32,
@@ -88,11 +94,25 @@ impl BoardSeed {
         self
     }
 
-    fn regen(&mut self) {
+    fn internal_reroll(&mut self) {
         let mut rng = Rand32::new(self.seed as u64);
         let r = rng.rand_u32();
         self.seed = r;
         self.current_iteration += 1;
+    }
+
+    pub fn external_reroll(&mut self) {
+        let mut rng = Rand32::new(self.seed as u64);
+        // If externally rerolling, advance this RNG state and pick a later number.
+        // otherwise, the external reroll might do nothing if the previous seed
+        // was internally rerolled.
+        // e.g. seed_1 generated a board which failed generation checks,
+        // so seed_1 internally rerolls and succeeds on attempt #2.
+        // This state fails gameplay checks, so we need to externally reroll.
+        // If this used the same reroll function on seed_1, we would end up with an identical board.
+        _ = rng.rand_u32();
+        let r = rng.rand_u32();
+        self.seed = r;
     }
 }
 
@@ -171,7 +191,7 @@ pub fn generate_board(mut board_seed: BoardSeed) -> Board {
     }
 
     if board.drop_docks(seed).is_err() {
-        board_seed.regen();
+        board_seed.internal_reroll();
         return generate_board(board_seed);
     }
 
@@ -179,12 +199,12 @@ pub fn generate_board(mut board_seed: BoardSeed) -> Board {
         .generate_towns(seed, town_density, town_jitter)
         .is_err()
     {
-        board_seed.regen();
+        board_seed.internal_reroll();
         return generate_board(board_seed);
     };
 
     if board.ensure_paths().is_err() {
-        board_seed.regen();
+        board_seed.internal_reroll();
         return generate_board(board_seed);
     }
 
@@ -391,7 +411,7 @@ impl BoardGenerator for Board {
             return Err(());
         };
 
-        let max_ratio = 0.4;
+        let max_defense_imbalance_ratio = 0.4;
         let candidates = self
             .squares
             .iter()
@@ -409,9 +429,10 @@ impl BoardGenerator for Board {
                 let distance_zero = coord.distance_to(&docks[0]);
                 let distance_one = coord.distance_to(&docks[1]);
 
-                if (distance_zero as f32 / distance_one as f32) < max_ratio {
+                if (distance_zero as f32 / distance_one as f32) < max_defense_imbalance_ratio {
                     Some((player_zero, coord))
-                } else if (distance_one as f32 / distance_zero as f32) < max_ratio {
+                } else if (distance_one as f32 / distance_zero as f32) < max_defense_imbalance_ratio
+                {
                     Some((player_one, coord))
                 } else {
                     None
@@ -451,7 +472,56 @@ impl BoardGenerator for Board {
             }
         }
 
-        self.cache_special_squares();
+        'recheck_towns: loop {
+            self.cache_special_squares();
+
+            let dock_zero_dists = self.flood_fill(&self.docks[0]);
+            let dock_one_dists = self.flood_fill(&self.docks[1]);
+
+            let positions = self.towns.iter().flat_map(|town| {
+                let Ok(Square::Town { player, .. }) = self.get(*town) else {
+                    panic!("Town position is invalid");
+                };
+                town.neighbors_4()
+                    .into_iter()
+                    .filter_map(|coord| {
+                        if matches!(self.get(coord), Ok(Square::Land)) {
+                            Some((town, coord, player))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            });
+
+            for (town, attackable_land, defending_player) in positions {
+                let (attacker_distances, defender_distances) = match defending_player {
+                    0 => (&dock_one_dists, &dock_zero_dists),
+                    1 => (&dock_zero_dists, &dock_one_dists),
+                    _ => unimplemented!(),
+                };
+
+                let Some(attack_distance) =
+                    attacker_distances.attackable_distance(&attackable_land)
+                else {
+                    continue;
+                };
+                let Some(defense_distance) =
+                    defender_distances.attackable_distance(&attackable_land)
+                else {
+                    self.set_square(*town, Square::Land).unwrap();
+                    continue 'recheck_towns;
+                };
+
+                let ratio = defense_distance as f32 / attack_distance as f32;
+                if ratio > max_defense_imbalance_ratio {
+                    self.set_square(*town, Square::Land).unwrap();
+                    continue 'recheck_towns;
+                }
+            }
+
+            break 'recheck_towns;
+        }
 
         let check_player_has_town = |p: usize| {
             self.towns.iter().any(
@@ -468,7 +538,6 @@ impl BoardGenerator for Board {
 
     fn ensure_paths(&mut self) -> Result<(), ()> {
         let dock_zero_dists = self.flood_fill(&self.docks[0]);
-        let dock_one_dists = self.flood_fill(&self.docks[1]);
 
         if dock_zero_dists
             .attackable_distance(&self.docks[1])
@@ -478,5 +547,44 @@ impl BoardGenerator for Board {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Hash)]
+struct BoardVerification {
+    board: String,
+    hands: Vec<String>,
+}
+
+pub fn get_game_verification(game: &Game) -> u64 {
+    let mut hasher = xxhash_rust::xxh3::Xxh3::new();
+    let verification = BoardVerification {
+        board: game.board.to_string(),
+        hands: game
+            .players
+            .iter()
+            .map(|p| p.hand.0.iter().collect::<String>())
+            .collect(),
+    };
+    verification.hash(&mut hasher);
+    hasher.digest()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reroll_test() {
+        let mut seed = BoardSeed::new(12345);
+        let bare_seed_1 = seed.seed;
+        let board_one = generate_board(seed.clone());
+        seed.external_reroll();
+        let bare_seed_2 = seed.seed;
+        let board_two = generate_board(seed);
+
+        insta::assert_snapshot!(format!(
+            "Board 1 from {bare_seed_1}:\n{board_one}\n\nrerolled to {bare_seed_2}:\n{board_two}"
+        ));
     }
 }

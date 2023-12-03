@@ -379,8 +379,11 @@ impl Judge {
         let word_str = word.as_ref().to_string();
         let valid = valid_inner(self, word, win_rules, external_dictionary, used_aliases);
 
-        if let Some(cached_word_judgements) = cached_word_judgements.as_mut() {
-            cached_word_judgements.insert(word_str, valid.is_some());
+        // Never cache the result of evaluating a town
+        if !word_str.contains('#') {
+            if let Some(cached_word_judgements) = cached_word_judgements.as_mut() {
+                cached_word_judgements.insert(word_str, valid.is_some());
+            }
         }
 
         valid

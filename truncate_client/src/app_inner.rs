@@ -16,7 +16,7 @@ use crate::{
         active_game::HeaderType, generator::GeneratorState, lobby::Lobby,
         single_player::SinglePlayerState, tutorial::TutorialState,
     },
-    utils::{text::TextHelper, Lighten},
+    utils::{daily::get_daily_puzzle, text::TextHelper, Lighten},
 };
 
 use super::OuterApplication;
@@ -100,22 +100,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 current_time,
             )));
         } else if launched_room == "DAILY_PUZZLE" {
-            let seconds_offset = chrono::Local::now().offset().fix().local_minus_utc();
-            let local_seconds = current_time.as_secs() as i32 + seconds_offset;
-            let seed = (local_seconds / (60 * 60 * 24)) as u32;
-            let day = seed - 19673; // Nov 13, 2023
-            let board_seed = BoardSeed::new(seed).day(day);
-            let board = generate_board(board_seed.clone());
-            let header = HeaderType::Summary {
-                title: format!("Truncate Town Day #{day}"),
-            };
-            let puzzle_game = SinglePlayerState::new(
-                map_texture.clone(),
-                theme.clone(),
-                board,
-                Some(board_seed),
-                header,
-            );
+            let puzzle_game = get_daily_puzzle(current_time, map_texture, theme);
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room == "RANDOM_PUZZLE" {
             let seed = (current_time.as_micros() % 243985691) as u32;
@@ -123,12 +108,14 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let board = generate_board(board_seed.clone());
             let header = HeaderType::Summary {
                 title: format!("Random Puzzle"),
+                sentinel: '•',
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),
                 theme.clone(),
                 board,
                 Some(board_seed),
+                true,
                 header,
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
@@ -136,6 +123,10 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let mut parts = launched_room.split(':').skip(1);
             let generation = parts.next().map(str::parse::<u32>);
             let seed = parts.next().map(str::parse::<u32>);
+            let player = parts
+                .next()
+                .map(|p| p.parse::<usize>().unwrap_or(0))
+                .unwrap_or(0);
 
             let (Some(Ok(generation)), Some(Ok(seed))) = (generation, seed) else {
                 panic!("Bad URL provided for puzzle");
@@ -145,12 +136,14 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let board = generate_board(board_seed.clone());
             let header = HeaderType::Summary {
                 title: format!("Truncate Puzzle {generation}:{seed}"),
+                sentinel: '•',
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),
                 theme.clone(),
                 board,
                 Some(board_seed),
+                player == 0,
                 header,
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
@@ -275,6 +268,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                             theme.clone(),
                             editor_state.board.clone(),
                             editor_state.board_seed.clone(),
+                            true,
                             HeaderType::Timers,
                         );
                         new_game_status = Some(GameStatus::SinglePlayer(single_player_game));
