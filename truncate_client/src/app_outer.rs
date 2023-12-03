@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use futures::channel::mpsc::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 type R = Receiver<GameMessage>;
@@ -199,10 +201,47 @@ impl OuterApplication {
     }
 }
 
+pub struct TextureMeasurement {
+    pub num_tiles_x: usize,
+    pub num_tiles_y: usize,
+    pub outer_tile_width: f32,
+    pub outer_tile_height: f32,
+    pub inner_tile_width: f32,
+    pub inner_tile_height: f32,
+    pub x_padding_pct: f32,
+    pub y_padding_pct: f32,
+}
+
+pub static TEXTURE_MEASUREMENT: OnceLock<TextureMeasurement> = OnceLock::new();
+
 fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
-    let image_bytes = include_bytes!("../img/truncate_processed.png");
+    let image_bytes = include_bytes!("../img/truncate_packed.png");
     let image = image::load_from_memory(image_bytes).unwrap();
-    let size = [image.width() as _, image.height() as _];
+    let image_width = image.width();
+    let image_height = image.height();
+    let size = [image_width as _, image_height as _];
+
+    let num_tiles_x = (image.width() / 18) as usize;
+    let num_tiles_y = (image.height() / 18) as usize;
+    let outer_tile_width = (1.0 / num_tiles_x as f32);
+    let outer_tile_height = (1.0 / num_tiles_y as f32);
+    let x_padding_pct = outer_tile_width / 18.0;
+    let y_padding_pct = outer_tile_height / 18.0;
+    let inner_tile_width = outer_tile_width - (x_padding_pct * 2.0);
+    let inner_tile_height = outer_tile_height - (y_padding_pct * 2.0);
+
+    let measurements = TextureMeasurement {
+        num_tiles_x,
+        num_tiles_y,
+        outer_tile_width,
+        outer_tile_height,
+        inner_tile_width,
+        inner_tile_height,
+        x_padding_pct,
+        y_padding_pct,
+    };
+    _ = TEXTURE_MEASUREMENT.set(measurements);
+
     let image_buffer = image.to_rgba8();
     let pixels = image_buffer.as_flat_samples();
     let image = egui::ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());

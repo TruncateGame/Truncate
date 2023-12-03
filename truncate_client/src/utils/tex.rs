@@ -7,7 +7,7 @@ use eframe::egui::{self, Sense};
 use epaint::{pos2, vec2, Color32, Mesh, Rect, Shape, TextureHandle, TextureId, Vec2};
 use truncate_core::board::Square;
 
-use crate::regions::lobby::BoardEditingMode;
+use crate::{app_outer::TEXTURE_MEASUREMENT, regions::lobby::BoardEditingMode};
 
 use super::mapper::{quickrand, MappedTileVariant};
 
@@ -748,32 +748,29 @@ impl Tex {
 
 impl Tex {
     pub fn render(self, map_texture: TextureId, rect: Rect, ui: &mut egui::Ui) {
-        // TODO: Move these calcs into a lazy static since they can't be const :c
-        // (or codegen them)
+        let measures = TEXTURE_MEASUREMENT
+            .get()
+            .expect("Texture should be loaded and measured");
 
-        let num_tiles = Tex::MAX_TILE + 1;
-        // Outer tiles ate 18px wide with padding
-        let uv_outer_tile_size = 1.0 / (num_tiles) as f32;
-        // Padding is 1px per side out of the 18px
-        let uv_tile_padding_size = uv_outer_tile_size / 18.0;
+        let row = (self.tile / measures.num_tiles_x) as f32;
+        let col = (self.tile % measures.num_tiles_x) as f32;
 
-        // Texture has 1px padding above and below tiles that we can uniformly trim out
-        let tile_y_uv = (0.0625, 0.9375);
+        let left = measures.outer_tile_width * col + measures.x_padding_pct;
+        let top = measures.outer_tile_height * row + measures.y_padding_pct;
 
-        let mut mesh = Mesh::with_texture(map_texture);
         let uv = Rect::from_min_max(
             pos2(
                 // Index to our tile, and skip over the leading column padding
-                uv_outer_tile_size * ((self.tile) as f32) + uv_tile_padding_size,
-                tile_y_uv.0,
+                left, top,
             ),
             pos2(
                 // Index to our next tile, and skip behind our trailing column padding
-                uv_outer_tile_size * ((self.tile + 1) as f32) - uv_tile_padding_size,
-                tile_y_uv.1,
+                left + measures.inner_tile_width,
+                top + measures.inner_tile_height,
             ),
         );
 
+        let mut mesh = Mesh::with_texture(map_texture);
         mesh.add_rect_with_uv(rect, uv, self.tint.unwrap_or(Color32::WHITE));
         ui.painter().add(Shape::mesh(mesh));
     }
