@@ -140,7 +140,7 @@ fn paint_galleys<'a>(
     let total_height = word_height * current_row as f32;
     let battle_rect = epaint::Rect::from_min_size(origin, vec2(avail_width, total_height));
 
-    ui.allocate_rect(battle_rect, Sense::click())
+    ui.allocate_rect(battle_rect, Sense::hover())
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -148,6 +148,7 @@ struct BattleUIState {
     hovered_last_frame: bool,
     size_last_frame: Vec2,
     /// If None, we defer to showing when it is the latest battle
+    /// TODO: For now this is always true until we re-implement closing these dialogs
     show_details: Option<bool>,
 }
 
@@ -183,7 +184,7 @@ impl<'a> BattleUI<'a> {
 
             let battle_rect = self.render_innards(
                 ui.rect_contains_pointer(dialog_rect),
-                show_details.unwrap_or(self.latest),
+                show_details.unwrap_or(true),
                 prev_battle_storage,
                 ctx,
                 &mut dialog_ui,
@@ -192,15 +193,16 @@ impl<'a> BattleUI<'a> {
             let resp = ui.interact(
                 dialog_rect,
                 ui.auto_id_with("battle_interact"),
-                Sense::click(),
+                Sense::hover(),
             );
 
-            if resp.hovered() {
-                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-            }
-            if resp.clicked() {
-                show_details = Some(!(show_details.unwrap_or(self.latest)));
-            }
+            // TODO: Not sensing clicks for now until we re-implement closing these dialogs
+            // if resp.hovered() {
+            //     ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+            // }
+            // if resp.clicked() {
+            //     show_details = Some(!(show_details.unwrap_or(true)));
+            // }
 
             // Save the sizing of our box for the next render pass to draw the background
             let new_state = BattleUIState {
