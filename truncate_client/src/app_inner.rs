@@ -114,6 +114,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 theme.clone(),
                 board,
                 Some(board_seed),
+                true,
                 header,
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
@@ -129,6 +130,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 theme.clone(),
                 board,
                 Some(board_seed),
+                true,
                 header,
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
@@ -151,6 +153,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 theme.clone(),
                 board,
                 Some(board_seed),
+                true,
                 header,
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
@@ -275,6 +278,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                             theme.clone(),
                             editor_state.board.clone(),
                             editor_state.board_seed.clone(),
+                            true,
                             HeaderType::Timers,
                         );
                         new_game_status = Some(GameStatus::SinglePlayer(single_player_game));

@@ -28,6 +28,7 @@ use super::active_game::{ActiveGame, HeaderType};
 
 pub struct SinglePlayerState {
     game: Game,
+    human_starts: bool,
     original_board: Board,
     pub active_game: ActiveGame,
     next_response_at: Option<Duration>,
@@ -46,11 +47,17 @@ impl SinglePlayerState {
         theme: Theme,
         mut board: Board,
         seed: Option<BoardSeed>,
+        human_starts: bool,
         header: HeaderType,
     ) -> Self {
         let mut game = Game::new(9, 9, seed.clone().map(|s| s.seed as u64));
-        game.add_player("You".into());
-        game.add_player("Computer".into());
+        if human_starts {
+            game.add_player("You".into());
+            game.add_player("Computer".into());
+        } else {
+            game.add_player("Computer".into());
+            game.add_player("You".into());
+        }
 
         board.cache_special_squares();
         game.board = board.clone();
@@ -61,10 +68,10 @@ impl SinglePlayerState {
             "SINGLE_PLAYER".into(),
             seed,
             game.players.iter().map(Into::into).collect(),
-            0,
+            if human_starts { 0 } else { 1 },
             0,
             game.board.clone(),
-            game.players[0].hand.clone(),
+            game.players[if human_starts { 0 } else { 1 }].hand.clone(),
             map_texture.clone(),
             theme.clone(),
         );
@@ -72,6 +79,7 @@ impl SinglePlayerState {
 
         Self {
             game,
+            human_starts,
             active_game,
             original_board: board,
             next_response_at: None,
@@ -88,8 +96,14 @@ impl SinglePlayerState {
     pub fn reset(&mut self, current_time: Duration) {
         let next_seed = (current_time.as_micros() % 243985691) as u32;
         let mut game = Game::new(9, 9, Some(next_seed as u64));
-        game.add_player("You".into());
-        game.add_player("Computer".into());
+        self.human_starts = !self.human_starts;
+        if self.human_starts {
+            game.add_player("You".into());
+            game.add_player("Computer".into());
+        } else {
+            game.add_player("Computer".into());
+            game.add_player("You".into());
+        }
 
         let next_board_seed = BoardSeed::new(next_seed);
         let mut rand_board = truncate_core::generation::generate_board(next_board_seed.clone());
@@ -102,10 +116,12 @@ impl SinglePlayerState {
             "SINGLE_PLAYER".into(),
             Some(next_board_seed),
             game.players.iter().map(Into::into).collect(),
-            0,
+            if self.human_starts { 0 } else { 1 },
             0,
             game.board.clone(),
-            game.players[0].hand.clone(),
+            game.players[if self.human_starts { 0 } else { 1 }]
+                .hand
+                .clone(),
             self.map_texture.clone(),
             self.theme.clone(),
         );
@@ -151,6 +167,8 @@ impl SinglePlayerState {
         backchannel: &Backchannel,
     ) -> Option<PlayerMessage> {
         let mut msg_to_server = None;
+        let human_player = if self.human_starts { 0 } else { 1 };
+        let npc_player = if self.human_starts { 1 } else { 0 };
 
         if self.debugging_npc {
             ui.painter().rect_filled(
@@ -202,7 +220,9 @@ impl SinglePlayerState {
                         .recent_changes
                         .iter()
                         .filter_map(|change| match change {
-                            Change::Hand(HandChange { player, added, .. }) if *player == 1 => {
+                            Change::Hand(HandChange { player, added, .. })
+                                if *player == npc_player =>
+                            {
                                 Some(added)
                             }
                             _ => None,
@@ -210,7 +230,7 @@ impl SinglePlayerState {
                         .next();
 
                     self.active_game.ctx.highlight_tiles = added_tiles.cloned();
-                    HandUI::new(&mut self.game.players[1].hand)
+                    HandUI::new(&mut self.game.players[npc_player].hand)
                         .interactive(false)
                         .render(&mut self.active_game.ctx, ui);
                     self.active_game.ctx.highlight_tiles = None;
@@ -322,7 +342,7 @@ impl SinglePlayerState {
                 Some(backchannel),
                 Some(&self.game),
             )
-            .map(|msg| (0, msg));
+            .map(|msg| (human_player, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
             self.reset(current_time);
@@ -340,7 +360,7 @@ impl SinglePlayerState {
         }
         self.next_response_at = None;
 
-        if self.game.next_player != 0 {
+        if self.game.next_player == npc_player {
             if let Some(turn_starts_at) = self
                 .game
                 .get_player(self.game.next_player)
@@ -359,7 +379,7 @@ impl SinglePlayerState {
                             if let Some(msg_response) = msg_response {
                                 let player_msg: PlayerMessage = serde_json::from_str(&msg_response)
                                     .expect("Backchannel should be sending valid JSON");
-                                next_msg = Some((1, player_msg));
+                                next_msg = Some((npc_player, player_msg));
                                 self.waiting_on_backchannel = None;
                             }
                         }
@@ -379,7 +399,7 @@ impl SinglePlayerState {
                     // just evaluate the move on this thread and live with blocking.
                     if turn_starts_at <= current_time.as_secs() {
                         let best = best_move(&self.game, &self.weights);
-                        next_msg = Some((1, best));
+                        next_msg = Some((npc_player, best));
                     }
                 }
             }
@@ -417,7 +437,7 @@ impl SinglePlayerState {
                         .filter(|change| match change {
                             truncate_core::reporting::Change::Board(_) => true,
                             truncate_core::reporting::Change::Hand(hand_change) => {
-                                hand_change.player == 0
+                                hand_change.player == human_player
                             }
                             truncate_core::reporting::Change::Battle(_) => true,
                             truncate_core::reporting::Change::Time(_) => true,
@@ -467,10 +487,10 @@ impl SinglePlayerState {
                     let state_message = GameStateMessage {
                         room_code: ctx.room_code.clone(),
                         players: self.game.players.iter().map(Into::into).collect(),
-                        player_number: 0,
+                        player_number: human_player as u64,
                         next_player_number: self.game.next_player as u64,
                         board: self.game.board.clone(),
-                        hand: self.game.players[0].hand.clone(),
+                        hand: self.game.players[human_player].hand.clone(),
                         changes,
                     };
                     self.active_game.apply_new_state(state_message);
