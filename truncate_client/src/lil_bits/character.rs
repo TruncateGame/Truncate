@@ -106,7 +106,11 @@ impl CharacterUI {
         color: Color32,
     ) {
         if self.gone {
-            rect.set_top(rect.top() + rect.height() * 0.2);
+            match self.orientation {
+                CharacterOrient::North => rect.set_top(rect.top() + rect.height() * 0.2),
+                CharacterOrient::South => rect.set_bottom(rect.bottom() - rect.height() * 0.2),
+                CharacterOrient::West | CharacterOrient::East => unreachable!(),
+            }
         }
 
         let galley = ui.painter().layout_no_wrap(
