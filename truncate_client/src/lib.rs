@@ -54,6 +54,7 @@ pub async fn start_separate(
     canvas_id: &str,
     server_url: &str,
     room_code: String,
+    backchannel: js_sys::Function,
 ) -> Result<WebHandle, wasm_bindgen::JsValue> {
     let web_options = eframe::WebOptions::default();
 
@@ -85,6 +86,7 @@ pub async fn start_separate(
                 rx_game,
                 tx_player,
                 Some(room_code),
+                backchannel,
             ))
         }),
     )
@@ -92,16 +94,13 @@ pub async fn start_separate(
     .map(|handle| WebHandle { handle })
 }
 
-/// This is the entry-point for all the web-assembly.
-/// This is called once from the HTML.
-/// It loads the app, installs some callbacks, then returns.
-/// You can add more callbacks like this if you want to call in to your code.
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn start(
     canvas_id: &str,
     server_url: &str,
     room_code: &str,
+    backchannel: js_sys::Function,
 ) -> Result<WebHandle, wasm_bindgen::JsValue> {
     use web_sys::console;
 
@@ -117,5 +116,56 @@ pub async fn start(
         console::log_1(&format!("No tagged git commit for current release.").into());
     }
 
-    start_separate(canvas_id, server_url, room_code.to_string()).await
+    start_separate(canvas_id, server_url, room_code.to_string(), backchannel).await
+}
+
+// Functions used in the web worker
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn backchannel(msg: String) -> String {
+    use app_outer::BackchannelMsg;
+
+    let msg: BackchannelMsg =
+        serde_json::from_str(&msg).expect("Incoming message should be a BackchannelMsg");
+
+    match msg {
+        BackchannelMsg::EvalGame {
+            board,
+            rules,
+            players,
+            next_player,
+            weights,
+        } => {
+            web_sys::console::log_1(&"Evaluating best move".into());
+
+            let mut game = truncate_core::game::Game::new(3, 3, None);
+            game.board = board;
+            game.rules = rules;
+            game.player_turn_count = vec![0; players.len()];
+            game.players = players;
+            game.next_player = next_player;
+
+            game.players[next_player].turn_starts_at = Some(
+                instant::SystemTime::now()
+                    .duration_since(instant::SystemTime::UNIX_EPOCH)
+                    .expect("Please don't play Truncate before 1970")
+                    .as_secs(),
+            );
+            let best = utils::game_evals::best_move(&game, &weights);
+
+            return serde_json::to_string(&best).expect("Resultant move should be serializable");
+        }
+        BackchannelMsg::Remember { word } => {
+            web_sys::console::log_1(&format!("Worker: Remembering {word}").into());
+            utils::game_evals::remember(&word);
+            return String::new();
+        }
+        BackchannelMsg::QueryFor { .. } => {
+            unreachable!("Backchannel should not be passing through QueryFor")
+        }
+        BackchannelMsg::Copy { .. } => {
+            unreachable!("Backchannel should not be passing through Copy")
+        }
+    }
 }

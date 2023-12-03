@@ -119,7 +119,7 @@ impl TileUI {
     fn tile_color(&self, hovered: bool, theme: &Theme, ctx: &GameCtx) -> Color32 {
         if self.highlighted && ctx.current_time.subsec_millis() > 500 {
             theme.selection.pastel()
-        } else if self.won || self.selected || self.victor {
+        } else if self.won {
             theme.selection
         } else {
             let color = match (&self.player, hovered) {
@@ -209,6 +209,8 @@ impl TileUI {
                 Some(theme.selection)
             } else if self.modified {
                 Some(theme.modification)
+            } else if self.selected || self.victor {
+                Some(theme.selection)
             } else {
                 None
             };

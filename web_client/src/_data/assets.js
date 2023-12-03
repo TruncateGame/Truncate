@@ -12,7 +12,8 @@ const load_tiles = () => {
 const load_font = async () => {
     const font_asset = path.join(__dirname, "../../../truncate_client/font/PressStart2P-Regular.ttf");
     const font_data = fs.readFileSync(font_asset);
-    const ascii_chars = Array.from({ length: 95 }, (_, i) => String.fromCharCode(i + 32)).join('');
+    let ascii_chars = Array.from({ length: 95 }, (_, i) => String.fromCharCode(i + 32)).join('');
+    ascii_chars += "←×";
     const subset = await subsetFont(font_data, ascii_chars, {
         targetFormat: 'woff2',
     });
