@@ -90,7 +90,7 @@ mod tests {
             Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
         ];
 
-        let position = Coordinate { x: 10, y: 10 };
+        let position = Coordinate { x: 11, y: 11 };
         let out_of_bounds = Move::Place {
             player: 0,
             tile: 'A',
@@ -108,7 +108,7 @@ mod tests {
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
-        let position = Coordinate { x: 10, y: 0 };
+        let position = Coordinate { x: 11, y: 1 };
         let out_of_bounds = Move::Place {
             player: 0,
             tile: 'A',
@@ -119,7 +119,7 @@ mod tests {
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
-        let position = Coordinate { x: 1, y: 0 };
+        let position = Coordinate { x: 2, y: 1 };
         let dead = Move::Place {
             player: 0,
             tile: 'A',
@@ -149,7 +149,7 @@ mod tests {
             Move::Place {
                 player: 0,
                 tile: 'A',
-                position: Coordinate { x: 2, y: 1 },
+                position: Coordinate { x: 3, y: 2 },
             },
             None,
             None,
@@ -164,7 +164,7 @@ mod tests {
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
                     square: Square::Occupied(0, 'A'),
-                    coordinate: Coordinate { x: 2, y: 1 },
+                    coordinate: Coordinate { x: 3, y: 2 },
                 },
                 action: BoardChangeAction::Added
             })])
@@ -191,7 +191,7 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: 'B',
-                    position: Coordinate { x: 2, y: 1 }
+                    position: Coordinate { x: 3, y: 2 }
                 },
                 None,
                 None,
@@ -206,7 +206,7 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: 'B',
-                    position: Coordinate { x: 3, y: 2 }
+                    position: Coordinate { x: 4, y: 3 }
                 },
                 None,
                 None,
@@ -221,7 +221,7 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: 'B',
-                    position: Coordinate { x: 2, y: 2 }
+                    position: Coordinate { x: 3, y: 3 }
                 },
                 None,
                 None,
@@ -235,7 +235,7 @@ mod tests {
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
                     square: Square::Occupied(0, 'B'),
-                    coordinate: Coordinate { x: 2, y: 2 },
+                    coordinate: Coordinate { x: 3, y: 3 },
                 },
                 action: BoardChangeAction::Added
             })])
@@ -247,7 +247,7 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: 'B',
-                    position: Coordinate { x: 2, y: 2 }
+                    position: Coordinate { x: 3, y: 3 }
                 },
                 None,
                 None,
@@ -261,7 +261,7 @@ mod tests {
             game.make_move(
                 Move::Swap {
                     player: 0,
-                    positions: [Coordinate { x: 2, y: 1 }, Coordinate { x: 2, y: 2 }]
+                    positions: [Coordinate { x: 3, y: 2 }, Coordinate { x: 3, y: 3 }]
                 },
                 None,
                 None,
@@ -271,14 +271,14 @@ mod tests {
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
                         square: Square::Occupied(0, 'B'),
-                        coordinate: Coordinate { x: 2, y: 1 },
+                        coordinate: Coordinate { x: 3, y: 2 },
                     },
                     action: BoardChangeAction::Swapped
                 }),
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
                         square: Square::Occupied(0, 'A'),
-                        coordinate: Coordinate { x: 2, y: 2 },
+                        coordinate: Coordinate { x: 3, y: 3 },
                     },
                     action: BoardChangeAction::Swapped
                 })
@@ -307,7 +307,7 @@ mod tests {
                 Move::Place {
                     player: 2,
                     tile: 'A',
-                    position: Coordinate { x: 2, y: 2 }
+                    position: Coordinate { x: 3, y: 3 }
                 },
                 None,
                 None,
@@ -321,7 +321,7 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: '&',
-                    position: Coordinate { x: 1, y: 0 }
+                    position: Coordinate { x: 2, y: 1 }
                 },
                 None,
                 None,

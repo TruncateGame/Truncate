@@ -164,13 +164,24 @@ impl<'a> EditorUI<'a> {
                     ui.horizontal(|ui| {
                         for (colnum, square) in row.iter().enumerate() {
                             let coord = Coordinate::new(colnum, rownum);
+                            let mut editing_mode = self.editing_mode.clone();
+
+                            // Prevent editing the outermost ring of the board,
+                            // as this leads to broken textures
+                            if rownum == 0
+                                || colnum == 0
+                                || rownum == self.board.squares.len() - 1
+                                || colnum == row.len() - 1
+                            {
+                                editing_mode = BoardEditingMode::None;
+                            }
 
                             let response = EditorSquareUI::new(coord)
                                 .square(square.clone())
-                                .action(self.editing_mode.clone())
+                                .action(editing_mode.clone())
                                 .render(ui, &theme, self.mapped_board, &map_texture);
 
-                            if matches!(self.editing_mode, BoardEditingMode::None) {
+                            if matches!(editing_mode, BoardEditingMode::None) {
                                 continue;
                             }
 

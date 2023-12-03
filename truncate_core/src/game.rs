@@ -52,9 +52,11 @@ fn now() -> u64 {
 impl Game {
     pub fn new(width: usize, height: usize, tile_seed: Option<u64>) -> Self {
         let rules = GameRules::default();
+        let mut board = Board::new(width, height);
+        board.grow();
         Self {
             players: Vec::with_capacity(2),
-            board: Board::new(width, height),
+            board,
             bag: TileBag::new(&rules.tile_distribution, tile_seed),
             judge: Judge::default(),
             battle_count: 0,
