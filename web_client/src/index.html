@@ -41,6 +41,7 @@
             width: 100%;
             height: 100%;
             font-family: Truncate;
+            background-color: var(--water);
         }
 
         a {
@@ -76,6 +77,11 @@
             align-items: center;
             flex-direction: column;
             gap: 40px;
+            transition: opacity .5s ease;
+        }
+
+        #controls.unloaded {
+            opacity: 0;
         }
 
         #menu_region {
@@ -255,7 +261,7 @@
     <canvas id="splash"></canvas>
     <canvas id="truncate_canvas"></canvas>
 
-    <div id="controls" data-control-stage="root">
+    <div id="controls" class="unloaded" data-control-stage="root">
         <button data-stage="root" id="about_control" data-control="to_about">ABOUT & CREDITS</button>
 
         <div id="menu_region">
@@ -942,6 +948,9 @@
                 controls.style.top = `${screen_y + screen_tile * 3}px`;
                 // controls.style.height = `${screen_tile * (mobile ? 8 : 5)}px`;
                 controls.style.width = `${metrics.name_width / 2}px`;
+
+                // Fade in controls
+                document.querySelector("#controls").classList.remove("unloaded");
             }
 
             image.onload = function () {
