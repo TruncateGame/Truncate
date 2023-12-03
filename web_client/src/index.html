@@ -945,11 +945,13 @@
             }
 
             image.onload = function () {
-                the_guts();
-                window.addEventListener("resize", () => {
-                    refit();
+                setTimeout(() => {
                     the_guts();
-                })
+                    window.addEventListener("resize", () => {
+                        refit();
+                        the_guts();
+                    })
+                }, 10);
             };
 
             (async function () {

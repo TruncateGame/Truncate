@@ -5,7 +5,7 @@ use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, TextureHandle, Vec2
 use instant::Duration;
 use truncate_core::{
     board::{Board, Square},
-    game::Game,
+    game::{Game, GAME_COLORS},
     generation::{BoardParams, BoardSeed},
     judge::{WordData, WordDict},
     messages::{GameStateMessage, PlayerMessage},
@@ -54,9 +54,15 @@ impl SinglePlayerState {
         if human_starts {
             game.add_player("You".into());
             game.add_player("Computer".into());
+
+            game.players[0].color = GAME_COLORS[0];
+            game.players[1].color = GAME_COLORS[1];
         } else {
             game.add_player("Computer".into());
             game.add_player("You".into());
+
+            game.players[0].color = GAME_COLORS[1];
+            game.players[1].color = GAME_COLORS[0];
         }
 
         board.cache_special_squares();
@@ -100,9 +106,15 @@ impl SinglePlayerState {
         if self.human_starts {
             game.add_player("You".into());
             game.add_player("Computer".into());
+
+            game.players[0].color = GAME_COLORS[0];
+            game.players[1].color = GAME_COLORS[1];
         } else {
             game.add_player("Computer".into());
             game.add_player("You".into());
+
+            game.players[0].color = GAME_COLORS[1];
+            game.players[1].color = GAME_COLORS[0];
         }
 
         let next_board_seed = BoardSeed::new(next_seed);
