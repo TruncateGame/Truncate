@@ -133,7 +133,7 @@ impl OuterApplication {
         cc.egui_ctx.set_fonts(fonts);
 
         cc.egui_ctx.memory_mut(|mem| {
-            mem.data.insert_temp(Id::null(), GlyphMeasure::new());
+            mem.data.insert_temp(Id::NULL, GlyphMeasure::new());
         });
 
         let mut game_status = app_inner::GameStatus::None("".into(), None);

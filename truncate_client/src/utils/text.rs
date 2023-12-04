@@ -122,7 +122,7 @@ impl<'a> TextHelper<'a> {
         if self.font == "Truncate-Heavy" {
             // TODO: Don't calculate this every frame
             let glyph_measure: GlyphMeasure =
-                ui.memory_mut(|mem| mem.data.get_temp(Id::null()).unwrap());
+                ui.memory_mut(|mem| mem.data.get_temp(Id::NULL).unwrap());
             let char_height = glyph_measure.measure(self.original_text.chars().next().unwrap());
             offset.y += char_height.y * 2.0 * self.size;
         }
@@ -251,7 +251,7 @@ impl<'a> TextHelper<'a> {
         if self.font == "Truncate-Heavy" {
             // TODO: Don't calculate this every frame
             let glyph_measure: GlyphMeasure =
-                ui.memory_mut(|mem| mem.data.get_temp(Id::null()).unwrap());
+                ui.memory_mut(|mem| mem.data.get_temp(Id::NULL).unwrap());
             let char_height = glyph_measure.measure(self.original_text.chars().next().unwrap());
             offset.y += char_height.y * 2.0 * self.size;
         }

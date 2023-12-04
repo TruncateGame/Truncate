@@ -190,7 +190,7 @@ impl<'a> EditorUI<'a> {
                                 // https://github.com/emilk/egui/issues/2741
                                 let drag_action = ui.memory_mut(|mem| {
                                     if mem.is_anything_being_dragged() {
-                                        mem.data.get_temp::<EditorDrag>(Id::null())
+                                        mem.data.get_temp::<EditorDrag>(Id::NULL)
                                     } else {
                                         None
                                     }
@@ -238,7 +238,7 @@ impl<'a> EditorUI<'a> {
                             if response.drag_started() {
                                 ui.ctx().memory_mut(|mem| {
                                     mem.data.insert_temp(
-                                        Id::null(),
+                                        Id::NULL,
                                         match &self.editing_mode {
                                             BoardEditingMode::None => unreachable!(
                                             "With no board editing set we should not be editing"
@@ -281,7 +281,7 @@ impl<'a> EditorUI<'a> {
                             // drag support, perhaps?
                             if response.drag_released() {
                                 ui.ctx()
-                                    .memory_mut(|mem| mem.data.remove::<EditorDrag>(Id::null()));
+                                    .memory_mut(|mem| mem.data.remove::<EditorDrag>(Id::NULL));
                             } else if response.clicked() {
                                 unreachable!("Maybe unreachable? Duplicate above state if not...");
                                 // match square {

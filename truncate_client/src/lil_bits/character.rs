@@ -126,7 +126,7 @@ impl CharacterUI {
             if let Some(measurement) = mem.data.get_temp(Id::from(self.letter.to_string())) {
                 return measurement;
             }
-            let glyph_measure: GlyphMeasure = mem.data.get_temp(Id::null()).unwrap();
+            let glyph_measure: GlyphMeasure = mem.data.get_temp(Id::NULL).unwrap();
             let measurement = glyph_measure.measure(self.letter);
             mem.data
                 .insert_temp(Id::from(self.letter.to_string()), measurement);
