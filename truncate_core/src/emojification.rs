@@ -1,4 +1,8 @@
-use crate::{board::Board, game::Game, generation::BoardSeed};
+use crate::{
+    board::{Board, Square},
+    game::Game,
+    generation::BoardSeed,
+};
 
 const SQ_BLUE: &str = "🟦";
 const SQ_GREEN: &str = "🟩";
@@ -22,28 +26,32 @@ impl Board {
         seed: Option<BoardSeed>,
         url_prefix: String,
     ) -> String {
-        let water = if won == Some(0) { SQ_BLUE } else { SQ_BLACK };
-        let land = if won == Some(0) { SQ_GREEN } else { SQ_BROWN };
-        let tile = if won == Some(0) { SQ_YELLOW } else { SQ_ORANGE };
+        let player_won = won == Some(player);
+        let water = if player_won { SQ_BLUE } else { SQ_BLACK };
+        let land = if player_won { SQ_GREEN } else { SQ_BROWN };
+        let tile = if player_won { SQ_YELLOW } else { SQ_ORANGE };
 
-        let mut grid = self
-            .squares
-            .iter()
-            .rev()
-            .map(|row| {
-                row.iter()
-                    .rev()
-                    .map(|sq| match sq {
-                        crate::board::Square::Water => water,
-                        crate::board::Square::Land => land,
-                        crate::board::Square::Town { .. } => land,
-                        crate::board::Square::Dock(_) => water,
-                        crate::board::Square::Occupied(player, _) if won == Some(*player) => tile,
-                        crate::board::Square::Occupied(_, _) => land,
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+        let emoji_for_square = |sq: &Square| match sq {
+            crate::board::Square::Water => water,
+            crate::board::Square::Land => land,
+            crate::board::Square::Town { .. } => land,
+            crate::board::Square::Dock(_) => water,
+            crate::board::Square::Occupied(player, _) if won == Some(*player) => tile,
+            crate::board::Square::Occupied(_, _) => land,
+        };
+
+        let mut grid = if player == 0 {
+            self.squares
+                .iter()
+                .rev()
+                .map(|row| row.iter().rev().map(emoji_for_square).collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+        } else {
+            self.squares
+                .iter()
+                .map(|row| row.iter().map(emoji_for_square).collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+        };
 
         enum D {
             Top,
@@ -112,8 +120,8 @@ impl Board {
         let counts = if let Some(game) = game {
             format!(
                 " in {} turn{}, {} battle{}",
-                game.player_turn_count[0],
-                if game.player_turn_count[0] == 1 {
+                game.player_turn_count[player],
+                if game.player_turn_count[player] == 1 {
                     ""
                 } else {
                     "s"
@@ -126,9 +134,13 @@ impl Board {
         };
 
         if let Some(day) = seed.map(|s| s.day).flatten() {
-            format!("🌟 Truncate Town Day #{day} 🌟\nWon{counts}.\n{joined_grid}\n")
+            if player_won {
+                format!("🌟 Truncate Town Day #{day} 🌟\nWon{counts}.\n{joined_grid}\n")
+            } else {
+                format!("🌟 Truncate Town Day #{day} 🌟\nLost{counts}.\n{joined_grid}\n")
+            }
         } else {
-            if won == Some(0) {
+            if player_won {
                 format!("Truncate Town Custom Puzzle\nWon{counts}.\n{url}{joined_grid}\n")
             } else {
                 format!("Truncate Town Custom Puzzle\nLost{counts}.\n{url}{joined_grid}\n")
