@@ -620,64 +620,57 @@ impl ActiveGame {
                     // }
 
                     ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
-                        ScrollArea::new([false, true])
-                            .always_show_scroll(true)
-                            .show(ui, |ui| {
-                                // Small hack to fill the scroll area
-                                ui.allocate_at_least(
-                                    vec2(ui.available_width(), 1.0),
-                                    Sense::hover(),
-                                );
+                        ScrollArea::new([false, true]).show(ui, |ui| {
+                            // Small hack to fill the scroll area
+                            ui.allocate_at_least(vec2(ui.available_width(), 1.0), Sense::hover());
 
-                                let room = ui.painter().layout_no_wrap(
-                                    "Battles".into(),
-                                    FontId::new(
-                                        self.ctx.theme.letter_size / 2.0,
-                                        egui::FontFamily::Name("Truncate-Heavy".into()),
-                                    ),
-                                    self.ctx.theme.text,
-                                );
-                                let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
-                                ui.painter().galley(r.min, room);
-                                ui.add_space(15.0);
-
-                                let mut rendered_battles = 0;
-                                let label_font = FontId::new(
-                                    8.0,
+                            let room = ui.painter().layout_no_wrap(
+                                "Battles".into(),
+                                FontId::new(
+                                    self.ctx.theme.letter_size / 2.0,
                                     egui::FontFamily::Name("Truncate-Heavy".into()),
-                                );
+                                ),
+                                self.ctx.theme.text,
+                            );
+                            let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
+                            ui.painter().galley(r.min, room);
+                            ui.add_space(15.0);
 
-                                for turn in self.turn_reports.iter().rev() {
-                                    for battle in turn.iter().filter_map(|change| match change {
-                                        Change::Battle(battle) => Some(battle),
-                                        _ => None,
-                                    }) {
-                                        let is_latest_battle = rendered_battles == 0;
+                            let mut rendered_battles = 0;
+                            let label_font =
+                                FontId::new(8.0, egui::FontFamily::Name("Truncate-Heavy".into()));
 
-                                        if let Some(label) = if is_latest_battle {
-                                            Some("Latest Battle")
-                                        } else if rendered_battles == 1 {
-                                            Some("Previous Battles")
-                                        } else {
-                                            None
-                                        } {
-                                            let label = ui.painter().layout_no_wrap(
-                                                label.into(),
-                                                label_font.clone(),
-                                                self.ctx.theme.text,
-                                            );
-                                            let (r, _) =
-                                                ui.allocate_at_least(label.size(), Sense::hover());
-                                            ui.painter().galley(r.min, label);
-                                        }
+                            for turn in self.turn_reports.iter().rev() {
+                                for battle in turn.iter().filter_map(|change| match change {
+                                    Change::Battle(battle) => Some(battle),
+                                    _ => None,
+                                }) {
+                                    let is_latest_battle = rendered_battles == 0;
 
-                                        BattleUI::new(battle, is_latest_battle)
-                                            .render(&mut self.ctx, ui);
-                                        rendered_battles += 1;
-                                        ui.add_space(8.0);
+                                    if let Some(label) = if is_latest_battle {
+                                        Some("Latest Battle")
+                                    } else if rendered_battles == 1 {
+                                        Some("Previous Battles")
+                                    } else {
+                                        None
+                                    } {
+                                        let label = ui.painter().layout_no_wrap(
+                                            label.into(),
+                                            label_font.clone(),
+                                            self.ctx.theme.text,
+                                        );
+                                        let (r, _) =
+                                            ui.allocate_at_least(label.size(), Sense::hover());
+                                        ui.painter().galley(r.min, label);
                                     }
+
+                                    BattleUI::new(battle, is_latest_battle)
+                                        .render(&mut self.ctx, ui);
+                                    rendered_battles += 1;
+                                    ui.add_space(8.0);
                                 }
-                            });
+                            }
+                        });
                     })
                 });
             });

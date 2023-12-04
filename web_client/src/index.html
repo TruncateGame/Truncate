@@ -1046,7 +1046,10 @@
                     }
 
                     truncate_runner.make_ready((room_code) => {
-                        window.__truncate_handle = wasm_bindgen.start("truncate_canvas", server, room_code ?? "", backchannel_conduit);
+                        window.__truncate_handle = new wasm_bindgen.WebHandle();
+                        window.__truncate_handle.start("truncate_canvas", server, room_code ?? "", backchannel_conduit);
+
+                        // TODO: periodically check for window.__truncate_handle.has_panicked() 
                     });
 
                     console.debug("Truncate game initialized");
