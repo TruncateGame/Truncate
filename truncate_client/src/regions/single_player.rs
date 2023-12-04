@@ -70,13 +70,15 @@ impl SinglePlayerState {
 
         game.start();
 
+        let (filtered_board, _) = game.filter_game_to_player(if human_starts { 0 } else { 1 });
+
         let mut active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
             seed,
             game.players.iter().map(Into::into).collect(),
             if human_starts { 0 } else { 1 },
             0,
-            game.board.clone(),
+            filtered_board.clone(),
             game.players[if human_starts { 0 } else { 1 }].hand.clone(),
             map_texture.clone(),
             theme.clone(),
@@ -396,12 +398,13 @@ impl SinglePlayerState {
                             }
                         }
                     } else {
+                        let (filtered_board, _) = self.game.filter_game_to_player(npc_player);
                         let pending_msg =
                             backchannel.send_msg(crate::app_outer::BackchannelMsg::EvalGame {
-                                board: self.game.board.clone(),
+                                board: filtered_board,
                                 rules: self.game.rules.clone(),
                                 players: self.game.players.clone(),
-                                next_player: self.game.next_player,
+                                next_player: npc_player,
                                 weights: self.weights,
                             });
                         self.waiting_on_backchannel = pending_msg;
@@ -409,8 +412,12 @@ impl SinglePlayerState {
                 } else {
                     // If we have no backchannel available to evaluate moves through,
                     // just evaluate the move on this thread and live with blocking.
+                    let (filtered_board, _) = self.game.filter_game_to_player(npc_player);
+                    let mut evaluation_game = self.game.clone();
+                    evaluation_game.board = filtered_board;
+
                     if turn_starts_at <= current_time.as_secs() {
-                        let best = best_move(&self.game, &self.weights);
+                        let best = best_move(&evaluation_game, &self.weights);
                         next_msg = Some((npc_player, best));
                     }
                 }
@@ -441,9 +448,10 @@ impl SinglePlayerState {
                 Ok(winner) => {
                     self.winner = winner;
 
-                    let changes: Vec<_> = self
-                        .game
-                        .recent_changes
+                    let (player_visible_board, player_visible_changes) =
+                        self.game.filter_game_to_player(human_player);
+
+                    let changes: Vec<_> = player_visible_changes
                         .clone()
                         .into_iter()
                         .filter(|change| match change {
@@ -501,9 +509,9 @@ impl SinglePlayerState {
                         players: self.game.players.iter().map(Into::into).collect(),
                         player_number: human_player as u64,
                         next_player_number: self.game.next_player as u64,
-                        board: self.game.board.clone(),
+                        board: player_visible_board,
                         hand: self.game.players[human_player].hand.clone(),
-                        changes,
+                        changes: player_visible_changes,
                     };
                     self.active_game.apply_new_state(state_message);
 
