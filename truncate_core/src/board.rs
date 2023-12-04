@@ -934,11 +934,12 @@ impl Board {
             rules::Visibility::LandFog => self.fog_of_war(player_index, visibility),
         };
 
-        let redundant = foggy_board.redundant_edges();
+        let redundant_player = foggy_board.redundant_edges();
+        let redundant_global = self.redundant_edges();
 
         Coordinate {
-            x: player_coordinate.x + redundant.left,
-            y: player_coordinate.y + redundant.top,
+            x: player_coordinate.x + (redundant_player.left - redundant_global.left),
+            y: player_coordinate.y + (redundant_player.top - redundant_global.top),
         }
     }
 
@@ -958,11 +959,12 @@ impl Board {
             rules::Visibility::LandFog => self.fog_of_war(player_index, visibility),
         };
 
-        let redundant = foggy_board.redundant_edges();
+        let redundant_player = foggy_board.redundant_edges();
+        let redundant_global = self.redundant_edges();
 
         Coordinate {
-            x: game_coordinate.x - redundant.left,
-            y: game_coordinate.y - redundant.top,
+            x: game_coordinate.x - (redundant_player.left - redundant_global.left),
+            y: game_coordinate.y - (redundant_player.top - redundant_global.top),
         }
     }
 
@@ -2123,12 +2125,12 @@ pub mod tests {
              __ __ __ __ __ __ B1 __ __ __ __\n\
              __ __ __ __ ~~ ~~ B1 ~~ ~~ ~~ ~~",
         );
-
-        let mut foggy_p1 = board.fog_of_war(0, &rules::Visibility::LandFog);
-        foggy_p1.trim();
-        assert_eq!(
-            foggy_p1.to_string(),
-            "~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+        {
+            let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog);
+            foggy.trim();
+            assert_eq!(
+                foggy.to_string(),
+                "~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
              ~~ ~~ __ ~~ ~~ A0 ~~ ~~ ~~ ~~\n\
              ~~ __ __ A0 ~~ A0 __ A0 A0 __\n\
              ~~ __ __ A0 __ __ A0 __ A0 __\n\
@@ -2136,22 +2138,23 @@ pub mod tests {
              ~~ ~~ __ __ B1 ~~ B1 ~~ __ ~~\n\
              ~~ ~~ ~~ __ B1 ~~ B1 ~~ ~~ ~~\n\
              ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~",
-        );
+            );
 
-        assert_eq!(
-            board.map_player_coord_to_game(
-                0,
-                Coordinate { x: 4, y: 3 },
-                &rules::Visibility::LandFog
-            ),
-            Coordinate { x: 5, y: 5 }
-        );
-
-        let mut foggy_p2 = board.fog_of_war(1, &rules::Visibility::LandFog);
-        foggy_p2.trim();
-        assert_eq!(
-            foggy_p2.to_string(),
-            "~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+            let source_coord = Coordinate { x: 4, y: 3 };
+            let game_coord =
+                board.map_player_coord_to_game(0, source_coord, &rules::Visibility::LandFog);
+            assert_eq!(game_coord, Coordinate { x: 5, y: 5 });
+            assert_eq!(
+                board.map_game_coord_to_player(0, game_coord, &rules::Visibility::LandFog),
+                source_coord
+            );
+        }
+        {
+            let mut foggy = board.fog_of_war(1, &rules::Visibility::LandFog);
+            foggy.trim();
+            assert_eq!(
+                foggy.to_string(),
+                "~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
              ~~ ~~ A0 ~~ ~~ ~~ ~~ ~~ ~~\n\
              ~~ ~~ A0 __ ~~ A0 ~~ ~~ ~~\n\
              ~~ ~~ A0 __ __ __ __ ~~ ~~\n\
@@ -2160,15 +2163,16 @@ pub mod tests {
              ~~ ~~ __ __ B1 __ __ ~~ ~~\n\
              ~~ ~~ __ __ B1 __ __ ~~ ~~\n\
              ~~ ~~ ~~ ~~ B1 ~~ ~~ ~~ ~~",
-        );
+            );
 
-        assert_eq!(
-            board.map_player_coord_to_game(
-                1,
-                Coordinate { x: 6, y: 4 },
-                &rules::Visibility::LandFog
-            ),
-            Coordinate { x: 8, y: 7 }
-        );
+            let source_coord = Coordinate { x: 6, y: 4 };
+            let game_coord =
+                board.map_player_coord_to_game(1, source_coord, &rules::Visibility::LandFog);
+            assert_eq!(game_coord, Coordinate { x: 8, y: 7 });
+            assert_eq!(
+                board.map_game_coord_to_player(1, game_coord, &rules::Visibility::LandFog),
+                source_coord
+            );
+        }
     }
 }
