@@ -200,10 +200,12 @@ pub(crate) fn filter_to_player(
                 }
                 match visibility {
                     rules::Visibility::Standard => true,
-                    rules::Visibility::FogOfWar => match visible_board.get(*coordinate) {
-                        Ok(Square::Occupied(_, _)) => true,
-                        _ => false,
-                    },
+                    rules::Visibility::TileFog | rules::Visibility::LandFog => {
+                        match visible_board.get(*coordinate) {
+                            Ok(Square::Occupied(_, _)) => true,
+                            _ => false,
+                        }
+                    }
                 }
             }
             Change::Battle(_) => true,

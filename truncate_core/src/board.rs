@@ -832,7 +832,7 @@ impl Board {
         playable_squares
     }
 
-    pub fn fog_of_war(&self, player_index: usize) -> Self {
+    pub fn fog_of_war(&self, player_index: usize, visibility: &rules::Visibility) -> Self {
         let mut visible_coords: HashSet<Coordinate> = HashSet::new();
 
         let rows = self.height();
@@ -843,9 +843,23 @@ impl Board {
             squares.map(|(x, y)| (Coordinate { x, y }, self.get(Coordinate { x, y })))
         {
             match square {
-                Ok(Square::Occupied(player, _)) | Ok(Square::Dock(player))
+                Ok(Square::Occupied(player, _))
+                | Ok(Square::Dock(player))
+                | Ok(Square::Town { player, .. })
                     if player == player_index =>
                 {
+                    visible_coords.insert(coord);
+
+                    for (coord, square) in self.neighbouring_squares(coord) {
+                        visible_coords.insert(coord);
+                        match square {
+                            Square::Occupied(player, _) if player != player_index => {
+                                visible_coords.extend(self.get_words(coord).iter().flatten());
+                            }
+                            _ => {}
+                        }
+                    }
+
                     // TODO: Enumerate squares a given manhattan distance away, as this double counts
                     for (coord, square) in self
                         .neighbouring_squares(coord)
@@ -853,6 +867,7 @@ impl Board {
                         .flat_map(|(c, _)| self.neighbouring_squares(*c))
                         .collect::<Vec<_>>()
                     {
+                        visible_coords.insert(coord);
                         match square {
                             Square::Occupied(player, _) if player != player_index => {
                                 visible_coords.extend(self.get_words(coord).iter().flatten());
@@ -871,16 +886,14 @@ impl Board {
         let cols = self.width();
         let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
 
-        for (x, y) in squares {
-            let c = Coordinate { x, y };
-            if !visible_coords.contains(&c) {
-                match new_board.get(c) {
-                    Ok(Square::Occupied(player, _)) if player != player_index => {
-                        new_board.clear(c);
-                    }
-                    _ => {}
+        if matches!(visibility, rules::Visibility::LandFog) {
+            for (x, y) in squares {
+                let c = Coordinate { x, y };
+                if !visible_coords.contains(&c) {
+                    _ = new_board.set_square(c, Square::Water);
                 }
             }
+            new_board.trim();
         }
 
         new_board
@@ -899,7 +912,9 @@ impl Board {
 
         match visibility {
             rules::Visibility::Standard => self.clone(),
-            rules::Visibility::FogOfWar => self.fog_of_war(player_index),
+            rules::Visibility::TileFog | rules::Visibility::LandFog => {
+                self.fog_of_war(player_index, visibility)
+            }
         }
     }
 }
@@ -1955,7 +1970,7 @@ pub mod tests {
              ~~ ~~ B1 ~~ ~~",
         );
 
-        let foggy = board.fog_of_war(1);
+        let foggy = board.fog_of_war(1, &rules::Visibility::TileFog);
         assert_eq!(
             foggy.to_string(),
             "~~ ~~ __ ~~ ~~\n\
@@ -1980,7 +1995,7 @@ pub mod tests {
              ~~ ~~ B1 ~~ ~~",
         );
 
-        let foggy = board.fog_of_war(0);
+        let foggy = board.fog_of_war(0, &rules::Visibility::TileFog);
         assert_eq!(
             foggy.to_string(),
             "~~ ~~ A0 ~~ ~~\n\
