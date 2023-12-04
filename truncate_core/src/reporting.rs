@@ -165,6 +165,7 @@ impl fmt::Display for Change {
 
 pub(crate) fn filter_to_player(
     changes: &Vec<Change>,
+    full_board: &Board,
     visible_board: &Board,
     player_index: usize,
     visibility: &rules::Visibility,
@@ -186,6 +187,9 @@ pub(crate) fn filter_to_player(
                     },
                 action,
             }) => {
+                let relative_coord =
+                    full_board.map_game_coord_to_player(player_index, *coordinate, visibility);
+
                 // All board visibility is restored when the game ends
                 if winner.is_some() {
                     return true;
@@ -201,7 +205,7 @@ pub(crate) fn filter_to_player(
                 match visibility {
                     rules::Visibility::Standard => true,
                     rules::Visibility::TileFog | rules::Visibility::LandFog => {
-                        match visible_board.get(*coordinate) {
+                        match visible_board.get(relative_coord) {
                             Ok(Square::Occupied(_, _)) => true,
                             _ => false,
                         }

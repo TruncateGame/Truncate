@@ -285,8 +285,14 @@ impl Game {
             Move::Place {
                 player,
                 tile,
-                position,
+                position: player_reported_position,
             } => {
+                let position = self.board.map_player_coord_to_game(
+                    player,
+                    player_reported_position,
+                    &self.rules.visibility,
+                );
+
                 if let Square::Occupied(..) = self.board.get(position)? {
                     return Err(GamePlayError::OccupiedPlace);
                 }
@@ -321,8 +327,21 @@ impl Game {
             }
             Move::Swap {
                 player: player_index,
-                positions,
+                positions: player_reported_positions,
             } => {
+                let positions = [
+                    self.board.map_player_coord_to_game(
+                        player_index,
+                        player_reported_positions[0],
+                        &self.rules.visibility,
+                    ),
+                    self.board.map_player_coord_to_game(
+                        player_index,
+                        player_reported_positions[1],
+                        &self.rules.visibility,
+                    ),
+                ];
+
                 let player = &mut self.players[player_index];
                 let swap_rules = match &self.rules.swapping {
                     rules::Swapping::Contiguous(rules) => Some(rules),
@@ -572,6 +591,7 @@ impl Game {
                 .filter_to_player(player_index, &self.rules.visibility, &self.winner);
         let visible_changes = reporting::filter_to_player(
             &self.recent_changes,
+            &self.board,
             &visible_board,
             player_index,
             &self.rules.visibility,

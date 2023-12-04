@@ -920,7 +920,7 @@ impl Board {
     /// Used for fog of war modes.
     /// Takes the coordinate given by a player, and maps it back
     /// to the full board that the player cannot see ( and thus does not have coordinates for)
-    pub fn remap_coord(
+    pub fn map_player_coord_to_game(
         &self,
         player_index: usize,
         player_coordinate: Coordinate,
@@ -939,6 +939,30 @@ impl Board {
         Coordinate {
             x: player_coordinate.x + redundant.left,
             y: player_coordinate.y + redundant.top,
+        }
+    }
+
+    /// Used for fog of war modes.
+    /// Takes a concrete game coordinate, and maps it to the visible coordinate space of the player
+    pub fn map_game_coord_to_player(
+        &self,
+        player_index: usize,
+        game_coordinate: Coordinate,
+        visibility: &rules::Visibility,
+    ) -> Coordinate {
+        let foggy_board = match visibility {
+            rules::Visibility::Standard | rules::Visibility::TileFog => {
+                // In these modes, the player knows the full coordinate space, so no remapping is required.
+                return game_coordinate;
+            }
+            rules::Visibility::LandFog => self.fog_of_war(player_index, visibility),
+        };
+
+        let redundant = foggy_board.redundant_edges();
+
+        Coordinate {
+            x: game_coordinate.x - redundant.left,
+            y: game_coordinate.y - redundant.top,
         }
     }
 
@@ -2115,7 +2139,11 @@ pub mod tests {
         );
 
         assert_eq!(
-            board.remap_coord(0, Coordinate { x: 4, y: 3 }, &rules::Visibility::LandFog),
+            board.map_player_coord_to_game(
+                0,
+                Coordinate { x: 4, y: 3 },
+                &rules::Visibility::LandFog
+            ),
             Coordinate { x: 5, y: 5 }
         );
 
@@ -2135,7 +2163,11 @@ pub mod tests {
         );
 
         assert_eq!(
-            board.remap_coord(1, Coordinate { x: 6, y: 4 }, &rules::Visibility::LandFog),
+            board.map_player_coord_to_game(
+                1,
+                Coordinate { x: 6, y: 4 },
+                &rules::Visibility::LandFog
+            ),
             Coordinate { x: 8, y: 7 }
         );
     }
