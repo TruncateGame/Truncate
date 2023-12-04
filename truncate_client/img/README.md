@@ -6,3 +6,5 @@ To edit tiles:
 - Export tileset to `truncate_packed.png`
   - Make sure to check `Extrude` to add tile padding.
   - Use the `by rows` export, with a constraint on # of columns (max ~50)
+- Update `tex.rs` in `truncate_client` to reference the tile IDs from Aseprite
+- Update `_data/tiles.js` in `web_client` to do the same
