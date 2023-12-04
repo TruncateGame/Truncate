@@ -49,6 +49,13 @@ impl Direction {
     }
 }
 
+struct RedundantEdges {
+    top: usize,
+    right: usize,
+    bottom: usize,
+    left: usize,
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Board {
     pub squares: Vec<Vec<Square>>,
@@ -188,59 +195,71 @@ impl Board {
         self.cache_special_squares();
     }
 
+    /// Returns the number of rows/columns
+    fn redundant_edges(&self) -> RedundantEdges {
+        let top = self
+            .squares
+            .iter()
+            .position(|row| {
+                row.iter()
+                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
+
+        let bottom = self
+            .squares
+            .iter()
+            .rev()
+            .position(|row| {
+                row.iter()
+                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
+
+        let left = (0..self.width())
+            .position(|i| {
+                self.squares
+                    .iter()
+                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
+
+        let right = (0..self.width())
+            .rev()
+            .position(|i| {
+                self.squares
+                    .iter()
+                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
+            })
+            .unwrap_or_default()
+            .saturating_sub(1);
+
+        RedundantEdges {
+            top,
+            right,
+            bottom,
+            left,
+        }
+    }
+
     /// Trims edges containing only empty squares
     pub fn trim(&mut self) {
-        let trim_top = self
-            .squares
-            .iter()
-            .position(|row| {
-                row.iter()
-                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
-            })
-            .unwrap_or_default()
-            .saturating_sub(1);
+        let trim = self.redundant_edges();
 
-        let trim_bottom = self
-            .squares
-            .iter()
-            .rev()
-            .position(|row| {
-                row.iter()
-                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
-            })
-            .unwrap_or_default()
-            .saturating_sub(1);
-
-        let trim_left = (0..self.width())
-            .position(|i| {
-                self.squares
-                    .iter()
-                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
-            })
-            .unwrap_or_default()
-            .saturating_sub(1);
-
-        let trim_right = (0..self.width())
-            .rev()
-            .position(|i| {
-                self.squares
-                    .iter()
-                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
-            })
-            .unwrap_or_default()
-            .saturating_sub(1);
-
-        for _ in 0..trim_top {
+        for _ in 0..trim.top {
             self.squares.remove(0);
         }
-        for _ in 0..trim_bottom {
+        for _ in 0..trim.bottom {
             self.squares.remove(self.height() - 1);
         }
         for row in &mut self.squares {
-            for _ in 0..trim_left {
+            for _ in 0..trim.left {
                 row.remove(0);
             }
-            for _ in 0..trim_right {
+            for _ in 0..trim.right {
                 row.remove(row.len() - 1);
             }
         }
@@ -893,10 +912,34 @@ impl Board {
                     _ = new_board.set_square(c, Square::Water);
                 }
             }
-            new_board.trim();
         }
 
         new_board
+    }
+
+    /// Used for fog of war modes.
+    /// Takes the coordinate given by a player, and maps it back
+    /// to the full board that the player cannot see ( and thus does not have coordinates for)
+    pub fn remap_coord(
+        &self,
+        player_index: usize,
+        player_coordinate: Coordinate,
+        visibility: &rules::Visibility,
+    ) -> Coordinate {
+        let foggy_board = match visibility {
+            rules::Visibility::Standard | rules::Visibility::TileFog => {
+                // In these modes, the player knows the full coordinate space, so no remapping is required.
+                return player_coordinate;
+            }
+            rules::Visibility::LandFog => self.fog_of_war(player_index, visibility),
+        };
+
+        let redundant = foggy_board.redundant_edges();
+
+        Coordinate {
+            x: player_coordinate.x + redundant.left,
+            y: player_coordinate.y + redundant.top,
+        }
     }
 
     pub(crate) fn filter_to_player(
@@ -913,7 +956,11 @@ impl Board {
         match visibility {
             rules::Visibility::Standard => self.clone(),
             rules::Visibility::TileFog | rules::Visibility::LandFog => {
-                self.fog_of_war(player_index, visibility)
+                let mut foggy = self.fog_of_war(player_index, visibility);
+                // Remove extraneous water, so the client doesn't know the dimensions of the play area
+                foggy.trim();
+
+                foggy
             }
         }
     }
@@ -2022,7 +2069,8 @@ pub mod tests {
              ~~ ~~ B1 ~~ ~~ ~~ ~~ ~~ ~~ ~~",
         );
 
-        let foggy = board.fog_of_war(0, &rules::Visibility::LandFog);
+        let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog);
+        foggy.trim();
         assert_eq!(
             foggy.to_string(),
             "~~ ~~ A0 ~~ ~~ ~~ ~~ ~~ ~~\n\
@@ -2032,6 +2080,63 @@ pub mod tests {
              __ B1 ~~ B1 ~~ __ ~~ ~~ ~~\n\
              __ B1 ~~ B1 ~~ ~~ ~~ ~~ ~~\n\
              ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~",
+        );
+    }
+
+    #[test]
+    fn remap_foggy_coordinates() {
+        let board = Board::from_string(
+            "__ __ __ __ __ __ __ __ __ __ __\n\
+             __ __ __ __ __ __ ~~ __ __ __ __\n\
+             __ __ __ __ ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             __ __ __ __ ~~ ~~ A0 ~~ ~~ ~~ ~~\n\
+             __ __ __ __ A0 ~~ A0 __ A0 A0 __\n\
+             __ __ __ __ A0 __ __ A0 __ A0 __\n\
+             __ __ __ __ A0 __ __ __ __ __ __\n\
+             __ __ __ __ __ B1 __ B1 __ __ __\n\
+             __ __ __ __ __ B1 B1 B1 __ __ __\n\
+             ~~ __ __ __ __ __ B1 __ __ __ __\n\
+             __ __ __ __ __ __ B1 __ __ __ __\n\
+             __ __ __ __ ~~ ~~ B1 ~~ ~~ ~~ ~~",
+        );
+
+        let mut foggy_p1 = board.fog_of_war(0, &rules::Visibility::LandFog);
+        foggy_p1.trim();
+        assert_eq!(
+            foggy_p1.to_string(),
+            "~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ __ ~~ ~~ A0 ~~ ~~ ~~ ~~\n\
+             ~~ __ __ A0 ~~ A0 __ A0 A0 __\n\
+             ~~ __ __ A0 __ __ A0 __ A0 __\n\
+             ~~ __ __ A0 __ __ __ __ __ __\n\
+             ~~ ~~ __ __ B1 ~~ B1 ~~ __ ~~\n\
+             ~~ ~~ ~~ __ B1 ~~ B1 ~~ ~~ ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~",
+        );
+
+        assert_eq!(
+            board.remap_coord(0, Coordinate { x: 4, y: 3 }, &rules::Visibility::LandFog),
+            Coordinate { x: 5, y: 5 }
+        );
+
+        let mut foggy_p2 = board.fog_of_war(1, &rules::Visibility::LandFog);
+        foggy_p2.trim();
+        assert_eq!(
+            foggy_p2.to_string(),
+            "~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ A0 ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ ~~ A0 __ ~~ A0 ~~ ~~ ~~\n\
+             ~~ ~~ A0 __ __ __ __ ~~ ~~\n\
+             ~~ __ __ B1 __ B1 __ __ ~~\n\
+             ~~ __ __ B1 B1 B1 __ __ ~~\n\
+             ~~ ~~ __ __ B1 __ __ ~~ ~~\n\
+             ~~ ~~ __ __ B1 __ __ ~~ ~~\n\
+             ~~ ~~ ~~ ~~ B1 ~~ ~~ ~~ ~~",
+        );
+
+        assert_eq!(
+            board.remap_coord(1, Coordinate { x: 6, y: 4 }, &rules::Visibility::LandFog),
+            Coordinate { x: 8, y: 7 }
         );
     }
 }
