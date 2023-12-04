@@ -107,7 +107,9 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         } else if launched_room == "RANDOM_PUZZLE" {
             let seed = (current_time.as_micros() % 243985691) as u32;
             let board_seed = BoardSeed::new(seed);
-            let board = generate_board(board_seed.clone());
+            let board = generate_board(board_seed.clone())
+                .expect("Common seeds can be reasonably expected to produce a board")
+                .board;
             let header = HeaderType::Summary {
                 title: format!("Random Puzzle"),
                 sentinel: '•',
@@ -135,7 +137,9 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             };
 
             let board_seed = BoardSeed::new_with_generation(generation, seed);
-            let board = generate_board(board_seed.clone());
+            let board = generate_board(board_seed.clone())
+                .expect("Common seeds can be reasonably expected to produce a board")
+                .board;
             let header = HeaderType::Summary {
                 title: format!("Truncate Puzzle {generation}:{seed}"),
                 sentinel: '•',

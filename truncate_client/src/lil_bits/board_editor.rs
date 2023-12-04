@@ -251,6 +251,7 @@ impl<'a> EditorUI<'a> {
                                                     EditorDrag::RemoveLand
                                                 }
                                                 Square::Occupied(_, _) => unreachable!(),
+                                                Square::Fog => unreachable!(),
                                             },
                                             BoardEditingMode::Town(editing_player) => {
                                                 match square {
@@ -337,6 +338,9 @@ impl<'a> EditorUI<'a> {
                         }
                         Square::Occupied(_, _) => {
                             unreachable!("Board editor should not contain occupied tiles")
+                        }
+                        Square::Fog => {
+                            unreachable!("Board editor should not contain fog")
                         }
                     };
 

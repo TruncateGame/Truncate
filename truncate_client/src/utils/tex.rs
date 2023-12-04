@@ -22,13 +22,14 @@ pub type TexQuad = [Tex; 4];
 #[derive(Debug, Copy, Clone)]
 pub enum BGTexType {
     Land,
-    Water,
+    WaterOrFog,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum FGTexType {
     Town,
     Dock,
+    Fog,
 }
 
 // Wind levels
@@ -645,6 +646,15 @@ impl Tex {
             return vec![[Self::DEBUG, Self::DEBUG, Self::DEBUG, Self::DEBUG]];
         }
 
+        if matches!(layer_type, Some(FGTexType::Fog)) {
+            return vec![[
+                Self::WATER.tint(Color32::BLACK),
+                Self::WATER.tint(Color32::BLACK),
+                Self::WATER.tint(Color32::BLACK),
+                Self::WATER.tint(Color32::BLACK),
+            ]];
+        }
+
         let grasses = match wind_at_coord {
             calm!() => [Self::GRASS1, Self::GRASS2, Self::GRASS3, Self::GRASS4],
             breeze!() => [
@@ -677,45 +687,45 @@ impl Tex {
         use BGTexType::*;
         let top_left = match base_type {
             Land => rand_grass(seed),
-            Water => match (neighbors[7], neighbors[0], neighbors[1]) {
-                (Land, Land | Water, Land) => Self::LAND_N_W,
-                (Land, Land | Water, Water) => Self::LAND_W,
-                (Water, Land | Water, Land) => Self::LAND_N,
-                (Water, Land, Water) => Self::LAND_NW,
-                (Water, Water, Water) => Self::WATER,
+            WaterOrFog => match (neighbors[7], neighbors[0], neighbors[1]) {
+                (Land, Land | WaterOrFog, Land) => Self::LAND_N_W,
+                (Land, Land | WaterOrFog, WaterOrFog) => Self::LAND_W,
+                (WaterOrFog, Land | WaterOrFog, Land) => Self::LAND_N,
+                (WaterOrFog, Land, WaterOrFog) => Self::LAND_NW,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => Self::WATER,
             },
         };
 
         let top_right = match base_type {
             Land => rand_grass(seed + 1),
-            Water => match (neighbors[1], neighbors[2], neighbors[3]) {
-                (Land, Land | Water, Land) => Self::LAND_N_E,
-                (Land, Land | Water, Water) => Self::LAND_N,
-                (Water, Land | Water, Land) => Self::LAND_E,
-                (Water, Land, Water) => Self::LAND_NE,
-                (Water, Water, Water) => Self::WATER,
+            WaterOrFog => match (neighbors[1], neighbors[2], neighbors[3]) {
+                (Land, Land | WaterOrFog, Land) => Self::LAND_N_E,
+                (Land, Land | WaterOrFog, WaterOrFog) => Self::LAND_N,
+                (WaterOrFog, Land | WaterOrFog, Land) => Self::LAND_E,
+                (WaterOrFog, Land, WaterOrFog) => Self::LAND_NE,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => Self::WATER,
             },
         };
 
         let bottom_right = match base_type {
             Land => rand_grass(seed + 2),
-            Water => match (neighbors[3], neighbors[4], neighbors[5]) {
-                (Land, Land | Water, Land) => Self::LAND_S_E,
-                (Land, Land | Water, Water) => Self::LAND_E,
-                (Water, Land | Water, Land) => Self::LAND_S,
-                (Water, Land, Water) => Self::LAND_SE,
-                (Water, Water, Water) => Self::WATER,
+            WaterOrFog => match (neighbors[3], neighbors[4], neighbors[5]) {
+                (Land, Land | WaterOrFog, Land) => Self::LAND_S_E,
+                (Land, Land | WaterOrFog, WaterOrFog) => Self::LAND_E,
+                (WaterOrFog, Land | WaterOrFog, Land) => Self::LAND_S,
+                (WaterOrFog, Land, WaterOrFog) => Self::LAND_SE,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => Self::WATER,
             },
         };
 
         let bottom_left = match base_type {
             Land => rand_grass(seed + 3),
-            Water => match (neighbors[5], neighbors[6], neighbors[7]) {
-                (Land, Land | Water, Land) => Self::LAND_S_W,
-                (Land, Land | Water, Water) => Self::LAND_S,
-                (Water, Land | Water, Land) => Self::LAND_W,
-                (Water, Land, Water) => Self::LAND_SW,
-                (Water, Water, Water) => Self::WATER,
+            WaterOrFog => match (neighbors[5], neighbors[6], neighbors[7]) {
+                (Land, Land | WaterOrFog, Land) => Self::LAND_S_W,
+                (Land, Land | WaterOrFog, WaterOrFog) => Self::LAND_S,
+                (WaterOrFog, Land | WaterOrFog, Land) => Self::LAND_W,
+                (WaterOrFog, Land, WaterOrFog) => Self::LAND_SW,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => Self::WATER,
             },
         };
 
@@ -725,6 +735,7 @@ impl Tex {
             match layer {
                 FGTexType::Town => texs.extend(Tex::town(color, seed, tick, wind_at_coord)),
                 FGTexType::Dock => texs.extend(Tex::dock(color, neighbors, wind_at_coord)),
+                FGTexType::Fog => unreachable!(),
             }
         }
 

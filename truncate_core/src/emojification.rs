@@ -33,6 +33,7 @@ impl Board {
 
         let emoji_for_square = |sq: &Square| match sq {
             crate::board::Square::Water => water,
+            crate::board::Square::Fog => water,
             crate::board::Square::Land => land,
             crate::board::Square::Town { .. } => land,
             crate::board::Square::Dock(_) => water,

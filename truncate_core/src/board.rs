@@ -202,7 +202,7 @@ impl Board {
             .iter()
             .position(|row| {
                 row.iter()
-                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
+                    .any(|s| !matches!(s, Square::Water | Square::Fog | Square::Dock(_)))
             })
             .unwrap_or_default()
             .saturating_sub(1);
@@ -213,7 +213,7 @@ impl Board {
             .rev()
             .position(|row| {
                 row.iter()
-                    .any(|s| !matches!(s, Square::Water | Square::Dock(_)))
+                    .any(|s| !matches!(s, Square::Water | Square::Fog | Square::Dock(_)))
             })
             .unwrap_or_default()
             .saturating_sub(1);
@@ -222,7 +222,7 @@ impl Board {
             .position(|i| {
                 self.squares
                     .iter()
-                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
+                    .any(|row| !matches!(row[i], Square::Water | Square::Fog | Square::Dock(_)))
             })
             .unwrap_or_default()
             .saturating_sub(1);
@@ -232,7 +232,7 @@ impl Board {
             .position(|i| {
                 self.squares
                     .iter()
-                    .any(|row| !matches!(row[i], Square::Water | Square::Dock(_)))
+                    .any(|row| !matches!(row[i], Square::Water | Square::Fog | Square::Dock(_)))
             })
             .unwrap_or_default()
             .saturating_sub(1);
@@ -279,7 +279,7 @@ impl Board {
 
         for coord in coords {
             match self.get(coord) {
-                Ok(Square::Water | Square::Land | Square::Occupied(_, _)) => {}
+                Ok(Square::Water | Square::Land | Square::Occupied(_, _) | Square::Fog) => {}
                 Ok(Square::Town { .. }) => self.towns.push(coord),
                 Ok(Square::Dock(_)) => self.docks.push(coord),
                 Err(e) => {
@@ -380,7 +380,9 @@ impl Board {
                     }
                     tiles[i] = tile;
                 }
-                Water | Land | Town { .. } | Dock(_) => return Err(GamePlayError::UnoccupiedSwap),
+                Water | Land | Fog | Town { .. } | Dock(_) => {
+                    return Err(GamePlayError::UnoccupiedSwap)
+                }
             };
         }
 
@@ -807,7 +809,7 @@ impl Board {
                 word.iter()
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
-                            Water | Land | Dock(_) => {
+                            Water | Land | Fog | Dock(_) => {
                                 debug_assert!(false);
                                 err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
@@ -909,7 +911,7 @@ impl Board {
             for (x, y) in squares {
                 let c = Coordinate { x, y };
                 if !visible_coords.contains(&c) {
-                    _ = new_board.set_square(c, Square::Water);
+                    _ = new_board.set_square(c, Square::Fog);
                 }
             }
         }
@@ -1177,12 +1179,14 @@ pub enum Square {
     Town { player: usize, defeated: bool },
     Dock(usize),
     Occupied(usize, char),
+    Fog,
 }
 
 impl fmt::Display for Square {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
             Square::Water => write!(f, "~~"),
+            Square::Fog => write!(f, "░░"),
             Square::Land => write!(f, "__"),
             Square::Town {
                 player: p,

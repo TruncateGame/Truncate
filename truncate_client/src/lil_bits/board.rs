@@ -132,7 +132,7 @@ impl<'a> BoardUI<'a> {
                                             (BoardChangeAction::Swapped, Some(tile)) => Some(tile.modified(true)),
                                             (BoardChangeAction::Defeated, None) => 
                                                 match change.detail.square {
-                                                    Water | Land | Town{..} | Dock(_) => None,
+                                                    Water | Land | Fog | Town{..} | Dock(_) => None,
                                                     Occupied(player, char) => Some((player, char)),
                                                 }
                                                 .map(
@@ -144,7 +144,7 @@ impl<'a> BoardUI<'a> {
                                                 ),
                                             (BoardChangeAction::Truncated, None) => 
                                                 match change.detail.square {
-                                                    Water | Land | Town{..} | Dock(_) => None,
+                                                    Water | Land | Fog | Town{..} | Dock(_) => None,
                                                     Occupied(player, char) => Some((player, char)),
                                                 }
                                                 .map(
@@ -156,7 +156,7 @@ impl<'a> BoardUI<'a> {
                                                 ),
                                             (BoardChangeAction::Exploded, None) =>
                                                 match change.detail.square {
-                                                    Water | Land | Town{..} | Dock(_) => None,
+                                                    Water | Land | Fog | Town{..} | Dock(_) => None,
                                                     Occupied(player, char) => Some((player, char)),
                                                 }
                                                 .map(
@@ -169,7 +169,7 @@ impl<'a> BoardUI<'a> {
                                             (BoardChangeAction::Victorious, Some(tile)) => Some(tile.victor(true)),
                                             (BoardChangeAction::Victorious, None) =>
                                                 match change.detail.square {
-                                                    Water | Land | Town{..} | Dock(_) => None,
+                                                    Water | Land | Fog | Town{..} | Dock(_) => None,
                                                     Occupied(player, char) => Some((player, char)),
                                                 }
                                                 .map(

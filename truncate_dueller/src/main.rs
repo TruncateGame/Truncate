@@ -134,7 +134,9 @@ fn evaluate_single_seed(seed: BoardSeed, log: bool) -> Option<SeedNote> {
 }
 
 fn get_game_for_seed(seed: BoardSeed) -> Game {
-    let mut board = generate_board(seed.clone());
+    let mut board = generate_board(seed.clone())
+        .expect("Generation should be possible from this seed")
+        .board;
     board.cache_special_squares();
 
     let mut game = Game::new(9, 9, Some(seed.seed as u64));

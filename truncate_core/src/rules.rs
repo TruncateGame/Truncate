@@ -108,7 +108,7 @@ impl Default for GameRules {
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
             },
-            visibility: Visibility::TileFog,
+            visibility: Visibility::LandFog,
             truncation: Truncation::None,
             timing: Timing::PerPlayer {
                 time_allowance: 60 * 20,

@@ -120,7 +120,9 @@ impl SinglePlayerState {
         }
 
         let next_board_seed = BoardSeed::new(next_seed);
-        let mut rand_board = truncate_core::generation::generate_board(next_board_seed.clone());
+        let mut rand_board = truncate_core::generation::generate_board(next_board_seed.clone())
+            .expect("Common board seeds should always generate a board")
+            .board;
         rand_board.cache_special_squares();
 
         game.board = rand_board;
