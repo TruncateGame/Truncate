@@ -777,6 +777,8 @@ impl ActiveGame {
         // assert_eq!(self.player_number, player_number);
         self.players = players;
         self.board = board;
+        self.mapped_board
+            .remap(&self.board, &self.ctx.player_colors, self.ctx.qs_tick);
 
         #[cfg(target_arch = "wasm32")]
         // Play the turn sound if the player has changed
