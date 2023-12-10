@@ -4,9 +4,15 @@ use chrono::Offset;
 use epaint::TextureHandle;
 use instant::Duration;
 use serde::{Deserialize, Serialize};
-use truncate_core::generation::{generate_board, get_game_verification, BoardSeed};
+use truncate_core::{
+    generation::{generate_board, get_game_verification, BoardSeed},
+    moves::Move,
+};
 
-use crate::regions::{active_game::HeaderType, single_player::SinglePlayerState};
+use crate::{
+    app_outer::Backchannel,
+    regions::{active_game::HeaderType, single_player::SinglePlayerState},
+};
 
 use super::Theme;
 
@@ -32,6 +38,7 @@ pub fn get_daily_puzzle(
     current_time: Duration,
     map_texture: &TextureHandle,
     theme: &Theme,
+    backchannel: &Backchannel,
 ) -> SinglePlayerState {
     let loaded_notes: NotesFile =
         serde_yaml::from_slice(SEED_NOTES).expect("Seed notes should match the spec");
@@ -60,24 +67,101 @@ pub fn get_daily_puzzle(
     }
 
     let board = generate_board(board_seed.clone());
-    let game_state = SinglePlayerState::new(
+    let mut game_state = SinglePlayerState::new(
         map_texture.clone(),
         theme.clone(),
         board,
-        Some(board_seed),
+        Some(board_seed.clone()),
         human_starts,
-        header,
+        header.clone(),
     );
 
     if let Some(notes) = notes {
         let verification = get_game_verification(&game_state.game);
         if verification != notes.verification {
-            header = HeaderType::Summary {
+            game_state.active_game.ctx.header_visible = HeaderType::Summary {
                 title: format!("Truncate Town Day #{day}"),
                 sentinel: '¤',
             };
         }
     }
 
+    let persisted_moves = get_persistent_game(&board_seed);
+
+    let delay = game_state.game.rules.battle_delay;
+    game_state.game.rules.battle_delay = 0;
+    for next_move in persisted_moves.moves.into_iter() {
+        if game_state.handle_move(next_move, backchannel).is_err() {
+            wipe_persistent_game(&board_seed);
+            return get_daily_puzzle(current_time, map_texture, theme, backchannel);
+        }
+    }
+    game_state.game.rules.battle_delay = delay;
+
     game_state
 }
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct PersistentGame {
+    pub moves: Vec<Move>,
+}
+
+pub fn persist_game(seed: &BoardSeed, action: Move) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+
+        let key = format!("daily_{}", seed.seed);
+
+        let Ok(record) = local_storage.get_item(&key) else {
+            eprintln!("Localstorage was inaccessible");
+            return;
+        };
+
+        let mut current_game: PersistentGame = record
+            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
+            .unwrap_or_default();
+
+        current_game.moves.push(action);
+
+        local_storage
+            .set_item(
+                &key,
+                &serde_json::to_string(&current_game).expect("Our game should be serializable"),
+            )
+            .unwrap();
+    }
+}
+
+pub fn get_persistent_game(seed: &BoardSeed) -> PersistentGame {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+
+        let key = format!("daily_{}", seed.seed);
+
+        let Ok(record) = local_storage.get_item(&key) else {
+            eprintln!("Localstorage was inaccessible");
+            return PersistentGame::default();
+        };
+
+        let current_game: PersistentGame = record
+            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
+            .unwrap_or_default();
+
+        current_game
+    }
+}
+
+pub fn wipe_persistent_game(seed: &BoardSeed) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+
+        let key = format!("daily_{}", seed.seed);
+
+        local_storage.remove_item(&key);
+    }
+}
+
+pub fn record_result() {}

@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
+
 use super::board::{Board, Coordinate, Square};
 use super::judge::{Judge, Outcome};
 use super::reporting::{BoardChange, BoardChangeAction};
@@ -8,7 +10,7 @@ use crate::error::GamePlayError;
 use crate::player::Player;
 use crate::reporting::Change;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Move {
     // TODO: make Move a struct and make player a top level property of it
     Place {
