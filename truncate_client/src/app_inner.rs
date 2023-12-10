@@ -111,6 +111,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let header = HeaderType::Summary {
                 title: format!("Random Puzzle"),
                 sentinel: '•',
+                attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),
@@ -139,6 +140,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let header = HeaderType::Summary {
                 title: format!("Truncate Puzzle {generation}:{seed}"),
                 sentinel: '•',
+                attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),

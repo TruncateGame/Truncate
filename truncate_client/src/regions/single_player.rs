@@ -18,7 +18,7 @@ use crate::{
     app_outer::Backchannel,
     lil_bits::HandUI,
     utils::{
-        daily::persist_game,
+        daily::{persist_game_move, persist_game_retry, persist_game_win},
         game_evals::{best_move, get_main_dict, remember, WORDNIK},
         text::TextHelper,
         Lighten, Theme,
@@ -40,6 +40,7 @@ pub struct SinglePlayerState {
     debugging_npc: bool,
     weights: BoardWeights,
     waiting_on_backchannel: Option<String>,
+    header: HeaderType,
 }
 
 impl SinglePlayerState {
@@ -82,7 +83,7 @@ impl SinglePlayerState {
             map_texture.clone(),
             theme.clone(),
         );
-        active_game.ctx.header_visible = header;
+        active_game.ctx.header_visible = header.clone();
 
         Self {
             game,
@@ -97,13 +98,36 @@ impl SinglePlayerState {
             debugging_npc: false,
             weights: BoardWeights::default(),
             waiting_on_backchannel: None,
+            header,
         }
     }
 
     pub fn reset(&mut self, current_time: Duration) {
+        if let Some(seed) = &self.active_game.ctx.board_seed {
+            if seed.day.is_some() {
+                persist_game_retry(seed);
+                match &mut self.header {
+                    HeaderType::Summary {
+                        attempt: Some(attempt),
+                        ..
+                    } => {
+                        *attempt += 1;
+                    }
+                    _ => {}
+                };
+                return self.reset_to(seed.clone(), self.human_starts);
+            }
+        }
+
         let next_seed = (current_time.as_micros() % 243985691) as u32;
-        let mut game = Game::new(9, 9, Some(next_seed as u64));
-        self.human_starts = !self.human_starts;
+        let next_board_seed = BoardSeed::new(next_seed);
+
+        self.reset_to(next_board_seed, !self.human_starts);
+    }
+
+    pub fn reset_to(&mut self, seed: BoardSeed, human_starts: bool) {
+        let mut game = Game::new(9, 9, Some(seed.seed as u64));
+        self.human_starts = human_starts;
         if self.human_starts {
             game.add_player("You".into());
             game.add_player("Computer".into());
@@ -118,8 +142,7 @@ impl SinglePlayerState {
             game.players[1].color = GAME_COLORS[0];
         }
 
-        let next_board_seed = BoardSeed::new(next_seed);
-        let mut rand_board = truncate_core::generation::generate_board(next_board_seed.clone());
+        let mut rand_board = truncate_core::generation::generate_board(seed.clone());
         rand_board.cache_special_squares();
 
         game.board = rand_board;
@@ -127,7 +150,7 @@ impl SinglePlayerState {
 
         let mut active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
-            Some(next_board_seed),
+            Some(seed),
             game.players.iter().map(Into::into).collect(),
             if self.human_starts { 0 } else { 1 },
             0,
@@ -138,6 +161,7 @@ impl SinglePlayerState {
             self.map_texture.clone(),
             self.theme.clone(),
         );
+        active_game.ctx.header_visible = self.header.clone();
 
         self.game = game;
         self.active_game = active_game;
@@ -188,6 +212,11 @@ impl SinglePlayerState {
         match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
             Ok(winner) => {
                 self.winner = winner;
+                if winner == Some(human_player) {
+                    if let Some(seed) = &self.active_game.ctx.board_seed {
+                        persist_game_win(seed);
+                    }
+                }
 
                 let changes: Vec<_> = self
                     .game
@@ -525,7 +554,7 @@ impl SinglePlayerState {
             if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel) {
                 if let Some(seed) = &self.active_game.ctx.board_seed {
                     if seed.day.is_some() {
-                        persist_game(seed, next_move);
+                        persist_game_move(seed, next_move);
                     }
                 }
                 let delay = if battle_words.is_empty() { 200 } else { 1200 };

@@ -48,9 +48,11 @@ pub fn get_daily_puzzle(
     let seed = (local_seconds / (60 * 60 * 24)) as u32;
     let day = seed - 19673; // Nov 13, 2023
     let mut board_seed = BoardSeed::new(seed).day(day);
+    let persisted_moves = get_persistent_game(&board_seed);
     let mut header = HeaderType::Summary {
         title: format!("Truncate Town Day #{day}"),
         sentinel: '*',
+        attempt: Some(persisted_moves.attempts),
     };
     let mut human_starts = true;
 
@@ -60,6 +62,7 @@ pub fn get_daily_puzzle(
         header = HeaderType::Summary {
             title: format!("Truncate Town Day #{day}"),
             sentinel: '★',
+            attempt: Some(persisted_moves.attempts),
         };
         for _ in 0..notes.rerolls {
             board_seed.external_reroll();
@@ -82,11 +85,10 @@ pub fn get_daily_puzzle(
             game_state.active_game.ctx.header_visible = HeaderType::Summary {
                 title: format!("Truncate Town Day #{day}"),
                 sentinel: '¤',
+                attempt: Some(persisted_moves.attempts),
             };
         }
     }
-
-    let persisted_moves = get_persistent_game(&board_seed);
 
     let delay = game_state.game.rules.battle_delay;
     game_state.game.rules.battle_delay = 0;
@@ -103,10 +105,67 @@ pub fn get_daily_puzzle(
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PersistentGame {
+    pub won: bool,
+    pub attempts: usize,
     pub moves: Vec<Move>,
 }
 
-pub fn persist_game(seed: &BoardSeed, action: Move) {
+pub fn persist_game_retry(seed: &BoardSeed) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+
+        let key = format!("daily_{}", seed.seed);
+
+        let Ok(record) = local_storage.get_item(&key) else {
+            eprintln!("Localstorage was inaccessible");
+            return;
+        };
+
+        let mut current_game: PersistentGame = record
+            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
+            .unwrap_or_default();
+
+        current_game.attempts += 1;
+        current_game.moves = vec![];
+
+        local_storage
+            .set_item(
+                &key,
+                &serde_json::to_string(&current_game).expect("Our game should be serializable"),
+            )
+            .unwrap();
+    }
+}
+
+pub fn persist_game_win(seed: &BoardSeed) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+
+        let key = format!("daily_{}", seed.seed);
+
+        let Ok(record) = local_storage.get_item(&key) else {
+            eprintln!("Localstorage was inaccessible");
+            return;
+        };
+
+        let mut current_game: PersistentGame = record
+            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
+            .unwrap_or_default();
+
+        current_game.won = true;
+
+        local_storage
+            .set_item(
+                &key,
+                &serde_json::to_string(&current_game).expect("Our game should be serializable"),
+            )
+            .unwrap();
+    }
+}
+
+pub fn persist_game_move(seed: &BoardSeed, action: Move) {
     #[cfg(target_arch = "wasm32")]
     {
         let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -149,8 +208,9 @@ pub fn get_persistent_game(seed: &BoardSeed) -> PersistentGame {
             .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
             .unwrap_or_default();
 
-        current_game
+        return current_game;
     }
+    PersistentGame::default()
 }
 
 pub fn wipe_persistent_game(seed: &BoardSeed) {

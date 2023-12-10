@@ -37,7 +37,11 @@ pub struct HoveredRegion {
 #[derive(Clone)]
 pub enum HeaderType {
     Timers,
-    Summary { title: String, sentinel: char },
+    Summary {
+        title: String,
+        sentinel: char,
+        attempt: Option<usize>,
+    },
     None,
 }
 
@@ -256,7 +260,11 @@ impl ActiveGame {
 
                             ui.add_space(item_spacing);
                         }
-                        HeaderType::Summary { title, sentinel } => {
+                        HeaderType::Summary {
+                            title,
+                            sentinel,
+                            attempt,
+                        } => {
                             let summary_height = 50.0;
                             let (rect, _) = ui.allocate_exact_size(
                                 vec2(total_width, summary_height),
@@ -264,9 +272,17 @@ impl ActiveGame {
                             );
                             let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
+                            let attempt_str = match attempt {
+                                Some(attempt) if *attempt > 0 => {
+                                    format!("{} attempts  {}  ", attempt + 1, sentinel)
+                                }
+                                _ => "".to_string(),
+                            };
+
                             let summary = if let Some(game) = game_ref {
                                 format!(
-                                    "{} turn{}  {}  {} battle{}",
+                                    "{}{} turn{}  {}  {} battle{}",
+                                    attempt_str,
                                     game.player_turn_count[0],
                                     if game.player_turn_count[0] == 1 {
                                         ""
@@ -465,18 +481,35 @@ impl ActiveGame {
 
                     ui.add_space(10.0);
 
-                    if winner.is_some() {
-                        let text = TextHelper::heavy("REMATCH", 12.0, None, ui);
-                        if text
-                            .centered_button(
-                                theme.selection.lighten().lighten(),
-                                theme.text,
-                                &self.ctx.map_texture,
-                                ui,
-                            )
-                            .clicked()
-                        {
-                            msg = Some(PlayerMessage::Rematch);
+                    if let Some(winner) = winner {
+                        if let Some(BoardSeed { day: Some(_), .. }) = &self.ctx.board_seed {
+                            if winner as u64 != self.ctx.player_number {
+                                let text = TextHelper::heavy("TRY AGAIN", 12.0, None, ui);
+                                if text
+                                    .centered_button(
+                                        theme.selection.lighten().lighten(),
+                                        theme.text,
+                                        &self.ctx.map_texture,
+                                        ui,
+                                    )
+                                    .clicked()
+                                {
+                                    msg = Some(PlayerMessage::Rematch);
+                                }
+                            }
+                        } else {
+                            let text = TextHelper::heavy("REMATCH", 12.0, None, ui);
+                            if text
+                                .centered_button(
+                                    theme.selection.lighten().lighten(),
+                                    theme.text,
+                                    &self.ctx.map_texture,
+                                    ui,
+                                )
+                                .clicked()
+                            {
+                                msg = Some(PlayerMessage::Rematch);
+                            }
                         }
 
                         let msg = if self.share_copied {
@@ -508,11 +541,17 @@ impl ActiveGame {
                                 url_prefix = format!("https://{host}/#");
                             }
 
+                            let attempt = match self.ctx.header_visible {
+                                HeaderType::Summary { attempt, .. } => attempt,
+                                _ => None,
+                            };
+
                             let text = self.board.emojify(
                                 self.ctx.player_number as usize,
-                                winner,
+                                Some(winner),
                                 game_ref,
                                 self.ctx.board_seed.clone(),
+                                attempt,
                                 url_prefix,
                             );
 
