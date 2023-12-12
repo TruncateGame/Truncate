@@ -189,8 +189,11 @@ pub(crate) fn filter_to_player(
                 detail: BoardChangeDetail { coordinate, square },
                 action,
             }) => {
-                let relative_coord =
-                    full_board.map_game_coord_to_player(player_index, *coordinate, visibility);
+                let Some(relative_coord) =
+                    full_board.map_game_coord_to_player(player_index, *coordinate, visibility)
+                else {
+                    return None;
+                };
                 let relative_change = Change::Board(BoardChange {
                     detail: BoardChangeDetail {
                         square: square.clone(),

@@ -952,11 +952,11 @@ impl Board {
         player_index: usize,
         game_coordinate: Coordinate,
         visibility: &rules::Visibility,
-    ) -> Coordinate {
+    ) -> Option<Coordinate> {
         let foggy_board = match visibility {
             rules::Visibility::Standard | rules::Visibility::TileFog => {
                 // In these modes, the player knows the full coordinate space, so no remapping is required.
-                return game_coordinate;
+                return Some(game_coordinate);
             }
             rules::Visibility::LandFog => self.fog_of_war(player_index, visibility),
         };
@@ -964,10 +964,20 @@ impl Board {
         let redundant_player = foggy_board.redundant_edges();
         let redundant_global = self.redundant_edges();
 
-        Coordinate {
-            x: game_coordinate.x - (redundant_player.left - redundant_global.left),
-            y: game_coordinate.y - (redundant_player.top - redundant_global.top),
-        }
+        let Some(x) = game_coordinate
+            .x
+            .checked_sub(redundant_player.left - redundant_global.left)
+        else {
+            return None;
+        };
+        let Some(y) = game_coordinate
+            .y
+            .checked_sub(redundant_player.top - redundant_global.top)
+        else {
+            return None;
+        };
+
+        Some(Coordinate { x, y })
     }
 
     pub(crate) fn filter_to_player(
@@ -2150,7 +2160,7 @@ pub mod tests {
             assert_eq!(game_coord, Coordinate { x: 5, y: 5 });
             assert_eq!(
                 board.map_game_coord_to_player(0, game_coord, &rules::Visibility::LandFog),
-                source_coord
+                Some(source_coord)
             );
         }
         {
@@ -2175,7 +2185,7 @@ pub mod tests {
             assert_eq!(game_coord, Coordinate { x: 8, y: 7 });
             assert_eq!(
                 board.map_game_coord_to_player(1, game_coord, &rules::Visibility::LandFog),
-                source_coord
+                Some(source_coord)
             );
         }
     }
