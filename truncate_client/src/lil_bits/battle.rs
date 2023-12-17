@@ -218,6 +218,7 @@ impl<'a> BattleUI<'a> {
             // Instead, we render everything transparent and trigger an immediate re-render.
             let battle_rect = self.render_innards(false, false, prev_battle_storage, ctx, ui);
             // Save the sizing of our box for the next render pass to draw the background
+            // TODO: We can (maybe?) use Memory::area_rect now instead of tracking sizes ourselves
             ui.memory_mut(|m| {
                 m.data.insert_temp(
                     battle_id,

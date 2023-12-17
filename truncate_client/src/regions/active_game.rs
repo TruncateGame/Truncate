@@ -185,6 +185,7 @@ impl ActiveGame {
             .anchor(Align2::LEFT_TOP, vec2(timer_area.left(), timer_area.top()));
 
         let mut resp = area.show(ui.ctx(), |ui| {
+            // TODO: We can likely use Memory::area_rect now instead of tracking sizes ourselves
             if let Some(bg_rect) = self.ctx.headers_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
@@ -449,6 +450,7 @@ impl ActiveGame {
             .anchor(Align2::LEFT_BOTTOM, control_anchor);
 
         let resp = area.show(ui.ctx(), |ui| {
+            // TODO: We can likely use Memory::area_rect now instead of tracking sizes ourselves
             if let Some(bg_rect) = self.ctx.hand_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
