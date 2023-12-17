@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 type R = Receiver<GameMessage>;
 type S = Sender<PlayerMessage>;
 
-use super::debug;
 use super::utils::Theme;
 use crate::{app_inner, utils::glyph_meaure::GlyphMeasure};
 use eframe::egui::{self, Frame, Id, Margin, TextureOptions};
@@ -92,7 +91,6 @@ pub struct OuterApplication {
     pub game_status: app_inner::GameStatus,
     pub rx_game: R,
     pub tx_player: S,
-    pub frame_history: debug::FrameHistory,
     pub map_texture: TextureHandle,
     pub launched_room: Option<String>,
     pub error: Option<String>,
@@ -135,7 +133,7 @@ impl OuterApplication {
         cc.egui_ctx.set_fonts(fonts);
 
         cc.egui_ctx.memory_mut(|mem| {
-            mem.data.insert_temp(Id::null(), GlyphMeasure::new());
+            mem.data.insert_temp(Id::NULL, GlyphMeasure::new());
         });
 
         let mut game_status = app_inner::GameStatus::None("".into(), None);
@@ -192,7 +190,6 @@ impl OuterApplication {
             game_status,
             rx_game,
             tx_player,
-            frame_history: Default::default(),
             map_texture: load_map_texture(&cc.egui_ctx),
             launched_room: room_code,
             error: None,
@@ -261,16 +258,9 @@ impl eframe::App for OuterApplication {
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("Please don't play Truncate earlier than 1970");
 
-        self.frame_history
-            .on_new_frame(ctx.input(|i| i.time), _frame.info().cpu_usage);
-
         egui::CentralPanel::default()
             .frame(Frame::default().fill(self.theme.water))
-            .show(ctx, |ui| {
-                // Show debug timings in-app
-                // self.frame_history.ui(ui);
-                app_inner::render(self, ui, current_time)
-            });
+            .show(ctx, |ui| app_inner::render(self, ui, current_time));
 
         let subsec = current_time.subsec_millis();
         // In-game animations should try align with the quarter-second tick,

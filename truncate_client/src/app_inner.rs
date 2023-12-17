@@ -45,7 +45,6 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         game_status,
         rx_game,
         tx_player,
-        frame_history: _,
         map_texture,
         launched_room,
         error,

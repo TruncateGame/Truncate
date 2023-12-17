@@ -63,7 +63,15 @@ impl<'a> HandUI<'a> {
                 for (i, char) in self.hand.iter().enumerate() {
                     HandSquareUI::new().render(ui, ctx, |ui, ctx| {
                         let tile_id = Id::new("Hand").with(i).with(char);
-                        let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(tile_id));
+                        let mut is_being_dragged = ui.memory(|mem| mem.is_being_dragged(tile_id));
+                        let is_decidedly_dragging =
+                            ui.ctx().input(|inp| inp.pointer.is_decidedly_dragging());
+
+                        // Bail out of a drag if we're not "decidedly dragging",
+                        // as this could instead be just a click.
+                        if is_being_dragged && !is_decidedly_dragging {
+                            is_being_dragged = false;
+                        }
 
                         let highlight = if let Some(highlights) = highlights.as_mut() {
                             if let Some(c) = highlights.iter().position(|c| c == char) {
@@ -103,7 +111,7 @@ impl<'a> HandUI<'a> {
                                 0.0,
                                 0.0,
                             );
-                        } else if tile_response.drag_released() {
+                        } else if tile_response.drag_released() && is_decidedly_dragging {
                             if let Some(HoveredRegion {
                                 coord: Some(coord), ..
                             }) = ctx.hovered_tile_on_board
@@ -115,7 +123,7 @@ impl<'a> HandUI<'a> {
 
                         if is_being_dragged {
                             let drag_id: Duration = ui
-                                .memory_mut(|mem| mem.data.get_temp(tile_id))
+                                .memory(|mem| mem.data.get_temp(tile_id))
                                 .unwrap_or_default();
 
                             // There is definitely a better way to do this, but this works for now.
@@ -167,9 +175,8 @@ impl<'a> HandUI<'a> {
 
                                 let delta =
                                     pointer_pos + vec2(0.0, bounce_offset) - response.rect.center();
-                                let original_delta: Vec2 = ui.memory_mut(|mem| {
-                                    mem.data.get_temp(tile_id).unwrap_or_default()
-                                });
+                                let original_delta: Vec2 =
+                                    ui.memory(|mem| mem.data.get_temp(tile_id).unwrap_or_default());
                                 delta - original_delta
                             } else {
                                 vec2(0.0, 0.0)
