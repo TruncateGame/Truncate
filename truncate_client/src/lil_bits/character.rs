@@ -138,8 +138,7 @@ impl CharacterUI {
                 0.0,
                 egui::Vec2::new(
                     (rect.width() - galley.size().x) * 0.5 + charshift.x * theme.letter_size,
-                    (rect.height() - galley.mesh_bounds.height()) * 0.5
-                        + charshift.y * 2.0 * theme.letter_size,
+                    (rect.height() - galley.mesh_bounds.height()) * 0.5,
                 ),
             ),
             CharacterOrient::East => unimplemented!("Render Sideways characters"),
@@ -148,9 +147,10 @@ impl CharacterUI {
                 egui::Vec2::new(
                     galley.size().x + (rect.width() - galley.size().x) * 0.5
                         - charshift.x * theme.letter_size,
-                    galley.size().y
-                        + (rect.height() - galley.mesh_bounds.height()) * -0.5
-                        + charshift.y * 2.0 * theme.letter_size,
+                    // 0.4 centers the tile better when upside down, though logically it should be 0.5
+                    // (our centering and egui's centering are scuffling a little bit here)
+                    galley.mesh_bounds.height()
+                        + (rect.height() - galley.mesh_bounds.height()) * 0.4,
                 ),
             ),
             CharacterOrient::West => unimplemented!("Render Sideways characters"),
