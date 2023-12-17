@@ -150,6 +150,18 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 header,
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+        } else if launched_room == "DEBUG_BEHEMOTH" {
+            let behemoth_board = Board::from_string(include_str!("../tutorials/test_board.txt"));
+            let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
+            let behemoth_game = SinglePlayerState::new(
+                map_texture.clone(),
+                theme.clone(),
+                behemoth_board,
+                Some(seed_for_hand_tiles),
+                true,
+                HeaderType::Timers,
+            );
+            new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
             send(PlayerMessage::NewGame(name.clone()));
@@ -233,6 +245,20 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     map_texture.clone(),
                     current_time,
                 )));
+            }
+            if ui.button("Behemoth").clicked() {
+                let behemoth_board =
+                    Board::from_string(include_str!("../tutorials/test_board.txt"));
+                let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
+                let behemoth_game = SinglePlayerState::new(
+                    map_texture.clone(),
+                    theme.clone(),
+                    behemoth_board,
+                    Some(seed_for_hand_tiles),
+                    true,
+                    HeaderType::Timers,
+                );
+                new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
             }
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
