@@ -155,8 +155,7 @@ struct BattleUIState {
 impl<'a> BattleUI<'a> {
     pub fn render(self, ctx: &GameCtx, ui: &mut egui::Ui) {
         let battle_id = Id::new("battle").with(self.battle.battle_number.unwrap_or_default());
-        let prev_battle_storage: Option<BattleUIState> =
-            ui.memory_mut(|m| m.data.get_temp(battle_id));
+        let prev_battle_storage: Option<BattleUIState> = ui.memory(|m| m.data.get_temp(battle_id));
 
         // Paint the background dialog based on the size of the battle last frame
         if let Some(BattleUIState {

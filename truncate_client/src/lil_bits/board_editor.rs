@@ -186,9 +186,7 @@ impl<'a> EditorUI<'a> {
                             }
 
                             if ui.rect_contains_pointer(response.rect) {
-                                // TODO: This shouldn't be mut
-                                // https://github.com/emilk/egui/issues/2741
-                                let drag_action = ui.memory_mut(|mem| {
+                                let drag_action = ui.memory(|mem| {
                                     if mem.is_anything_being_dragged() {
                                         mem.data.get_temp::<EditorDrag>(Id::NULL)
                                     } else {

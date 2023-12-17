@@ -123,7 +123,7 @@ impl<'a> HandUI<'a> {
 
                         if is_being_dragged {
                             let drag_id: Duration = ui
-                                .memory_mut(|mem| mem.data.get_temp(tile_id))
+                                .memory(|mem| mem.data.get_temp(tile_id))
                                 .unwrap_or_default();
 
                             // There is definitely a better way to do this, but this works for now.
@@ -175,9 +175,8 @@ impl<'a> HandUI<'a> {
 
                                 let delta =
                                     pointer_pos + vec2(0.0, bounce_offset) - response.rect.center();
-                                let original_delta: Vec2 = ui.memory_mut(|mem| {
-                                    mem.data.get_temp(tile_id).unwrap_or_default()
-                                });
+                                let original_delta: Vec2 =
+                                    ui.memory(|mem| mem.data.get_temp(tile_id).unwrap_or_default());
                                 delta - original_delta
                             } else {
                                 vec2(0.0, 0.0)
