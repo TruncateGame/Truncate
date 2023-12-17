@@ -116,16 +116,7 @@ impl<'a> TextHelper<'a> {
             ui.allocate_exact_size(vec2(text_size.x, text_size.y), Sense::hover())
         };
 
-        let mut offset = (text_rect.size() - text_size) / 2.0;
-
-        // Recenter the font to strict glyph bounds
-        if self.font == "Truncate-Heavy" {
-            // TODO: Don't calculate this every frame
-            let glyph_measure: GlyphMeasure = ui.memory(|mem| mem.data.get_temp(Id::NULL).unwrap());
-            let char_height = glyph_measure.measure(self.original_text.chars().next().unwrap());
-            offset.y += char_height.y * 2.0 * self.size;
-        }
-
+        let offset = (text_rect.size() - text_size) / 2.0;
         self.paint_at(text_rect.min + offset, color, ui);
 
         text_resp
@@ -244,16 +235,7 @@ impl<'a> TextHelper<'a> {
             ui,
         );
 
-        let mut offset = (button_rect.size() - text_size) / 2.0;
-
-        // Recenter the font to strict glyph bounds
-        if self.font == "Truncate-Heavy" {
-            // TODO: Don't calculate this every frame
-            let glyph_measure: GlyphMeasure = ui.memory(|mem| mem.data.get_temp(Id::NULL).unwrap());
-            let char_height = glyph_measure.measure(self.original_text.chars().next().unwrap());
-            offset.y += char_height.y * 2.0 * self.size;
-        }
-
+        let offset = (button_rect.size() - text_size) / 2.0;
         self.paint_at(button_rect.min + offset, text_color, ui);
 
         button_resp
