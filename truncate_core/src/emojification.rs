@@ -24,6 +24,7 @@ impl Board {
         won: Option<usize>,
         game: Option<&Game>,
         seed: Option<BoardSeed>,
+        attempts: Option<usize>,
         url_prefix: String,
     ) -> String {
         let player_won = won == Some(player);
@@ -117,9 +118,16 @@ impl Board {
             "".to_string()
         };
 
+        let attempt_str = match attempts {
+            Some(0) => format!(" first try"),
+            Some(n) => format!(" on attempt #{}", n + 1),
+            None => "".to_string(),
+        };
+
         let counts = if let Some(game) = game {
             format!(
-                " in {} turn{}, {} battle{}",
+                "{} in {} turn{}, {} battle{}",
+                attempt_str,
                 game.player_turn_count[player],
                 if game.player_turn_count[player] == 1 {
                     ""

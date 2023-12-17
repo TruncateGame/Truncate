@@ -320,7 +320,7 @@ impl<'a> BattleUI<'a> {
                         )
                         .paint(ctx.theme.text, ui, false),
                         (Some(true), _) => TextHelper::light(
-                            "Definition unknown",
+                            "Definition not found",
                             24.0,
                             Some(ui.available_width()),
                             ui,

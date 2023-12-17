@@ -102,7 +102,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 current_time,
             )));
         } else if launched_room == "DAILY_PUZZLE" {
-            let puzzle_game = get_daily_puzzle(current_time, map_texture, theme);
+            let puzzle_game = get_daily_puzzle(current_time, map_texture, theme, backchannel);
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room == "RANDOM_PUZZLE" {
             let seed = (current_time.as_micros() % 243985691) as u32;
@@ -111,6 +111,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let header = HeaderType::Summary {
                 title: format!("Random Puzzle"),
                 sentinel: '•',
+                attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),
@@ -139,6 +140,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let header = HeaderType::Summary {
                 title: format!("Truncate Puzzle {generation}:{seed}"),
                 sentinel: '•',
+                attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),

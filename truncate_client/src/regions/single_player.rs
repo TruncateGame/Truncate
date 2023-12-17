@@ -18,6 +18,7 @@ use crate::{
     app_outer::Backchannel,
     lil_bits::HandUI,
     utils::{
+        daily::{persist_game_move, persist_game_retry, persist_game_win},
         game_evals::{best_move, get_main_dict, remember, WORDNIK},
         text::TextHelper,
         Lighten, Theme,
@@ -39,6 +40,7 @@ pub struct SinglePlayerState {
     debugging_npc: bool,
     weights: BoardWeights,
     waiting_on_backchannel: Option<String>,
+    header: HeaderType,
 }
 
 impl SinglePlayerState {
@@ -81,7 +83,7 @@ impl SinglePlayerState {
             map_texture.clone(),
             theme.clone(),
         );
-        active_game.ctx.header_visible = header;
+        active_game.ctx.header_visible = header.clone();
 
         Self {
             game,
@@ -96,13 +98,36 @@ impl SinglePlayerState {
             debugging_npc: false,
             weights: BoardWeights::default(),
             waiting_on_backchannel: None,
+            header,
         }
     }
 
     pub fn reset(&mut self, current_time: Duration) {
+        if let Some(seed) = &self.active_game.ctx.board_seed {
+            if seed.day.is_some() {
+                persist_game_retry(seed);
+                match &mut self.header {
+                    HeaderType::Summary {
+                        attempt: Some(attempt),
+                        ..
+                    } => {
+                        *attempt += 1;
+                    }
+                    _ => {}
+                };
+                return self.reset_to(seed.clone(), self.human_starts);
+            }
+        }
+
         let next_seed = (current_time.as_micros() % 243985691) as u32;
-        let mut game = Game::new(9, 9, Some(next_seed as u64));
-        self.human_starts = !self.human_starts;
+        let next_board_seed = BoardSeed::new(next_seed);
+
+        self.reset_to(next_board_seed, !self.human_starts);
+    }
+
+    pub fn reset_to(&mut self, seed: BoardSeed, human_starts: bool) {
+        let mut game = Game::new(9, 9, Some(seed.seed as u64));
+        self.human_starts = human_starts;
         if self.human_starts {
             game.add_player("You".into());
             game.add_player("Computer".into());
@@ -117,8 +142,7 @@ impl SinglePlayerState {
             game.players[1].color = GAME_COLORS[0];
         }
 
-        let next_board_seed = BoardSeed::new(next_seed);
-        let mut rand_board = truncate_core::generation::generate_board(next_board_seed.clone());
+        let mut rand_board = truncate_core::generation::generate_board(seed.clone());
         rand_board.cache_special_squares();
 
         game.board = rand_board;
@@ -126,7 +150,7 @@ impl SinglePlayerState {
 
         let mut active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
-            Some(next_board_seed),
+            Some(seed),
             game.players.iter().map(Into::into).collect(),
             if self.human_starts { 0 } else { 1 },
             0,
@@ -137,6 +161,7 @@ impl SinglePlayerState {
             self.map_texture.clone(),
             self.theme.clone(),
         );
+        active_game.ctx.header_visible = self.header.clone();
 
         self.game = game;
         self.active_game = active_game;
@@ -169,6 +194,101 @@ impl SinglePlayerState {
                     }
                 }
             });
+    }
+
+    pub fn handle_move(
+        &mut self,
+        next_move: Move,
+        backchannel: &Backchannel,
+    ) -> Result<Vec<String>, ()> {
+        let human_player = if self.human_starts { 0 } else { 1 };
+        let npc_player = if self.human_starts { 1 } else { 0 };
+        self.turns += 1;
+        let dict_lock = get_main_dict();
+        let dict = dict_lock.as_ref().unwrap();
+
+        // When actually playing the turn, make sure we pass in the real dict
+        // for both the attack and defense roles.
+        match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
+            Ok(winner) => {
+                self.winner = winner;
+                if winner == Some(human_player) {
+                    if let Some(seed) = &self.active_game.ctx.board_seed {
+                        persist_game_win(seed);
+                    }
+                }
+
+                let changes: Vec<_> = self
+                    .game
+                    .recent_changes
+                    .clone()
+                    .into_iter()
+                    .filter(|change| match change {
+                        truncate_core::reporting::Change::Board(_) => true,
+                        truncate_core::reporting::Change::Hand(hand_change) => {
+                            hand_change.player == human_player
+                        }
+                        truncate_core::reporting::Change::Battle(_) => true,
+                        truncate_core::reporting::Change::Time(_) => true,
+                    })
+                    .collect();
+
+                let battle_words: Vec<_> = changes
+                    .iter()
+                    .filter_map(|change| {
+                        if let truncate_core::reporting::Change::Battle(battle) = change {
+                            Some(battle)
+                        } else {
+                            None
+                        }
+                    })
+                    .flat_map(|b| b.attackers.iter().chain(b.defenders.iter()))
+                    .map(|b| b.resolved_word.clone())
+                    .collect();
+
+                // Need to release our dict mutex, so that
+                // the remember() function below can lock it itself.
+                drop(dict_lock);
+
+                // NPC learns words as a result of battles that reveal validity
+                for battle in changes.iter().filter_map(|change| match change {
+                    truncate_core::reporting::Change::Battle(battle) => Some(battle),
+                    _ => None,
+                }) {
+                    for word in battle.attackers.iter().chain(battle.defenders.iter()) {
+                        if word.valid == Some(true) {
+                            let dict_word = word.original_word.to_lowercase();
+
+                            if backchannel.is_open() {
+                                backchannel.send_msg(crate::app_outer::BackchannelMsg::Remember {
+                                    word: dict_word,
+                                });
+                            } else {
+                                remember(&dict_word);
+                            }
+                        }
+                    }
+                }
+
+                let ctx = &self.active_game.ctx;
+                let state_message = GameStateMessage {
+                    room_code: ctx.room_code.clone(),
+                    players: self.game.players.iter().map(Into::into).collect(),
+                    player_number: human_player as u64,
+                    next_player_number: self.game.next_player as u64,
+                    board: self.game.board.clone(),
+                    hand: self.game.players[human_player].hand.clone(),
+                    changes,
+                };
+                self.active_game.apply_new_state(state_message);
+
+                return Ok(battle_words);
+            }
+            Err(msg) => {
+                self.active_game.ctx.error_msg = Some(msg);
+                return Err(());
+            }
+        }
     }
 
     pub fn render(
@@ -431,100 +551,26 @@ impl SinglePlayerState {
         };
 
         if let Some(next_move) = next_move {
-            self.turns += 1;
-            let dict_lock = get_main_dict();
-            let dict = dict_lock.as_ref().unwrap();
-
-            // When actually playing the turn, make sure we pass in the real dict
-            // for both the attack and defense roles.
-            match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
-                Ok(winner) => {
-                    self.winner = winner;
-
-                    let changes: Vec<_> = self
-                        .game
-                        .recent_changes
-                        .clone()
-                        .into_iter()
-                        .filter(|change| match change {
-                            truncate_core::reporting::Change::Board(_) => true,
-                            truncate_core::reporting::Change::Hand(hand_change) => {
-                                hand_change.player == human_player
-                            }
-                            truncate_core::reporting::Change::Battle(_) => true,
-                            truncate_core::reporting::Change::Time(_) => true,
-                        })
-                        .collect();
-
-                    let battle_words: Vec<_> = changes
-                        .iter()
-                        .filter_map(|change| {
-                            if let truncate_core::reporting::Change::Battle(battle) = change {
-                                Some(battle)
-                            } else {
-                                None
-                            }
-                        })
-                        .flat_map(|b| b.attackers.iter().chain(b.defenders.iter()))
-                        .map(|b| b.resolved_word.clone())
-                        .collect();
-
-                    // Need to release our dict mutex, so that
-                    // the remember() function below can lock it itself.
-                    drop(dict_lock);
-
-                    // NPC learns words as a result of battles that reveal validity
-                    for battle in changes.iter().filter_map(|change| match change {
-                        truncate_core::reporting::Change::Battle(battle) => Some(battle),
-                        _ => None,
-                    }) {
-                        for word in battle.attackers.iter().chain(battle.defenders.iter()) {
-                            if word.valid == Some(true) {
-                                let dict_word = word.original_word.to_lowercase();
-
-                                if backchannel.is_open() {
-                                    backchannel.send_msg(
-                                        crate::app_outer::BackchannelMsg::Remember {
-                                            word: dict_word,
-                                        },
-                                    );
-                                } else {
-                                    remember(&dict_word);
-                                }
-                            }
-                        }
+            if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel) {
+                if let Some(seed) = &self.active_game.ctx.board_seed {
+                    if seed.day.is_some() {
+                        persist_game_move(seed, next_move);
                     }
-
-                    let ctx = &self.active_game.ctx;
-                    let state_message = GameStateMessage {
-                        room_code: ctx.room_code.clone(),
-                        players: self.game.players.iter().map(Into::into).collect(),
-                        player_number: human_player as u64,
-                        next_player_number: self.game.next_player as u64,
-                        board: self.game.board.clone(),
-                        hand: self.game.players[human_player].hand.clone(),
-                        changes,
-                    };
-                    self.active_game.apply_new_state(state_message);
-
-                    let delay = if battle_words.is_empty() { 200 } else { 1200 };
-
-                    if !battle_words.is_empty() {
-                        msg_to_server = Some(PlayerMessage::RequestDefinitions(battle_words));
-                    }
-
-                    self.next_response_at = Some(
-                        self.active_game
-                            .ctx
-                            .current_time
-                            .saturating_add(Duration::from_millis(delay)),
-                    );
-                    ui.ctx()
-                        .request_repaint_after(Duration::from_millis(delay / 2));
                 }
-                Err(msg) => {
-                    self.active_game.ctx.error_msg = Some(msg);
+                let delay = if battle_words.is_empty() { 200 } else { 1200 };
+
+                if !battle_words.is_empty() {
+                    msg_to_server = Some(PlayerMessage::RequestDefinitions(battle_words));
                 }
+
+                self.next_response_at = Some(
+                    self.active_game
+                        .ctx
+                        .current_time
+                        .saturating_add(Duration::from_millis(delay)),
+                );
+                ui.ctx()
+                    .request_repaint_after(Duration::from_millis(delay / 2));
             }
         }
 
