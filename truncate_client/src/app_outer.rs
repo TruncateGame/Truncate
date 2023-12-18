@@ -186,7 +186,12 @@ impl OuterApplication {
         #[cfg(not(target_arch = "wasm32"))]
         let backchannel = Backchannel::new();
 
+        #[cfg(not(target_arch = "wasm32"))]
         setup_repaint_truncate_animations(cc.egui_ctx.clone());
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(setup_repaint_truncate_animations_web(
+            cc.egui_ctx.clone(),
+        ));
 
         Self {
             name: player_name,
@@ -264,6 +269,10 @@ impl eframe::App for OuterApplication {
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("Please don't play Truncate earlier than 1970");
 
+        println!("Painting at {}", current_time.subsec_millis());
+        #[cfg(target_arch = "wasm32")]
+        web_sys::console::log_1(&format!("Painting at {}", current_time.subsec_millis()).into());
+
         egui::CentralPanel::default()
             .frame(Frame::default().fill(self.theme.water))
             .show(ctx, |ui| app_inner::render(self, ui, current_time));
@@ -275,7 +284,8 @@ impl eframe::App for OuterApplication {
     }
 }
 
-pub fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread::JoinHandle<()> {
+#[cfg(not(target_arch = "wasm32"))]
+fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || loop {
         let current_time = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
@@ -289,6 +299,22 @@ pub fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread
         std::thread::sleep(instant::Duration::from_millis(next_tick as u64));
         egui_ctx.request_repaint();
     })
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn setup_repaint_truncate_animations_web(egui_ctx: egui::Context) {
+    loop {
+        let current_time = instant::SystemTime::now()
+            .duration_since(instant::SystemTime::UNIX_EPOCH)
+            .expect("Please don't play Truncate earlier than 1970");
+
+        let subsec = current_time.subsec_millis();
+        // In-game animations should try align with the quarter-second tick,
+        // so we try to repaint around that tick to keep them looking consistent.
+        let next_tick = 250 - (subsec % 250);
+        gloo_timers::future::TimeoutFuture::new(next_tick).await;
+        egui_ctx.request_repaint();
+    }
 }
 
 mod debug {
