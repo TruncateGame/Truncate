@@ -18,7 +18,7 @@ use crate::{
     app_outer::Backchannel,
     lil_bits::HandUI,
     utils::{
-        daily::{persist_game_move, persist_game_retry, persist_game_win},
+        daily::{persist_game_move, persist_game_retry, persist_game_win, persist_stats},
         game_evals::{best_move, get_main_dict, remember, WORDNIK},
         text::TextHelper,
         Lighten, Theme,
@@ -555,6 +555,12 @@ impl SinglePlayerState {
                 if let Some(seed) = &self.active_game.ctx.board_seed {
                     if seed.day.is_some() {
                         persist_game_move(seed, next_move);
+                        let attempt = match self.header {
+                            HeaderType::Summary { attempt, .. } => attempt,
+                            _ => None,
+                        }
+                        .unwrap_or_default();
+                        persist_stats(seed, &self.game, human_player, attempt);
                     }
                 }
                 let delay = if battle_words.is_empty() { 200 } else { 1200 };

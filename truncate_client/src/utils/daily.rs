@@ -5,18 +5,27 @@ use epaint::TextureHandle;
 use instant::Duration;
 use serde::{Deserialize, Serialize};
 use truncate_core::{
+    board::Square,
+    game::Game,
     generation::{generate_board, get_game_verification, BoardSeed},
     moves::Move,
+    player,
+    reporting::{BoardChange, BoardChangeAction, BoardChangeDetail},
 };
 
 use crate::{
     app_outer::Backchannel,
-    regions::{active_game::HeaderType, single_player::SinglePlayerState},
+    regions::{
+        active_game::{ActiveGame, HeaderType},
+        single_player::SinglePlayerState,
+    },
 };
 
-use super::Theme;
+use super::{game_evals::get_main_dict, Theme};
 
 const SEED_NOTES: &[u8] = include_bytes!("../../../truncate_dueller/seed_notes.yml");
+// Nov 13, 2023
+const DAILY_PUZZLE_DAY_ZERO: usize = 19673;
 
 /**
  * TODO: Store NotesFile and SeedNote type definitions in a common crate
@@ -46,7 +55,7 @@ pub fn get_daily_puzzle(
     let seconds_offset = chrono::Local::now().offset().fix().local_minus_utc();
     let local_seconds = current_time.as_secs() as i32 + seconds_offset;
     let seed = (local_seconds / (60 * 60 * 24)) as u32;
-    let day = seed - 19673; // Nov 13, 2023
+    let day = seed - DAILY_PUZZLE_DAY_ZERO as u32;
     let mut board_seed = BoardSeed::new(seed).day(day);
     let persisted_moves = get_persistent_game(&board_seed);
     let mut header = HeaderType::Summary {
@@ -224,4 +233,124 @@ pub fn wipe_persistent_game(seed: &BoardSeed) {
     }
 }
 
-pub fn record_result() {}
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct DailyResult {
+    pub winning_move_count: Option<u32>,
+    pub attempts: u32,
+    pub battles: u32,
+    pub largest_attack_destruction: u32,
+    pub longest_word: Option<String>,
+}
+
+#[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
+pub struct DailyStats {
+    pub days: BTreeMap<u32, DailyResult>,
+}
+
+pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt: usize) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let Some(relative_day) = seed.day else {
+            return;
+        };
+        let storage_key = "daily_puzzle_stats";
+
+        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let Ok(stored_stats) = local_storage.get_item(storage_key) else {
+            eprintln!("Localstorage was inaccessible");
+            return;
+        };
+        let mut stats: DailyStats = stored_stats
+            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
+            .unwrap_or_default();
+
+        let today = stats.days.entry(relative_day).or_default();
+
+        let attempt = attempt as u32;
+        if today.attempts != attempt {
+            today.attempts = attempt;
+            *today = DailyResult {
+                attempts: attempt,
+                ..DailyResult::default()
+            };
+        }
+
+        today.winning_move_count = if game.winner == Some(human_player) {
+            Some(game.player_turn_count[human_player])
+        } else {
+            None
+        };
+        today.battles = game.battle_count;
+
+        let recent_attack_destruction = game
+            .recent_changes
+            .iter()
+            .filter(|change| {
+                use truncate_core::reporting::Change::Board;
+                match change {
+                    Board(BoardChange {
+                        detail:
+                            BoardChangeDetail {
+                                square: Square::Occupied(player, _),
+                                ..
+                            },
+                        action: BoardChangeAction::Defeated | BoardChangeAction::Truncated,
+                    }) if *player != human_player => true,
+                    _ => false,
+                }
+            })
+            .count();
+
+        today.largest_attack_destruction = today
+            .largest_attack_destruction
+            .max(recent_attack_destruction as u32);
+
+        let new_player_tile = game.recent_changes.iter().find_map(|change| {
+            use truncate_core::reporting::Change::Board;
+            match change {
+                Board(BoardChange {
+                    detail:
+                        BoardChangeDetail {
+                            square: Square::Occupied(player, _),
+                            coordinate,
+                        },
+                    action: BoardChangeAction::Added,
+                }) if *player == human_player => Some(coordinate),
+                _ => None,
+            }
+        });
+        if let Some(new_player_tile) = new_player_tile {
+            let word_coords = game.board.get_words(*new_player_tile);
+            let dict_lock = get_main_dict();
+            let dict = dict_lock.as_ref().unwrap();
+            if let Ok(words) = game.board.word_strings(&word_coords) {
+                words
+                    .into_iter()
+                    .filter(|word| {
+                        game.judge
+                            .valid(
+                                &word,
+                                &game.rules.win_condition,
+                                Some(dict),
+                                None,
+                                &mut None,
+                            )
+                            .is_some()
+                    })
+                    .for_each(|word| {
+                        let prev_longest = today.longest_word.get_or_insert_with(|| word.clone());
+                        if word.len() > prev_longest.len() {
+                            *prev_longest = word;
+                        }
+                    });
+            }
+        }
+
+        local_storage
+            .set_item(
+                storage_key,
+                &serde_json::to_string(&stats).expect("Our stats should be serializable"),
+            )
+            .unwrap();
+    }
+}
