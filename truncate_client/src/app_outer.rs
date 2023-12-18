@@ -95,6 +95,8 @@ pub struct OuterApplication {
     pub launched_room: Option<String>,
     pub error: Option<String>,
     pub backchannel: Backchannel,
+    pub log_frames: bool,
+    pub frames: debug::FrameHistory,
 }
 
 impl OuterApplication {
@@ -164,7 +166,7 @@ impl OuterApplication {
             style.text_styles = [
                 (Heading, FontId::new(32.0, FontFamily::Proportional)),
                 (Body, FontId::new(16.0, FontFamily::Proportional)),
-                (Monospace, FontId::new(16.0, FontFamily::Monospace)),
+                (Monospace, FontId::new(10.0, FontFamily::Monospace)),
                 (Button, FontId::new(16.0, FontFamily::Proportional)),
                 (Small, FontId::new(8.0, FontFamily::Proportional)),
             ]
@@ -184,6 +186,8 @@ impl OuterApplication {
         #[cfg(not(target_arch = "wasm32"))]
         let backchannel = Backchannel::new();
 
+        setup_repaint_truncate_animations(cc.egui_ctx.clone());
+
         Self {
             name: player_name,
             theme,
@@ -194,6 +198,8 @@ impl OuterApplication {
             launched_room: room_code,
             error: None,
             backchannel,
+            log_frames: false,
+            frames: debug::FrameHistory::default(),
         }
     }
 }
@@ -247,7 +253,7 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
 }
 
 impl eframe::App for OuterApplication {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // We have to go through the instant crate as
         // most std time functions are not implemented
         // in Rust's wasm targets.
@@ -262,11 +268,71 @@ impl eframe::App for OuterApplication {
             .frame(Frame::default().fill(self.theme.water))
             .show(ctx, |ui| app_inner::render(self, ui, current_time));
 
+        if self.log_frames {
+            self.frames
+                .on_new_frame(ctx.input(|i| i.time), frame.info().cpu_usage);
+        }
+    }
+}
+
+pub fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || loop {
+        let current_time = instant::SystemTime::now()
+            .duration_since(instant::SystemTime::UNIX_EPOCH)
+            .expect("Please don't play Truncate earlier than 1970");
+
         let subsec = current_time.subsec_millis();
         // In-game animations should try align with the quarter-second tick,
         // so we try to repaint around that tick to keep them looking consistent.
         // (Adding an extra millisecond so we don't have to worry about `> 250` vs `>= 250`)
         let next_tick = 251 - (subsec % 250);
-        ctx.request_repaint_after(std::time::Duration::from_millis(next_tick as u64));
+        std::thread::sleep(instant::Duration::from_millis(next_tick as u64));
+        egui_ctx.request_repaint();
+    })
+}
+
+mod debug {
+    use super::*;
+    use egui::util::History;
+
+    pub struct FrameHistory {
+        frame_times: History<f32>,
+    }
+
+    impl Default for FrameHistory {
+        fn default() -> Self {
+            let max_age: f32 = 5.0;
+            let max_len = (max_age * 300.0).round() as usize;
+            Self {
+                frame_times: History::new(100..max_len, max_age),
+            }
+        }
+    }
+
+    impl FrameHistory {
+        // Called first
+        pub fn on_new_frame(&mut self, now: f64, previous_frame_time: Option<f32>) {
+            let previous_frame_time = previous_frame_time.unwrap_or_default();
+            if let Some(latest) = self.frame_times.latest_mut() {
+                *latest = previous_frame_time; // rewrite history now that we know
+            }
+            self.frame_times.add(now, previous_frame_time); // projected
+        }
+
+        pub fn mean_frame_time(&self) -> f32 {
+            self.frame_times.average().unwrap_or_default()
+        }
+
+        pub fn ui(&mut self, ui: &mut egui::Ui) {
+            ui.label(format!(
+                "Mean CPU usage: {:.2} ms / frame",
+                1e3 * self.mean_frame_time()
+            ))
+            .on_hover_text(
+                "Includes egui layout and tessellation time.\n\
+            Does not include GPU usage, nor overhead for sending data to GPU.",
+            );
+            egui::warn_if_debug_build(ui);
+        }
     }
 }
