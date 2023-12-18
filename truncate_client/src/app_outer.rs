@@ -213,14 +213,19 @@ pub struct TextureMeasurement {
     pub num_tiles_x: usize,
     pub num_tiles_y: usize,
     pub outer_tile_width: f32,
+    pub outer_tile_width_px: usize,
     pub outer_tile_height: f32,
+    pub outer_tile_height_px: usize,
     pub inner_tile_width: f32,
+    pub inner_tile_width_px: usize,
     pub inner_tile_height: f32,
+    pub inner_tile_height_px: usize,
     pub x_padding_pct: f32,
     pub y_padding_pct: f32,
 }
 
 pub static TEXTURE_MEASUREMENT: OnceLock<TextureMeasurement> = OnceLock::new();
+pub static TEXTURE_IMAGE: OnceLock<egui::ColorImage> = OnceLock::new();
 
 fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
     let image_bytes = include_bytes!("../img/truncate_packed.png");
@@ -231,8 +236,8 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
 
     let num_tiles_x = (image.width() / 18) as usize;
     let num_tiles_y = (image.height() / 18) as usize;
-    let outer_tile_width = (1.0 / num_tiles_x as f32);
-    let outer_tile_height = (1.0 / num_tiles_y as f32);
+    let outer_tile_width = 1.0 / num_tiles_x as f32;
+    let outer_tile_height = 1.0 / num_tiles_y as f32;
     let x_padding_pct = outer_tile_width / 18.0;
     let y_padding_pct = outer_tile_height / 18.0;
     let inner_tile_width = outer_tile_width - (x_padding_pct * 2.0);
@@ -242,9 +247,13 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
         num_tiles_x,
         num_tiles_y,
         outer_tile_width,
+        outer_tile_width_px: 18,
         outer_tile_height,
+        outer_tile_height_px: 18,
         inner_tile_width,
+        inner_tile_width_px: 16,
         inner_tile_height,
+        inner_tile_height_px: 16,
         x_padding_pct,
         y_padding_pct,
     };
@@ -253,6 +262,7 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
     let image_buffer = image.to_rgba8();
     let pixels = image_buffer.as_flat_samples();
     let image = egui::ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());
+    _ = TEXTURE_IMAGE.set(image.clone());
 
     ctx.load_texture("tiles", image, TextureOptions::NEAREST)
 }
