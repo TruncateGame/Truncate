@@ -87,6 +87,13 @@ impl<'a> BoardUI<'a> {
             styles.spacing.interact_size = egui::vec2(0.0, 0.0);
 
             outer_frame.show(ui, |ui| {
+
+                let dest = Rect::from_min_size(
+                    ui.next_widget_position(),
+                    vec2(self.board.width() as f32 * ctx.theme.grid_size, self.board.height() as f32 * ctx.theme.grid_size)
+                );
+                mapped_board.render_entire(dest, ui);
+
                 let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
                     let mut render_row =
                         |rownum, row: Box<dyn Iterator<Item = (usize, &Square)>>| {

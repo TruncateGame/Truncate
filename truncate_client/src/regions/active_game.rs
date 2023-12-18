@@ -667,6 +667,14 @@ impl ActiveGame {
             self.ctx.qs_tick = cur_tick;
             self.mapped_board
                 .remap(&self.board, &self.ctx.player_colors, self.ctx.qs_tick);
+
+            self.mapped_board.remap_texture(
+                ui.ctx(),
+                &self.board,
+                &self.ctx.player_colors,
+                self.ctx.qs_tick,
+                false,
+            );
         }
 
         if !self.ctx.is_touch {
