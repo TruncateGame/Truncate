@@ -49,7 +49,21 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         launched_room,
         error,
         backchannel,
+        log_frames,
+        frames,
     } = client;
+
+    if *log_frames {
+        let ctx = ui.ctx().clone();
+
+        egui::Window::new("🔍 Inspection")
+            .vscroll(true)
+            .default_pos(ui.next_widget_position() + vec2(ui.available_width(), 0.0))
+            .show(&ctx, |ui| {
+                frames.ui(ui);
+                ctx.inspection_ui(ui);
+            });
+    }
 
     let mut send = |msg| {
         tx_player.try_send(msg).unwrap();
@@ -162,6 +176,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 HeaderType::Timers,
             );
             new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
+            *log_frames = true;
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
             send(PlayerMessage::NewGame(name.clone()));
@@ -259,6 +274,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     HeaderType::Timers,
                 );
                 new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
+                *log_frames = true;
             }
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
@@ -311,6 +327,11 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         }
         GameStatus::SinglePlayer(sp) => {
+            // Special performance debug mode — hide the sidebar to give us more space
+            if *log_frames {
+                sp.active_game.ctx.sidebar_visible = false;
+            }
+
             // Single player _can_ talk to the server, e.g. to ask for word definitions
             if let Some(msg) = sp.render(ui, theme, current_time, &backchannel) {
                 send(msg);
