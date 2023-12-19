@@ -38,9 +38,9 @@ const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
     bounding_height: 27,
     maximum_land_width: Some(30),
     maximum_land_height: Some(30),
-    water_level: 0.5,
+    water_level: 0.004,
     town_density: 0.2,
-    jitter: 0.6,
+    jitter: 0.637,
     town_jitter: 0.36,
     board_type: BoardType::Continental,
 }];

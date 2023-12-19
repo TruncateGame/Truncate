@@ -69,7 +69,9 @@ pub fn get_daily_puzzle(
         }
     }
 
-    let board = generate_board(board_seed.clone());
+    let board = generate_board(board_seed.clone())
+        .expect("Common seeds should always generate a board")
+        .board;
     let mut game_state = SinglePlayerState::new(
         map_texture.clone(),
         theme.clone(),

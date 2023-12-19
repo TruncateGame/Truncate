@@ -90,10 +90,11 @@ impl MappedBoard {
     ) {
         fn base_type(sq: &Square) -> BGTexType {
             match sq {
-                truncate_core::board::Square::Water => BGTexType::Water,
+                truncate_core::board::Square::Water => BGTexType::WaterOrFog,
+                truncate_core::board::Square::Fog => BGTexType::WaterOrFog,
                 truncate_core::board::Square::Land => BGTexType::Land,
                 truncate_core::board::Square::Town { .. } => BGTexType::Land,
-                truncate_core::board::Square::Dock(_) => BGTexType::Water,
+                truncate_core::board::Square::Dock(_) => BGTexType::WaterOrFog,
                 truncate_core::board::Square::Occupied(_, _) => BGTexType::Land,
             }
         }
@@ -102,6 +103,7 @@ impl MappedBoard {
             match sq {
                 Square::Water => None,
                 Square::Land => None,
+                Square::Fog => None,
                 Square::Town { player, .. } => Some((
                     FGTexType::Town,
                     *player_colors.get(*player).unwrap_or(&Color32::WHITE),
@@ -174,7 +176,11 @@ impl MappedBoard {
 
             let neighbor_base_types: Vec<_> = neighbor_squares
                 .iter()
-                .map(|square| square.map(|sq| base_type(&sq)).unwrap_or(BGTexType::Water))
+                .map(|square| {
+                    square
+                        .map(|sq| base_type(&sq))
+                        .unwrap_or(BGTexType::WaterOrFog)
+                })
                 .collect();
 
             let tile_base_type = base_type(square);
@@ -205,6 +211,11 @@ impl MappedBoard {
             // }
 
             layers.for_each(|(layer, tex_quad)| {
+                if layer == 0 {
+                    if matches!(square, Square::Fog) {
+                        return;
+                    }
+                }
                 if self.resolved_textures.len() == layer {
                     let layer_base =
                         ColorImage::new([final_width, final_height], Color32::TRANSPARENT);

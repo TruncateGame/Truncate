@@ -144,7 +144,9 @@ impl SinglePlayerState {
             game.players[1].color = GAME_COLORS[0];
         }
 
-        let mut rand_board = truncate_core::generation::generate_board(seed.clone());
+        let mut rand_board = truncate_core::generation::generate_board(seed.clone())
+            .expect("Standard seeds should always generate a board")
+            .board;
         rand_board.cache_special_squares();
 
         game.board = rand_board;
