@@ -37,7 +37,11 @@ pub struct HoveredRegion {
 #[derive(Clone)]
 pub enum HeaderType {
     Timers,
-    Summary { title: String, sentinel: char },
+    Summary {
+        title: String,
+        sentinel: char,
+        attempt: Option<usize>,
+    },
     None,
 }
 
@@ -185,6 +189,7 @@ impl ActiveGame {
             .anchor(Align2::LEFT_TOP, vec2(timer_area.left(), timer_area.top()));
 
         let mut resp = area.show(ui.ctx(), |ui| {
+            // TODO: We can likely use Memory::area_rect now instead of tracking sizes ourselves
             if let Some(bg_rect) = self.ctx.headers_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
@@ -256,7 +261,11 @@ impl ActiveGame {
 
                             ui.add_space(item_spacing);
                         }
-                        HeaderType::Summary { title, sentinel } => {
+                        HeaderType::Summary {
+                            title,
+                            sentinel,
+                            attempt,
+                        } => {
                             let summary_height = 50.0;
                             let (rect, _) = ui.allocate_exact_size(
                                 vec2(total_width, summary_height),
@@ -264,9 +273,17 @@ impl ActiveGame {
                             );
                             let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
+                            let attempt_str = match attempt {
+                                Some(attempt) if *attempt > 0 => {
+                                    format!("{} attempts  {}  ", attempt + 1, sentinel)
+                                }
+                                _ => "".to_string(),
+                            };
+
                             let summary = if let Some(game) = game_ref {
                                 format!(
-                                    "{} turn{}  {}  {} battle{}",
+                                    "{}{} turn{}  {}  {} battle{}",
+                                    attempt_str,
                                     game.player_turn_count[0],
                                     if game.player_turn_count[0] == 1 {
                                         ""
@@ -449,6 +466,7 @@ impl ActiveGame {
             .anchor(Align2::LEFT_BOTTOM, control_anchor);
 
         let resp = area.show(ui.ctx(), |ui| {
+            // TODO: We can likely use Memory::area_rect now instead of tracking sizes ourselves
             if let Some(bg_rect) = self.ctx.hand_total_rect {
                 ui.painter().clone().rect_filled(
                     bg_rect,
@@ -465,18 +483,35 @@ impl ActiveGame {
 
                     ui.add_space(10.0);
 
-                    if winner.is_some() {
-                        let text = TextHelper::heavy("REMATCH", 12.0, None, ui);
-                        if text
-                            .centered_button(
-                                theme.selection.lighten().lighten(),
-                                theme.text,
-                                &self.ctx.map_texture,
-                                ui,
-                            )
-                            .clicked()
-                        {
-                            msg = Some(PlayerMessage::Rematch);
+                    if let Some(winner) = winner {
+                        if let Some(BoardSeed { day: Some(_), .. }) = &self.ctx.board_seed {
+                            if winner as u64 != self.ctx.player_number {
+                                let text = TextHelper::heavy("TRY AGAIN", 12.0, None, ui);
+                                if text
+                                    .centered_button(
+                                        theme.selection.lighten().lighten(),
+                                        theme.text,
+                                        &self.ctx.map_texture,
+                                        ui,
+                                    )
+                                    .clicked()
+                                {
+                                    msg = Some(PlayerMessage::Rematch);
+                                }
+                            }
+                        } else {
+                            let text = TextHelper::heavy("REMATCH", 12.0, None, ui);
+                            if text
+                                .centered_button(
+                                    theme.selection.lighten().lighten(),
+                                    theme.text,
+                                    &self.ctx.map_texture,
+                                    ui,
+                                )
+                                .clicked()
+                            {
+                                msg = Some(PlayerMessage::Rematch);
+                            }
                         }
 
                         let msg = if self.share_copied {
@@ -508,11 +543,17 @@ impl ActiveGame {
                                 url_prefix = format!("https://{host}/#");
                             }
 
+                            let attempt = match self.ctx.header_visible {
+                                HeaderType::Summary { attempt, .. } => attempt,
+                                _ => None,
+                            };
+
                             let text = self.board.emojify(
                                 self.ctx.player_number as usize,
-                                winner,
+                                Some(winner),
                                 game_ref,
                                 self.ctx.board_seed.clone(),
+                                attempt,
                                 url_prefix,
                             );
 
@@ -620,64 +661,57 @@ impl ActiveGame {
                     // }
 
                     ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
-                        ScrollArea::new([false, true])
-                            .always_show_scroll(true)
-                            .show(ui, |ui| {
-                                // Small hack to fill the scroll area
-                                ui.allocate_at_least(
-                                    vec2(ui.available_width(), 1.0),
-                                    Sense::hover(),
-                                );
+                        ScrollArea::new([false, true]).show(ui, |ui| {
+                            // Small hack to fill the scroll area
+                            ui.allocate_at_least(vec2(ui.available_width(), 1.0), Sense::hover());
 
-                                let room = ui.painter().layout_no_wrap(
-                                    "Battles".into(),
-                                    FontId::new(
-                                        self.ctx.theme.letter_size / 2.0,
-                                        egui::FontFamily::Name("Truncate-Heavy".into()),
-                                    ),
-                                    self.ctx.theme.text,
-                                );
-                                let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
-                                ui.painter().galley(r.min, room);
-                                ui.add_space(15.0);
-
-                                let mut rendered_battles = 0;
-                                let label_font = FontId::new(
-                                    8.0,
+                            let room = ui.painter().layout_no_wrap(
+                                "Battles".into(),
+                                FontId::new(
+                                    self.ctx.theme.letter_size / 2.0,
                                     egui::FontFamily::Name("Truncate-Heavy".into()),
-                                );
+                                ),
+                                self.ctx.theme.text,
+                            );
+                            let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
+                            ui.painter().galley(r.min, room);
+                            ui.add_space(15.0);
 
-                                for turn in self.turn_reports.iter().rev() {
-                                    for battle in turn.iter().filter_map(|change| match change {
-                                        Change::Battle(battle) => Some(battle),
-                                        _ => None,
-                                    }) {
-                                        let is_latest_battle = rendered_battles == 0;
+                            let mut rendered_battles = 0;
+                            let label_font =
+                                FontId::new(8.0, egui::FontFamily::Name("Truncate-Heavy".into()));
 
-                                        if let Some(label) = if is_latest_battle {
-                                            Some("Latest Battle")
-                                        } else if rendered_battles == 1 {
-                                            Some("Previous Battles")
-                                        } else {
-                                            None
-                                        } {
-                                            let label = ui.painter().layout_no_wrap(
-                                                label.into(),
-                                                label_font.clone(),
-                                                self.ctx.theme.text,
-                                            );
-                                            let (r, _) =
-                                                ui.allocate_at_least(label.size(), Sense::hover());
-                                            ui.painter().galley(r.min, label);
-                                        }
+                            for turn in self.turn_reports.iter().rev() {
+                                for battle in turn.iter().filter_map(|change| match change {
+                                    Change::Battle(battle) => Some(battle),
+                                    _ => None,
+                                }) {
+                                    let is_latest_battle = rendered_battles == 0;
 
-                                        BattleUI::new(battle, is_latest_battle)
-                                            .render(&mut self.ctx, ui);
-                                        rendered_battles += 1;
-                                        ui.add_space(8.0);
+                                    if let Some(label) = if is_latest_battle {
+                                        Some("Latest Battle")
+                                    } else if rendered_battles == 1 {
+                                        Some("Previous Battles")
+                                    } else {
+                                        None
+                                    } {
+                                        let label = ui.painter().layout_no_wrap(
+                                            label.into(),
+                                            label_font.clone(),
+                                            self.ctx.theme.text,
+                                        );
+                                        let (r, _) =
+                                            ui.allocate_at_least(label.size(), Sense::hover());
+                                        ui.painter().galley(r.min, label);
                                     }
+
+                                    BattleUI::new(battle, is_latest_battle)
+                                        .render(&mut self.ctx, ui);
+                                    rendered_battles += 1;
+                                    ui.add_space(8.0);
                                 }
-                            });
+                            }
+                        });
                     })
                 });
             });
@@ -701,6 +735,14 @@ impl ActiveGame {
             self.ctx.qs_tick = cur_tick;
             self.mapped_board
                 .remap(&self.board, &self.ctx.player_colors, self.ctx.qs_tick);
+
+            self.mapped_board.remap_texture(
+                ui.ctx(),
+                &self.board,
+                &self.ctx.player_colors,
+                self.ctx.qs_tick,
+                false,
+            );
         }
 
         if !self.ctx.is_touch {

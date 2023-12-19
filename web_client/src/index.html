@@ -647,12 +647,24 @@
 
             const paint = {
                 tile_size: 16,
-                tinted: (index, x, y, tint) => {
-                    const row = Math.floor(index / 50);
-                    const col = index % 50;
+                get_source_xy: (index) => {
+                    const padded_tile_size = paint.tile_size + 2;
+
+                    if (image.naturalWidth % padded_tile_size) {
+                        console.error(`Tileset image must be divisible by ${padded_tile_size}`);
+                    }
+                    const tile_row_width = image.naturalWidth / padded_tile_size;
+
+                    const row = Math.floor(index / tile_row_width);
+                    const col = index % tile_row_width;
 
                     const tile_x = col * (paint.tile_size + 2);
                     const tile_y = row * (paint.tile_size + 2);
+
+                    return [tile_x, tile_y];
+                },
+                tinted: (index, x, y, tint) => {
+                    let [tile_x, tile_y] = paint.get_source_xy(index);
 
                     const buffer = document.createElement('canvas');
                     buffer.width = paint.tile_size;
@@ -687,11 +699,7 @@
                     } else if (Array.isArray(index)) {
                         paint.tinted(index[0], x, y, index[1])
                     } else {
-                        const row = Math.floor(index / 50);
-                        const col = index % 50;
-
-                        const tile_x = col * (paint.tile_size + 2);
-                        const tile_y = row * (paint.tile_size + 2);
+                        let [tile_x, tile_y] = paint.get_source_xy(index);
 
                         ctx.drawImage(
                             image,
@@ -1046,7 +1054,10 @@
                     }
 
                     truncate_runner.make_ready((room_code) => {
-                        window.__truncate_handle = wasm_bindgen.start("truncate_canvas", server, room_code ?? "", backchannel_conduit);
+                        window.__truncate_handle = new wasm_bindgen.WebHandle();
+                        window.__truncate_handle.start("truncate_canvas", server, room_code ?? "", backchannel_conduit);
+
+                        // TODO: periodically check for window.__truncate_handle.has_panicked() 
                     });
 
                     console.debug("Truncate game initialized");

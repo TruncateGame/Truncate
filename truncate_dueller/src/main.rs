@@ -150,13 +150,13 @@ fn get_game_for_seed(seed: BoardSeed) -> Game {
     game
 }
 
-fn evaluate_seed(mut seed: BoardSeed) -> (u32, SeedNote) {
+fn evaluate_seed(mut seed: BoardSeed, log: bool) -> (u32, SeedNote) {
     let mut rerolls = 0;
     let mut seed_result = None;
     let core_seed = seed.seed;
 
     while seed_result.is_none() {
-        seed_result = evaluate_single_seed(seed.clone(), false);
+        seed_result = evaluate_single_seed(seed.clone(), log);
         if seed_result.is_none() {
             rerolls += 1;
             seed.external_reroll();
@@ -196,6 +196,15 @@ fn main() {
         verify_note(seed, note);
     });
 
+    let args = std::env::args().collect::<Vec<_>>();
+
+    if let Some(seed) = args.get(1) {
+        let seed = BoardSeed::new(seed.parse().expect("Seed should be a number"));
+        let result = evaluate_seed(seed, true);
+        println!("{result:#?}");
+        return;
+    };
+
     let mut starting_day = get_today();
     while current_notes.notes.contains_key(&starting_day) {
         starting_day += 1;
@@ -205,7 +214,7 @@ fn main() {
         .into_par_iter()
         .map(|offset| {
             let seed = BoardSeed::new(starting_day + offset);
-            evaluate_seed(seed)
+            evaluate_seed(seed, false)
         })
         .collect();
 

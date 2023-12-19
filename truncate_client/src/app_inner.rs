@@ -45,12 +45,25 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         game_status,
         rx_game,
         tx_player,
-        frame_history: _,
         map_texture,
         launched_room,
         error,
         backchannel,
+        log_frames,
+        frames,
     } = client;
+
+    if *log_frames {
+        let ctx = ui.ctx().clone();
+
+        egui::Window::new("🔍 Inspection")
+            .vscroll(true)
+            .default_pos(ui.next_widget_position() + vec2(ui.available_width(), 0.0))
+            .show(&ctx, |ui| {
+                frames.ui(ui);
+                ctx.inspection_ui(ui);
+            });
+    }
 
     let mut send = |msg| {
         tx_player.try_send(msg).unwrap();
@@ -102,7 +115,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 current_time,
             )));
         } else if launched_room == "DAILY_PUZZLE" {
-            let puzzle_game = get_daily_puzzle(current_time, map_texture, theme);
+            let puzzle_game = get_daily_puzzle(current_time, map_texture, theme, backchannel);
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room == "RANDOM_PUZZLE" {
             let seed = (current_time.as_micros() % 243985691) as u32;
@@ -113,6 +126,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let header = HeaderType::Summary {
                 title: format!("Random Puzzle"),
                 sentinel: '•',
+                attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),
@@ -143,6 +157,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let header = HeaderType::Summary {
                 title: format!("Truncate Puzzle {generation}:{seed}"),
                 sentinel: '•',
+                attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
                 map_texture.clone(),
@@ -153,6 +168,19 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 header,
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+        } else if launched_room == "DEBUG_BEHEMOTH" {
+            let behemoth_board = Board::from_string(include_str!("../tutorials/test_board.txt"));
+            let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
+            let behemoth_game = SinglePlayerState::new(
+                map_texture.clone(),
+                theme.clone(),
+                behemoth_board,
+                Some(seed_for_hand_tiles),
+                true,
+                HeaderType::Timers,
+            );
+            new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
+            *log_frames = true;
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
             send(PlayerMessage::NewGame(name.clone()));
@@ -237,6 +265,21 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     current_time,
                 )));
             }
+            if ui.button("Behemoth").clicked() {
+                let behemoth_board =
+                    Board::from_string(include_str!("../tutorials/test_board.txt"));
+                let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
+                let behemoth_game = SinglePlayerState::new(
+                    map_texture.clone(),
+                    theme.clone(),
+                    behemoth_board,
+                    Some(seed_for_hand_tiles),
+                    true,
+                    HeaderType::Timers,
+                );
+                new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
+                *log_frames = true;
+            }
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
                 send(PlayerMessage::NewGame(name.clone()));
@@ -288,6 +331,11 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         }
         GameStatus::SinglePlayer(sp) => {
+            // Special performance debug mode — hide the sidebar to give us more space
+            if *log_frames {
+                sp.active_game.ctx.sidebar_visible = false;
+            }
+
             // Single player _can_ talk to the server, e.g. to ask for word definitions
             if let Some(msg) = sp.render(ui, theme, current_time, &backchannel) {
                 send(msg);

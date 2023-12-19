@@ -6,7 +6,7 @@ fn note_file() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("seed_notes.yml")
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SeedNote {
     pub rerolls: usize,
     pub best_player: usize,

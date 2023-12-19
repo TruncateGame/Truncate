@@ -155,8 +155,7 @@ struct BattleUIState {
 impl<'a> BattleUI<'a> {
     pub fn render(self, ctx: &GameCtx, ui: &mut egui::Ui) {
         let battle_id = Id::new("battle").with(self.battle.battle_number.unwrap_or_default());
-        let prev_battle_storage: Option<BattleUIState> =
-            ui.memory_mut(|m| m.data.get_temp(battle_id));
+        let prev_battle_storage: Option<BattleUIState> = ui.memory(|m| m.data.get_temp(battle_id));
 
         // Paint the background dialog based on the size of the battle last frame
         if let Some(BattleUIState {
@@ -219,6 +218,7 @@ impl<'a> BattleUI<'a> {
             // Instead, we render everything transparent and trigger an immediate re-render.
             let battle_rect = self.render_innards(false, false, prev_battle_storage, ctx, ui);
             // Save the sizing of our box for the next render pass to draw the background
+            // TODO: We can (maybe?) use Memory::area_rect now instead of tracking sizes ourselves
             ui.memory_mut(|m| {
                 m.data.insert_temp(
                     battle_id,
@@ -320,7 +320,7 @@ impl<'a> BattleUI<'a> {
                         )
                         .paint(ctx.theme.text, ui, false),
                         (Some(true), _) => TextHelper::light(
-                            "Definition unknown",
+                            "Definition not found",
                             24.0,
                             Some(ui.available_width()),
                             ui,

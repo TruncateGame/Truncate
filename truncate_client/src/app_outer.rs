@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 type R = Receiver<GameMessage>;
 type S = Sender<PlayerMessage>;
 
-use super::debug;
 use super::utils::Theme;
 use crate::{app_inner, utils::glyph_meaure::GlyphMeasure};
 use eframe::egui::{self, Frame, Id, Margin, TextureOptions};
@@ -92,11 +91,12 @@ pub struct OuterApplication {
     pub game_status: app_inner::GameStatus,
     pub rx_game: R,
     pub tx_player: S,
-    pub frame_history: debug::FrameHistory,
     pub map_texture: TextureHandle,
     pub launched_room: Option<String>,
     pub error: Option<String>,
     pub backchannel: Backchannel,
+    pub log_frames: bool,
+    pub frames: debug::FrameHistory,
 }
 
 impl OuterApplication {
@@ -135,7 +135,7 @@ impl OuterApplication {
         cc.egui_ctx.set_fonts(fonts);
 
         cc.egui_ctx.memory_mut(|mem| {
-            mem.data.insert_temp(Id::null(), GlyphMeasure::new());
+            mem.data.insert_temp(Id::NULL, GlyphMeasure::new());
         });
 
         let mut game_status = app_inner::GameStatus::None("".into(), None);
@@ -166,7 +166,7 @@ impl OuterApplication {
             style.text_styles = [
                 (Heading, FontId::new(32.0, FontFamily::Proportional)),
                 (Body, FontId::new(16.0, FontFamily::Proportional)),
-                (Monospace, FontId::new(16.0, FontFamily::Monospace)),
+                (Monospace, FontId::new(10.0, FontFamily::Monospace)),
                 (Button, FontId::new(16.0, FontFamily::Proportional)),
                 (Small, FontId::new(8.0, FontFamily::Proportional)),
             ]
@@ -186,17 +186,25 @@ impl OuterApplication {
         #[cfg(not(target_arch = "wasm32"))]
         let backchannel = Backchannel::new();
 
+        #[cfg(not(target_arch = "wasm32"))]
+        setup_repaint_truncate_animations(cc.egui_ctx.clone());
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(setup_repaint_truncate_animations_web(
+            cc.egui_ctx.clone(),
+        ));
+
         Self {
             name: player_name,
             theme,
             game_status,
             rx_game,
             tx_player,
-            frame_history: Default::default(),
             map_texture: load_map_texture(&cc.egui_ctx),
             launched_room: room_code,
             error: None,
             backchannel,
+            log_frames: false,
+            frames: debug::FrameHistory::default(),
         }
     }
 }
@@ -205,14 +213,19 @@ pub struct TextureMeasurement {
     pub num_tiles_x: usize,
     pub num_tiles_y: usize,
     pub outer_tile_width: f32,
+    pub outer_tile_width_px: usize,
     pub outer_tile_height: f32,
+    pub outer_tile_height_px: usize,
     pub inner_tile_width: f32,
+    pub inner_tile_width_px: usize,
     pub inner_tile_height: f32,
+    pub inner_tile_height_px: usize,
     pub x_padding_pct: f32,
     pub y_padding_pct: f32,
 }
 
 pub static TEXTURE_MEASUREMENT: OnceLock<TextureMeasurement> = OnceLock::new();
+pub static TEXTURE_IMAGE: OnceLock<egui::ColorImage> = OnceLock::new();
 
 fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
     let image_bytes = include_bytes!("../img/truncate_packed.png");
@@ -223,8 +236,8 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
 
     let num_tiles_x = (image.width() / 18) as usize;
     let num_tiles_y = (image.height() / 18) as usize;
-    let outer_tile_width = (1.0 / num_tiles_x as f32);
-    let outer_tile_height = (1.0 / num_tiles_y as f32);
+    let outer_tile_width = 1.0 / num_tiles_x as f32;
+    let outer_tile_height = 1.0 / num_tiles_y as f32;
     let x_padding_pct = outer_tile_width / 18.0;
     let y_padding_pct = outer_tile_height / 18.0;
     let inner_tile_width = outer_tile_width - (x_padding_pct * 2.0);
@@ -234,9 +247,13 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
         num_tiles_x,
         num_tiles_y,
         outer_tile_width,
+        outer_tile_width_px: 18,
         outer_tile_height,
+        outer_tile_height_px: 18,
         inner_tile_width,
+        inner_tile_width_px: 16,
         inner_tile_height,
+        inner_tile_height_px: 16,
         x_padding_pct,
         y_padding_pct,
     };
@@ -245,12 +262,13 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
     let image_buffer = image.to_rgba8();
     let pixels = image_buffer.as_flat_samples();
     let image = egui::ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());
+    _ = TEXTURE_IMAGE.set(image.clone());
 
     ctx.load_texture("tiles", image, TextureOptions::NEAREST)
 }
 
 impl eframe::App for OuterApplication {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // We have to go through the instant crate as
         // most std time functions are not implemented
         // in Rust's wasm targets.
@@ -261,22 +279,96 @@ impl eframe::App for OuterApplication {
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("Please don't play Truncate earlier than 1970");
 
-        self.frame_history
-            .on_new_frame(ctx.input(|i| i.time), _frame.info().cpu_usage);
+        println!("Painting at {}", current_time.subsec_millis());
+        #[cfg(target_arch = "wasm32")]
+        web_sys::console::log_1(&format!("Painting at {}", current_time.subsec_millis()).into());
 
         egui::CentralPanel::default()
             .frame(Frame::default().fill(self.theme.water))
-            .show(ctx, |ui| {
-                // Show debug timings in-app
-                // self.frame_history.ui(ui);
-                app_inner::render(self, ui, current_time)
-            });
+            .show(ctx, |ui| app_inner::render(self, ui, current_time));
+
+        if self.log_frames {
+            self.frames
+                .on_new_frame(ctx.input(|i| i.time), frame.info().cpu_usage);
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || loop {
+        let current_time = instant::SystemTime::now()
+            .duration_since(instant::SystemTime::UNIX_EPOCH)
+            .expect("Please don't play Truncate earlier than 1970");
 
         let subsec = current_time.subsec_millis();
         // In-game animations should try align with the quarter-second tick,
         // so we try to repaint around that tick to keep them looking consistent.
         // (Adding an extra millisecond so we don't have to worry about `> 250` vs `>= 250`)
         let next_tick = 251 - (subsec % 250);
-        ctx.request_repaint_after(std::time::Duration::from_millis(next_tick as u64));
+        std::thread::sleep(instant::Duration::from_millis(next_tick as u64));
+        egui_ctx.request_repaint();
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn setup_repaint_truncate_animations_web(egui_ctx: egui::Context) {
+    loop {
+        let current_time = instant::SystemTime::now()
+            .duration_since(instant::SystemTime::UNIX_EPOCH)
+            .expect("Please don't play Truncate earlier than 1970");
+
+        let subsec = current_time.subsec_millis();
+        // In-game animations should try align with the quarter-second tick,
+        // so we try to repaint around that tick to keep them looking consistent.
+        let next_tick = 250 - (subsec % 250);
+        gloo_timers::future::TimeoutFuture::new(next_tick).await;
+        egui_ctx.request_repaint();
+    }
+}
+
+mod debug {
+    use super::*;
+    use egui::util::History;
+
+    pub struct FrameHistory {
+        frame_times: History<f32>,
+    }
+
+    impl Default for FrameHistory {
+        fn default() -> Self {
+            let max_age: f32 = 5.0;
+            let max_len = (max_age * 300.0).round() as usize;
+            Self {
+                frame_times: History::new(100..max_len, max_age),
+            }
+        }
+    }
+
+    impl FrameHistory {
+        // Called first
+        pub fn on_new_frame(&mut self, now: f64, previous_frame_time: Option<f32>) {
+            let previous_frame_time = previous_frame_time.unwrap_or_default();
+            if let Some(latest) = self.frame_times.latest_mut() {
+                *latest = previous_frame_time; // rewrite history now that we know
+            }
+            self.frame_times.add(now, previous_frame_time); // projected
+        }
+
+        pub fn mean_frame_time(&self) -> f32 {
+            self.frame_times.average().unwrap_or_default()
+        }
+
+        pub fn ui(&mut self, ui: &mut egui::Ui) {
+            ui.label(format!(
+                "Mean CPU usage: {:.2} ms / frame",
+                1e3 * self.mean_frame_time()
+            ))
+            .on_hover_text(
+                "Includes egui layout and tessellation time.\n\
+            Does not include GPU usage, nor overhead for sending data to GPU.",
+            );
+            egui::warn_if_debug_build(ui);
+        }
     }
 }

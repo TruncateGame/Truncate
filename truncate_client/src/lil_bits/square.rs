@@ -77,14 +77,14 @@ impl SquareUI {
         );
 
         if ui.is_rect_visible(rect) {
-            mapped_board.render_coord(self.coord, rect, ui);
+            // mapped_board.render_coord(self.coord, rect, ui);
 
             if self.enabled {
-                ui.painter().rect_stroke(
-                    rect.shrink(ctx.theme.tile_margin),
-                    ctx.theme.rounding,
-                    Stroke::new(1.0, hex_color!("ffffff01")),
-                );
+                // ui.painter().rect_stroke(
+                //     rect.shrink(ctx.theme.tile_margin),
+                //     ctx.theme.rounding,
+                //     Stroke::new(1.0, hex_color!("ffffff01")),
+                // );
             }
 
             let is_hovered = ui.rect_contains_pointer(interact_rect);
