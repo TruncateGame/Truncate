@@ -52,7 +52,6 @@ impl ResolvedTextureLayers {
 pub struct MappedBoard {
     memory: Vec<Vec<TexLayers>>,
     resolved_textures: Option<ResolvedTextureLayers>,
-    map_texture: TextureHandle,
     map_seed: usize,
     inverted: bool, // TODO: Handle any transpose
     last_tick: u64,
@@ -65,7 +64,6 @@ impl MappedBoard {
     pub fn new(
         ctx: &egui::Context,
         board: &Board,
-        map_texture: TextureHandle,
         invert: bool,
         player_colors: &Vec<Color32>,
     ) -> Self {
@@ -77,7 +75,6 @@ impl MappedBoard {
         let mut mapper = Self {
             memory: vec![vec![TexLayers::default(); board.squares[0].len()]; board.squares.len()],
             resolved_textures: None,
-            map_texture,
             map_seed: (secs % 100000) as usize,
             inverted: invert,
             last_tick: 0,
@@ -91,7 +88,7 @@ impl MappedBoard {
         mapper
     }
 
-    pub fn render_entire(&self, rect: Rect, ui: &mut egui::Ui) {
+    pub fn render_to_rect(&self, rect: Rect, ui: &mut egui::Ui) {
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
 
         let paint = |id: epaint::TextureId, color: Color32| {
@@ -110,39 +107,7 @@ impl MappedBoard {
         }
     }
 
-    pub fn remap_texture(
-        &mut self,
-        ctx: &egui::Context,
-        board: &Board,
-        player_colors: &Vec<Color32>,
-        tick: u64,
-    ) {
-        fn base_type(sq: &Square) -> BGTexType {
-            match sq {
-                truncate_core::board::Square::Water => BGTexType::Water,
-                truncate_core::board::Square::Land => BGTexType::Land,
-                truncate_core::board::Square::Town { .. } => BGTexType::Land,
-                truncate_core::board::Square::Dock(_) => BGTexType::Water,
-                truncate_core::board::Square::Occupied(_, _) => BGTexType::Land,
-            }
-        }
-
-        fn layer_type(sq: &Square, player_colors: &Vec<Color32>) -> Option<(FGTexType, Color32)> {
-            match sq {
-                Square::Water => None,
-                Square::Land => None,
-                Square::Town { player, .. } => Some((
-                    FGTexType::Town,
-                    *player_colors.get(*player).unwrap_or(&Color32::WHITE),
-                )),
-                Square::Dock(player) => Some((
-                    FGTexType::Dock,
-                    *player_colors.get(*player).unwrap_or(&Color32::WHITE),
-                )),
-                Square::Occupied(_, _) => None,
-            }
-        }
-
+    fn wind_vane(&mut self, tick: u64) {
         if self.last_tick != tick {
             self.last_tick = tick;
             if self.inverted {
@@ -166,6 +131,175 @@ impl MappedBoard {
                 self.winds.push_back(self.incoming_wind);
             }
         }
+    }
+
+    fn paint_square_offscreen(
+        &mut self,
+        ctx: &egui::Context,
+        board: &Board,
+        player_colors: &Vec<Color32>,
+        tick: u64,
+        source_row: usize,
+        source_col: usize,
+        dest_row: usize,
+        dest_col: usize,
+        square: &Square,
+        measures: &TextureMeasurement,
+        tileset: &ColorImage,
+    ) {
+        let coord = Coordinate::new(source_col, source_row);
+        let resolved_textures = self.resolved_textures.as_mut().unwrap();
+
+        let mut neighbor_squares: Vec<_> = coord
+            .neighbors_8()
+            .into_iter()
+            .map(|pos| board.get(pos).ok())
+            .collect();
+
+        if self.inverted {
+            neighbor_squares.rotate_left(4);
+        }
+
+        let neighbor_base_types: Vec<_> = neighbor_squares
+            .iter()
+            .map(|square| square.as_ref().map(Into::into).unwrap_or(BGTexType::Water))
+            .collect();
+
+        let tile_base_type = BGTexType::from(square);
+        let tile_layer_type = FGTexType::from((square, player_colors));
+
+        let wind_at_coord = self
+            .winds
+            .get(source_col + source_row)
+            .cloned()
+            .unwrap_or_default();
+
+        let layers = Tex::terrain(
+            tile_base_type,
+            tile_layer_type,
+            neighbor_base_types,
+            self.map_seed + (coord.x * coord.y + coord.y),
+            tick,
+            wind_at_coord,
+        );
+
+        let cached = self
+            .memory
+            .get_mut(coord.y)
+            .unwrap()
+            .get_mut(coord.x)
+            .unwrap();
+
+        if *cached == layers {
+            return;
+        }
+
+        let paint_quad = |quad: TexQuad, canvas: &mut TextureHandle| {
+            println!("Painting some concrete image pixels to a texture canvas");
+            for (tex, sub_loc) in quad.into_iter().zip(
+                [
+                    [0, 0],
+                    [measures.inner_tile_width_px, 0],
+                    [measures.inner_tile_width_px, measures.inner_tile_height_px],
+                    [0, measures.inner_tile_height_px],
+                ]
+                .into_iter(),
+            ) {
+                let source = tex.get_source_position();
+                let region = Rect::from_min_size(
+                    pos2(
+                        source.x * tileset.size[0] as f32,
+                        source.y * tileset.size[1] as f32,
+                    ),
+                    vec2(
+                        measures.inner_tile_width_px as f32,
+                        measures.inner_tile_height_px as f32,
+                    ),
+                );
+                let tile_from_map = tileset.region(&region, None);
+                let dest_pos = [
+                    dest_col * (measures.inner_tile_width_px * 2) + sub_loc[0],
+                    dest_row * (measures.inner_tile_height_px * 2) + sub_loc[1],
+                ];
+
+                canvas.set_partial(dest_pos, tile_from_map, egui::TextureOptions::NEAREST);
+            }
+        };
+
+        // For all layer types, we can skip the update if we have a cache hit
+        // for this coordinate, as the target texture will already match.
+        // We do need to check for the cache having a value while the new layer does not,
+        // in which case we need to zero out this coordinate with blank tiles.
+
+        if cached.terrain != layers.terrain {
+            if let Some(terrain) = layers.terrain {
+                paint_quad(terrain, &mut resolved_textures.terrain);
+            } else if cached.terrain.is_some() {
+                paint_quad([tiles::NONE; 4], &mut resolved_textures.terrain);
+            }
+        }
+
+        if cached.structures != layers.structures {
+            if let Some(structures) = layers.structures {
+                paint_quad(structures, &mut resolved_textures.structures);
+            } else if cached.structures.is_some() {
+                paint_quad([tiles::NONE; 4], &mut resolved_textures.structures);
+            }
+        }
+
+        if cached.overlay != layers.overlay {
+            if let Some(overlay) = layers.overlay {
+                paint_quad(overlay, &mut resolved_textures.overlay);
+            } else if cached.overlay.is_some() {
+                paint_quad([tiles::NONE; 4], &mut resolved_textures.overlay);
+            }
+        }
+
+        // If there were cached tint layers that we aren't returning,
+        // we need to find those tint layers and zero out this coordinate.
+        if cached.tinted != layers.tinted {
+            if let Some((_, tint)) = cached.tinted {
+                let existing_tint = resolved_textures
+                    .tinted
+                    .iter_mut()
+                    .find(|(_, layer_tint)| layer_tint == &tint);
+                if let Some((existing_tint, _)) = existing_tint {
+                    paint_quad([tiles::NONE; 4], existing_tint);
+                }
+            }
+        }
+
+        if let Some((tinted, tint)) = layers.tinted {
+            let existing_tint = resolved_textures
+                .tinted
+                .iter_mut()
+                .find(|(_, layer_tint)| layer_tint == &tint);
+            if let Some((existing_tint, _)) = existing_tint {
+                paint_quad(tinted, existing_tint);
+            } else {
+                let layer_base =
+                    ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
+                let mut handle = ctx.load_texture(
+                    format!("board_layer_tint"),
+                    layer_base.clone(),
+                    egui::TextureOptions::NEAREST,
+                );
+                paint_quad(tinted, &mut handle);
+                resolved_textures.tinted.push((handle, tint));
+            }
+        }
+
+        *cached = layers;
+    }
+
+    pub fn remap_texture(
+        &mut self,
+        ctx: &egui::Context,
+        board: &Board,
+        player_colors: &Vec<Color32>,
+        tick: u64,
+    ) {
+        self.wind_vane(tick);
 
         let measures = TEXTURE_MEASUREMENT
             .get()
@@ -180,169 +314,33 @@ impl MappedBoard {
             .resolved_textures
             .as_ref()
             .is_some_and(|t| t.terrain.size() == [final_width, final_height]);
+        // Some game modes, or board editors, allow the board to resize.
+        // For now we just throw our textures away if this happens, rather
+        // than try to match old coordinates to new.
         if !sized_correct {
             self.resolved_textures = Some(ResolvedTextureLayers::new(board, measures, ctx));
             self.memory =
                 vec![vec![TexLayers::default(); board.squares[0].len()]; board.squares.len()];
         }
-        let resolved_textures = self.resolved_textures.as_mut().unwrap();
-
-        let mut paint_square = |source_row: usize,
-                                source_col: usize,
-                                dest_row: usize,
-                                dest_col: usize,
-                                square: &Square| {
-            let coord = Coordinate::new(source_col, source_row);
-
-            let mut neighbor_squares: Vec<_> = coord
-                .neighbors_8()
-                .into_iter()
-                .map(|pos| board.get(pos).ok())
-                .collect();
-
-            if self.inverted {
-                neighbor_squares.rotate_left(4);
-            }
-
-            let neighbor_base_types: Vec<_> = neighbor_squares
-                .iter()
-                .map(|square| square.map(|sq| base_type(&sq)).unwrap_or(BGTexType::Water))
-                .collect();
-
-            let tile_base_type = base_type(square);
-            let tile_layer_type = layer_type(square, &player_colors);
-
-            let wind_at_coord = self
-                .winds
-                .get(source_col + source_row)
-                .cloned()
-                .unwrap_or_default();
-
-            let layers = Tex::terrain(
-                tile_base_type,
-                tile_layer_type.map(|l| l.0),
-                neighbor_base_types,
-                tile_layer_type.map(|l| l.1),
-                self.map_seed + (coord.x * coord.y + coord.y),
-                tick,
-                wind_at_coord,
-            );
-
-            let cached = self
-                .memory
-                .get_mut(coord.y)
-                .unwrap()
-                .get_mut(coord.x)
-                .unwrap();
-
-            if *cached == layers {
-                return;
-            }
-
-            let paint_quad = |quad: TexQuad, canvas: &mut TextureHandle| {
-                println!("Painting some concrete image pixels to a texture canvas");
-                for (tex, sub_loc) in quad.into_iter().zip(
-                    [
-                        [0, 0],
-                        [measures.inner_tile_width_px, 0],
-                        [measures.inner_tile_width_px, measures.inner_tile_height_px],
-                        [0, measures.inner_tile_height_px],
-                    ]
-                    .into_iter(),
-                ) {
-                    let source = tex.get_source_position();
-                    let region = Rect::from_min_size(
-                        pos2(
-                            source.x * tileset.size[0] as f32,
-                            source.y * tileset.size[1] as f32,
-                        ),
-                        vec2(
-                            measures.inner_tile_width_px as f32,
-                            measures.inner_tile_height_px as f32,
-                        ),
-                    );
-                    let tile_from_map = tileset.region(&region, None);
-                    let dest_pos = [
-                        dest_col * (measures.inner_tile_width_px * 2) + sub_loc[0],
-                        dest_row * (measures.inner_tile_height_px * 2) + sub_loc[1],
-                    ];
-
-                    canvas.set_partial(dest_pos, tile_from_map, egui::TextureOptions::NEAREST);
-                }
-            };
-
-            // For all layer types, we can skip the update if we have a cache hit
-            // for this coordinate, as the target texture will already match.
-            // We do need to check for the cache having a value while the new layer does not,
-            // in which case we need to zero out this coordinate with blank tiles.
-
-            if cached.terrain != layers.terrain {
-                if let Some(terrain) = layers.terrain {
-                    paint_quad(terrain, &mut resolved_textures.terrain);
-                } else if cached.terrain.is_some() {
-                    paint_quad([tiles::NONE; 4], &mut resolved_textures.terrain);
-                }
-            }
-
-            if cached.structures != layers.structures {
-                if let Some(structures) = layers.structures {
-                    paint_quad(structures, &mut resolved_textures.structures);
-                } else if cached.structures.is_some() {
-                    paint_quad([tiles::NONE; 4], &mut resolved_textures.structures);
-                }
-            }
-
-            if cached.overlay != layers.overlay {
-                if let Some(overlay) = layers.overlay {
-                    paint_quad(overlay, &mut resolved_textures.overlay);
-                } else if cached.overlay.is_some() {
-                    paint_quad([tiles::NONE; 4], &mut resolved_textures.overlay);
-                }
-            }
-
-            // If there were cached tint layers that we aren't returning,
-            // we need to find those tint layers and zero out this coordinate.
-            if cached.tinted != layers.tinted {
-                if let Some((_, tint)) = cached.tinted {
-                    let existing_tint = resolved_textures
-                        .tinted
-                        .iter_mut()
-                        .find(|(_, layer_tint)| layer_tint == &tint);
-                    if let Some((existing_tint, _)) = existing_tint {
-                        paint_quad([tiles::NONE; 4], existing_tint);
-                    }
-                }
-            }
-
-            if let Some((tinted, tint)) = layers.tinted {
-                let existing_tint = resolved_textures
-                    .tinted
-                    .iter_mut()
-                    .find(|(_, layer_tint)| layer_tint == &tint);
-                if let Some((existing_tint, _)) = existing_tint {
-                    paint_quad(tinted, existing_tint);
-                } else {
-                    let layer_base =
-                        ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
-                    let mut handle = ctx.load_texture(
-                        format!("board_layer_tint"),
-                        layer_base.clone(),
-                        egui::TextureOptions::NEAREST,
-                    );
-                    paint_quad(tinted, &mut handle);
-                    resolved_textures.tinted.push((handle, tint));
-                }
-            }
-
-            *cached = layers;
-        };
 
         if self.inverted {
             board.squares.iter().enumerate().rev().enumerate().for_each(
                 |(dest_row, (source_row, row))| {
                     row.iter().enumerate().rev().enumerate().for_each(
                         |(dest_col, (source_col, square))| {
-                            paint_square(source_row, source_col, dest_row, dest_col, square);
+                            self.paint_square_offscreen(
+                                ctx,
+                                board,
+                                player_colors,
+                                tick,
+                                source_row,
+                                source_col,
+                                dest_row,
+                                dest_col,
+                                square,
+                                measures,
+                                tileset,
+                            );
                         },
                     );
                 },
@@ -350,7 +348,19 @@ impl MappedBoard {
         } else {
             board.squares.iter().enumerate().for_each(|(rownum, row)| {
                 row.iter().enumerate().for_each(|(colnum, square)| {
-                    paint_square(rownum, colnum, rownum, colnum, square);
+                    self.paint_square_offscreen(
+                        ctx,
+                        board,
+                        player_colors,
+                        tick,
+                        rownum,
+                        colnum,
+                        rownum,
+                        colnum,
+                        square,
+                        measures,
+                        tileset,
+                    );
                 });
             });
         }

@@ -66,10 +66,39 @@ pub enum BGTexType {
     Water,
 }
 
+impl From<&Square> for BGTexType {
+    fn from(sq: &Square) -> Self {
+        match sq {
+            truncate_core::board::Square::Water => Self::Water,
+            truncate_core::board::Square::Land => Self::Land,
+            truncate_core::board::Square::Town { .. } => Self::Land,
+            truncate_core::board::Square::Dock(_) => Self::Water,
+            truncate_core::board::Square::Occupied(_, _) => Self::Land,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum FGTexType {
-    Town,
-    Dock,
+    None,
+    Town(Color32),
+    Dock(Color32),
+}
+
+impl From<(&Square, &Vec<Color32>)> for FGTexType {
+    fn from((sq, player_colors): (&Square, &Vec<Color32>)) -> Self {
+        match sq {
+            Square::Water => Self::None,
+            Square::Land => Self::None,
+            Square::Town { player, .. } => {
+                Self::Town(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
+            }
+            Square::Dock(player) => {
+                Self::Dock(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
+            }
+            Square::Occupied(_, _) => Self::None,
+        }
+    }
 }
 
 // Wind levels
@@ -305,7 +334,7 @@ impl Tex {
         .concat()
     }
 
-    fn dock(color: Option<Color32>, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
+    fn dock(color: Color32, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
         // TODO: Render docks with multiple edges somehow.
 
         let mut dock = if matches!(neighbors[1], BGTexType::Land) {
@@ -317,7 +346,7 @@ impl Tex {
                         breeze!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
                         _ => tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
                     },
-                    color,
+                    Some(color),
                 )
         } else if matches!(neighbors[5], BGTexType::Land) {
             TexLayers::default()
@@ -328,7 +357,7 @@ impl Tex {
                         breeze!() => tiles::quad::NORTH_DOCK_SAIL_WIND_1,
                         _ => tiles::quad::NORTH_DOCK_SAIL_WIND_2,
                     },
-                    color,
+                    Some(color),
                 )
         } else if matches!(neighbors[3], BGTexType::Land) {
             TexLayers::default()
@@ -339,7 +368,7 @@ impl Tex {
                         breeze!() => tiles::quad::WEST_DOCK_SAIL_WIND_1,
                         _ => tiles::quad::WEST_DOCK_SAIL_WIND_2,
                     },
-                    color,
+                    Some(color),
                 )
         } else if matches!(neighbors[7], BGTexType::Land) {
             TexLayers::default()
@@ -350,7 +379,7 @@ impl Tex {
                         breeze!() => tiles::quad::EAST_DOCK_SAIL_WIND_1,
                         _ => tiles::quad::EAST_DOCK_SAIL_WIND_2,
                     },
-                    color,
+                    Some(color),
                 )
         } else {
             TexLayers::default()
@@ -361,13 +390,13 @@ impl Tex {
                         breeze!() => tiles::quad::FLOATING_DOCK_SAIL_WIND_1,
                         _ => tiles::quad::FLOATING_DOCK_SAIL_WIND_2,
                     },
-                    color,
+                    Some(color),
                 )
         };
         dock
     }
 
-    fn town(color: Option<Color32>, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
+    fn town(color: Color32, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
         let anim_index = (quickrand(seed + 3) + tick as usize) % 30;
         let rand_house = |n: usize| match quickrand(n) {
             0..=25 => (
@@ -398,9 +427,7 @@ impl Tex {
 
         let rand_house_colored = |n: usize| {
             let mut h = rand_house(n);
-            if let Some(color) = &color {
-                h.1 = h.1.tint(*color);
-            }
+            h.1 = h.1.tint(color);
             h
         };
 
@@ -420,9 +447,7 @@ impl Tex {
 
         let rand_decor_colored = |n: usize| {
             let mut d = rand_decor(n);
-            if let Some(color) = &color {
-                d.1 = d.1.tint(*color);
-            }
+            d.1 = d.1.tint(color);
             d
         };
 
@@ -477,16 +502,15 @@ impl Tex {
 
         TexLayers::default()
             .structures(structures)
-            .tinted(tinted, color)
+            .tinted(tinted, Some(color))
     }
 
     /// Determine the tiles to use based on a given square and its neighbors,
     /// provided clockwise from northwest.
     pub fn terrain(
         base_type: BGTexType,
-        layer_type: Option<FGTexType>,
+        layer_type: FGTexType,
         neighbors: Vec<BGTexType>,
-        color: Option<Color32>,
         seed: usize,
         tick: u64,
         wind_at_coord: u8,
@@ -583,15 +607,14 @@ impl Tex {
         let mut layers =
             TexLayers::default().terrain([top_left, top_right, bottom_right, bottom_left]);
 
-        if let Some(layer) = layer_type {
-            match layer {
-                FGTexType::Town => {
-                    layers = layers.merge(&Tex::town(color, seed, tick, wind_at_coord))
-                }
-                FGTexType::Dock => {
-                    layers = layers.merge(&Tex::dock(color, neighbors, wind_at_coord))
-                }
+        match layer_type {
+            FGTexType::Town(color) => {
+                layers = layers.merge(&Tex::town(color, seed, tick, wind_at_coord))
             }
+            FGTexType::Dock(color) => {
+                layers = layers.merge(&Tex::dock(color, neighbors, wind_at_coord))
+            }
+            FGTexType::None => {}
         }
 
         layers

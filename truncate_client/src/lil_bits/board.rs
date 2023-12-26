@@ -92,7 +92,7 @@ impl<'a> BoardUI<'a> {
                     ui.next_widget_position(),
                     vec2(self.board.width() as f32 * ctx.theme.grid_size, self.board.height() as f32 * ctx.theme.grid_size)
                 );
-                mapped_board.render_entire(dest, ui);
+                mapped_board.render_to_rect(dest, ui);
 
                 let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
                     let mut render_row =

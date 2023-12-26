@@ -61,7 +61,7 @@ impl Lobby {
         Self {
             room_code,
             board_seed: None,
-            mapped_board: MappedBoard::new(ctx, &board, map_texture.clone(), false, &player_colors),
+            mapped_board: MappedBoard::new(ctx, &board, false, &player_colors),
             players,
             player_index,
             player_colors,
