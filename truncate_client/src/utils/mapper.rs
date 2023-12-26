@@ -11,7 +11,7 @@ use crate::{
     utils::tex::FGTexType,
 };
 
-use super::tex::{render_tex_quads, BGTexType, Tex, TexQuad};
+use super::tex::{render_tex_quads, tiles, BGTexType, Tex, TexQuad};
 
 #[derive(Clone)]
 pub struct MappedBoard {
@@ -62,7 +62,7 @@ impl MappedBoard {
             .and_then(|row| row.get(coord.x))
         {
             Some(texs) => texs,
-            None => &[[Tex::DEBUG; 4]],
+            None => &[[tiles::DEBUG; 4]],
         }
     }
 

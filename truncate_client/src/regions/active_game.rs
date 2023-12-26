@@ -21,7 +21,7 @@ use crate::{
     lil_bits::{BattleUI, BoardUI, HandUI, TimerUI},
     utils::{
         mapper::MappedBoard,
-        tex::{render_tex_quad, render_tex_quads, Tex},
+        tex::{render_tex_quad, render_tex_quads, tiles, Tex},
         text::TextHelper,
         Diaphanize, Lighten, Theme,
     },
@@ -350,14 +350,14 @@ impl ActiveGame {
 
                         if self.ctx.unread_sidebar {
                             render_tex_quads(
-                                &[Tex::BUTTON_INFO, Tex::BUTTON_NOTIF],
+                                &[tiles::quad::INFO_BUTTON, tiles::quad::BUTTON_NOTIFICATION],
                                 button_rect,
                                 &self.ctx.map_texture,
                                 ui,
                             );
                         } else {
                             render_tex_quad(
-                                Tex::BUTTON_INFO,
+                                tiles::quad::INFO_BUTTON,
                                 button_rect,
                                 &self.ctx.map_texture,
                                 ui,
@@ -563,7 +563,7 @@ impl ActiveGame {
                                 ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
                             }
                             render_tex_quad(
-                                Tex::BUTTON_CLOSE,
+                                tiles::quad::CLOSE_BUTTON,
                                 button_rect,
                                 &self.ctx.map_texture,
                                 ui,
