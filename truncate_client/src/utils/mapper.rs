@@ -7,16 +7,51 @@ use epaint::{
 use truncate_core::board::{Board, Coordinate, Square};
 
 use crate::{
-    app_outer::{TEXTURE_IMAGE, TEXTURE_MEASUREMENT},
+    app_outer::{TextureMeasurement, TEXTURE_IMAGE, TEXTURE_MEASUREMENT},
     utils::tex::FGTexType,
 };
 
 use super::tex::{render_tex_quads, tiles, BGTexType, Tex, TexQuad};
 
 #[derive(Clone)]
+struct ResolvedTextureLayers {
+    terrain: TextureHandle,
+    structures: TextureHandle,
+    tinted: Vec<(TextureHandle, Option<Color32>)>,
+    overlay: TextureHandle,
+}
+
+impl ResolvedTextureLayers {
+    fn new(board: &Board, measures: &TextureMeasurement, ctx: &egui::Context) -> Self {
+        let final_width = measures.inner_tile_width_px * board.width() * 2;
+        let final_height = measures.inner_tile_height_px * board.height() * 2;
+        let layer_base = ColorImage::new([final_width, final_height], Color32::TRANSPARENT);
+
+        Self {
+            terrain: ctx.load_texture(
+                format!("board_layer_terrain"),
+                layer_base.clone(),
+                egui::TextureOptions::NEAREST,
+            ),
+            structures: ctx.load_texture(
+                format!("board_layer_structures"),
+                layer_base.clone(),
+                egui::TextureOptions::NEAREST,
+            ),
+            tinted: vec![],
+            overlay: ctx.load_texture(
+                format!("board_layer_overlay"),
+                layer_base,
+                egui::TextureOptions::NEAREST,
+            ),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct MappedBoard {
     resolved_tex: Vec<Vec<Vec<TexQuad>>>,
-    resolved_textures: Vec<TextureHandle>,
+    resolved_textures: Option<ResolvedTextureLayers>,
     map_texture: TextureHandle,
     map_seed: usize,
     inverted: bool, // TODO: Handle any transpose
@@ -40,7 +75,7 @@ impl MappedBoard {
 
         let mut mapper = Self {
             resolved_tex: Vec::with_capacity(board.squares.len()),
-            resolved_textures: vec![],
+            resolved_textures: None,
             map_texture,
             map_seed: (secs % 100000) as usize,
             inverted: invert,
@@ -49,8 +84,6 @@ impl MappedBoard {
             incoming_wind: 0,
             winds: vec![0; board.width() + board.height()].into(),
         };
-
-        mapper.remap(board, player_colors, 0);
 
         mapper
     }
@@ -73,10 +106,19 @@ impl MappedBoard {
     pub fn render_entire(&self, rect: Rect, ui: &mut egui::Ui) {
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
 
-        for layer in &self.resolved_textures {
-            let mut mesh = Mesh::with_texture(layer.id());
-            mesh.add_rect_with_uv(rect, uv, Color32::WHITE);
+        let paint = |id: epaint::TextureId, color: Color32| {
+            let mut mesh = Mesh::with_texture(id);
+            mesh.add_rect_with_uv(rect, uv, color);
             ui.painter().add(Shape::mesh(mesh));
+        };
+
+        if let Some(tex) = &self.resolved_textures {
+            paint(tex.terrain.id(), Color32::WHITE);
+            paint(tex.structures.id(), Color32::WHITE);
+            for (layer, color) in &tex.tinted {
+                paint(layer.id(), color.unwrap_or(Color32::WHITE));
+            }
+            paint(tex.overlay.id(), Color32::WHITE);
         }
     }
 
@@ -86,7 +128,6 @@ impl MappedBoard {
         board: &Board,
         player_colors: &Vec<Color32>,
         tick: u64,
-        remap_base: bool,
     ) {
         fn base_type(sq: &Square) -> BGTexType {
             match sq {
@@ -149,11 +190,12 @@ impl MappedBoard {
         let final_height = measures.inner_tile_height_px * board.height() * 2;
         let sized_correct = self
             .resolved_textures
-            .get(0)
-            .is_some_and(|t| t.size() == [final_width, final_height]);
+            .as_ref()
+            .is_some_and(|t| t.terrain.size() == [final_width, final_height]);
         if !sized_correct {
-            self.resolved_textures = vec![];
+            self.resolved_textures = Some(ResolvedTextureLayers::new(board, measures, ctx));
         }
+        let resolved_textures = self.resolved_textures.as_mut().unwrap();
 
         let mut paint_square = |source_row: usize,
                                 source_col: usize,
@@ -194,30 +236,10 @@ impl MappedBoard {
                 self.map_seed + (coord.x * coord.y + coord.y),
                 tick,
                 wind_at_coord,
-            )
-            .into_iter()
-            .enumerate();
+            );
 
-            // TODO: We should be able to skip remapping the base layer,
-            // but it currently comes up blank.
-            // if !remap_base && !self.resolved_textures.is_empty() {
-            //     _ = layers.next();
-            // }
-
-            layers.for_each(|(layer, tex_quad)| {
-                if self.resolved_textures.len() == layer {
-                    let layer_base =
-                        ColorImage::new([final_width, final_height], Color32::TRANSPARENT);
-                    let handle = ctx.load_texture(
-                        format!("board_layer_{layer}"),
-                        layer_base,
-                        egui::TextureOptions::NEAREST,
-                    );
-                    self.resolved_textures.push(handle);
-                }
-
-                let texture = self.resolved_textures.get_mut(layer).unwrap();
-                for (tex, sub_loc) in tex_quad.into_iter().zip(
+            let paint_quad = |quad: TexQuad, canvas: &mut TextureHandle| {
+                for (tex, sub_loc) in quad.into_iter().zip(
                     [
                         [0, 0],
                         [measures.inner_tile_width_px, 0],
@@ -243,9 +265,38 @@ impl MappedBoard {
                         dest_row * (measures.inner_tile_height_px * 2) + sub_loc[1],
                     ];
 
-                    texture.set_partial(dest_pos, tile_from_map, egui::TextureOptions::NEAREST);
+                    canvas.set_partial(dest_pos, tile_from_map, egui::TextureOptions::NEAREST);
                 }
-            });
+            };
+
+            if let Some(terrain) = layers.terrain {
+                paint_quad(terrain, &mut resolved_textures.terrain);
+            }
+            if let Some(structures) = layers.structures {
+                paint_quad(structures, &mut resolved_textures.structures);
+            }
+            if let Some((tinted, tint)) = layers.tinted {
+                let existing_tint = resolved_textures
+                    .tinted
+                    .iter_mut()
+                    .find(|(_, layer_tint)| layer_tint == &tint);
+                if let Some((existing_tint, _)) = existing_tint {
+                    paint_quad(tinted, existing_tint);
+                } else {
+                    let layer_base =
+                        ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
+                    let mut handle = ctx.load_texture(
+                        format!("board_layer_tint"),
+                        layer_base.clone(),
+                        egui::TextureOptions::NEAREST,
+                    );
+                    paint_quad(tinted, &mut handle);
+                    resolved_textures.tinted.push((handle, tint));
+                }
+            }
+            if let Some(overlay) = layers.overlay {
+                paint_quad(overlay, &mut resolved_textures.overlay);
+            }
         };
 
         if self.inverted {
@@ -265,106 +316,6 @@ impl MappedBoard {
                 });
             });
         }
-    }
-
-    // TODO: Delete.
-    pub fn remap(&mut self, board: &Board, player_colors: &Vec<Color32>, tick: u64) {
-        fn base_type(sq: &Square) -> BGTexType {
-            match sq {
-                truncate_core::board::Square::Water => BGTexType::Water,
-                truncate_core::board::Square::Land => BGTexType::Land,
-                truncate_core::board::Square::Town { .. } => BGTexType::Land,
-                truncate_core::board::Square::Dock(_) => BGTexType::Water,
-                truncate_core::board::Square::Occupied(_, _) => BGTexType::Land,
-            }
-        }
-
-        fn layer_type(sq: &Square, player_colors: &Vec<Color32>) -> Option<(FGTexType, Color32)> {
-            match sq {
-                Square::Water => None,
-                Square::Land => None,
-                Square::Town { player, .. } => Some((
-                    FGTexType::Town,
-                    *player_colors.get(*player).unwrap_or(&Color32::WHITE),
-                )),
-                Square::Dock(player) => Some((
-                    FGTexType::Dock,
-                    *player_colors.get(*player).unwrap_or(&Color32::WHITE),
-                )),
-                Square::Occupied(_, _) => None,
-            }
-        }
-
-        if self.last_tick != tick {
-            self.last_tick = tick;
-            if self.inverted {
-                self.winds.pop_back();
-            } else {
-                self.winds.pop_front();
-            }
-
-            let off_target = self.incoming_wind.abs_diff(self.forecasted_wind);
-            if off_target == 0 {
-                self.forecasted_wind = (quickrand(tick as usize) % 100) as u8;
-            } else if self.incoming_wind > self.forecasted_wind {
-                self.incoming_wind -= (off_target / 3).clamp(1, 20);
-            } else {
-                self.incoming_wind += (off_target / 3).clamp(1, 20);
-            }
-
-            if self.inverted {
-                self.winds.push_front(self.incoming_wind);
-            } else {
-                self.winds.push_back(self.incoming_wind);
-            }
-        }
-
-        self.resolved_tex = board
-            .squares
-            .iter()
-            .enumerate()
-            .map(|(rownum, row)| {
-                row.iter()
-                    .enumerate()
-                    .map(|(colnum, square)| {
-                        let coord = Coordinate::new(colnum, rownum);
-
-                        let mut neighbor_squares: Vec<_> = coord
-                            .neighbors_8()
-                            .into_iter()
-                            .map(|pos| board.get(pos).ok())
-                            .collect();
-
-                        if self.inverted {
-                            neighbor_squares.rotate_left(4);
-                        }
-
-                        let neighbor_base_types: Vec<_> = neighbor_squares
-                            .iter()
-                            .map(|square| {
-                                square.map(|sq| base_type(&sq)).unwrap_or(BGTexType::Water)
-                            })
-                            .collect();
-
-                        let tile_base_type = base_type(square);
-                        let tile_layer_type = layer_type(square, &player_colors);
-
-                        let wind_at_coord =
-                            self.winds.get(colnum + rownum).cloned().unwrap_or_default();
-
-                        Tex::terrain(
-                            tile_base_type,
-                            tile_layer_type.map(|l| l.0),
-                            neighbor_base_types,
-                            tile_layer_type.map(|l| l.1),
-                            self.map_seed + (coord.x * coord.y + coord.y),
-                            tick,
-                            wind_at_coord,
-                        )
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
     }
 }
 

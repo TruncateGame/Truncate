@@ -446,7 +446,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 if let GameStatus::PendingStart(lobby) = game_status {
                     if lobby.room_code.to_uppercase() == id.to_uppercase() {
                         lobby.players = players;
-                        lobby.update_board(board);
+                        lobby.update_board(board, ui);
                         continue;
                     }
                 }
@@ -480,7 +480,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     GameStatus::PendingStart(editor_state) => {
                         // TODO: Assert that this message is for the correct lobby
                         editor_state.players = players;
-                        editor_state.update_board(board);
+                        editor_state.update_board(board, ui);
                     }
                     _ => panic!("Game update hit an unknown state"),
                 }

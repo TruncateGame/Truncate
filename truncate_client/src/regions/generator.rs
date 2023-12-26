@@ -139,7 +139,8 @@ impl GeneratorState {
 
         self.active_game.board = board;
         self.active_game.board.cache_special_squares();
-        self.active_game.mapped_board.remap(
+        self.active_game.mapped_board.remap_texture(
+            &ui.ctx(),
             &self.active_game.board,
             &self.active_game.ctx.player_colors,
             0,

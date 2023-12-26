@@ -71,8 +71,9 @@ impl Lobby {
         }
     }
 
-    pub fn update_board(&mut self, board: Board) {
-        self.mapped_board.remap(&board, &self.player_colors, 0);
+    pub fn update_board(&mut self, board: Board, ui: &mut egui::Ui) {
+        self.mapped_board
+            .remap_texture(&ui.ctx(), &board, &self.player_colors, 0);
         self.board = board;
     }
 
@@ -243,7 +244,8 @@ impl Lobby {
             .render(true, &mut lobby_ui, theme, &self.map_texture)
             {
                 msg = Some(board_update);
-                self.mapped_board.remap(&self.board, &self.player_colors, 0);
+                self.mapped_board
+                    .remap_texture(&ui.ctx(), &self.board, &self.player_colors, 0);
             }
         }
 

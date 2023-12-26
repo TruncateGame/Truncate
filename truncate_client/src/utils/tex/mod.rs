@@ -21,6 +21,45 @@ pub struct Tex {
 
 pub type TexQuad = [Tex; 4];
 
+#[derive(Default, Debug, Copy, Clone)]
+pub struct TexLayers {
+    pub terrain: Option<TexQuad>,
+    pub structures: Option<TexQuad>,
+    pub tinted: Option<(TexQuad, Option<Color32>)>,
+    pub overlay: Option<TexQuad>,
+}
+
+impl TexLayers {
+    fn terrain(mut self, quad: TexQuad) -> Self {
+        self.terrain = Some(quad);
+        self
+    }
+
+    fn structures(mut self, quad: TexQuad) -> Self {
+        self.structures = Some(quad);
+        self
+    }
+
+    fn tinted(mut self, quad: TexQuad, tint: Option<Color32>) -> Self {
+        self.tinted = Some((quad, tint));
+        self
+    }
+
+    fn overlay(mut self, quad: TexQuad) -> Self {
+        self.overlay = Some(quad);
+        self
+    }
+
+    fn merge(mut self, other: &TexLayers) -> Self {
+        Self {
+            terrain: self.terrain.or(other.terrain),
+            structures: self.structures.or(other.structures),
+            tinted: self.tinted.or(other.tinted),
+            overlay: self.overlay.or(other.overlay),
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum BGTexType {
     Land,
@@ -95,7 +134,7 @@ impl Tex {
         let mut tex = vec![];
 
         if let Some(color) = color {
-            tex.push(tiles::quad::GAME_PIECE);
+            tex.push(tiles::quad::GAME_PIECE.tint(color));
         }
 
         if let Some(highlight) = highlight {
@@ -266,62 +305,69 @@ impl Tex {
         .concat()
     }
 
-    fn dock(color: Option<Color32>, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> Vec<TexQuad> {
+    fn dock(color: Option<Color32>, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
         // TODO: Render docks with multiple edges somehow.
 
         let mut dock = if matches!(neighbors[1], BGTexType::Land) {
-            vec![
-                tiles::quad::SOUTH_DOCK,
-                match wind_at_coord {
-                    calm!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
-                    breeze!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
-                    _ => tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
-                },
-            ]
+            TexLayers::default()
+                .structures(tiles::quad::SOUTH_DOCK)
+                .tinted(
+                    match wind_at_coord {
+                        calm!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
+                        breeze!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
+                        _ => tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
+                    },
+                    color,
+                )
         } else if matches!(neighbors[5], BGTexType::Land) {
-            vec![
-                tiles::quad::NORTH_DOCK,
-                match wind_at_coord {
-                    calm!() => tiles::quad::NORTH_DOCK_SAIL_WIND_0,
-                    breeze!() => tiles::quad::NORTH_DOCK_SAIL_WIND_1,
-                    _ => tiles::quad::NORTH_DOCK_SAIL_WIND_2,
-                },
-            ]
+            TexLayers::default()
+                .structures(tiles::quad::NORTH_DOCK)
+                .tinted(
+                    match wind_at_coord {
+                        calm!() => tiles::quad::NORTH_DOCK_SAIL_WIND_0,
+                        breeze!() => tiles::quad::NORTH_DOCK_SAIL_WIND_1,
+                        _ => tiles::quad::NORTH_DOCK_SAIL_WIND_2,
+                    },
+                    color,
+                )
         } else if matches!(neighbors[3], BGTexType::Land) {
-            vec![
-                tiles::quad::WEST_DOCK,
-                match wind_at_coord {
-                    calm!() => tiles::quad::WEST_DOCK_SAIL_WIND_0,
-                    breeze!() => tiles::quad::WEST_DOCK_SAIL_WIND_1,
-                    _ => tiles::quad::WEST_DOCK_SAIL_WIND_2,
-                },
-            ]
+            TexLayers::default()
+                .structures(tiles::quad::WEST_DOCK)
+                .tinted(
+                    match wind_at_coord {
+                        calm!() => tiles::quad::WEST_DOCK_SAIL_WIND_0,
+                        breeze!() => tiles::quad::WEST_DOCK_SAIL_WIND_1,
+                        _ => tiles::quad::WEST_DOCK_SAIL_WIND_2,
+                    },
+                    color,
+                )
         } else if matches!(neighbors[7], BGTexType::Land) {
-            vec![
-                tiles::quad::EAST_DOCK,
-                match wind_at_coord {
-                    calm!() => tiles::quad::EAST_DOCK_SAIL_WIND_0,
-                    breeze!() => tiles::quad::EAST_DOCK_SAIL_WIND_1,
-                    _ => tiles::quad::EAST_DOCK_SAIL_WIND_2,
-                },
-            ]
+            TexLayers::default()
+                .structures(tiles::quad::EAST_DOCK)
+                .tinted(
+                    match wind_at_coord {
+                        calm!() => tiles::quad::EAST_DOCK_SAIL_WIND_0,
+                        breeze!() => tiles::quad::EAST_DOCK_SAIL_WIND_1,
+                        _ => tiles::quad::EAST_DOCK_SAIL_WIND_2,
+                    },
+                    color,
+                )
         } else {
-            vec![
-                tiles::quad::FLOATING_DOCK,
-                match wind_at_coord {
-                    calm!() => tiles::quad::FLOATING_DOCK_SAIL_WIND_0,
-                    breeze!() => tiles::quad::FLOATING_DOCK_SAIL_WIND_1,
-                    _ => tiles::quad::FLOATING_DOCK_SAIL_WIND_2,
-                },
-            ]
+            TexLayers::default()
+                .structures(tiles::quad::FLOATING_DOCK)
+                .tinted(
+                    match wind_at_coord {
+                        calm!() => tiles::quad::FLOATING_DOCK_SAIL_WIND_0,
+                        breeze!() => tiles::quad::FLOATING_DOCK_SAIL_WIND_1,
+                        _ => tiles::quad::FLOATING_DOCK_SAIL_WIND_2,
+                    },
+                    color,
+                )
         };
-        if let Some(color) = color {
-            dock[1] = dock[1].tint(color);
-        }
         dock
     }
 
-    fn town(color: Option<Color32>, seed: usize, tick: u64, wind_at_coord: u8) -> Vec<TexQuad> {
+    fn town(color: Option<Color32>, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
         let anim_index = (quickrand(seed + 3) + tick as usize) % 30;
         let rand_house = |n: usize| match quickrand(n) {
             0..=25 => (
@@ -402,23 +448,20 @@ impl Tex {
             _ => 1,
         };
 
-        let mut texs = vec![
-            [
-                rand_path(seed + 4),
-                rand_path(seed + 44),
-                rand_path(seed + 444),
-                rand_path(seed + 4444),
-            ],
-            [tiles::NONE, tiles::NONE, tiles::NONE, tiles::NONE],
-            // [tiles::NONE, tiles::NONE, tiles::NONE, tiles::NONE],
+        let mut structures = [
+            rand_path(seed + 4),
+            rand_path(seed + 44),
+            rand_path(seed + 444),
+            rand_path(seed + 4444),
         ];
+        let mut tinted = [tiles::NONE, tiles::NONE, tiles::NONE, tiles::NONE];
 
         for d in 0..numdecor {
             let decorpos = quickrand(seed + 454 + d + d) % 4;
             let (decor, layer) = rand_decor_colored(seed + 646 * d);
 
-            texs[0][decorpos] = decor;
-            texs[1][decorpos] = layer;
+            structures[decorpos] = decor;
+            tinted[decorpos] = layer;
         }
 
         // These may bowl each other over but that's fine,
@@ -427,12 +470,14 @@ impl Tex {
             let housepos = quickrand(seed + 45 * h) % 4;
             let (house, roof /*, smoke*/) = rand_house_colored(seed + 6 * h);
 
-            texs[0][housepos] = house;
-            texs[1][housepos] = roof;
+            structures[housepos] = house;
+            tinted[housepos] = roof;
             // texs[2][housepos] = smoke;
         }
 
-        texs
+        TexLayers::default()
+            .structures(structures)
+            .tinted(tinted, color)
     }
 
     /// Determine the tiles to use based on a given square and its neighbors,
@@ -445,10 +490,15 @@ impl Tex {
         seed: usize,
         tick: u64,
         wind_at_coord: u8,
-    ) -> Vec<TexQuad> {
+    ) -> TexLayers {
         debug_assert_eq!(neighbors.len(), 8);
         if neighbors.len() != 8 {
-            return vec![[tiles::DEBUG, tiles::DEBUG, tiles::DEBUG, tiles::DEBUG]];
+            return TexLayers::default().terrain([
+                tiles::DEBUG,
+                tiles::DEBUG,
+                tiles::DEBUG,
+                tiles::DEBUG,
+            ]);
         }
 
         let grasses = match wind_at_coord {
@@ -530,16 +580,21 @@ impl Tex {
             },
         };
 
-        let mut texs = vec![[top_left, top_right, bottom_right, bottom_left]];
+        let mut layers =
+            TexLayers::default().terrain([top_left, top_right, bottom_right, bottom_left]);
 
         if let Some(layer) = layer_type {
             match layer {
-                FGTexType::Town => texs.extend(Tex::town(color, seed, tick, wind_at_coord)),
-                FGTexType::Dock => texs.extend(Tex::dock(color, neighbors, wind_at_coord)),
+                FGTexType::Town => {
+                    layers = layers.merge(&Tex::town(color, seed, tick, wind_at_coord))
+                }
+                FGTexType::Dock => {
+                    layers = layers.merge(&Tex::dock(color, neighbors, wind_at_coord))
+                }
             }
         }
 
-        texs
+        layers
     }
 
     pub fn landscaping(from: &Square, action: &BoardEditingMode) -> Option<TexQuad> {

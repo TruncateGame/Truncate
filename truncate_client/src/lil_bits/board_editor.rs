@@ -106,7 +106,8 @@ impl<'a> EditorUI<'a> {
                 .clicked()
             {
                 self.board.grow();
-                self.mapped_board.remap(&self.board, &self.player_colors, 0);
+                self.mapped_board
+                    .remap_texture(ui.ctx(), &self.board, &self.player_colors, 0);
                 msg = Some(PlayerMessage::EditBoard(self.board.clone()));
             }
 
