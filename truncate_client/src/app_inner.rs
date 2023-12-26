@@ -89,6 +89,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         } else if launched_room == "TUTORIAL_01" {
             new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+                ui.ctx(),
                 map_texture.clone(),
                 theme.clone(),
             )));
@@ -96,6 +97,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let mut board = Board::new(9, 9);
             board.grow();
             new_game_status = Some(GameStatus::PendingSinglePlayer(Lobby::new(
+                ui.ctx(),
                 "Single Player".into(),
                 vec![
                     LobbyPlayerMessage {
@@ -115,7 +117,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 current_time,
             )));
         } else if launched_room == "DAILY_PUZZLE" {
-            let puzzle_game = get_daily_puzzle(current_time, map_texture, theme, backchannel);
+            let puzzle_game =
+                get_daily_puzzle(ui.ctx(), current_time, map_texture, theme, backchannel);
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room == "RANDOM_PUZZLE" {
             let seed = (current_time.as_micros() % 243985691) as u32;
@@ -127,6 +130,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
+                ui.ctx(),
                 map_texture.clone(),
                 theme.clone(),
                 board,
@@ -156,6 +160,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
+                ui.ctx(),
                 map_texture.clone(),
                 theme.clone(),
                 board,
@@ -168,6 +173,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let behemoth_board = Board::from_string(include_str!("../tutorials/test_board.txt"));
             let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
             let behemoth_game = SinglePlayerState::new(
+                ui.ctx(),
                 map_texture.clone(),
                 theme.clone(),
                 behemoth_board,
@@ -228,12 +234,14 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         GameStatus::None(room_code, token) => {
             if ui.button("Generator").clicked() {
                 new_game_status = Some(GameStatus::Generator(GeneratorState::new(
+                    ui.ctx(),
                     map_texture.clone(),
                     theme.clone(),
                 )));
             }
             if ui.button("Tutorial").clicked() {
                 new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+                    ui.ctx(),
                     map_texture.clone(),
                     theme.clone(),
                 )));
@@ -242,6 +250,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 let mut board = Board::new(9, 9);
                 board.grow();
                 new_game_status = Some(GameStatus::PendingSinglePlayer(Lobby::new(
+                    ui.ctx(),
                     "Single Player".into(),
                     vec![
                         LobbyPlayerMessage {
@@ -266,6 +275,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     Board::from_string(include_str!("../tutorials/test_board.txt"));
                 let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
                 let behemoth_game = SinglePlayerState::new(
+                    ui.ctx(),
                     map_texture.clone(),
                     theme.clone(),
                     behemoth_board,
@@ -311,6 +321,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 match msg {
                     PlayerMessage::StartGame => {
                         let single_player_game = SinglePlayerState::new(
+                            ui.ctx(),
                             map_texture.clone(),
                             theme.clone(),
                             editor_state.board.clone(),
@@ -467,6 +478,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 }
 
                 *game_status = GameStatus::PendingStart(Lobby::new(
+                    ui.ctx(),
                     id.to_uppercase(),
                     players,
                     player_index,
@@ -513,6 +525,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 }
 
                 *game_status = GameStatus::Active(ActiveGame::new(
+                    ui.ctx(),
                     room_code.to_uppercase(),
                     None,
                     players,

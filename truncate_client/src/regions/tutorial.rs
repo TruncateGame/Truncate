@@ -104,7 +104,7 @@ pub struct TutorialState {
 }
 
 impl TutorialState {
-    pub fn new(map_texture: TextureHandle, theme: Theme) -> Self {
+    pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: Theme) -> Self {
         let loaded_tutorial: Tutorial =
             serde_yaml::from_slice(TUTORIAL_01).expect("Tutorial should match Tutorial format");
 
@@ -155,6 +155,7 @@ impl TutorialState {
         };
 
         let mut active_game = ActiveGame::new(
+            ctx,
             "TUTORIAL_01".into(),
             None,
             game.players.iter().map(Into::into).collect(),

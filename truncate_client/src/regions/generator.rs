@@ -22,10 +22,11 @@ pub struct GeneratorState {
 }
 
 impl GeneratorState {
-    pub fn new(map_texture: TextureHandle, theme: Theme) -> Self {
+    pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: Theme) -> Self {
         let mut game = Game::new(10, 10, None);
         game.add_player("p1".into());
         let mut active_game = ActiveGame::new(
+            ctx,
             "TARGET".into(),
             None,
             game.players.iter().map(Into::into).collect(),

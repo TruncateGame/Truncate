@@ -97,6 +97,7 @@ pub struct ActiveGame {
 
 impl ActiveGame {
     pub fn new(
+        ctx: &egui::Context,
         room_code: RoomCode,
         game_seed: Option<BoardSeed>,
         players: Vec<GamePlayerMessage>,
@@ -148,6 +149,7 @@ impl ActiveGame {
                 interactive: true,
             },
             mapped_board: MappedBoard::new(
+                ctx,
                 &board,
                 map_texture.clone(),
                 player_number == 0,

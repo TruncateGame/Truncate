@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use chrono::Offset;
+use eframe::egui;
 use epaint::TextureHandle;
 use instant::Duration;
 use serde::{Deserialize, Serialize};
@@ -44,6 +45,7 @@ pub struct NotesFile {
 }
 
 pub fn get_daily_puzzle(
+    ctx: &egui::Context,
     current_time: Duration,
     map_texture: &TextureHandle,
     theme: &Theme,
@@ -74,6 +76,7 @@ pub fn get_daily_puzzle(
 
     let board = generate_board(board_seed.clone());
     let mut game_state = SinglePlayerState::new(
+        ctx,
         map_texture.clone(),
         theme.clone(),
         board,
@@ -102,7 +105,7 @@ pub fn get_daily_puzzle(
     for next_move in persisted_moves.moves.into_iter() {
         if game_state.handle_move(next_move, backchannel).is_err() {
             wipe_persistent_game(&board_seed);
-            return get_daily_puzzle(current_time, map_texture, theme, backchannel);
+            return get_daily_puzzle(ctx, current_time, map_texture, theme, backchannel);
         }
     }
     game_state.game.rules.battle_delay = delay;

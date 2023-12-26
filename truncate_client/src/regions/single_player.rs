@@ -49,6 +49,7 @@ pub struct SinglePlayerState {
 
 impl SinglePlayerState {
     pub fn new(
+        ctx: &egui::Context,
         map_texture: TextureHandle,
         theme: Theme,
         mut board: Board,
@@ -78,6 +79,7 @@ impl SinglePlayerState {
 
         let daily = seed.as_ref().is_some_and(|s| s.day.is_some());
         let mut active_game = ActiveGame::new(
+            ctx,
             "SINGLE_PLAYER".into(),
             seed,
             game.players.iter().map(Into::into).collect(),
@@ -109,7 +111,7 @@ impl SinglePlayerState {
         }
     }
 
-    pub fn reset(&mut self, current_time: Duration) {
+    pub fn reset(&mut self, current_time: Duration, ctx: &egui::Context) {
         if let Some(seed) = &self.active_game.ctx.board_seed {
             if seed.day.is_some() {
                 persist_game_retry(seed);
@@ -122,17 +124,17 @@ impl SinglePlayerState {
                     }
                     _ => {}
                 };
-                return self.reset_to(seed.clone(), self.human_starts);
+                return self.reset_to(seed.clone(), self.human_starts, ctx);
             }
         }
 
         let next_seed = (current_time.as_micros() % 243985691) as u32;
         let next_board_seed = BoardSeed::new(next_seed);
 
-        self.reset_to(next_board_seed, !self.human_starts);
+        self.reset_to(next_board_seed, !self.human_starts, ctx);
     }
 
-    pub fn reset_to(&mut self, seed: BoardSeed, human_starts: bool) {
+    pub fn reset_to(&mut self, seed: BoardSeed, human_starts: bool, ctx: &egui::Context) {
         let mut game = Game::new(9, 9, Some(seed.seed as u64));
         self.human_starts = human_starts;
         if self.human_starts {
@@ -156,6 +158,7 @@ impl SinglePlayerState {
         game.start();
 
         let mut active_game = ActiveGame::new(
+            ctx,
             "SINGLE_PLAYER".into(),
             Some(seed),
             game.players.iter().map(Into::into).collect(),
@@ -484,7 +487,7 @@ impl SinglePlayerState {
             .map(|msg| (human_player, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
-            self.reset(current_time);
+            self.reset(current_time, ui.ctx());
             return msg_to_server;
         }
 

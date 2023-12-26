@@ -13,7 +13,7 @@ use super::mapper::{quickrand, MappedTileVariant};
 
 pub mod tiles;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Tex {
     tile: usize,
     tint: Option<Color32>,
@@ -21,7 +21,7 @@ pub struct Tex {
 
 pub type TexQuad = [Tex; 4];
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
 pub struct TexLayers {
     pub terrain: Option<TexQuad>,
     pub structures: Option<TexQuad>,

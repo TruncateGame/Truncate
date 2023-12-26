@@ -11,7 +11,7 @@ use crate::{
     utils::tex::FGTexType,
 };
 
-use super::tex::{render_tex_quads, tiles, BGTexType, Tex, TexQuad};
+use super::tex::{render_tex_quads, tiles, BGTexType, Tex, TexLayers, TexQuad};
 
 #[derive(Clone)]
 struct ResolvedTextureLayers {
@@ -50,7 +50,7 @@ impl ResolvedTextureLayers {
 
 #[derive(Clone)]
 pub struct MappedBoard {
-    resolved_tex: Vec<Vec<Vec<TexQuad>>>,
+    memory: Vec<Vec<TexLayers>>,
     resolved_textures: Option<ResolvedTextureLayers>,
     map_texture: TextureHandle,
     map_seed: usize,
@@ -63,6 +63,7 @@ pub struct MappedBoard {
 
 impl MappedBoard {
     pub fn new(
+        ctx: &egui::Context,
         board: &Board,
         map_texture: TextureHandle,
         invert: bool,
@@ -74,7 +75,7 @@ impl MappedBoard {
             .as_secs();
 
         let mut mapper = Self {
-            resolved_tex: Vec::with_capacity(board.squares.len()),
+            memory: vec![vec![TexLayers::default(); board.squares[0].len()]; board.squares.len()],
             resolved_textures: None,
             map_texture,
             map_seed: (secs % 100000) as usize,
@@ -85,22 +86,9 @@ impl MappedBoard {
             winds: vec![0; board.width() + board.height()].into(),
         };
 
+        mapper.remap_texture(ctx, board, player_colors, 0);
+
         mapper
-    }
-
-    pub fn get(&self, coord: Coordinate) -> &[TexQuad] {
-        match self
-            .resolved_tex
-            .get(coord.y)
-            .and_then(|row| row.get(coord.x))
-        {
-            Some(texs) => texs,
-            None => &[[tiles::DEBUG; 4]],
-        }
-    }
-
-    pub fn render_coord(&self, coord: Coordinate, rect: Rect, ui: &mut egui::Ui) {
-        render_tex_quads(self.get(coord), rect, &self.map_texture, ui);
     }
 
     pub fn render_entire(&self, rect: Rect, ui: &mut egui::Ui) {
@@ -194,6 +182,8 @@ impl MappedBoard {
             .is_some_and(|t| t.terrain.size() == [final_width, final_height]);
         if !sized_correct {
             self.resolved_textures = Some(ResolvedTextureLayers::new(board, measures, ctx));
+            self.memory =
+                vec![vec![TexLayers::default(); board.squares[0].len()]; board.squares.len()];
         }
         let resolved_textures = self.resolved_textures.as_mut().unwrap();
 
@@ -238,7 +228,19 @@ impl MappedBoard {
                 wind_at_coord,
             );
 
+            let cached = self
+                .memory
+                .get_mut(coord.y)
+                .unwrap()
+                .get_mut(coord.x)
+                .unwrap();
+
+            if *cached == layers {
+                return;
+            }
+
             let paint_quad = |quad: TexQuad, canvas: &mut TextureHandle| {
+                println!("Painting some concrete image pixels to a texture canvas");
                 for (tex, sub_loc) in quad.into_iter().zip(
                     [
                         [0, 0],
@@ -269,12 +271,49 @@ impl MappedBoard {
                 }
             };
 
-            if let Some(terrain) = layers.terrain {
-                paint_quad(terrain, &mut resolved_textures.terrain);
+            // For all layer types, we can skip the update if we have a cache hit
+            // for this coordinate, as the target texture will already match.
+            // We do need to check for the cache having a value while the new layer does not,
+            // in which case we need to zero out this coordinate with blank tiles.
+
+            if cached.terrain != layers.terrain {
+                if let Some(terrain) = layers.terrain {
+                    paint_quad(terrain, &mut resolved_textures.terrain);
+                } else if cached.terrain.is_some() {
+                    paint_quad([tiles::NONE; 4], &mut resolved_textures.terrain);
+                }
             }
-            if let Some(structures) = layers.structures {
-                paint_quad(structures, &mut resolved_textures.structures);
+
+            if cached.structures != layers.structures {
+                if let Some(structures) = layers.structures {
+                    paint_quad(structures, &mut resolved_textures.structures);
+                } else if cached.structures.is_some() {
+                    paint_quad([tiles::NONE; 4], &mut resolved_textures.structures);
+                }
             }
+
+            if cached.overlay != layers.overlay {
+                if let Some(overlay) = layers.overlay {
+                    paint_quad(overlay, &mut resolved_textures.overlay);
+                } else if cached.overlay.is_some() {
+                    paint_quad([tiles::NONE; 4], &mut resolved_textures.overlay);
+                }
+            }
+
+            // If there were cached tint layers that we aren't returning,
+            // we need to find those tint layers and zero out this coordinate.
+            if cached.tinted != layers.tinted {
+                if let Some((_, tint)) = cached.tinted {
+                    let existing_tint = resolved_textures
+                        .tinted
+                        .iter_mut()
+                        .find(|(_, layer_tint)| layer_tint == &tint);
+                    if let Some((existing_tint, _)) = existing_tint {
+                        paint_quad([tiles::NONE; 4], existing_tint);
+                    }
+                }
+            }
+
             if let Some((tinted, tint)) = layers.tinted {
                 let existing_tint = resolved_textures
                     .tinted
@@ -294,9 +333,8 @@ impl MappedBoard {
                     resolved_textures.tinted.push((handle, tint));
                 }
             }
-            if let Some(overlay) = layers.overlay {
-                paint_quad(overlay, &mut resolved_textures.overlay);
-            }
+
+            *cached = layers;
         };
 
         if self.inverted {

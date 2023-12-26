@@ -52,8 +52,6 @@ impl EditorSquareUI {
         let inner_bounds = rect.shrink(theme.tile_margin);
 
         if ui.is_rect_visible(rect) {
-            mapped_board.render_coord(self.coord, rect, ui);
-
             if !matches!(self.action, BoardEditingMode::None) && response.hovered() {
                 if !response.is_pointer_button_down_on() {
                     if let Some(overlay) = Tex::landscaping(&self.square, &self.action) {

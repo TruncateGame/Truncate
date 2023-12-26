@@ -1,4 +1,4 @@
-use epaint::{emath::Align, vec2, Color32, TextureHandle, Vec2};
+use epaint::{emath::Align, vec2, Color32, Rect, TextureHandle, Vec2};
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -161,6 +161,15 @@ impl<'a> EditorUI<'a> {
 
             let mut modify_pos = None;
             outer_frame.show(ui, |ui| {
+                let dest = Rect::from_min_size(
+                    ui.next_widget_position(),
+                    vec2(
+                        self.board.width() as f32 * theme.grid_size,
+                        self.board.height() as f32 * theme.grid_size,
+                    ),
+                );
+                self.mapped_board.render_entire(dest, ui);
+
                 for (rownum, row) in self.board.squares.iter().enumerate() {
                     ui.horizontal(|ui| {
                         for (colnum, square) in row.iter().enumerate() {

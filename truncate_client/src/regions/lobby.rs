@@ -45,6 +45,7 @@ pub struct Lobby {
 
 impl Lobby {
     pub fn new(
+        ctx: &egui::Context,
         room_code: RoomCode,
         players: Vec<LobbyPlayerMessage>,
         player_index: u64,
@@ -60,7 +61,7 @@ impl Lobby {
         Self {
             room_code,
             board_seed: None,
-            mapped_board: MappedBoard::new(&board, map_texture.clone(), false, &player_colors),
+            mapped_board: MappedBoard::new(ctx, &board, map_texture.clone(), false, &player_colors),
             players,
             player_index,
             player_colors,
