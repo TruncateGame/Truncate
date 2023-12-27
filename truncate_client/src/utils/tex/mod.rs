@@ -21,42 +21,43 @@ pub struct Tex {
 
 pub type TexQuad = [Tex; 4];
 
-#[derive(Default, Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum TexLayer {
+    Terrain(TexQuad),
+    Structures(TexQuad),
+    Tinted(TexQuad, Option<Color32>),
+    Tile(TexQuad, Option<Color32>),
+    Highlight(TexQuad, Option<Color32>),
+    Grass(TexQuad),
+    Cracks(TexQuad),
+    Smoke(TexQuad),
+}
+
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct TexLayers {
-    pub terrain: Option<TexQuad>,
-    pub structures: Option<TexQuad>,
-    pub tinted: Option<(TexQuad, Option<Color32>)>,
-    pub overlay: Option<TexQuad>,
+    pub layers: Vec<TexLayer>,
 }
 
 impl TexLayers {
-    fn terrain(mut self, quad: TexQuad) -> Self {
-        self.terrain = Some(quad);
-        self
-    }
-
-    fn structures(mut self, quad: TexQuad) -> Self {
-        self.structures = Some(quad);
-        self
-    }
-
-    fn tinted(mut self, quad: TexQuad, tint: Option<Color32>) -> Self {
-        self.tinted = Some((quad, tint));
-        self
-    }
-
-    fn overlay(mut self, quad: TexQuad) -> Self {
-        self.overlay = Some(quad);
-        self
-    }
-
-    fn merge(mut self, other: &TexLayers) -> Self {
+    fn base(layer: TexLayer) -> Self {
         Self {
-            terrain: self.terrain.or(other.terrain),
-            structures: self.structures.or(other.structures),
-            tinted: self.tinted.or(other.tinted),
-            overlay: self.overlay.or(other.overlay),
+            layers: vec![layer],
         }
+    }
+
+    fn with(mut self, layer: TexLayer) -> Self {
+        self.layers.push(layer);
+        self
+    }
+
+    fn add(&mut self, layer: TexLayer) -> &mut Self {
+        self.layers.push(layer);
+        self
+    }
+
+    pub fn merge(self, mut other: TexLayers) -> Self {
+        other.layers.extend(self.layers.into_iter());
+        other
     }
 }
 
@@ -159,17 +160,20 @@ impl Tint for Vec<Vec<Tex>> {
 }
 
 impl Tex {
-    pub fn game_tile(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
-        let mut tex = vec![];
-
-        if let Some(color) = color {
-            tex.push(tiles::quad::GAME_PIECE.tint(color));
-        }
+    pub fn game_tile(color: Option<Color32>, highlight: Option<Color32>) -> TexLayers {
+        let mut layers = TexLayers::base(TexLayer::Tile(
+            tiles::quad::GAME_PIECE.tint(color.unwrap_or(Color32::WHITE)),
+            color,
+        ));
 
         if let Some(highlight) = highlight {
-            tex.push(tiles::quad::HIGHLIGHT.tint(highlight));
+            layers.add(TexLayer::Highlight(
+                tiles::quad::HIGHLIGHT.tint(highlight),
+                Some(highlight),
+            ));
         }
-        tex
+
+        layers
     }
 
     pub fn board_game_tile(
@@ -177,9 +181,9 @@ impl Tex {
         color: Option<Color32>,
         highlight: Option<Color32>,
         seed: usize,
-    ) -> Vec<TexQuad> {
-        let mut texs = Tex::game_tile(color, highlight);
-        texs.push([
+    ) -> TexLayers {
+        let mut layers = Tex::game_tile(color, highlight);
+        layers.add(TexLayer::Grass([
             tiles::NONE,
             tiles::NONE,
             match quickrand(seed) % 100 {
@@ -194,11 +198,12 @@ impl Tex {
                 51..=75 => tiles::GAME_PIECE_GRASS_2_SW,
                 _ => tiles::GAME_PIECE_GRASS_3_SW,
             },
-        ]);
+        ]));
+
         match variant {
             MappedTileVariant::Healthy => {}
             MappedTileVariant::Dying => {
-                texs.push(
+                layers.add(TexLayer::Cracks(
                     match quickrand(seed) % 100 {
                         0..=19 => tiles::quad::GAME_PIECE_CRACKS_0,
                         20..=39 => tiles::quad::GAME_PIECE_CRACKS_1,
@@ -207,48 +212,49 @@ impl Tex {
                         _ => tiles::quad::GAME_PIECE_CRACKS_4,
                     }
                     .tint(color.unwrap_or_default()),
-                );
+                ));
             }
             MappedTileVariant::Dead => {
-                for i in 0..2 {
-                    texs.push(
-                        match quickrand(seed + i) % 100 {
-                            0..=19 => tiles::quad::GAME_PIECE_CRACKS_0,
-                            20..=39 => tiles::quad::GAME_PIECE_CRACKS_1,
-                            40..=59 => tiles::quad::GAME_PIECE_CRACKS_2,
-                            60..=79 => tiles::quad::GAME_PIECE_CRACKS_3,
-                            _ => tiles::quad::GAME_PIECE_CRACKS_4,
-                        }
-                        .tint(color.unwrap_or_default()),
-                    );
-                }
+                layers.add(TexLayer::Cracks(
+                    match quickrand(seed) % 100 {
+                        0..=19 => tiles::quad::GAME_PIECE_CRACKS_0,
+                        20..=39 => tiles::quad::GAME_PIECE_CRACKS_1,
+                        40..=59 => tiles::quad::GAME_PIECE_CRACKS_2,
+                        60..=79 => tiles::quad::GAME_PIECE_CRACKS_3,
+                        _ => tiles::quad::GAME_PIECE_CRACKS_4,
+                    }
+                    .tint(color.unwrap_or_default()),
+                ));
             }
             MappedTileVariant::Gone => {
-                texs = vec![[
-                    match quickrand(seed + 345) % 100 {
-                        0..=33 => tiles::GAME_PIECE_RUBBLE_0_NW,
-                        34..=66 => tiles::GAME_PIECE_RUBBLE_1_NW,
-                        _ => tiles::GAME_PIECE_RUBBLE_2_NW,
-                    },
-                    match quickrand(seed + 757) % 100 {
-                        0..=33 => tiles::GAME_PIECE_RUBBLE_0_NE,
-                        34..=66 => tiles::GAME_PIECE_RUBBLE_1_NE,
-                        _ => tiles::GAME_PIECE_RUBBLE_2_NE,
-                    },
-                    match quickrand(seed + 8447) % 100 {
-                        0..=33 => tiles::GAME_PIECE_RUBBLE_0_SE,
-                        34..=66 => tiles::GAME_PIECE_RUBBLE_1_SE,
-                        _ => tiles::GAME_PIECE_RUBBLE_2_SE,
-                    },
-                    match quickrand(seed + 477387) % 100 {
-                        0..=33 => tiles::GAME_PIECE_RUBBLE_0_SW,
-                        34..=66 => tiles::GAME_PIECE_RUBBLE_1_SW,
-                        _ => tiles::GAME_PIECE_RUBBLE_2_SW,
-                    },
-                ]];
+                layers = TexLayers::base(TexLayer::Tile(
+                    [
+                        match quickrand(seed + 345) % 100 {
+                            0..=33 => tiles::GAME_PIECE_RUBBLE_0_NW,
+                            34..=66 => tiles::GAME_PIECE_RUBBLE_1_NW,
+                            _ => tiles::GAME_PIECE_RUBBLE_2_NW,
+                        },
+                        match quickrand(seed + 757) % 100 {
+                            0..=33 => tiles::GAME_PIECE_RUBBLE_0_NE,
+                            34..=66 => tiles::GAME_PIECE_RUBBLE_1_NE,
+                            _ => tiles::GAME_PIECE_RUBBLE_2_NE,
+                        },
+                        match quickrand(seed + 8447) % 100 {
+                            0..=33 => tiles::GAME_PIECE_RUBBLE_0_SE,
+                            34..=66 => tiles::GAME_PIECE_RUBBLE_1_SE,
+                            _ => tiles::GAME_PIECE_RUBBLE_2_SE,
+                        },
+                        match quickrand(seed + 477387) % 100 {
+                            0..=33 => tiles::GAME_PIECE_RUBBLE_0_SW,
+                            34..=66 => tiles::GAME_PIECE_RUBBLE_1_SW,
+                            _ => tiles::GAME_PIECE_RUBBLE_2_SW,
+                        },
+                    ],
+                    color,
+                ));
             }
         }
-        texs
+        layers
     }
 
     pub fn town_button(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
@@ -337,63 +343,60 @@ impl Tex {
     fn dock(color: Color32, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
         // TODO: Render docks with multiple edges somehow.
 
-        let mut dock = if matches!(neighbors[1], BGTexType::Land) {
-            TexLayers::default()
-                .structures(tiles::quad::SOUTH_DOCK)
-                .tinted(
-                    match wind_at_coord {
-                        calm!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
-                        breeze!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
-                        _ => tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
-                    },
-                    Some(color),
-                )
+        let (dock, sails) = if matches!(neighbors[1], BGTexType::Land) {
+            (
+                tiles::quad::SOUTH_DOCK,
+                [
+                    tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
+                    tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
+                    tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
+                ],
+            )
         } else if matches!(neighbors[5], BGTexType::Land) {
-            TexLayers::default()
-                .structures(tiles::quad::NORTH_DOCK)
-                .tinted(
-                    match wind_at_coord {
-                        calm!() => tiles::quad::NORTH_DOCK_SAIL_WIND_0,
-                        breeze!() => tiles::quad::NORTH_DOCK_SAIL_WIND_1,
-                        _ => tiles::quad::NORTH_DOCK_SAIL_WIND_2,
-                    },
-                    Some(color),
-                )
+            (
+                tiles::quad::NORTH_DOCK,
+                [
+                    tiles::quad::NORTH_DOCK_SAIL_WIND_0,
+                    tiles::quad::NORTH_DOCK_SAIL_WIND_1,
+                    tiles::quad::NORTH_DOCK_SAIL_WIND_2,
+                ],
+            )
         } else if matches!(neighbors[3], BGTexType::Land) {
-            TexLayers::default()
-                .structures(tiles::quad::WEST_DOCK)
-                .tinted(
-                    match wind_at_coord {
-                        calm!() => tiles::quad::WEST_DOCK_SAIL_WIND_0,
-                        breeze!() => tiles::quad::WEST_DOCK_SAIL_WIND_1,
-                        _ => tiles::quad::WEST_DOCK_SAIL_WIND_2,
-                    },
-                    Some(color),
-                )
+            (
+                tiles::quad::WEST_DOCK,
+                [
+                    tiles::quad::WEST_DOCK_SAIL_WIND_0,
+                    tiles::quad::WEST_DOCK_SAIL_WIND_1,
+                    tiles::quad::WEST_DOCK_SAIL_WIND_2,
+                ],
+            )
         } else if matches!(neighbors[7], BGTexType::Land) {
-            TexLayers::default()
-                .structures(tiles::quad::EAST_DOCK)
-                .tinted(
-                    match wind_at_coord {
-                        calm!() => tiles::quad::EAST_DOCK_SAIL_WIND_0,
-                        breeze!() => tiles::quad::EAST_DOCK_SAIL_WIND_1,
-                        _ => tiles::quad::EAST_DOCK_SAIL_WIND_2,
-                    },
-                    Some(color),
-                )
+            (
+                tiles::quad::EAST_DOCK,
+                [
+                    tiles::quad::EAST_DOCK_SAIL_WIND_0,
+                    tiles::quad::EAST_DOCK_SAIL_WIND_1,
+                    tiles::quad::EAST_DOCK_SAIL_WIND_2,
+                ],
+            )
         } else {
-            TexLayers::default()
-                .structures(tiles::quad::FLOATING_DOCK)
-                .tinted(
-                    match wind_at_coord {
-                        calm!() => tiles::quad::FLOATING_DOCK_SAIL_WIND_0,
-                        breeze!() => tiles::quad::FLOATING_DOCK_SAIL_WIND_1,
-                        _ => tiles::quad::FLOATING_DOCK_SAIL_WIND_2,
-                    },
-                    Some(color),
-                )
+            (
+                tiles::quad::FLOATING_DOCK,
+                [
+                    tiles::quad::FLOATING_DOCK_SAIL_WIND_0,
+                    tiles::quad::FLOATING_DOCK_SAIL_WIND_1,
+                    tiles::quad::FLOATING_DOCK_SAIL_WIND_2,
+                ],
+            )
         };
-        dock
+        TexLayers::base(TexLayer::Structures(tiles::quad::SOUTH_DOCK)).with(TexLayer::Tinted(
+            match wind_at_coord {
+                calm!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
+                breeze!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
+                _ => tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
+            },
+            Some(color),
+        ))
     }
 
     fn town(color: Color32, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
@@ -500,9 +503,9 @@ impl Tex {
             // texs[2][housepos] = smoke;
         }
 
-        TexLayers::default()
-            .structures(structures)
-            .tinted(tinted, Some(color))
+        let mut layers = TexLayers::base(TexLayer::Structures(structures));
+        layers.add(TexLayer::Tinted(tinted, Some(color)));
+        layers
     }
 
     /// Determine the tiles to use based on a given square and its neighbors,
@@ -517,12 +520,12 @@ impl Tex {
     ) -> TexLayers {
         debug_assert_eq!(neighbors.len(), 8);
         if neighbors.len() != 8 {
-            return TexLayers::default().terrain([
+            return TexLayers::base(TexLayer::Terrain([
                 tiles::DEBUG,
                 tiles::DEBUG,
                 tiles::DEBUG,
                 tiles::DEBUG,
-            ]);
+            ]));
         }
 
         let grasses = match wind_at_coord {
@@ -604,15 +607,19 @@ impl Tex {
             },
         };
 
-        let mut layers =
-            TexLayers::default().terrain([top_left, top_right, bottom_right, bottom_left]);
+        let mut layers = TexLayers::base(TexLayer::Terrain([
+            top_left,
+            top_right,
+            bottom_right,
+            bottom_left,
+        ]));
 
         match layer_type {
             FGTexType::Town(color) => {
-                layers = layers.merge(&Tex::town(color, seed, tick, wind_at_coord))
+                layers = layers.merge(Tex::town(color, seed, tick, wind_at_coord))
             }
             FGTexType::Dock(color) => {
-                layers = layers.merge(&Tex::dock(color, neighbors, wind_at_coord))
+                layers = layers.merge(Tex::dock(color, neighbors, wind_at_coord))
             }
             FGTexType::None => {}
         }

@@ -11,14 +11,18 @@ use crate::{
     utils::tex::FGTexType,
 };
 
-use super::tex::{render_tex_quads, tiles, BGTexType, Tex, TexLayers, TexQuad};
+use super::tex::{render_tex_quad, render_tex_quads, tiles, BGTexType, Tex, TexLayers, TexQuad};
 
 #[derive(Clone)]
 struct ResolvedTextureLayers {
     terrain: TextureHandle,
     structures: TextureHandle,
     tinted: Vec<(TextureHandle, Option<Color32>)>,
-    overlay: TextureHandle,
+    tile: Vec<(TextureHandle, Option<Color32>)>,
+    highlight: Vec<(TextureHandle, Option<Color32>)>,
+    grass: Option<TextureHandle>,
+    cracks: Option<TextureHandle>,
+    smoke: Option<TextureHandle>,
 }
 
 impl ResolvedTextureLayers {
@@ -39,11 +43,11 @@ impl ResolvedTextureLayers {
                 egui::TextureOptions::NEAREST,
             ),
             tinted: vec![],
-            overlay: ctx.load_texture(
-                format!("board_layer_overlay"),
-                layer_base,
-                egui::TextureOptions::NEAREST,
-            ),
+            tile: vec![],
+            highlight: vec![],
+            grass: None,
+            cracks: None,
+            smoke: None,
         }
     }
 }
@@ -103,7 +107,21 @@ impl MappedBoard {
             for (layer, color) in &tex.tinted {
                 paint(layer.id(), color.unwrap_or(Color32::WHITE));
             }
-            paint(tex.overlay.id(), Color32::WHITE);
+            for (layer, color) in &tex.tile {
+                paint(layer.id(), color.unwrap_or(Color32::WHITE));
+            }
+            for (layer, color) in &tex.highlight {
+                paint(layer.id(), color.unwrap_or(Color32::WHITE));
+            }
+            if let Some(grass) = &tex.grass {
+                paint(grass.id(), Color32::WHITE);
+            }
+            if let Some(cracks) = &tex.cracks {
+                paint(cracks.id(), Color32::WHITE);
+            }
+            if let Some(smoke) = &tex.smoke {
+                paint(smoke.id(), Color32::WHITE);
+            }
         }
     }
 
@@ -173,15 +191,35 @@ impl MappedBoard {
             .get(source_col + source_row)
             .cloned()
             .unwrap_or_default();
+        let seed_at_coord = self.map_seed + (coord.x * coord.y + coord.y);
 
-        let layers = Tex::terrain(
+        let mut layers = Tex::terrain(
             tile_base_type,
             tile_layer_type,
             neighbor_base_types,
-            self.map_seed + (coord.x * coord.y + coord.y),
+            seed_at_coord,
             tick,
             wind_at_coord,
         );
+
+        // TODO: We can merge in the tile layers here, and paint textures for the game pieces as well
+        // rather than painting them as we handle them in the board UI itself.
+        // Will need to get more information though, such as the changes so we can render the dead/dying tiles,
+        // and we'll also want to figure out the interactions like hovering tiles.
+        // Possibly we want to combine the bytes of multiple ColorImages so we don't have to create so many layers.
+        //
+        // match square {
+        //     Square::Occupied(player, _) => {
+        //         let tile_layers = Tex::board_game_tile(
+        //             MappedTileVariant::Healthy,
+        //             player_colors.get(*player).cloned(),
+        //             None,
+        //             seed_at_coord,
+        //         );
+        //         layers = layers.merge(tile_layers);
+        //     }
+        //     _ => {}
+        // }
 
         let cached = self
             .memory
@@ -217,6 +255,7 @@ impl MappedBoard {
                     ),
                 );
                 let tile_from_map = tileset.region(&region, None);
+
                 let dest_pos = [
                     dest_col * (measures.inner_tile_width_px * 2) + sub_loc[0],
                     dest_row * (measures.inner_tile_height_px * 2) + sub_loc[1],
@@ -226,66 +265,157 @@ impl MappedBoard {
             }
         };
 
-        // For all layer types, we can skip the update if we have a cache hit
-        // for this coordinate, as the target texture will already match.
-        // We do need to check for the cache having a value while the new layer does not,
-        // in which case we need to zero out this coordinate with blank tiles.
-
-        if cached.terrain != layers.terrain {
-            if let Some(terrain) = layers.terrain {
-                paint_quad(terrain, &mut resolved_textures.terrain);
-            } else if cached.terrain.is_some() {
-                paint_quad([tiles::NONE; 4], &mut resolved_textures.terrain);
+        let removed_layers = cached.layers.iter().filter(|l| !layers.layers.contains(l));
+        for layer in removed_layers {
+            let handle =
+                match layer {
+                    super::tex::TexLayer::Terrain(_) => Some(&mut resolved_textures.terrain),
+                    super::tex::TexLayer::Structures(_) => Some(&mut resolved_textures.structures),
+                    super::tex::TexLayer::Tinted(_, tint) => resolved_textures
+                        .tinted
+                        .iter_mut()
+                        .find_map(|(handle, layer_tint)| {
+                            if layer_tint == tint {
+                                Some(handle)
+                            } else {
+                                None
+                            }
+                        }),
+                    super::tex::TexLayer::Tile(_, tint) => resolved_textures
+                        .tile
+                        .iter_mut()
+                        .find_map(|(handle, layer_tint)| {
+                            if layer_tint == tint {
+                                Some(handle)
+                            } else {
+                                None
+                            }
+                        }),
+                    super::tex::TexLayer::Highlight(_, tint) => resolved_textures
+                        .highlight
+                        .iter_mut()
+                        .find_map(|(handle, layer_tint)| {
+                            if layer_tint == tint {
+                                Some(handle)
+                            } else {
+                                None
+                            }
+                        }),
+                    super::tex::TexLayer::Grass(_) => resolved_textures.grass.as_mut(),
+                    super::tex::TexLayer::Cracks(_) => resolved_textures.cracks.as_mut(),
+                    super::tex::TexLayer::Smoke(_) => resolved_textures.smoke.as_mut(),
+                };
+            if let Some(handle) = handle {
+                // For anything that was cached and no longer exists,
+                // we start by zeroing out the target texture at this location.
+                paint_quad([tiles::NONE; 4], handle);
             }
         }
 
-        if cached.structures != layers.structures {
-            if let Some(structures) = layers.structures {
-                paint_quad(structures, &mut resolved_textures.structures);
-            } else if cached.structures.is_some() {
-                paint_quad([tiles::NONE; 4], &mut resolved_textures.structures);
-            }
-        }
-
-        if cached.overlay != layers.overlay {
-            if let Some(overlay) = layers.overlay {
-                paint_quad(overlay, &mut resolved_textures.overlay);
-            } else if cached.overlay.is_some() {
-                paint_quad([tiles::NONE; 4], &mut resolved_textures.overlay);
-            }
-        }
-
-        // If there were cached tint layers that we aren't returning,
-        // we need to find those tint layers and zero out this coordinate.
-        if cached.tinted != layers.tinted {
-            if let Some((_, tint)) = cached.tinted {
-                let existing_tint = resolved_textures
-                    .tinted
-                    .iter_mut()
-                    .find(|(_, layer_tint)| layer_tint == &tint);
-                if let Some((existing_tint, _)) = existing_tint {
-                    paint_quad([tiles::NONE; 4], existing_tint);
+        for layer in layers.layers.iter() {
+            match layer {
+                super::tex::TexLayer::Terrain(terrain) => {
+                    paint_quad(*terrain, &mut resolved_textures.terrain);
                 }
-            }
-        }
+                super::tex::TexLayer::Structures(structures) => {
+                    paint_quad(*structures, &mut resolved_textures.structures);
+                }
+                super::tex::TexLayer::Tinted(tinted, tint) => {
+                    let existing_tint = resolved_textures
+                        .tinted
+                        .iter_mut()
+                        .find(|(_, layer_tint)| layer_tint == tint);
+                    if let Some((existing_tint, _)) = existing_tint {
+                        paint_quad(*tinted, existing_tint);
+                    } else {
+                        let layer_base =
+                            ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
+                        let mut handle = ctx.load_texture(
+                            format!("board_layer_tint"),
+                            layer_base.clone(),
+                            egui::TextureOptions::NEAREST,
+                        );
+                        paint_quad(*tinted, &mut handle);
+                        resolved_textures.tinted.push((handle, *tint));
+                    }
+                }
+                super::tex::TexLayer::Tile(tile, tint) => {
+                    let existing_tint = resolved_textures
+                        .tile
+                        .iter_mut()
+                        .find(|(_, layer_tint)| layer_tint == tint);
+                    if let Some((existing_tint, _)) = existing_tint {
+                        paint_quad(*tile, existing_tint);
+                    } else {
+                        let layer_base =
+                            ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
+                        let mut handle = ctx.load_texture(
+                            format!("board_layer_tile"),
+                            layer_base.clone(),
+                            egui::TextureOptions::NEAREST,
+                        );
+                        paint_quad(*tile, &mut handle);
+                        resolved_textures.tile.push((handle, *tint));
+                    }
+                }
+                super::tex::TexLayer::Highlight(highlight, tint) => {
+                    let existing_tint = resolved_textures
+                        .highlight
+                        .iter_mut()
+                        .find(|(_, layer_tint)| layer_tint == tint);
+                    if let Some((existing_tint, _)) = existing_tint {
+                        paint_quad(*highlight, existing_tint);
+                    } else {
+                        let layer_base =
+                            ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
+                        let mut handle = ctx.load_texture(
+                            format!("board_layer_tint"),
+                            layer_base.clone(),
+                            egui::TextureOptions::NEAREST,
+                        );
+                        paint_quad(*highlight, &mut handle);
+                        resolved_textures.highlight.push((handle, *tint));
+                    }
+                }
+                super::tex::TexLayer::Grass(grass) => {
+                    let grass_tex = resolved_textures.grass.get_or_insert_with(|| {
+                        let layer_base =
+                            ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
+                        ctx.load_texture(
+                            format!("board_layer_grass"),
+                            layer_base.clone(),
+                            egui::TextureOptions::NEAREST,
+                        )
+                    });
 
-        if let Some((tinted, tint)) = layers.tinted {
-            let existing_tint = resolved_textures
-                .tinted
-                .iter_mut()
-                .find(|(_, layer_tint)| layer_tint == &tint);
-            if let Some((existing_tint, _)) = existing_tint {
-                paint_quad(tinted, existing_tint);
-            } else {
-                let layer_base =
-                    ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
-                let mut handle = ctx.load_texture(
-                    format!("board_layer_tint"),
-                    layer_base.clone(),
-                    egui::TextureOptions::NEAREST,
-                );
-                paint_quad(tinted, &mut handle);
-                resolved_textures.tinted.push((handle, tint));
+                    paint_quad(*grass, grass_tex)
+                }
+                super::tex::TexLayer::Cracks(cracks) => {
+                    let cracks_tex = resolved_textures.cracks.get_or_insert_with(|| {
+                        let layer_base =
+                            ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
+                        ctx.load_texture(
+                            format!("board_layer_cracks"),
+                            layer_base.clone(),
+                            egui::TextureOptions::NEAREST,
+                        )
+                    });
+
+                    paint_quad(*cracks, cracks_tex)
+                }
+                super::tex::TexLayer::Smoke(smoke) => {
+                    let smoke_tex = resolved_textures.smoke.get_or_insert_with(|| {
+                        let layer_base =
+                            ColorImage::new(resolved_textures.terrain.size(), Color32::TRANSPARENT);
+                        ctx.load_texture(
+                            format!("board_layer_smoke"),
+                            layer_base.clone(),
+                            egui::TextureOptions::NEAREST,
+                        )
+                    });
+
+                    paint_quad(*smoke, smoke_tex)
+                }
             }
         }
 
@@ -377,7 +507,7 @@ pub enum MappedTileVariant {
 
 #[derive(Clone)]
 pub struct MappedTile {
-    resolved_tex: Vec<TexQuad>,
+    resolved_tex: TexLayers,
     map_texture: TextureHandle,
 }
 
@@ -401,8 +531,18 @@ impl MappedTile {
         }
     }
 
-    pub fn render(&self, rect: Rect, ui: &mut egui::Ui) {
-        render_tex_quads(&self.resolved_tex, rect, &self.map_texture, ui);
+    pub fn render(self, rect: Rect, ui: &mut egui::Ui) {
+        for layer in self.resolved_tex.layers {
+            match layer {
+                super::tex::TexLayer::Tile(quad, _)
+                | super::tex::TexLayer::Highlight(quad, _)
+                | super::tex::TexLayer::Grass(quad)
+                | super::tex::TexLayer::Cracks(quad) => {
+                    render_tex_quad(quad, rect, &self.map_texture, ui);
+                }
+                _ => {}
+            }
+        }
     }
 }
 
