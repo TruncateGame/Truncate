@@ -2,7 +2,7 @@ use eframe::egui::{self, Id};
 use epaint::{Color32, TextShape, Vec2};
 use std::f32;
 
-use crate::{utils::glyph_meaure::GlyphMeasure, utils::*};
+use crate::{utils::glyph_utils::Glypher, utils::*};
 
 pub enum CharacterOrient {
     North,
@@ -126,7 +126,7 @@ impl CharacterUI {
             if let Some(measurement) = mem.data.get_temp(Id::from(self.letter.to_string())) {
                 return measurement;
             }
-            let glyph_measure: GlyphMeasure = mem.data.get_temp(Id::NULL).unwrap();
+            let glyph_measure: Glypher = mem.data.get_temp(Id::NULL).unwrap();
             let measurement = glyph_measure.measure(self.letter);
             mem.data
                 .insert_temp(Id::from(self.letter.to_string()), measurement);

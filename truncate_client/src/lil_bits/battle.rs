@@ -10,7 +10,7 @@ use truncate_core::reporting::{BattleReport, BattleWord};
 use crate::{
     regions::active_game::GameCtx,
     utils::{
-        glyph_meaure::GlyphMeasure, tex::paint_dialog_background, text::TextHelper, Darken, Lighten,
+        glyph_utils::Glypher, tex::paint_dialog_background, text::TextHelper, Darken, Lighten,
     },
 };
 

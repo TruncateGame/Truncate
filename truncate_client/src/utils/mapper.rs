@@ -7,11 +7,14 @@ use epaint::{
 use truncate_core::board::{Board, Coordinate, Square};
 
 use crate::{
-    app_outer::{TextureMeasurement, TEXTURE_IMAGE, TEXTURE_MEASUREMENT},
+    app_outer::{TextureMeasurement, GLYPH_IMAGE, TEXTURE_IMAGE, TEXTURE_MEASUREMENT},
     utils::tex::FGTexType,
 };
 
-use super::tex::{render_tex_quad, render_tex_quads, tiles, BGTexType, Tex, TexLayers, TexQuad};
+use super::{
+    glyph_utils::BaseTileGlyphs,
+    tex::{render_tex_quad, render_tex_quads, tiles, BGTexType, Tex, TexLayers, TexQuad},
+};
 
 #[derive(Clone)]
 struct ResolvedTextureLayers {
@@ -164,6 +167,7 @@ impl MappedBoard {
         square: &Square,
         measures: &TextureMeasurement,
         tileset: &ColorImage,
+        tiles: &BaseTileGlyphs,
     ) {
         let coord = Coordinate::new(source_col, source_row);
         let resolved_textures = self.resolved_textures.as_mut().unwrap();
@@ -262,6 +266,9 @@ impl MappedBoard {
                 ];
 
                 canvas.set_partial(dest_pos, tile_from_map, egui::TextureOptions::NEAREST);
+
+                let (_, achar) = tiles.glyphs.iter().find(|(c, _)| *c == 'S').unwrap();
+                canvas.set_partial(dest_pos, achar.clone(), egui::TextureOptions::NEAREST);
             }
         };
 
@@ -437,6 +444,9 @@ impl MappedBoard {
         let tileset = TEXTURE_IMAGE
             .get()
             .expect("Base image should have been loaded");
+        let tile_glyphs = GLYPH_IMAGE
+            .get()
+            .expect("Glyph image should have been loaded");
 
         let final_width = measures.inner_tile_width_px * board.width() * 2;
         let final_height = measures.inner_tile_height_px * board.height() * 2;
@@ -470,6 +480,7 @@ impl MappedBoard {
                                 square,
                                 measures,
                                 tileset,
+                                tile_glyphs,
                             );
                         },
                     );
@@ -490,6 +501,7 @@ impl MappedBoard {
                         square,
                         measures,
                         tileset,
+                        tile_glyphs,
                     );
                 });
             });

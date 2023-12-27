@@ -2,7 +2,7 @@ use std::ops::Range;
 
 pub mod daily;
 pub mod game_evals;
-pub mod glyph_meaure;
+pub mod glyph_utils;
 pub mod mapper;
 pub mod tex;
 pub mod text;

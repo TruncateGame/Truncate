@@ -6,7 +6,10 @@ type R = Receiver<GameMessage>;
 type S = Sender<PlayerMessage>;
 
 use super::utils::Theme;
-use crate::{app_inner, utils::glyph_meaure::GlyphMeasure};
+use crate::{
+    app_inner,
+    utils::glyph_utils::{BaseTileGlyphs, Glypher},
+};
 use eframe::egui::{self, Frame, Id, Margin, TextureOptions};
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::JsValue;
@@ -134,8 +137,11 @@ impl OuterApplication {
 
         cc.egui_ctx.set_fonts(fonts);
 
+        let glypher = Glypher::new();
+        let map_texture = load_textures(&cc.egui_ctx, &glypher);
+
         cc.egui_ctx.memory_mut(|mem| {
-            mem.data.insert_temp(Id::NULL, GlyphMeasure::new());
+            mem.data.insert_temp(Id::NULL, glypher);
         });
 
         let mut game_status = app_inner::GameStatus::None("".into(), None);
@@ -199,7 +205,7 @@ impl OuterApplication {
             game_status,
             rx_game,
             tx_player,
-            map_texture: load_map_texture(&cc.egui_ctx),
+            map_texture,
             launched_room: room_code,
             error: None,
             backchannel,
@@ -226,8 +232,9 @@ pub struct TextureMeasurement {
 
 pub static TEXTURE_MEASUREMENT: OnceLock<TextureMeasurement> = OnceLock::new();
 pub static TEXTURE_IMAGE: OnceLock<egui::ColorImage> = OnceLock::new();
+pub static GLYPH_IMAGE: OnceLock<BaseTileGlyphs> = OnceLock::new();
 
-fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
+fn load_textures(ctx: &egui::Context, glypher: &Glypher) -> TextureHandle {
     let image_bytes = include_bytes!("../img/truncate_packed.png");
     let image = image::load_from_memory(image_bytes).unwrap();
     let image_width = image.width();
@@ -263,6 +270,10 @@ fn load_map_texture(ctx: &egui::Context) -> TextureHandle {
     let pixels = image_buffer.as_flat_samples();
     let image = egui::ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());
     _ = TEXTURE_IMAGE.set(image.clone());
+
+    let ascii_tiles = (32..127).map(Into::into).collect::<Vec<char>>();
+    let tiles = glypher.render_to_image(ascii_tiles, 16);
+    _ = GLYPH_IMAGE.set(tiles);
 
     ctx.load_texture("tiles", image, TextureOptions::NEAREST)
 }

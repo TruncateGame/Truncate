@@ -2,7 +2,7 @@ use eframe::egui::{self, widget_text::WidgetTextGalley, Id, Sense};
 use epaint::{emath::Align2, pos2, vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
 
 use super::{
-    glyph_meaure::GlyphMeasure,
+    glyph_utils::Glypher,
     tex::{paint_dialog_background, render_texs_clockwise, Tex, Tint},
 };
 
