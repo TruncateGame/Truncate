@@ -234,12 +234,17 @@ pub fn wipe_persistent_game(seed: &BoardSeed) {
 }
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-pub struct DailyResult {
-    pub winning_move_count: Option<u32>,
-    pub attempts: u32,
+pub struct DailyAttempt {
+    pub moves: u32,
     pub battles: u32,
     pub largest_attack_destruction: u32,
     pub longest_word: Option<String>,
+    pub won: bool,
+}
+
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct DailyResult {
+    pub attempts: Vec<DailyAttempt>,
 }
 
 #[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
@@ -266,21 +271,15 @@ pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt
 
         let today = stats.days.entry(relative_day).or_default();
 
-        let attempt = attempt as u32;
-        if today.attempts != attempt {
-            today.attempts = attempt;
-            *today = DailyResult {
-                attempts: attempt,
-                ..DailyResult::default()
-            };
+        while today.attempts.get(attempt).is_none() {
+            today.attempts.push(DailyAttempt::default());
         }
 
-        today.winning_move_count = if game.winner == Some(human_player) {
-            Some(game.player_turn_count[human_player])
-        } else {
-            None
-        };
-        today.battles = game.battle_count;
+        let this_attempt = today.attempts.get_mut(attempt).unwrap();
+
+        this_attempt.moves = game.player_turn_count[human_player];
+        this_attempt.won = game.winner == Some(human_player);
+        this_attempt.battles = game.battle_count;
 
         let recent_attack_destruction = game
             .recent_changes
@@ -301,7 +300,7 @@ pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt
             })
             .count();
 
-        today.largest_attack_destruction = today
+        this_attempt.largest_attack_destruction = this_attempt
             .largest_attack_destruction
             .max(recent_attack_destruction as u32);
 
@@ -338,7 +337,9 @@ pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt
                             .is_some()
                     })
                     .for_each(|word| {
-                        let prev_longest = today.longest_word.get_or_insert_with(|| word.clone());
+                        let prev_longest = this_attempt
+                            .longest_word
+                            .get_or_insert_with(|| word.clone());
                         if word.len() > prev_longest.len() {
                             *prev_longest = word;
                         }
