@@ -4,18 +4,18 @@ use crate::{
     generation::BoardSeed,
 };
 
-const SQ_BLUE: &str = "🟦";
-const SQ_GREEN: &str = "🟩";
-const SQ_BROWN: &str = "🟫";
-const SQ_RED: &str = "🟥";
-const SQ_ORANGE: &str = "🟧";
-const SQ_PURPLE: &str = "🟪";
-const SQ_YELLOW: &str = "🟨";
-const SQ_WHITE: &str = "⬜";
-const SQ_BLACK: &str = "⬛";
-const SQ_BLACK_IN_WHITE: &str = "🔳";
-const SQ_WHITE_IN_BLACK: &str = "🔲";
-const SQ_ERR: &str = "🆘";
+pub const SQ_BLUE: &str = "🟦";
+pub const SQ_GREEN: &str = "🟩";
+pub const SQ_BROWN: &str = "🟫";
+pub const SQ_RED: &str = "🟥";
+pub const SQ_ORANGE: &str = "🟧";
+pub const SQ_PURPLE: &str = "🟪";
+pub const SQ_YELLOW: &str = "🟨";
+pub const SQ_WHITE: &str = "⬜";
+pub const SQ_BLACK: &str = "⬛";
+pub const SQ_BLACK_IN_WHITE: &str = "🔳";
+pub const SQ_WHITE_IN_BLACK: &str = "🔲";
+pub const SQ_ERR: &str = "🆘";
 
 impl Board {
     pub fn emojify(
@@ -126,7 +126,7 @@ impl Board {
 
         let counts = if let Some(game) = game {
             format!(
-                "{} in {} turn{}, {} battle{}",
+                "{} in {} turn{}",
                 attempt_str,
                 game.player_turn_count[player],
                 if game.player_turn_count[player] == 1 {
@@ -134,8 +134,6 @@ impl Board {
                 } else {
                     "s"
                 },
-                game.battle_count,
-                if game.battle_count == 1 { "" } else { "s" },
             )
         } else {
             "".to_string()
@@ -143,9 +141,9 @@ impl Board {
 
         if let Some(day) = seed.map(|s| s.day).flatten() {
             if player_won {
-                format!("🌟 Truncate Town Day #{day} 🌟\nWon{counts}.\n{joined_grid}\n")
+                format!("Truncate Town Day #{day}\nWon{counts}.\n{joined_grid}\n")
             } else {
-                format!("🌟 Truncate Town Day #{day} 🌟\nLost{counts}.\n{joined_grid}\n")
+                format!("Truncate Town Day #{day}\nLost{counts}.\n{joined_grid}\n")
             }
         } else {
             if player_won {

@@ -1,5 +1,5 @@
 use eframe::egui::{self, widget_text::WidgetTextGalley, Id, Sense};
-use epaint::{vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
+use epaint::{emath::Align2, pos2, vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
 
 use super::{
     glyph_meaure::GlyphMeasure,
@@ -75,11 +75,6 @@ impl<'a> TextHelper<'a> {
         self.galley.galley.mesh_bounds.size()
     }
 
-    pub fn paint_at(self, pos: Pos2, color: Color32, ui: &mut egui::Ui) {
-        self.galley
-            .paint_with_color_override(ui.painter(), pos, color);
-    }
-
     pub fn get_partial_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
         let breaks = self
             .original_text
@@ -100,6 +95,29 @@ impl<'a> TextHelper<'a> {
             self.max_width,
             ui,
         ))
+    }
+
+    pub fn paint_at(self, pos: Pos2, color: Color32, ui: &mut egui::Ui) {
+        self.galley
+            .paint_with_color_override(ui.painter(), pos, color);
+    }
+
+    pub fn paint_within(self, bounds: Rect, alignment: Align2, color: Color32, ui: &mut egui::Ui) {
+        let dims = self.mesh_size();
+        let Align2([ha, va]) = alignment;
+        let x_pos = match ha {
+            egui::Align::Min => bounds.left(),
+            egui::Align::Center => bounds.left() + (bounds.width() - dims.x) / 2.0,
+            egui::Align::Max => bounds.left() + (bounds.width() - dims.x),
+        };
+        let y_pos = match va {
+            egui::Align::Min => bounds.top(),
+            egui::Align::Center => bounds.top() + (bounds.height() - dims.y) / 2.0,
+            egui::Align::Max => bounds.top() + (bounds.height() - dims.y),
+        };
+
+        self.galley
+            .paint_with_color_override(ui.painter(), pos2(x_pos, y_pos), color);
     }
 
     pub fn paint(self, color: Color32, ui: &mut egui::Ui, centered: bool) -> egui::Response {

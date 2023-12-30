@@ -274,25 +274,26 @@ impl ActiveGame {
                             let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
                             let attempt_str = match attempt {
-                                Some(attempt) if *attempt > 0 => {
-                                    format!("{} attempts  {}  ", attempt + 1, sentinel)
+                                Some(attempt) => {
+                                    format!(
+                                        "{} attempt{}  {}  ",
+                                        attempt + 1,
+                                        if *attempt == 0 { "" } else { "s" },
+                                        sentinel
+                                    )
                                 }
                                 _ => "".to_string(),
                             };
 
                             let summary = if let Some(game) = game_ref {
                                 format!(
-                                    "{}{} turn{}  {}  {} battle{}",
-                                    attempt_str,
+                                    "{attempt_str}{} turn{}",
                                     game.player_turn_count[0],
                                     if game.player_turn_count[0] == 1 {
                                         ""
                                     } else {
                                         "s"
                                     },
-                                    sentinel,
-                                    game.battle_count,
-                                    if game.battle_count == 1 { "" } else { "s" },
                                 )
                             } else {
                                 "".to_string()

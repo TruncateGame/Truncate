@@ -57,22 +57,16 @@ pub fn get_daily_puzzle(
     let seed = (local_seconds / (60 * 60 * 24)) as u32;
     let day = seed - DAILY_PUZZLE_DAY_ZERO as u32;
     let mut board_seed = BoardSeed::new(seed).day(day);
-    let persisted_moves = get_persistent_game(&board_seed);
-    let mut header = HeaderType::Summary {
-        title: format!("Truncate Town Day #{day}"),
-        sentinel: '*',
-        attempt: Some(persisted_moves.attempts),
-    };
+
+    let header_title = format!("Truncate Town Day #{day}");
+    let mut header_sentinel = '*';
+
     let mut human_starts = true;
 
     let notes = loaded_notes.notes.get(&seed);
     if let Some(notes) = notes {
         human_starts = notes.best_player == 0;
-        header = HeaderType::Summary {
-            title: format!("Truncate Town Day #{day}"),
-            sentinel: '★',
-            attempt: Some(persisted_moves.attempts),
-        };
+        header_sentinel = '★';
         for _ in 0..notes.rerolls {
             board_seed.external_reroll();
         }
@@ -85,19 +79,22 @@ pub fn get_daily_puzzle(
         board,
         Some(board_seed.clone()),
         human_starts,
-        header.clone(),
+        HeaderType::None, // Replaced soon with HeaderType::Summary
     );
 
     if let Some(notes) = notes {
         let verification = get_game_verification(&game_state.game);
         if verification != notes.verification {
-            game_state.active_game.ctx.header_visible = HeaderType::Summary {
-                title: format!("Truncate Town Day #{day}"),
-                sentinel: '¤',
-                attempt: Some(persisted_moves.attempts),
-            };
+            header_sentinel = '¤';
         }
     }
+
+    let persisted_moves = get_persistent_game(&board_seed);
+    game_state.active_game.ctx.header_visible = HeaderType::Summary {
+        title: header_title,
+        sentinel: header_sentinel,
+        attempt: Some(persisted_moves.attempts),
+    };
 
     let delay = game_state.game.rules.battle_delay;
     game_state.game.rules.battle_delay = 0;
@@ -209,7 +206,6 @@ pub fn get_persistent_game(seed: &BoardSeed) -> PersistentGame {
         let key = format!("daily_{}", seed.seed);
 
         let Ok(record) = local_storage.get_item(&key) else {
-            eprintln!("Localstorage was inaccessible");
             return PersistentGame::default();
         };
 
@@ -233,7 +229,7 @@ pub fn wipe_persistent_game(seed: &BoardSeed) {
     }
 }
 
-#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct DailyAttempt {
     pub moves: u32,
     pub battles: u32,
@@ -242,7 +238,7 @@ pub struct DailyAttempt {
     pub won: bool,
 }
 
-#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct DailyResult {
     pub attempts: Vec<DailyAttempt>,
 }
@@ -250,6 +246,24 @@ pub struct DailyResult {
 #[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DailyStats {
     pub days: BTreeMap<u32, DailyResult>,
+}
+
+pub fn get_stats() -> DailyStats {
+    let mut stats = DailyStats::default();
+    #[cfg(target_arch = "wasm32")]
+    {
+        let storage_key = "daily_puzzle_stats";
+
+        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let Ok(stored_stats) = local_storage.get_item(storage_key) else {
+            eprintln!("Localstorage was inaccessible");
+            return stats;
+        };
+        stats = stored_stats
+            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
+            .unwrap_or_default();
+    }
+    stats
 }
 
 pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt: usize) {
