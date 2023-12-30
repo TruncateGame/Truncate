@@ -248,6 +248,22 @@ pub struct DailyStats {
     pub days: BTreeMap<u32, DailyResult>,
 }
 
+impl DailyStats {
+    fn hydrate_missing_days(&mut self) {
+        let Some((start_day, _)) = self.days.first_key_value() else {
+            return;
+        };
+        let Some((end_day, _)) = self.days.last_key_value() else {
+            return;
+        };
+        for day in *start_day..*end_day {
+            if !self.days.contains_key(&day) {
+                self.days.insert(day, DailyResult::default());
+            }
+        }
+    }
+}
+
 pub fn get_stats() -> DailyStats {
     let mut stats = DailyStats::default();
     #[cfg(target_arch = "wasm32")]
@@ -262,6 +278,7 @@ pub fn get_stats() -> DailyStats {
         stats = stored_stats
             .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
             .unwrap_or_default();
+        stats.hydrate_missing_days();
     }
     stats
 }

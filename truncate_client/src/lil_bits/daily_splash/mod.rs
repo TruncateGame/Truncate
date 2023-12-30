@@ -60,6 +60,8 @@ impl DailySplashUI {
             .filter(|day| day.attempts.last().map(|a| a.won) == Some(true))
             .count();
 
+        let game_count: usize = stats.days.values().map(|day| day.attempts.len()).sum();
+
         DailySplashUI::seed_animations(ui);
 
         let graph = DailySplashGraph::new(ui, &stats, current_time);
@@ -69,7 +71,7 @@ impl DailySplashUI {
             msg_mock,
             graph,
             streak_length,
-            win_rate: win_count as f32 / stats.days.len() as f32,
+            win_rate: win_count as f32 / game_count as f32,
             stats,
         }
     }
