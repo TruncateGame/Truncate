@@ -1,7 +1,7 @@
 use epaint::{emath::Align2, vec2, Color32, TextureHandle};
 use instant::Duration;
 use interpolation::Ease;
-use truncate_core::game::Game;
+use truncate_core::{game::Game, messages::PlayerMessage};
 
 mod graph;
 mod msg_mock;
@@ -14,7 +14,7 @@ use crate::{
     utils::{
         daily::{get_stats, DailyStats},
         text::TextHelper,
-        Theme,
+        Lighten, Theme,
     },
 };
 
@@ -65,6 +65,7 @@ impl DailySplashUI {
         DailySplashUI::seed_animations(ui);
 
         let graph = DailySplashGraph::new(ui, &stats, current_time);
+
         let msg_mock = ShareMessageMock::new(game, ctx, &stats);
 
         Self {
@@ -118,7 +119,16 @@ impl DailySplashUI {
         theme: &Theme,
         map_texture: &TextureHandle,
         backchannel: Option<&Backchannel>,
-    ) {
+    ) -> Option<PlayerMessage> {
+        let mut msg = None;
+        let today = self.stats.days.values().last().cloned().unwrap_or_default();
+        let yesterday = self
+            .stats
+            .days
+            .values()
+            .nth_back(1)
+            .cloned()
+            .unwrap_or_default();
         let area = egui::Area::new(egui::Id::new("daily_splash_layer"))
             .movable(false)
             .order(Order::Foreground)
@@ -202,7 +212,39 @@ impl DailySplashUI {
 
                 ui.add_space(20.0);
 
-                self.msg_mock.render(ui, theme, map_texture, backchannel);
+                if today.attempts.last().is_some_and(|a| a.won) {
+                    self.msg_mock.render(ui, theme, map_texture, backchannel);
+                } else {
+                    ui.add_space(20.0);
+
+                    let mut textrow = |string: String| {
+                        let row =
+                            TextHelper::heavy(&string, 14.0, Some(ui.available_width()), &mut ui);
+                        row.paint(Color32::WHITE, ui, true);
+                    };
+
+                    if yesterday.attempts.last().is_some_and(|a| a.won) {
+                        textrow("Try again".into());
+                        textrow("to maintain".into());
+                        textrow("your streak!".into());
+                    } else {
+                        textrow("No worries,".into());
+                        textrow("have another go!".into());
+                    }
+
+                    ui.add_space(16.0);
+
+                    let text = TextHelper::heavy("TRY AGAIN", 12.0, None, ui);
+                    let try_again_button = text.centered_button(
+                        theme.selection.lighten().lighten(),
+                        theme.text,
+                        map_texture,
+                        ui,
+                    );
+                    if try_again_button.clicked() {
+                        msg = Some(PlayerMessage::Rematch);
+                    }
+                }
 
                 // Paint over everything below the heading stats to fade them in from black
                 let fade_in_animation = DailySplashUI::anim(ui, Anim::Viz, 1.0, 0.6);
@@ -215,5 +257,7 @@ impl DailySplashUI {
                 }
             });
         });
+
+        msg
     }
 }

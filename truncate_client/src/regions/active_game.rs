@@ -93,7 +93,6 @@ pub struct ActiveGame {
     pub new_hand_tiles: Vec<usize>,
     pub time_changes: Vec<TimeChange>,
     pub turn_reports: Vec<Vec<Change>>,
-    pub share_copied: bool,
 }
 
 impl ActiveGame {
@@ -161,7 +160,6 @@ impl ActiveGame {
             new_hand_tiles: vec![],
             time_changes: vec![],
             turn_reports: vec![],
-            share_copied: false,
         }
     }
 }
@@ -287,7 +285,7 @@ impl ActiveGame {
 
                             let summary = if let Some(game) = game_ref {
                                 format!(
-                                    "{attempt_str}{} turn{}",
+                                    "{attempt_str}{} move{}",
                                     game.player_turn_count[0],
                                     if game.player_turn_count[0] == 1 {
                                         ""
@@ -484,23 +482,13 @@ impl ActiveGame {
 
                     ui.add_space(10.0);
 
-                    if let Some(winner) = winner {
-                        if let Some(BoardSeed { day: Some(_), .. }) = &self.ctx.board_seed {
-                            if winner as u64 != self.ctx.player_number {
-                                let text = TextHelper::heavy("TRY AGAIN", 12.0, None, ui);
-                                if text
-                                    .centered_button(
-                                        theme.selection.lighten().lighten(),
-                                        theme.text,
-                                        &self.ctx.map_texture,
-                                        ui,
-                                    )
-                                    .clicked()
-                                {
-                                    msg = Some(PlayerMessage::Rematch);
-                                }
-                            }
-                        } else {
+                    if winner.is_some() {
+                        let is_daily = self
+                            .ctx
+                            .board_seed
+                            .as_ref()
+                            .is_some_and(|seed| seed.day.is_some());
+                        if !is_daily {
                             let text = TextHelper::heavy("REMATCH", 12.0, None, ui);
                             if text
                                 .centered_button(
@@ -513,63 +501,6 @@ impl ActiveGame {
                             {
                                 msg = Some(PlayerMessage::Rematch);
                             }
-                        }
-
-                        let msg = if self.share_copied {
-                            "COPIED TEXT!"
-                        } else {
-                            "SHARE"
-                        };
-                        let text = TextHelper::heavy(msg, 12.0, None, ui);
-                        let share_button = text.centered_button(
-                            theme.selection.lighten().lighten(),
-                            theme.text,
-                            &self.ctx.map_texture,
-                            ui,
-                        );
-                        if share_button.clicked()
-                            || share_button.drag_started()
-                            || share_button.is_pointer_button_down_on()
-                        {
-                            #[allow(unused_mut)]
-                            let mut url_prefix = "".to_string();
-
-                            #[cfg(target_arch = "wasm32")]
-                            {
-                                let host = web_sys::window()
-                                    .unwrap()
-                                    .location()
-                                    .host()
-                                    .unwrap_or_else(|_| "truncate.town".into());
-                                url_prefix = format!("https://{host}/#");
-                            }
-
-                            let attempt = match self.ctx.header_visible {
-                                HeaderType::Summary { attempt, .. } => attempt,
-                                _ => None,
-                            };
-
-                            let text = self.board.emojify(
-                                self.ctx.player_number as usize,
-                                Some(winner),
-                                game_ref,
-                                self.ctx.board_seed.clone(),
-                                attempt,
-                                url_prefix,
-                            );
-
-                            if let Some(backchannel) = backchannel {
-                                if backchannel.is_open() {
-                                    backchannel
-                                        .send_msg(crate::app_outer::BackchannelMsg::Copy { text });
-                                } else {
-                                    ui.ctx().output_mut(|o| o.copied_text = text.clone());
-                                }
-                            } else {
-                                ui.ctx().output_mut(|o| o.copied_text = text.clone());
-                            }
-
-                            self.share_copied = true;
                         }
                     }
 

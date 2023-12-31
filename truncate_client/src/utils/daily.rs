@@ -90,11 +90,12 @@ pub fn get_daily_puzzle(
     }
 
     let persisted_moves = get_persistent_game(&board_seed);
-    game_state.active_game.ctx.header_visible = HeaderType::Summary {
+    game_state.header = HeaderType::Summary {
         title: header_title,
         sentinel: header_sentinel,
         attempt: Some(persisted_moves.attempts),
     };
+    game_state.active_game.ctx.header_visible = game_state.header.clone();
 
     let delay = game_state.game.rules.battle_delay;
     game_state.game.rules.battle_delay = 0;

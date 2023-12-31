@@ -43,7 +43,7 @@ pub struct SinglePlayerState {
     debugging_npc: bool,
     weights: BoardWeights,
     waiting_on_backchannel: Option<String>,
-    header: HeaderType,
+    pub header: HeaderType,
     splash: Option<DailySplashUI>,
 }
 
@@ -492,8 +492,12 @@ impl SinglePlayerState {
             let splash = self.splash.get_or_insert_with(|| {
                 DailySplashUI::new(&mut ui, &self.game, &mut self.active_game.ctx, current_time)
             });
-            splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
+            let splash_msg = splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
 
+            if matches!(splash_msg, Some(PlayerMessage::Rematch)) {
+                self.splash = None;
+                self.reset(current_time);
+            }
             return msg_to_server;
         }
 

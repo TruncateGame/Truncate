@@ -126,7 +126,7 @@ impl Board {
 
         let counts = if let Some(game) = game {
             format!(
-                "{} in {} turn{}",
+                "{} in {} move{}",
                 attempt_str,
                 game.player_turn_count[player],
                 if game.player_turn_count[player] == 1 {
