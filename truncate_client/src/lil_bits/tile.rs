@@ -1,13 +1,11 @@
 use eframe::egui::{self, Id};
-use epaint::{hex_color, Color32, TextureHandle};
+use epaint::Color32;
 use truncate_core::board::Coordinate;
 
-use crate::{
-    regions::active_game::GameCtx,
-    utils::{
-        mapper::{MappedTile, MappedTileVariant},
-        Darken, Diaphanize, Lighten, Theme,
-    },
+use crate::utils::{
+    depot::TruncateDepot,
+    mapper::{MappedTile, MappedTileVariant},
+    Lighten,
 };
 
 use super::{character::CharacterOrient, CharacterUI};
@@ -116,19 +114,29 @@ impl TileUI {
 }
 
 impl TileUI {
-    fn tile_color(&self, hovered: bool, theme: &Theme, ctx: &GameCtx) -> Color32 {
-        if self.highlighted && ctx.current_time.subsec_millis() > 500 {
-            theme.selection.pastel()
+    fn tile_color(&self, hovered: bool, depot: &TruncateDepot) -> Color32 {
+        let TruncateDepot {
+            timing,
+            gameplay,
+            aesthetics,
+            ..
+        } = depot;
+
+        if self.highlighted && timing.current_time.subsec_millis() > 500 {
+            aesthetics.theme.selection.pastel()
         } else if self.won {
-            theme.selection
+            aesthetics.theme.selection
         } else {
             let color = match (&self.player, hovered) {
-                (TilePlayer::Own, false) => ctx.player_colors[ctx.player_number as usize].pastel(),
-                (TilePlayer::Own, true) => ctx.player_colors[ctx.player_number as usize]
+                (TilePlayer::Own, false) => {
+                    aesthetics.player_colors[gameplay.player_number as usize].pastel()
+                }
+                (TilePlayer::Own, true) => aesthetics.player_colors
+                    [gameplay.player_number as usize]
                     .pastel()
                     .lighten(),
-                (TilePlayer::Enemy(p), false) => ctx.player_colors[*p].pastel(),
-                (TilePlayer::Enemy(p), true) => ctx.player_colors[*p].pastel().lighten(),
+                (TilePlayer::Enemy(p), false) => aesthetics.player_colors[*p].pastel(),
+                (TilePlayer::Enemy(p), true) => aesthetics.player_colors[*p].pastel().lighten(),
             };
             if self.defeated || self.truncated || !self.active {
                 color.pastel()
@@ -142,15 +150,20 @@ impl TileUI {
         mut self,
         coord: Option<Coordinate>,
         ui: &mut egui::Ui,
-        ctx: &mut GameCtx,
         capture_clicks: bool,
         rescale: Option<f32>,
+        depot: &mut TruncateDepot,
     ) -> egui::Response {
+        let TruncateDepot {
+            timing, aesthetics, ..
+        } = depot;
+
         let mut tile_gone = false;
-        if ctx.current_time > ctx.prev_to_next_turn.0 && ctx.current_time < ctx.prev_to_next_turn.1
+        if timing.current_time > timing.prev_to_next_turn.0
+            && timing.current_time < timing.prev_to_next_turn.1
         {
-            let (from, to) = ctx.prev_to_next_turn;
-            let dur = ctx.current_time.saturating_sub(from);
+            let (from, to) = timing.prev_to_next_turn;
+            let dur = timing.current_time.saturating_sub(from);
             let total = to.saturating_sub(from);
             let proportion = dur.as_secs_f32() / total.as_secs_f32();
             if proportion < 0.15 && self.defeated {
@@ -172,8 +185,8 @@ impl TileUI {
         }
 
         let theme = rescale
-            .map(|v| ctx.theme.rescale(v))
-            .unwrap_or_else(|| ctx.theme.clone());
+            .map(|v| aesthetics.theme.rescale(v))
+            .unwrap_or_else(|| aesthetics.theme.clone());
 
         // TODO: Remove magic number somehow (currently 2px/16px for tile sprite border)
         let tile_margin = theme.grid_size * 0.125;
@@ -196,6 +209,9 @@ impl TileUI {
         }
 
         let hovered = (response.hovered() || self.hovered) && (!self.truncated && !self.defeated);
+        let tile_color = self.tile_color(hovered, &depot);
+        let TruncateDepot { aesthetics, .. } = depot;
+
         if hovered {
             if !self.ghost {
                 base_rect = base_rect.translate(egui::vec2(0.0, tile_margin * -1.0));
@@ -215,7 +231,6 @@ impl TileUI {
                 None
             };
 
-            let tile_color = self.tile_color(hovered, &theme, ctx);
             let variant = if tile_gone {
                 MappedTileVariant::Gone
             } else if self.defeated {
@@ -231,7 +246,7 @@ impl TileUI {
                     None,
                     Some(tile_color),
                     coord,
-                    ctx.map_texture.clone(),
+                    aesthetics.map_texture.clone(),
                 )
             } else {
                 MappedTile::new(
@@ -239,7 +254,7 @@ impl TileUI {
                     Some(tile_color),
                     outline,
                     coord,
-                    ctx.map_texture.clone(),
+                    aesthetics.map_texture.clone(),
                 )
             };
             mapped_tile.render(base_rect, ui);

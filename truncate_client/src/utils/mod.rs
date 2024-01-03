@@ -1,6 +1,5 @@
-use std::ops::Range;
-
 pub mod daily;
+pub mod depot;
 pub mod game_evals;
 pub mod glyph_utils;
 pub mod mapper;

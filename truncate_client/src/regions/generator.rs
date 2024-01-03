@@ -1,5 +1,5 @@
 use eframe::egui::{self, DragValue, Layout, RichText, Sense};
-use epaint::{emath::Align, hex_color, vec2, Color32, TextureHandle, Vec2};
+use epaint::{emath::Align, vec2, Color32, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     game::Game,
@@ -37,10 +37,10 @@ impl GeneratorState {
             map_texture.clone(),
             theme.clone(),
         );
-        active_game.ctx.header_visible = HeaderType::None;
-        active_game.ctx.hand_visible = false;
-        active_game.ctx.sidebar_visible = false;
-        active_game.ctx.interactive = false;
+        active_game.depot.ui_state.header_visible = HeaderType::None;
+        active_game.depot.ui_state.hand_visible = false;
+        active_game.depot.ui_state.sidebar_visible = false;
+        active_game.depot.interactions.interactive = false;
 
         Self {
             active_game,
@@ -54,8 +54,8 @@ impl GeneratorState {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
-        let r = egui::Grid::new("weightings")
+    pub fn render(&mut self, ui: &mut egui::Ui, current_time: Duration) {
+        egui::Grid::new("weightings")
             .spacing(Vec2::splat(8.0))
             .min_col_width(150.0)
             .show(ui, |ui| {
@@ -142,9 +142,8 @@ impl GeneratorState {
         self.active_game.board.cache_special_squares();
         self.active_game.mapped_board.remap_texture(
             &ui.ctx(),
+            &self.active_game.depot.aesthetics,
             &self.active_game.board,
-            &self.active_game.ctx.player_colors,
-            0,
         );
 
         let (game_rect, _) = ui.allocate_exact_size(
@@ -153,7 +152,6 @@ impl GeneratorState {
         );
         let mut game_ui = ui.child_ui(game_rect, Layout::left_to_right(Align::TOP));
 
-        self.active_game
-            .render(&mut game_ui, theme, None, current_time, None, None);
+        self.active_game.render(&mut game_ui, current_time, None);
     }
 }

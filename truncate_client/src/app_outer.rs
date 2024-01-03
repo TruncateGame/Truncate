@@ -13,10 +13,9 @@ use crate::{
 use eframe::egui::{self, Frame, Id, Margin, TextureOptions};
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::JsValue;
-use epaint::{hex_color, vec2, TextureHandle};
+use epaint::TextureHandle;
 use truncate_core::{
     board::Board,
-    game::Game,
     messages::{GameMessage, PlayerMessage},
     npc::scoring::BoardWeights,
     player::Player,
@@ -72,6 +71,7 @@ impl Backchannel {
     /// Passes a message through to the outer host, optionally
     /// returning an ID that can be used to query for an async result
     /// at a later time
+    #[allow(unreachable_code)]
     pub fn send_msg(&self, msg: BackchannelMsg) -> Option<String> {
         #[cfg(target_arch = "wasm32")]
         {

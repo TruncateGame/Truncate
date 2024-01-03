@@ -1,10 +1,11 @@
-use std::{collections::VecDeque, f32::consts::PI};
+use std::collections::VecDeque;
 
 use eframe::egui;
-use epaint::{
-    emath::Rot2, pos2, vec2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle, Vec2,
+use epaint::{pos2, vec2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
+use truncate_core::{
+    board::{Board, Coordinate, Square},
+    reporting::Change,
 };
-use truncate_core::board::{Board, Coordinate, Square};
 
 use crate::{
     app_outer::{TextureMeasurement, GLYPH_IMAGE, TEXTURE_IMAGE, TEXTURE_MEASUREMENT},
@@ -12,8 +13,9 @@ use crate::{
 };
 
 use super::{
+    depot::AestheticDepot,
     glyph_utils::BaseTileGlyphs,
-    tex::{render_tex_quad, render_tex_quads, tiles, BGTexType, Tex, TexLayers, TexQuad},
+    tex::{tiles, BGTexType, Tex, TexLayers, TexQuad},
 };
 
 #[derive(Clone)]
@@ -55,9 +57,18 @@ impl ResolvedTextureLayers {
     }
 }
 
+#[derive(Clone, PartialEq)]
+struct MapState {
+    prev_board: Board,
+    prev_tick: u64,
+    prev_hover: Option<Coordinate>,
+    prev_changes: Vec<Change>,
+}
+
 #[derive(Clone)]
 pub struct MappedBoard {
-    memory: Vec<Vec<TexLayers>>,
+    layer_memory: Vec<Vec<TexLayers>>,
+    state_memory: Option<MapState>,
     resolved_textures: Option<ResolvedTextureLayers>,
     map_seed: usize,
     inverted: bool, // TODO: Handle any transpose
@@ -70,9 +81,9 @@ pub struct MappedBoard {
 impl MappedBoard {
     pub fn new(
         ctx: &egui::Context,
+        aesthetics: &AestheticDepot,
         board: &Board,
         invert: bool,
-        player_colors: &Vec<Color32>,
     ) -> Self {
         let secs = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
@@ -80,7 +91,11 @@ impl MappedBoard {
             .as_secs();
 
         let mut mapper = Self {
-            memory: vec![vec![TexLayers::default(); board.squares[0].len()]; board.squares.len()],
+            layer_memory: vec![
+                vec![TexLayers::default(); board.squares[0].len()];
+                board.squares.len()
+            ],
+            state_memory: None,
             resolved_textures: None,
             map_seed: (secs % 100000) as usize,
             inverted: invert,
@@ -90,7 +105,7 @@ impl MappedBoard {
             winds: vec![0; board.width() + board.height()].into(),
         };
 
-        mapper.remap_texture(ctx, board, player_colors, 0);
+        mapper.remap_texture(ctx, aesthetics, board);
 
         mapper
     }
@@ -167,7 +182,7 @@ impl MappedBoard {
         square: &Square,
         measures: &TextureMeasurement,
         tileset: &ColorImage,
-        tiles: &BaseTileGlyphs,
+        _tiles: &BaseTileGlyphs,
     ) {
         let coord = Coordinate::new(source_col, source_row);
         let resolved_textures = self.resolved_textures.as_mut().unwrap();
@@ -212,21 +227,21 @@ impl MappedBoard {
         // and we'll also want to figure out the interactions like hovering tiles.
         // Possibly we want to combine the bytes of multiple ColorImages so we don't have to create so many layers.
         //
-        // match square {
-        //     Square::Occupied(player, _) => {
-        //         let tile_layers = Tex::board_game_tile(
-        //             MappedTileVariant::Healthy,
-        //             player_colors.get(*player).cloned(),
-        //             None,
-        //             seed_at_coord,
-        //         );
-        //         layers = layers.merge(tile_layers);
-        //     }
-        //     _ => {}
-        // }
+        match square {
+            Square::Occupied(player, _) => {
+                let tile_layers = Tex::board_game_tile(
+                    MappedTileVariant::Healthy,
+                    player_colors.get(*player).cloned(),
+                    None,
+                    seed_at_coord,
+                );
+                layers = layers.merge(tile_layers);
+            }
+            _ => {}
+        }
 
         let cached = self
-            .memory
+            .layer_memory
             .get_mut(coord.y)
             .unwrap()
             .get_mut(coord.x)
@@ -267,8 +282,10 @@ impl MappedBoard {
 
                 canvas.set_partial(dest_pos, tile_from_map, egui::TextureOptions::NEAREST);
 
-                let (_, achar) = tiles.glyphs.iter().find(|(c, _)| *c == 'S').unwrap();
-                canvas.set_partial(dest_pos, achar.clone(), egui::TextureOptions::NEAREST);
+                // let (_, achar) = tiles.glyphs.iter().find(|(c, _)| *c == 'R').unwrap();
+                // let mut new = achar.clone();
+                // new.pixels.reverse();
+                // canvas.set_partial(dest_pos, new.clone(), egui::TextureOptions::NEAREST);
             }
         };
 
@@ -432,11 +449,29 @@ impl MappedBoard {
     pub fn remap_texture(
         &mut self,
         ctx: &egui::Context,
+        aesthetics: &AestheticDepot,
         board: &Board,
-        player_colors: &Vec<Color32>,
-        tick: u64,
     ) {
-        self.wind_vane(tick);
+        let mut tick_eq = true;
+        if let Some(memory) = self.state_memory.as_mut() {
+            let board_eq = memory.prev_board == *board;
+            tick_eq = memory.prev_tick == aesthetics.qs_tick;
+
+            if board_eq && tick_eq {
+                return;
+            }
+
+            if !board_eq {
+                memory.prev_board = board.clone();
+            }
+            if !tick_eq {
+                memory.prev_tick = aesthetics.qs_tick;
+            }
+        }
+
+        if !tick_eq {
+            self.wind_vane(aesthetics.qs_tick);
+        }
 
         let measures = TEXTURE_MEASUREMENT
             .get()
@@ -459,7 +494,7 @@ impl MappedBoard {
         // than try to match old coordinates to new.
         if !sized_correct {
             self.resolved_textures = Some(ResolvedTextureLayers::new(board, measures, ctx));
-            self.memory =
+            self.layer_memory =
                 vec![vec![TexLayers::default(); board.squares[0].len()]; board.squares.len()];
         }
 
@@ -471,8 +506,8 @@ impl MappedBoard {
                             self.paint_square_offscreen(
                                 ctx,
                                 board,
-                                player_colors,
-                                tick,
+                                &aesthetics.player_colors,
+                                aesthetics.qs_tick,
                                 source_row,
                                 source_col,
                                 dest_row,
@@ -492,8 +527,8 @@ impl MappedBoard {
                     self.paint_square_offscreen(
                         ctx,
                         board,
-                        player_colors,
-                        tick,
+                        &aesthetics.player_colors,
+                        aesthetics.qs_tick,
                         rownum,
                         colnum,
                         rownum,
@@ -544,17 +579,17 @@ impl MappedTile {
     }
 
     pub fn render(self, rect: Rect, ui: &mut egui::Ui) {
-        for layer in self.resolved_tex.layers {
-            match layer {
-                super::tex::TexLayer::Tile(quad, _)
-                | super::tex::TexLayer::Highlight(quad, _)
-                | super::tex::TexLayer::Grass(quad)
-                | super::tex::TexLayer::Cracks(quad) => {
-                    render_tex_quad(quad, rect, &self.map_texture, ui);
-                }
-                _ => {}
-            }
-        }
+        // for layer in self.resolved_tex.layers {
+        //     match layer {
+        //         super::tex::TexLayer::Tile(quad, _)
+        //         | super::tex::TexLayer::Highlight(quad, _)
+        //         | super::tex::TexLayer::Grass(quad)
+        //         | super::tex::TexLayer::Cracks(quad) => {
+        //             render_tex_quad(quad, rect, &self.map_texture, ui);
+        //         }
+        //         _ => {}
+        //     }
+        // }
     }
 }
 

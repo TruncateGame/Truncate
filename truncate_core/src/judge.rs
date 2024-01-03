@@ -2,14 +2,13 @@ use serde::{Deserialize, Serialize};
 use xxhash_rust::xxh3;
 
 use crate::{
-    error::GamePlayError,
     reporting::{BattleReport, BattleWord},
     rules,
 };
 
 use super::board::{Board, Square};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fmt::{self, Display},
 };
 
@@ -392,7 +391,6 @@ impl Judge {
 
 #[cfg(test)]
 mod tests {
-    use crate::board::{tests as BoardUtils, Coordinate, Direction};
 
     use super::*;
 

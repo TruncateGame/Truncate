@@ -1,13 +1,10 @@
-use std::{collections::HashMap, fmt::format};
-
-use eframe::egui::{self, DragValue, Frame, Grid, Layout, RichText, ScrollArea, Sense, Window};
+use eframe::egui::{self, DragValue, Frame, Layout, RichText, Sense};
 use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
-    board::{Board, Square},
+    board::Board,
     game::{Game, GAME_COLORS},
-    generation::{BoardParams, BoardSeed},
-    judge::{WordData, WordDict},
+    generation::BoardSeed,
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
     npc::scoring::BoardWeights,
@@ -18,10 +15,8 @@ use crate::{
     app_outer::Backchannel,
     lil_bits::{DailySplashUI, HandUI},
     utils::{
-        daily::{
-            persist_game_move, persist_game_retry, persist_game_win, persist_stats, DailyStats,
-        },
-        game_evals::{best_move, get_main_dict, remember, WORDNIK},
+        daily::{persist_game_move, persist_game_retry, persist_game_win, persist_stats},
+        game_evals::{best_move, get_main_dict, remember},
         text::TextHelper,
         Lighten, Theme,
     },
@@ -31,9 +26,7 @@ use super::active_game::{ActiveGame, HeaderType};
 
 pub struct SinglePlayerState {
     pub game: Game,
-    daily: bool,
     human_starts: bool,
-    original_board: Board,
     pub active_game: ActiveGame,
     next_response_at: Option<Duration>,
     winner: Option<usize>,
@@ -77,7 +70,6 @@ impl SinglePlayerState {
 
         game.start();
 
-        let daily = seed.as_ref().is_some_and(|s| s.day.is_some());
         let mut active_game = ActiveGame::new(
             ctx,
             "SINGLE_PLAYER".into(),
@@ -90,14 +82,12 @@ impl SinglePlayerState {
             map_texture.clone(),
             theme.clone(),
         );
-        active_game.ctx.header_visible = header.clone();
+        active_game.depot.ui_state.header_visible = header.clone();
 
         Self {
             game,
-            daily,
             human_starts,
             active_game,
-            original_board: board,
             next_response_at: None,
             winner: None,
             map_texture,
@@ -112,7 +102,7 @@ impl SinglePlayerState {
     }
 
     pub fn reset(&mut self, current_time: Duration, ctx: &egui::Context) {
-        if let Some(seed) = &self.active_game.ctx.board_seed {
+        if let Some(seed) = &self.active_game.depot.board_info.board_seed {
             if seed.day.is_some() {
                 persist_game_retry(seed);
                 match &mut self.header {
@@ -171,7 +161,7 @@ impl SinglePlayerState {
             self.map_texture.clone(),
             self.theme.clone(),
         );
-        active_game.ctx.header_visible = self.header.clone();
+        active_game.depot.ui_state.header_visible = self.header.clone();
 
         self.game = game;
         self.active_game = active_game;
@@ -212,7 +202,7 @@ impl SinglePlayerState {
         backchannel: &Backchannel,
     ) -> Result<Vec<String>, ()> {
         let human_player = if self.human_starts { 0 } else { 1 };
-        let npc_player = if self.human_starts { 1 } else { 0 };
+
         self.turns += 1;
         let dict_lock = get_main_dict();
         let dict = dict_lock.as_ref().unwrap();
@@ -223,7 +213,7 @@ impl SinglePlayerState {
             Ok(winner) => {
                 self.winner = winner;
                 if winner == Some(human_player) {
-                    if let Some(seed) = &self.active_game.ctx.board_seed {
+                    if let Some(seed) = &self.active_game.depot.board_info.board_seed {
                         persist_game_win(seed);
                     }
                 }
@@ -280,9 +270,9 @@ impl SinglePlayerState {
                     }
                 }
 
-                let ctx = &self.active_game.ctx;
+                let room_code = self.active_game.depot.gameplay.room_code.clone();
                 let state_message = GameStateMessage {
-                    room_code: ctx.room_code.clone(),
+                    room_code,
                     players: self.game.players.iter().map(Into::into).collect(),
                     player_number: human_player as u64,
                     next_player_number: self.game.next_player as u64,
@@ -295,7 +285,7 @@ impl SinglePlayerState {
                 return Ok(battle_words);
             }
             Err(msg) => {
-                self.active_game.ctx.error_msg = Some(msg);
+                self.active_game.depot.gameplay.error_msg = Some(msg);
                 return Err(());
             }
         }
@@ -371,11 +361,11 @@ impl SinglePlayerState {
                         })
                         .next();
 
-                    self.active_game.ctx.highlight_tiles = added_tiles.cloned();
+                    self.active_game.depot.interactions.highlight_tiles = added_tiles.cloned();
                     HandUI::new(&mut self.game.players[npc_player].hand)
                         .interactive(false)
-                        .render(&mut self.active_game.ctx, ui);
-                    self.active_game.ctx.highlight_tiles = None;
+                        .render(ui, &mut self.active_game.depot);
+                    self.active_game.depot.interactions.highlight_tiles = None;
 
                     ui.add_space(28.0);
 
@@ -470,20 +460,13 @@ impl SinglePlayerState {
             return None;
         }
 
-        let (mut rect, _) = ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
+        let (rect, _) = ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
         let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
         // Standard game helper
         let mut next_msg = self
             .active_game
-            .render(
-                &mut ui,
-                theme,
-                self.winner,
-                current_time,
-                Some(backchannel),
-                Some(&self.game),
-            )
+            .render(&mut ui, current_time, Some(&self.game))
             .map(|msg| (human_player, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
@@ -493,19 +476,24 @@ impl SinglePlayerState {
 
         if self.winner.is_some() {
             let splash = self.splash.get_or_insert_with(|| {
-                DailySplashUI::new(&mut ui, &self.game, &mut self.active_game.ctx, current_time)
+                DailySplashUI::new(
+                    &mut ui,
+                    &self.game,
+                    &mut self.active_game.depot,
+                    current_time,
+                )
             });
             let splash_msg = splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
 
             if matches!(splash_msg, Some(PlayerMessage::Rematch)) {
                 self.splash = None;
-                self.reset(current_time);
+                self.reset(current_time, ui.ctx());
             }
             return msg_to_server;
         }
 
         if let Some(next_response_at) = self.next_response_at {
-            if next_response_at > self.active_game.ctx.current_time {
+            if next_response_at > self.active_game.depot.timing.current_time {
                 return msg_to_server;
             }
         }
@@ -571,7 +559,7 @@ impl SinglePlayerState {
 
         if let Some(next_move) = next_move {
             if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel) {
-                if let Some(seed) = &self.active_game.ctx.board_seed {
+                if let Some(seed) = &self.active_game.depot.board_info.board_seed {
                     if seed.day.is_some() {
                         persist_game_move(seed, next_move);
                         let attempt = match self.header {
@@ -590,7 +578,8 @@ impl SinglePlayerState {
 
                 self.next_response_at = Some(
                     self.active_game
-                        .ctx
+                        .depot
+                        .timing
                         .current_time
                         .saturating_add(Duration::from_millis(delay)),
                 );

@@ -10,9 +10,9 @@ use eframe::egui::{self, Id, Order, Sense};
 
 use crate::{
     app_outer::Backchannel,
-    regions::active_game::GameCtx,
     utils::{
         daily::{get_stats, DailyStats},
+        depot::TruncateDepot,
         text::TextHelper,
         Lighten, Theme,
     },
@@ -37,7 +37,12 @@ pub struct DailySplashUI {
 }
 
 impl DailySplashUI {
-    pub fn new(ui: &mut egui::Ui, game: &Game, ctx: &mut GameCtx, current_time: Duration) -> Self {
+    pub fn new(
+        ui: &mut egui::Ui,
+        game: &Game,
+        depot: &mut TruncateDepot,
+        current_time: Duration,
+    ) -> Self {
         let stats = get_stats();
 
         let streak_length = stats
@@ -66,7 +71,7 @@ impl DailySplashUI {
 
         let graph = DailySplashGraph::new(ui, &stats, current_time);
 
-        let msg_mock = ShareMessageMock::new(game, ctx, &stats);
+        let msg_mock = ShareMessageMock::new(game, &depot, &stats);
 
         Self {
             msg_mock,

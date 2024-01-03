@@ -2,13 +2,10 @@ use eframe::{
     egui::{self, Layout},
     emath::Align,
 };
-use epaint::{hex_color, vec2, Rect, Stroke, TextureHandle};
+use epaint::Rect;
 use truncate_core::board::Coordinate;
 
-use crate::{
-    regions::active_game::GameCtx,
-    utils::{mapper::MappedBoard, Diaphanize, Lighten, Theme},
-};
+use crate::utils::{depot::TruncateDepot, Lighten};
 
 use super::{tile::TilePlayer, TileUI};
 
@@ -16,7 +13,6 @@ pub struct SquareUI {
     coord: Coordinate,
     enabled: bool,
     empty: bool,
-    playable: bool,
     selected: bool,
     overlay: Option<char>,
 }
@@ -27,7 +23,7 @@ impl SquareUI {
             coord,
             enabled: true,
             empty: false,
-            playable: false,
+
             selected: false,
             overlay: None,
         }
@@ -43,11 +39,6 @@ impl SquareUI {
         self
     }
 
-    pub fn playable(mut self, playable: bool) -> Self {
-        self.playable = playable;
-        self
-    }
-
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
@@ -59,18 +50,23 @@ impl SquareUI {
     }
 
     pub fn render(
-        &self,
+        &mut self,
         ui: &mut egui::Ui,
-        ctx: &mut GameCtx,
-        mapped_board: &MappedBoard,
-        contents: impl FnOnce(&mut egui::Ui, &mut GameCtx),
+        depot: &mut TruncateDepot,
+        contents: impl FnOnce(&mut egui::Ui, &mut TruncateDepot),
     ) -> (egui::Response, Rect) {
+        let TruncateDepot {
+            interactions,
+            aesthetics,
+            ..
+        } = depot;
+
         let (rect, response) = ui.allocate_exact_size(
-            egui::vec2(ctx.theme.grid_size, ctx.theme.grid_size),
+            egui::vec2(aesthetics.theme.grid_size, aesthetics.theme.grid_size),
             egui::Sense::hover(),
         );
-        let interact_rect = rect.shrink(ctx.theme.tile_margin);
-        let mut response = ui.interact(
+        let interact_rect = rect.shrink(aesthetics.theme.tile_margin);
+        let response = ui.interact(
             interact_rect,
             response.id.with("interact"),
             egui::Sense::click(),
@@ -88,37 +84,44 @@ impl SquareUI {
             }
 
             let is_hovered = ui.rect_contains_pointer(interact_rect);
-            let is_hovered_with_drag = is_hovered && ctx.dragging_tile;
+            let is_hovered_with_drag = is_hovered && interactions.dragging_tile;
             let show_overlay = is_hovered && self.overlay.is_some();
 
             if (show_overlay || is_hovered_with_drag)
-                && (self.empty || ctx.selected_square_on_board.is_some())
+                && (self.empty || interactions.selected_square_on_board.is_some())
             {
                 if let Some(overlay) = self.overlay {
                     TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
                         None,
                         &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                        ctx,
                         false,
                         None,
+                        depot,
                     );
                 }
             } else {
                 contents(
                     &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                    ctx,
+                    depot,
                 );
             }
 
+            let TruncateDepot {
+                interactions,
+                timing,
+                aesthetics,
+                ..
+            } = depot;
+
             if self.empty {
-                if let Some(squares) = ctx.highlight_squares.as_ref() {
-                    if squares.contains(&self.coord) && ctx.current_time.subsec_millis() > 500 {
-                        let mut highlight_rect = rect.shrink(ctx.theme.tile_margin);
+                if let Some(squares) = interactions.highlight_squares.as_ref() {
+                    if squares.contains(&self.coord) && timing.current_time.subsec_millis() > 500 {
+                        let highlight_rect = rect.shrink(aesthetics.theme.tile_margin);
 
                         ui.painter().rect_filled(
                             highlight_rect,
-                            ctx.theme.rounding,
-                            ctx.theme.selection.pastel().gamma_multiply(0.5),
+                            aesthetics.theme.rounding,
+                            aesthetics.theme.selection.pastel().gamma_multiply(0.5),
                         );
                     }
                 }

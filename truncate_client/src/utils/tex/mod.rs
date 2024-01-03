@@ -1,8 +1,3 @@
-use std::{
-    collections::VecDeque,
-    ops::{Range, RangeInclusive},
-};
-
 use eframe::egui::{self, Sense};
 use epaint::{pos2, vec2, Color32, Mesh, Pos2, Rect, Shape, TextureHandle, TextureId, Vec2};
 use truncate_core::board::Square;

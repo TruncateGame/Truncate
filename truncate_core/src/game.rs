@@ -1,6 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use time::Duration;
 use xxhash_rust::xxh3;
 
@@ -9,7 +8,7 @@ use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
 use crate::judge::{Outcome, WordDict};
 use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, TimeChange};
-use crate::rules::{self, GameRules, OvertimeRule, Timing};
+use crate::rules::{self, GameRules, OvertimeRule};
 
 use super::board::Board;
 use super::judge::Judge;

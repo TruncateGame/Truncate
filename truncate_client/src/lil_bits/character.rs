@@ -4,6 +4,7 @@ use std::f32;
 
 use crate::{utils::glyph_utils::Glypher, utils::*};
 
+#[allow(dead_code)]
 pub enum CharacterOrient {
     North,
     East,
@@ -94,7 +95,8 @@ impl CharacterUI {
     }
 
     pub fn render(self, ui: &mut egui::Ui, rect: egui::Rect, theme: &Theme) {
-        let color = self.char_color(theme);
+        let _color = self.char_color(theme); // TODO: FIX
+        let color = Color32::LIGHT_RED;
         self.render_with_color(ui, rect, theme, color);
     }
 

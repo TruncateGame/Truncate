@@ -23,6 +23,7 @@ for (const tile of raw_tiles) {
 
 const rs_map = [
     `#![cfg_attr(rustfmt, rustfmt_skip)]\n`,
+    `#![allow(dead_code)]\n`,
     `use super::{Tex, TexQuad};\n`,
     `const fn t(tile: usize) -> Tex {`,
     `    Tex { tile, tint: None }`,

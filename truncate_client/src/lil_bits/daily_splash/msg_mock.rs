@@ -4,8 +4,7 @@ use truncate_core::game::Game;
 
 use crate::{
     app_outer::Backchannel,
-    regions::active_game::GameCtx,
-    utils::{daily::DailyStats, text::TextHelper, Lighten, Theme},
+    utils::{daily::DailyStats, depot::TruncateDepot, text::TextHelper, Lighten, Theme},
 };
 
 /*
@@ -22,12 +21,12 @@ pub struct ShareMessageMock {
 }
 
 impl ShareMessageMock {
-    pub fn new(game: &Game, ctx: &GameCtx, stats: &DailyStats) -> Self {
+    pub fn new(game: &Game, depot: &TruncateDepot, stats: &DailyStats) -> Self {
         let share_text = game.board.emojify(
-            ctx.player_number as usize,
-            Some(ctx.player_number as usize),
+            depot.gameplay.player_number as usize,
+            Some(depot.gameplay.player_number as usize),
             Some(game),
-            ctx.board_seed.clone(),
+            depot.board_info.board_seed.clone(),
             stats
                 .days
                 .last_key_value()

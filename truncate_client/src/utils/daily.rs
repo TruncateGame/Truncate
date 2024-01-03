@@ -10,16 +10,12 @@ use truncate_core::{
     game::Game,
     generation::{generate_board, get_game_verification, BoardSeed},
     moves::Move,
-    player,
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail},
 };
 
 use crate::{
     app_outer::Backchannel,
-    regions::{
-        active_game::{ActiveGame, HeaderType},
-        single_player::SinglePlayerState,
-    },
+    regions::{active_game::HeaderType, single_player::SinglePlayerState},
 };
 
 use super::{game_evals::get_main_dict, Theme};
@@ -98,7 +94,7 @@ pub fn get_daily_puzzle(
         sentinel: header_sentinel,
         attempt: Some(persisted_moves.attempts),
     };
-    game_state.active_game.ctx.header_visible = game_state.header.clone();
+    game_state.active_game.depot.ui_state.header_visible = game_state.header.clone();
 
     let delay = game_state.game.rules.battle_delay;
     game_state.game.rules.battle_delay = 0;
@@ -202,6 +198,7 @@ pub fn persist_game_move(seed: &BoardSeed, action: Move) {
     }
 }
 
+#[allow(unreachable_code)]
 pub fn get_persistent_game(seed: &BoardSeed) -> PersistentGame {
     #[cfg(target_arch = "wasm32")]
     {
@@ -229,7 +226,7 @@ pub fn wipe_persistent_game(seed: &BoardSeed) {
 
         let key = format!("daily_{}", seed.seed);
 
-        local_storage.remove_item(&key);
+        _ = local_storage.remove_item(&key);
     }
 }
 

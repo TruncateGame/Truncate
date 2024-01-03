@@ -1,16 +1,12 @@
-use eframe::egui::{self, widget_text::WidgetTextGalley, Id, Sense};
+use eframe::egui::{self, widget_text::WidgetTextGalley, Sense};
 use epaint::{emath::Align2, pos2, vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
 
-use super::{
-    glyph_utils::Glypher,
-    tex::{paint_dialog_background, render_texs_clockwise, Tex, Tint},
-};
+use super::tex::{paint_dialog_background, render_texs_clockwise, Tex, Tint};
 
 const DIALOG_TIME_PER_CHAR: f32 = 0.05;
 
 pub struct TextHelper<'a> {
     original_text: &'a str,
-    font: &'static str,
     size: f32,
     max_width: Option<f32>,
     galley: WidgetTextGalley,
@@ -35,7 +31,6 @@ impl<'a> TextHelper<'a> {
         );
         Self {
             original_text: text,
-            font: "Truncate-Heavy",
             size,
             max_width,
             galley,
@@ -60,7 +55,6 @@ impl<'a> TextHelper<'a> {
         );
         Self {
             original_text: text,
-            font: "Truncate-Light",
             size,
             max_width,
             galley,

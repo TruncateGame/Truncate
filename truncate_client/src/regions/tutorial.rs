@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use eframe::egui::{self, Layout, Order, RichText, ScrollArea};
-use epaint::{hex_color, vec2, Color32, TextureHandle};
+use eframe::egui::{self, Layout, Order};
+use epaint::{vec2, Color32, TextureHandle};
 use instant::Duration;
 use serde::Deserialize;
 use truncate_core::{
@@ -9,7 +9,7 @@ use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
     judge::Judge,
-    messages::{GamePlayerMessage, GameStateMessage, PlayerMessage},
+    messages::{GameStateMessage, PlayerMessage},
     moves::Move,
     player::{Hand, Player},
     rules::{GameRules, TileDistribution},
@@ -23,7 +23,6 @@ const TUTORIAL_01: &[u8] = include_bytes!("../../tutorials/tutorial_01.yml");
 
 #[derive(Deserialize, Debug)]
 struct Tutorial {
-    name: String,
     board: String,
     player_hand: String,
     computer_hand: String,
@@ -166,7 +165,7 @@ impl TutorialState {
             map_texture,
             theme,
         );
-        active_game.ctx.header_visible = HeaderType::None;
+        active_game.depot.ui_state.header_visible = HeaderType::None;
 
         Self {
             game,
@@ -203,23 +202,21 @@ impl TutorialState {
             let m = action_to_move(0, you);
             match m {
                 Move::Place { tile, position, .. } => {
-                    self.active_game.ctx.highlight_tiles = Some(vec![tile]);
-                    self.active_game.ctx.highlight_squares = Some(vec![position]);
+                    self.active_game.depot.interactions.highlight_tiles = Some(vec![tile]);
+                    self.active_game.depot.interactions.highlight_squares = Some(vec![position]);
                 }
                 Move::Swap { positions, .. } => {
-                    self.active_game.ctx.highlight_squares = Some(positions.to_vec());
+                    self.active_game.depot.interactions.highlight_squares =
+                        Some(positions.to_vec());
                 }
             }
         } else {
-            self.active_game.ctx.highlight_tiles = None;
-            self.active_game.ctx.highlight_squares = None;
+            self.active_game.depot.interactions.highlight_tiles = None;
+            self.active_game.depot.interactions.highlight_squares = None;
         }
 
         // Standard game helper
-        if let Some(msg) = self
-            .active_game
-            .render(ui, theme, None, current_time, None, None)
-        {
+        if let Some(msg) = self.active_game.render(ui, current_time, None) {
             let Some(game_move) = (match msg {
                 PlayerMessage::Place(position, tile) => Some(Move::Place {
                     player: 0,
@@ -245,7 +242,7 @@ impl TutorialState {
             }
         }
 
-        if let Some(dialog_pos) = self.active_game.ctx.hand_companion_rect {
+        if let Some(dialog_pos) = self.active_game.depot.regions.hand_companion_rect {
             let max_width = f32::min(700.0, dialog_pos.width());
             let dialog_padding_x = (dialog_pos.width() - max_width) / 2.0;
 
@@ -256,11 +253,16 @@ impl TutorialState {
                 .order(Order::Foreground)
                 .fixed_pos(dialog_pos.left_top());
 
-            let resp = area.show(ui.ctx(), |ui| {
+            area.show(ui.ctx(), |ui| {
                 ui.painter().rect_filled(
                     dialog_pos,
                     4.0,
-                    self.active_game.ctx.theme.water.gamma_multiply(0.75),
+                    self.active_game
+                        .depot
+                        .aesthetics
+                        .theme
+                        .water
+                        .gamma_multiply(0.75),
                 );
                 ui.expand_to_include_rect(dialog_pos);
                 ui.allocate_ui_at_rect(inner_dialog, |ui| {
@@ -298,7 +300,7 @@ impl TutorialState {
                                     Color32::WHITE.diaphanize(),
                                     Color32::BLACK,
                                     0.0,
-                                    &self.active_game.ctx.map_texture,
+                                    &self.active_game.depot.aesthetics.map_texture,
                                     ui,
                                 );
                             }
@@ -327,7 +329,7 @@ impl TutorialState {
                                     Color32::WHITE.diaphanize(),
                                     Color32::BLACK,
                                     button_spacing,
-                                    &self.active_game.ctx.map_texture,
+                                    &self.active_game.depot.aesthetics.map_texture,
                                     ui,
                                 );
 
@@ -346,7 +348,11 @@ impl TutorialState {
                                                     .button(
                                                         theme.water.lighten(),
                                                         theme.text,
-                                                        &self.active_game.ctx.map_texture,
+                                                        &self
+                                                            .active_game
+                                                            .depot
+                                                            .aesthetics
+                                                            .map_texture,
                                                         ui,
                                                     )
                                                     .clicked()
@@ -379,7 +385,7 @@ impl TutorialState {
                                     Color32::WHITE.diaphanize(),
                                     Color32::BLACK,
                                     button_spacing,
-                                    &self.active_game.ctx.map_texture,
+                                    &self.active_game.depot.aesthetics.map_texture,
                                     ui,
                                 );
 
@@ -398,7 +404,11 @@ impl TutorialState {
                                                     .button(
                                                         theme.water.lighten(),
                                                         theme.text,
-                                                        &self.active_game.ctx.map_texture,
+                                                        &self
+                                                            .active_game
+                                                            .depot
+                                                            .aesthetics
+                                                            .map_texture,
                                                         ui,
                                                     )
                                                     .clicked()
@@ -432,7 +442,7 @@ impl TutorialState {
                                     Color32::WHITE.diaphanize(),
                                     Color32::BLACK,
                                     button_spacing,
-                                    &self.active_game.ctx.map_texture,
+                                    &self.active_game.depot.aesthetics.map_texture,
                                     ui,
                                 );
 
@@ -451,7 +461,11 @@ impl TutorialState {
                                                     .button(
                                                         theme.water.lighten(),
                                                         theme.text,
-                                                        &self.active_game.ctx.map_texture,
+                                                        &self
+                                                            .active_game
+                                                            .depot
+                                                            .aesthetics
+                                                            .map_texture,
                                                         ui,
                                                     )
                                                     .clicked()
@@ -504,9 +518,9 @@ impl TutorialState {
                             truncate_core::reporting::Change::Time(_) => true,
                         })
                         .collect();
-                    let ctx = &self.active_game.ctx;
+                    let room_code = self.active_game.depot.gameplay.room_code.clone();
                     let state_message = GameStateMessage {
-                        room_code: ctx.room_code.clone(),
+                        room_code,
                         players: self.game.players.iter().map(Into::into).collect(),
                         player_number: 0,
                         next_player_number: self.game.next_player as u64,
