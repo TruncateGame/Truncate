@@ -9,7 +9,7 @@ use truncate_core::{
 use eframe::egui::{self, Order};
 use hashbrown::HashMap;
 
-use crate::utils::{mapper::MappedBoard, depot::TruncateDepot};
+use crate::utils::{mapper::MappedBoard, depot::TruncateDepot, macros::tr_log};
 
 use super::{
     tile::TilePlayer,
@@ -91,6 +91,7 @@ impl<'a> BoardUI<'a> {
                     ui.next_widget_position(),
                     vec2(self.board.width() as f32 * depot.aesthetics.theme.grid_size, self.board.height() as f32 * depot.aesthetics.theme.grid_size)
                 );
+
                 mapped_board.remap_texture(ui.ctx(), &depot.aesthetics, self.board);
                 mapped_board.render_to_rect(dest, ui);
 

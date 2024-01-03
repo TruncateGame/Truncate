@@ -1,4 +1,4 @@
-use epaint::{Color32, Rect, TextureHandle, Vec2};
+use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{board::Coordinate, generation::BoardSeed, messages::RoomCode};
 
@@ -44,12 +44,23 @@ pub struct UIStateDepot {
     pub header_visible: HeaderType,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct BoardDepot {
     pub board_seed: Option<BoardSeed>,
     pub board_moved: bool,
     pub board_zoom: f32,
     pub board_pan: Vec2,
+}
+
+impl Default for BoardDepot {
+    fn default() -> Self {
+        Self {
+            board_seed: None,
+            board_moved: false,
+            board_zoom: 1.0,
+            board_pan: vec2(0.0, 0.0),
+        }
+    }
 }
 
 #[derive(Clone)]
