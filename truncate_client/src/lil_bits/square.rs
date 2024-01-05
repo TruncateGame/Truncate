@@ -91,13 +91,15 @@ impl SquareUI {
                 && (self.empty || interactions.selected_square_on_board.is_some())
             {
                 if let Some(overlay) = self.overlay {
-                    TileUI::new(overlay, TilePlayer::Own).ghost(true).render(
-                        None,
-                        &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
-                        false,
-                        None,
-                        depot,
-                    );
+                    TileUI::new(Some(overlay), TilePlayer::Own)
+                        .ghost(true)
+                        .render(
+                            None,
+                            &mut ui.child_ui(rect, Layout::left_to_right(Align::TOP)),
+                            false,
+                            None,
+                            depot,
+                        );
                 }
             } else {
                 contents(

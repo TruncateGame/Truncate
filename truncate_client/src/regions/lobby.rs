@@ -63,7 +63,7 @@ impl Lobby {
         Self {
             room_code,
             board_seed: None,
-            mapped_board: MappedBoard::new(ctx, &aesthetics, &board, false),
+            mapped_board: MappedBoard::new(ctx, &aesthetics, &board, 1),
             players,
             player_index,
             board,
@@ -75,7 +75,7 @@ impl Lobby {
 
     pub fn update_board(&mut self, board: Board, ui: &mut egui::Ui) {
         self.mapped_board
-            .remap_texture(&ui.ctx(), &self.aesthetics, &board);
+            .remap_texture(&ui.ctx(), &self.aesthetics, None, &board);
         self.board = board;
     }
 
@@ -252,7 +252,7 @@ impl Lobby {
             {
                 msg = Some(board_update);
                 self.mapped_board
-                    .remap_texture(&ui.ctx(), &self.aesthetics, &self.board);
+                    .remap_texture(&ui.ctx(), &self.aesthetics, None, &self.board);
             }
         }
 

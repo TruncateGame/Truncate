@@ -37,10 +37,10 @@ impl GeneratorState {
             map_texture.clone(),
             theme.clone(),
         );
-        active_game.depot.ui_state.header_visible = HeaderType::None;
-        active_game.depot.ui_state.hand_visible = false;
-        active_game.depot.ui_state.sidebar_visible = false;
-        active_game.depot.interactions.interactive = false;
+        active_game.depot.ui_state.game_header = HeaderType::None;
+        active_game.depot.ui_state.hand_hidden = true;
+        active_game.depot.ui_state.sidebar_hidden = true;
+        active_game.depot.interactions.view_only = true;
 
         Self {
             active_game,
@@ -143,6 +143,7 @@ impl GeneratorState {
         self.active_game.mapped_board.remap_texture(
             &ui.ctx(),
             &self.active_game.depot.aesthetics,
+            None,
             &self.active_game.board,
         );
 

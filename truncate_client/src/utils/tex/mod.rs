@@ -1,6 +1,8 @@
 use eframe::egui::{self, Sense};
-use epaint::{pos2, vec2, Color32, Mesh, Pos2, Rect, Shape, TextureHandle, TextureId, Vec2};
-use truncate_core::board::Square;
+use epaint::{
+    pos2, vec2, Color32, ColorImage, Mesh, Pos2, Rect, Shape, TextureHandle, TextureId, Vec2,
+};
+use truncate_core::board::{Direction, Square};
 
 use crate::{app_outer::TEXTURE_MEASUREMENT, regions::lobby::BoardEditingMode};
 
@@ -15,43 +17,47 @@ pub struct Tex {
 }
 
 pub type TexQuad = [Tex; 4];
+pub type IsFlipped = bool;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum TexLayer {
-    Terrain(TexQuad),
-    Structures(TexQuad),
-    Tinted(TexQuad, Option<Color32>),
-    Tile(TexQuad, Option<Color32>),
-    Highlight(TexQuad, Option<Color32>),
-    Grass(TexQuad),
-    Cracks(TexQuad),
-    Smoke(TexQuad),
+#[derive(Debug, Clone, PartialEq)]
+pub enum PieceLayer {
+    Texture(TexQuad, Option<Color32>),
+    Character(char, Color32, IsFlipped),
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct TexLayers {
-    pub layers: Vec<TexLayer>,
+    pub terrain: Option<TexQuad>,
+    pub structures: Option<TexQuad>,
+    pub pieces: Vec<PieceLayer>,
 }
 
 impl TexLayers {
-    fn base(layer: TexLayer) -> Self {
-        Self {
-            layers: vec![layer],
-        }
-    }
-
-    fn with(mut self, layer: TexLayer) -> Self {
-        self.layers.push(layer);
+    fn with_terrain(mut self, quad: TexQuad) -> Self {
+        self.terrain = Some(quad);
         self
     }
 
-    fn add(&mut self, layer: TexLayer) -> &mut Self {
-        self.layers.push(layer);
+    fn with_structures(mut self, quad: TexQuad) -> Self {
+        self.structures = Some(quad);
+        self
+    }
+
+    fn with_piece_texture(mut self, quad: TexQuad, color: Option<Color32>) -> Self {
+        self.pieces.push(PieceLayer::Texture(quad, color));
+        self
+    }
+
+    fn with_piece_character(mut self, char: char, color: Color32, flipped: IsFlipped) -> Self {
+        self.pieces
+            .push(PieceLayer::Character(char, color, flipped));
         self
     }
 
     pub fn merge(self, mut other: TexLayers) -> Self {
-        other.layers.extend(self.layers.into_iter());
+        other.terrain = self.terrain.or(other.terrain);
+        other.structures = self.structures.or(other.structures);
+        other.pieces.extend(self.pieces.into_iter());
         other
     }
 }
@@ -155,17 +161,22 @@ impl Tint for Vec<Vec<Tex>> {
 }
 
 impl Tex {
-    pub fn game_tile(color: Option<Color32>, highlight: Option<Color32>) -> TexLayers {
-        let mut layers = TexLayers::base(TexLayer::Tile(
-            tiles::quad::GAME_PIECE.tint(color.unwrap_or(Color32::WHITE)),
-            color,
-        ));
+    pub fn game_tile(
+        character: char,
+        orientation: Direction,
+        color: Option<Color32>,
+        highlight: Option<Color32>,
+    ) -> TexLayers {
+        let mut layers = TexLayers::default()
+            .with_piece_texture(
+                tiles::quad::GAME_PIECE.tint(color.unwrap_or(Color32::WHITE)),
+                color,
+            )
+            .with_piece_character(character, Color32::GOLD, orientation != Direction::North);
 
         if let Some(highlight) = highlight {
-            layers.add(TexLayer::Highlight(
-                tiles::quad::HIGHLIGHT.tint(highlight),
-                Some(highlight),
-            ));
+            layers =
+                layers.with_piece_texture(tiles::quad::HIGHLIGHT.tint(highlight), Some(highlight));
         }
 
         layers
@@ -173,32 +184,37 @@ impl Tex {
 
     pub fn board_game_tile(
         variant: MappedTileVariant,
+        character: char,
+        orientation: Direction,
         color: Option<Color32>,
         highlight: Option<Color32>,
         seed: usize,
     ) -> TexLayers {
-        let mut layers = Tex::game_tile(color, highlight);
-        layers.add(TexLayer::Grass([
-            tiles::NONE,
-            tiles::NONE,
-            match quickrand(seed) % 100 {
-                0..=25 => tiles::GAME_PIECE_GRASS_0_SE,
-                26..=50 => tiles::GAME_PIECE_GRASS_1_SE,
-                51..=75 => tiles::GAME_PIECE_GRASS_2_SE,
-                _ => tiles::GAME_PIECE_GRASS_3_SE,
-            },
-            match quickrand(seed + 678) % 100 {
-                0..=25 => tiles::GAME_PIECE_GRASS_0_SW,
-                26..=50 => tiles::GAME_PIECE_GRASS_1_SW,
-                51..=75 => tiles::GAME_PIECE_GRASS_2_SW,
-                _ => tiles::GAME_PIECE_GRASS_3_SW,
-            },
-        ]));
+        let mut layers = Tex::game_tile(character, orientation, color, highlight);
+        layers = layers.with_piece_texture(
+            [
+                tiles::NONE,
+                tiles::NONE,
+                match quickrand(seed) % 100 {
+                    0..=25 => tiles::GAME_PIECE_GRASS_0_SE,
+                    26..=50 => tiles::GAME_PIECE_GRASS_1_SE,
+                    51..=75 => tiles::GAME_PIECE_GRASS_2_SE,
+                    _ => tiles::GAME_PIECE_GRASS_3_SE,
+                },
+                match quickrand(seed + 678) % 100 {
+                    0..=25 => tiles::GAME_PIECE_GRASS_0_SW,
+                    26..=50 => tiles::GAME_PIECE_GRASS_1_SW,
+                    51..=75 => tiles::GAME_PIECE_GRASS_2_SW,
+                    _ => tiles::GAME_PIECE_GRASS_3_SW,
+                },
+            ],
+            None,
+        );
 
         match variant {
             MappedTileVariant::Healthy => {}
             MappedTileVariant::Dying => {
-                layers.add(TexLayer::Cracks(
+                layers = layers.with_piece_texture(
                     match quickrand(seed) % 100 {
                         0..=19 => tiles::quad::GAME_PIECE_CRACKS_0,
                         20..=39 => tiles::quad::GAME_PIECE_CRACKS_1,
@@ -207,10 +223,11 @@ impl Tex {
                         _ => tiles::quad::GAME_PIECE_CRACKS_4,
                     }
                     .tint(color.unwrap_or_default()),
-                ));
+                    None,
+                );
             }
             MappedTileVariant::Dead => {
-                layers.add(TexLayer::Cracks(
+                layers = layers.with_piece_texture(
                     match quickrand(seed) % 100 {
                         0..=19 => tiles::quad::GAME_PIECE_CRACKS_0,
                         20..=39 => tiles::quad::GAME_PIECE_CRACKS_1,
@@ -219,10 +236,11 @@ impl Tex {
                         _ => tiles::quad::GAME_PIECE_CRACKS_4,
                     }
                     .tint(color.unwrap_or_default()),
-                ));
+                    None,
+                );
             }
             MappedTileVariant::Gone => {
-                layers = TexLayers::base(TexLayer::Tile(
+                layers = TexLayers::default().with_piece_texture(
                     [
                         match quickrand(seed + 345) % 100 {
                             0..=33 => tiles::GAME_PIECE_RUBBLE_0_NW,
@@ -246,7 +264,7 @@ impl Tex {
                         },
                     ],
                     color,
-                ));
+                );
             }
         }
         layers
@@ -384,14 +402,16 @@ impl Tex {
                 ],
             )
         };
-        TexLayers::base(TexLayer::Structures(tiles::quad::SOUTH_DOCK)).with(TexLayer::Tinted(
-            match wind_at_coord {
-                calm!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
-                breeze!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
-                _ => tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
-            },
-            Some(color),
-        ))
+        TexLayers::default()
+            .with_structures(tiles::quad::SOUTH_DOCK)
+            .with_piece_texture(
+                match wind_at_coord {
+                    calm!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
+                    breeze!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
+                    _ => tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
+                },
+                Some(color),
+            )
     }
 
     fn town(color: Color32, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
@@ -498,9 +518,9 @@ impl Tex {
             // texs[2][housepos] = smoke;
         }
 
-        let mut layers = TexLayers::base(TexLayer::Structures(structures));
-        layers.add(TexLayer::Tinted(tinted, Some(color)));
-        layers
+        TexLayers::default()
+            .with_structures(structures)
+            .with_piece_texture(tinted, Some(color))
     }
 
     /// Determine the tiles to use based on a given square and its neighbors,
@@ -515,12 +535,7 @@ impl Tex {
     ) -> TexLayers {
         debug_assert_eq!(neighbors.len(), 8);
         if neighbors.len() != 8 {
-            return TexLayers::base(TexLayer::Terrain([
-                tiles::DEBUG,
-                tiles::DEBUG,
-                tiles::DEBUG,
-                tiles::DEBUG,
-            ]));
+            return TexLayers::default().with_terrain([tiles::DEBUG; 4]);
         }
 
         let grasses = match wind_at_coord {
@@ -602,12 +617,8 @@ impl Tex {
             },
         };
 
-        let mut layers = TexLayers::base(TexLayer::Terrain([
-            top_left,
-            top_right,
-            bottom_right,
-            bottom_left,
-        ]));
+        let mut layers =
+            TexLayers::default().with_terrain([top_left, top_right, bottom_right, bottom_left]);
 
         match layer_type {
             FGTexType::Town(color) => {
@@ -666,7 +677,7 @@ impl Tex {
         ui.painter().add(Shape::mesh(mesh));
     }
 
-    pub fn get_source_position(&self) -> Pos2 {
+    pub fn get_source_position(&self) -> (Pos2, Vec2) {
         let measures = TEXTURE_MEASUREMENT
             .get()
             .expect("Texture should be loaded and measured");
@@ -677,10 +688,28 @@ impl Tex {
         let left = measures.outer_tile_width * col + measures.x_padding_pct;
         let top = measures.outer_tile_height * row + measures.y_padding_pct;
 
-        pos2(
-            // Index to our tile, and skip over the leading column padding
-            left, top,
+        (
+            pos2(
+                // Index to our tile, and skip over the leading column padding
+                left, top,
+            ),
+            vec2(
+                measures.inner_tile_width_px as f32,
+                measures.inner_tile_height_px as f32,
+            ),
         )
+    }
+
+    pub fn slice_as_image(&self, base_sheet: &ColorImage) -> ColorImage {
+        let (source_pos, source_size) = self.get_source_position();
+        let region = Rect::from_min_size(
+            pos2(
+                source_pos.x * base_sheet.size[0] as f32,
+                source_pos.y * base_sheet.size[1] as f32,
+            ),
+            source_size,
+        );
+        base_sheet.region(&region, None)
     }
 }
 

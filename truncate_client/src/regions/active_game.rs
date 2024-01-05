@@ -99,7 +99,7 @@ impl ActiveGame {
         };
 
         Self {
-            mapped_board: MappedBoard::new(ctx, &depot.aesthetics, &board, player_number == 0),
+            mapped_board: MappedBoard::new(ctx, &depot.aesthetics, &board, player_number as usize),
             depot,
             players,
             board,
@@ -119,7 +119,7 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         game_ref: Option<&truncate_core::game::Game>,
     ) -> (Option<Rect>, Option<PlayerMessage>) {
-        if matches!(self.depot.ui_state.header_visible, HeaderType::None) {
+        if matches!(self.depot.ui_state.game_header, HeaderType::None) {
             return (None, None);
         }
 
@@ -169,7 +169,7 @@ impl ActiveGame {
                     };
                     ui.add_space(outer_x_padding);
 
-                    match &self.depot.ui_state.header_visible {
+                    match &self.depot.ui_state.game_header {
                         HeaderType::Timers => {
                             ui.add_space(item_spacing);
 
@@ -336,20 +336,20 @@ impl ActiveGame {
         &mut self,
         ui: &mut egui::Ui,
     ) -> (Option<Rect>, Option<PlayerMessage>) {
-        if !self.depot.ui_state.hand_visible {
+        if self.depot.ui_state.hand_hidden {
             return (None, None);
         }
 
         let mut msg = None;
         let companion_space = 220.0;
 
-        let control_anchor = if !matches!(self.depot.ui_state.header_visible, HeaderType::None) {
+        let control_anchor = if !matches!(self.depot.ui_state.game_header, HeaderType::None) {
             vec2(0.0, 0.0)
         } else {
             vec2(0.0, -companion_space)
         };
 
-        if matches!(self.depot.ui_state.header_visible, HeaderType::None) {
+        if matches!(self.depot.ui_state.game_header, HeaderType::None) {
             let mut companion_pos = ui.available_rect_before_wrap();
             companion_pos.set_top(companion_pos.bottom() - companion_space);
             self.depot.regions.hand_companion_rect = Some(companion_pos);
@@ -472,7 +472,7 @@ impl ActiveGame {
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui) -> Option<PlayerMessage> {
-        if !self.depot.ui_state.sidebar_visible
+        if self.depot.ui_state.sidebar_hidden
             || (self.depot.ui_state.is_mobile && !self.depot.ui_state.sidebar_toggled)
         {
             return None;
@@ -600,7 +600,7 @@ impl ActiveGame {
         let mut game_space = ui.available_rect_before_wrap();
         let mut sidebar_space = game_space.clone();
 
-        if self.depot.ui_state.sidebar_visible
+        if !self.depot.ui_state.sidebar_hidden
             && ui.available_size().x >= self.depot.aesthetics.theme.mobile_breakpoint
         {
             self.depot.ui_state.is_mobile = false;
@@ -629,9 +629,8 @@ impl ActiveGame {
         }
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
-        let interactive = self.depot.interactions.interactive;
         let player_message = BoardUI::new(&self.board)
-            .interactive(interactive)
+            .interactive(!self.depot.interactions.view_only)
             .render(
                 &self.hand,
                 &self.board_changes,

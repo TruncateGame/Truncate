@@ -333,7 +333,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         GameStatus::SinglePlayer(sp) => {
             // Special performance debug mode — hide the sidebar to give us more space
             if *log_frames {
-                sp.active_game.depot.ui_state.sidebar_visible = false;
+                sp.active_game.depot.ui_state.sidebar_hidden = true;
             }
 
             // Single player _can_ talk to the server, e.g. to ask for word definitions

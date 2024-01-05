@@ -15,7 +15,7 @@ pub struct HoveredRegion {
 
 #[derive(Clone, Default)]
 pub struct InteractionDepot {
-    pub interactive: bool,
+    pub view_only: bool,
     pub dragging_tile: bool,
     pub released_tile: Option<(usize, Coordinate)>,
     pub selected_square_on_board: Option<Coordinate>,
@@ -36,12 +36,12 @@ pub struct RegionDepot {
 #[derive(Clone, Default)]
 pub struct UIStateDepot {
     pub sidebar_toggled: bool,
-    pub sidebar_visible: bool,
+    pub sidebar_hidden: bool,
     pub unread_sidebar: bool,
-    pub hand_visible: bool,
+    pub hand_hidden: bool,
     pub is_mobile: bool,
     pub is_touch: bool,
-    pub header_visible: HeaderType,
+    pub game_header: HeaderType,
 }
 
 #[derive(Clone)]

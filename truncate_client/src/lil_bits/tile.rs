@@ -16,7 +16,7 @@ pub enum TilePlayer {
 }
 
 pub struct TileUI {
-    letter: char,
+    letter: Option<char>,
     player: TilePlayer,
     selected: bool,
     highlighted: bool,
@@ -33,7 +33,7 @@ pub struct TileUI {
 }
 
 impl TileUI {
-    pub fn new(letter: char, player: TilePlayer) -> Self {
+    pub fn new(letter: Option<char>, player: TilePlayer) -> Self {
         Self {
             letter,
             player,
@@ -243,6 +243,7 @@ impl TileUI {
             let mapped_tile = if self.ghost {
                 MappedTile::new(
                     variant,
+                    self.letter.unwrap_or(' '),
                     None,
                     Some(tile_color),
                     coord,
@@ -251,6 +252,7 @@ impl TileUI {
             } else {
                 MappedTile::new(
                     variant,
+                    self.letter.unwrap_or(' '),
                     Some(tile_color),
                     outline,
                     coord,
@@ -262,21 +264,23 @@ impl TileUI {
             let mut char_rect = tile_rect.clone();
             char_rect.set_height(char_rect.height() - tile_margin * 0.5);
 
-            CharacterUI::new(
-                self.letter,
-                match self.player {
-                    TilePlayer::Own => CharacterOrient::North,
-                    TilePlayer::Enemy(_) => CharacterOrient::South,
-                },
-            )
-            .hovered(hovered)
-            .selected(self.selected)
-            .active(self.active)
-            .ghost(self.ghost)
-            .defeated(self.defeated)
-            .truncated(self.truncated)
-            .gone(tile_gone)
-            .render(ui, char_rect, &theme);
+            if let Some(char) = self.letter {
+                CharacterUI::new(
+                    char,
+                    match self.player {
+                        TilePlayer::Own => CharacterOrient::North,
+                        TilePlayer::Enemy(_) => CharacterOrient::South,
+                    },
+                )
+                .hovered(hovered)
+                .selected(self.selected)
+                .active(self.active)
+                .ghost(self.ghost)
+                .defeated(self.defeated)
+                .truncated(self.truncated)
+                .gone(tile_gone)
+                .render(ui, char_rect, &theme);
+            }
         }
 
         // let outline = if self.selected {

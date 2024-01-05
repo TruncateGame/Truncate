@@ -94,7 +94,7 @@ pub fn get_daily_puzzle(
         sentinel: header_sentinel,
         attempt: Some(persisted_moves.attempts),
     };
-    game_state.active_game.depot.ui_state.header_visible = game_state.header.clone();
+    game_state.active_game.depot.ui_state.game_header = game_state.header.clone();
 
     let delay = game_state.game.rules.battle_delay;
     game_state.game.rules.battle_delay = 0;

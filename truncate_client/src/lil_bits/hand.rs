@@ -92,7 +92,7 @@ impl<'a> HandUI<'a> {
                             false
                         };
 
-                        let tile_response = TileUI::new(*char, TilePlayer::Own)
+                        let tile_response = TileUI::new(Some(*char), TilePlayer::Own)
                             .id(tile_id)
                             .active(self.active)
                             .ghost(is_being_dragged)
@@ -159,7 +159,7 @@ impl<'a> HandUI<'a> {
                                         hover_scale,
                                         depot.aesthetics.theme.animation_time,
                                     );
-                                    TileUI::new(*char, TilePlayer::Own)
+                                    TileUI::new(Some(*char), TilePlayer::Own)
                                         .active(self.active)
                                         .selected(false)
                                         .hovered(true)

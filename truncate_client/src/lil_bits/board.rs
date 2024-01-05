@@ -87,13 +87,10 @@ impl<'a> BoardUI<'a> {
 
             outer_frame.show(ui, |ui| {
 
-                let dest = Rect::from_min_size(
+                let board_texture_dest = Rect::from_min_size(
                     ui.next_widget_position(),
                     vec2(self.board.width() as f32 * depot.aesthetics.theme.grid_size, self.board.height() as f32 * depot.aesthetics.theme.grid_size)
                 );
-
-                mapped_board.remap_texture(ui.ctx(), &depot.aesthetics, self.board);
-                mapped_board.render_to_rect(dest, ui);
 
                 let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
                     let mut render_row =
@@ -126,7 +123,7 @@ impl<'a> BoardUI<'a> {
                                     let mut tile = if let Square::Occupied(player, char) = square {
                                         let is_winner = depot.gameplay.winner == Some(*player);
                                         Some(
-                                            TileUI::new(*char, calc_tile_player(player)).selected(is_selected).won(is_winner)
+                                            TileUI::new(None, calc_tile_player(player)).selected(is_selected).won(is_winner)
                                         )
                                     } else {
                                         None
@@ -145,7 +142,7 @@ impl<'a> BoardUI<'a> {
                                                 }
                                                 .map(
                                                     |(player, char)| {
-                                                        TileUI::new(char, calc_tile_player(&player))
+                                                        TileUI::new(None, calc_tile_player(&player))
                                                             .selected(is_selected)
                                                             .defeated(true)
                                                     },
@@ -157,7 +154,7 @@ impl<'a> BoardUI<'a> {
                                                 }
                                                 .map(
                                                     |(player, char)| {
-                                                        TileUI::new(char, calc_tile_player(&player))
+                                                        TileUI::new(None, calc_tile_player(&player))
                                                             .selected(is_selected)
                                                             .truncated(true)
                                                     },
@@ -169,7 +166,7 @@ impl<'a> BoardUI<'a> {
                                                 }
                                                 .map(
                                                     |(player, char)| {
-                                                        TileUI::new(char, calc_tile_player(&player))
+                                                        TileUI::new(None, calc_tile_player(&player))
                                                             .selected(is_selected)
                                                             .defeated(true)
                                                     },
@@ -182,7 +179,7 @@ impl<'a> BoardUI<'a> {
                                                 }
                                                 .map(
                                                     |(player, char)| {
-                                                        TileUI::new(char, calc_tile_player(&player))
+                                                        TileUI::new(None, calc_tile_player(&player))
                                                             .selected(is_selected)
                                                             .victor(true)
                                                     },
@@ -294,6 +291,18 @@ impl<'a> BoardUI<'a> {
                 } else {
                     render(Box::new(self.board.squares.iter().enumerate()));
                 }
+
+                if let Some(new_selection) = next_selection {
+                    depot.interactions.selected_square_on_board = new_selection;
+                    depot.interactions.selected_tile_in_hand = None;
+                }
+
+                if hovered_square != depot.interactions.hovered_tile_on_board {
+                    depot.interactions.hovered_tile_on_board = hovered_square;
+                }
+
+                mapped_board.remap_texture(ui.ctx(), &depot.aesthetics, Some(&depot.interactions), self.board);
+                mapped_board.render_to_rect(board_texture_dest, ui);
             })
         })
         .inner;
@@ -433,15 +442,6 @@ impl<'a> BoardUI<'a> {
         }
 
         // let resolved_x = (self.board.width() * aesthetics.theme.grid_size * ctx.board_zoom) ctx.board_pan
-
-        if let Some(new_selection) = next_selection {
-            depot.interactions.selected_square_on_board = new_selection;
-            depot.interactions.selected_tile_in_hand = None;
-        }
-
-        if hovered_square != depot.interactions.hovered_tile_on_board {
-            depot.interactions.hovered_tile_on_board = hovered_square;
-        }
 
         depot.aesthetics.theme = prev_theme;
 

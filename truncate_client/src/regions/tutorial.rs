@@ -165,7 +165,7 @@ impl TutorialState {
             map_texture,
             theme,
         );
-        active_game.depot.ui_state.header_visible = HeaderType::None;
+        active_game.depot.ui_state.game_header = HeaderType::None;
 
         Self {
             game,

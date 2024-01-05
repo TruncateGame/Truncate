@@ -82,7 +82,7 @@ impl SinglePlayerState {
             map_texture.clone(),
             theme.clone(),
         );
-        active_game.depot.ui_state.header_visible = header.clone();
+        active_game.depot.ui_state.game_header = header.clone();
 
         Self {
             game,
@@ -161,7 +161,7 @@ impl SinglePlayerState {
             self.map_texture.clone(),
             self.theme.clone(),
         );
-        active_game.depot.ui_state.header_visible = self.header.clone();
+        active_game.depot.ui_state.game_header = self.header.clone();
 
         self.game = game;
         self.active_game = active_game;
