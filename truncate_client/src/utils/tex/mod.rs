@@ -408,12 +408,12 @@ impl Tex {
             )
         };
         TexLayers::default()
-            .with_structures(tiles::quad::SOUTH_DOCK)
+            .with_structures(dock)
             .with_piece_texture(
                 match wind_at_coord {
-                    calm!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
-                    breeze!() => tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
-                    _ => tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
+                    calm!() => sails[0],
+                    breeze!() => sails[1],
+                    _ => sails[2],
                 },
                 Some(color),
             )
