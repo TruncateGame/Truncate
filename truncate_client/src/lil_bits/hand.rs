@@ -122,7 +122,7 @@ impl<'a> HandUI<'a> {
                         } else if tile_response.drag_released() && is_decidedly_dragging {
                             if let Some(HoveredRegion {
                                 coord: Some(coord), ..
-                            }) = depot.interactions.hovered_tile_on_board
+                            }) = depot.interactions.hovered_square_on_board
                             {
                                 depot.interactions.released_tile = Some((i, coord));
                             }
@@ -148,7 +148,7 @@ impl<'a> HandUI<'a> {
                             let response = area
                                 .show(ui.ctx(), |ui| {
                                     let hover_scale = if let Some(region) =
-                                        &depot.interactions.hovered_tile_on_board
+                                        &depot.interactions.hovered_square_on_board
                                     {
                                         region.rect.width() / depot.aesthetics.theme.grid_size
                                     } else {
@@ -163,14 +163,14 @@ impl<'a> HandUI<'a> {
                                         .active(self.active)
                                         .selected(false)
                                         .hovered(true)
-                                        .ghost(depot.interactions.hovered_tile_on_board.is_some())
+                                        .ghost(depot.interactions.hovered_square_on_board.is_some())
                                         .render(None, ui, false, Some(bouncy_scale), depot);
                                 })
                                 .response;
 
                             let snap_to_rect = depot
                                 .interactions
-                                .hovered_tile_on_board
+                                .hovered_square_on_board
                                 .as_ref()
                                 .map(|region| region.rect);
 
@@ -234,7 +234,7 @@ impl<'a> HandUI<'a> {
 
         if let Some(new_selection) = next_selection {
             depot.interactions.selected_tile_in_hand = new_selection;
-            depot.interactions.selected_square_on_board = None;
+            depot.interactions.selected_tile_on_board = None;
         }
 
         depot.aesthetics.theme = old_theme;

@@ -1,6 +1,7 @@
 use eframe::egui::{self, Sense};
 use epaint::{
-    pos2, vec2, Color32, ColorImage, Mesh, Pos2, Rect, Shape, TextureHandle, TextureId, Vec2,
+    hex_color, pos2, vec2, Color32, ColorImage, Mesh, Pos2, Rect, Shape, TextureHandle, TextureId,
+    Vec2,
 };
 use truncate_core::board::{Direction, Square};
 
@@ -172,7 +173,11 @@ impl Tex {
                 tiles::quad::GAME_PIECE.tint(color.unwrap_or(Color32::WHITE)),
                 color,
             )
-            .with_piece_character(character, Color32::GOLD, orientation != Direction::North);
+            .with_piece_character(
+                character,
+                hex_color!("#333333"),
+                orientation != Direction::North,
+            );
 
         if let Some(highlight) = highlight {
             layers =

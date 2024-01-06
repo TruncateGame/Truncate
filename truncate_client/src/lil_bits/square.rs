@@ -88,7 +88,7 @@ impl SquareUI {
             let show_overlay = is_hovered && self.overlay.is_some();
 
             if (show_overlay || is_hovered_with_drag)
-                && (self.empty || interactions.selected_square_on_board.is_some())
+                && (self.empty || interactions.selected_tile_on_board.is_some())
             {
                 if let Some(overlay) = self.overlay {
                     TileUI::new(Some(overlay), TilePlayer::Own)

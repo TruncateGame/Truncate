@@ -209,18 +209,18 @@ impl MappedBoard {
 
         match square {
             Square::Occupied(player, character) => {
-                let selected = matches!(
-                    interactions,
-                    Some(InteractionDepot {
-                        selected_square_on_board: Some(c),
-                        ..
-                    }) if *c == coord
-                );
-                let highlight = if selected {
-                    Some(hex_color!("#ff0000"))
-                } else {
-                    None
-                };
+                let mut highlight = None;
+                if let Some(interactions) = interactions {
+                    let selected = interactions.selected_tile_on_board == Some(coord);
+                    let hovered = interactions.hovered_tile_on_board == Some(coord);
+
+                    highlight = match (selected, hovered) {
+                        (true, true) => Some(hex_color!("#ff00ff")),
+                        (true, false) => Some(hex_color!("#ff0000")),
+                        (false, true) => Some(hex_color!("#00ff00")),
+                        (false, false) => None,
+                    };
+                }
 
                 let orientation = if *player == self.for_player {
                     Direction::North
@@ -359,16 +359,18 @@ impl MappedBoard {
         board: &Board,
     ) {
         let mut tick_eq = true;
-        let selected = interactions.map(|i| i.selected_square_on_board).flatten();
+        let selected = interactions.map(|i| i.selected_tile_on_board).flatten();
+        let hover = interactions.map(|i| i.hovered_tile_on_board).flatten();
 
         if let Some(memory) = self.state_memory.as_mut() {
             let board_eq = memory.prev_board == *board;
             let selected_eq = memory.prev_selected == selected;
+            let hover_eq = memory.prev_hover == hover;
             if memory.prev_tick != aesthetics.qs_tick {
                 tick_eq = false;
             }
 
-            if board_eq && tick_eq {
+            if board_eq && tick_eq && selected_eq && hover_eq {
                 return;
             }
 
@@ -378,6 +380,9 @@ impl MappedBoard {
             if !selected_eq {
                 memory.prev_selected = selected;
             }
+            if !hover_eq {
+                memory.prev_hover = hover;
+            }
             if !tick_eq {
                 memory.prev_tick = aesthetics.qs_tick;
             }
@@ -386,7 +391,7 @@ impl MappedBoard {
                 prev_board: board.clone(),
                 prev_tick: aesthetics.qs_tick,
                 prev_selected: selected,
-                prev_hover: None,
+                prev_hover: hover,
                 prev_changes: vec![],
             });
             tick_eq = false;

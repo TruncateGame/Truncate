@@ -210,7 +210,11 @@ impl TileUI {
 
         let hovered = (response.hovered() || self.hovered) && (!self.truncated && !self.defeated);
         let tile_color = self.tile_color(hovered, &depot);
-        let TruncateDepot { aesthetics, .. } = depot;
+        let TruncateDepot {
+            aesthetics,
+            interactions,
+            ..
+        } = depot;
 
         if hovered {
             if !self.ghost {
@@ -218,6 +222,9 @@ impl TileUI {
                 tile_rect = tile_rect.translate(egui::vec2(0.0, tile_margin * -1.0));
             }
             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+            if let Some(coord) = coord {
+                interactions.hovered_tile_on_board = Some(coord);
+            }
         }
 
         if ui.is_rect_visible(base_rect) {

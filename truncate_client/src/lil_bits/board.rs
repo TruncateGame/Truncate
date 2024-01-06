@@ -110,7 +110,7 @@ impl<'a> BoardUI<'a> {
                                     }
 
                                     let coord = Coordinate::new(colnum, rownum);
-                                    let is_selected = Some(coord) == depot.interactions.selected_square_on_board;
+                                    let is_selected = Some(coord) == depot.interactions.selected_tile_on_board;
                                     let calc_tile_player = |p: &usize| {
                                         if *p as u64 == depot.gameplay.player_number {
                                             TilePlayer::Own
@@ -198,7 +198,7 @@ impl<'a> BoardUI<'a> {
                                         if matches!(square, Square::Land) {
                                             overlay = Some(*hand.get(placing_tile).unwrap());
                                         }
-                                    } else if let Some(placing_tile) = depot.interactions.selected_square_on_board { // TODO: De-nest
+                                    } else if let Some(placing_tile) = depot.interactions.selected_tile_on_board { // TODO: De-nest
                                         if placing_tile != coord {
                                             if let Square::Occupied(p, _) = square {
                                                 if p == &(depot.gameplay.player_number as usize) {
@@ -254,7 +254,7 @@ impl<'a> BoardUI<'a> {
                                                 next_selection = Some(None);
                                             } else if is_selected {
                                                 next_selection = Some(None);
-                                            } else if let Some(selected_coord) = depot.interactions.selected_square_on_board {
+                                            } else if let Some(selected_coord) = depot.interactions.selected_tile_on_board {
                                                 // Only try to swap onto a tile, otherwise just deselect
                                                 if matches!(square, Square::Occupied(_, _)) {
                                                     msg = Some(PlayerMessage::Swap(coord, selected_coord));
@@ -293,12 +293,12 @@ impl<'a> BoardUI<'a> {
                 }
 
                 if let Some(new_selection) = next_selection {
-                    depot.interactions.selected_square_on_board = new_selection;
+                    depot.interactions.selected_tile_on_board = new_selection;
                     depot.interactions.selected_tile_in_hand = None;
                 }
 
-                if hovered_square != depot.interactions.hovered_tile_on_board {
-                    depot.interactions.hovered_tile_on_board = hovered_square;
+                if hovered_square != depot.interactions.hovered_square_on_board {
+                    depot.interactions.hovered_square_on_board = hovered_square;
                 }
 
                 mapped_board.remap_texture(ui.ctx(), &depot.aesthetics, Some(&depot.interactions), self.board);
