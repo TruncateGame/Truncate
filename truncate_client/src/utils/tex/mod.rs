@@ -245,31 +245,37 @@ impl Tex {
                 );
             }
             MappedTileVariant::Gone => {
-                layers = TexLayers::default().with_piece_texture(
-                    [
-                        match quickrand(seed + 345) % 100 {
-                            0..=33 => tiles::GAME_PIECE_RUBBLE_0_NW,
-                            34..=66 => tiles::GAME_PIECE_RUBBLE_1_NW,
-                            _ => tiles::GAME_PIECE_RUBBLE_2_NW,
-                        },
-                        match quickrand(seed + 757) % 100 {
-                            0..=33 => tiles::GAME_PIECE_RUBBLE_0_NE,
-                            34..=66 => tiles::GAME_PIECE_RUBBLE_1_NE,
-                            _ => tiles::GAME_PIECE_RUBBLE_2_NE,
-                        },
-                        match quickrand(seed + 8447) % 100 {
-                            0..=33 => tiles::GAME_PIECE_RUBBLE_0_SE,
-                            34..=66 => tiles::GAME_PIECE_RUBBLE_1_SE,
-                            _ => tiles::GAME_PIECE_RUBBLE_2_SE,
-                        },
-                        match quickrand(seed + 477387) % 100 {
-                            0..=33 => tiles::GAME_PIECE_RUBBLE_0_SW,
-                            34..=66 => tiles::GAME_PIECE_RUBBLE_1_SW,
-                            _ => tiles::GAME_PIECE_RUBBLE_2_SW,
-                        },
-                    ],
-                    color,
-                );
+                layers = TexLayers::default()
+                    .with_piece_texture(
+                        [
+                            match quickrand(seed + 345) % 100 {
+                                0..=33 => tiles::GAME_PIECE_RUBBLE_0_NW,
+                                34..=66 => tiles::GAME_PIECE_RUBBLE_1_NW,
+                                _ => tiles::GAME_PIECE_RUBBLE_2_NW,
+                            },
+                            match quickrand(seed + 757) % 100 {
+                                0..=33 => tiles::GAME_PIECE_RUBBLE_0_NE,
+                                34..=66 => tiles::GAME_PIECE_RUBBLE_1_NE,
+                                _ => tiles::GAME_PIECE_RUBBLE_2_NE,
+                            },
+                            match quickrand(seed + 8447) % 100 {
+                                0..=33 => tiles::GAME_PIECE_RUBBLE_0_SE,
+                                34..=66 => tiles::GAME_PIECE_RUBBLE_1_SE,
+                                _ => tiles::GAME_PIECE_RUBBLE_2_SE,
+                            },
+                            match quickrand(seed + 477387) % 100 {
+                                0..=33 => tiles::GAME_PIECE_RUBBLE_0_SW,
+                                34..=66 => tiles::GAME_PIECE_RUBBLE_1_SW,
+                                _ => tiles::GAME_PIECE_RUBBLE_2_SW,
+                            },
+                        ],
+                        color,
+                    )
+                    .with_piece_character(
+                        character,
+                        hex_color!("#888888"),
+                        orientation != Direction::North,
+                    );
             }
         }
         layers

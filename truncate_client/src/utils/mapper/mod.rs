@@ -15,7 +15,7 @@ use crate::{
 use self::image_manipulation::ImageMusher;
 
 use super::{
-    depot::{AestheticDepot, InteractionDepot},
+    depot::{AestheticDepot, GameplayDepot, InteractionDepot},
     glyph_utils::BaseTileGlyphs,
     macros::tr_log,
     tex::{self, tiles, BGTexType, Tex, TexLayers, TexQuad},
@@ -107,7 +107,7 @@ impl MappedBoard {
             winds: vec![0; board.width() + board.height()].into(),
         };
 
-        mapper.remap_texture(ctx, aesthetics, None, board);
+        mapper.remap_texture(ctx, aesthetics, None, None, board);
 
         mapper
     }
@@ -169,6 +169,7 @@ impl MappedBoard {
         tileset: &ColorImage,
         tiles: &BaseTileGlyphs,
         interactions: Option<&InteractionDepot>,
+        gameplay: Option<&GameplayDepot>,
     ) {
         let coord = Coordinate::new(source_col, source_row);
         let resolved_textures = self.resolved_textures.as_mut().unwrap();
@@ -207,6 +208,79 @@ impl MappedBoard {
             wind_at_coord,
         );
 
+        let orient = |player: usize| {
+            if player == self.for_player {
+                Direction::North
+            } else {
+                Direction::South
+            }
+        };
+
+        let mut tile_was_added = false;
+        let mut tile_was_swapped = false;
+        let mut tile_was_victor = false;
+
+        if let Some(gameplay) = gameplay {
+            use truncate_core::reporting::BoardChangeAction;
+            use Square::*;
+
+            if let Some(change) = gameplay.changes.iter().find_map(|c| match c {
+                Change::Board(b) if b.detail.coordinate == coord => Some(b),
+                _ => None,
+            }) {
+                match change.action {
+                    BoardChangeAction::Added => {
+                        tile_was_added = true;
+                    }
+                    BoardChangeAction::Swapped => {
+                        tile_was_swapped = true;
+                    }
+                    BoardChangeAction::Victorious => {
+                        tile_was_victor = true;
+                    }
+                    BoardChangeAction::Defeated => {
+                        if let Occupied(player, char) = change.detail.square {
+                            let tile_layers = Tex::board_game_tile(
+                                MappedTileVariant::Gone,
+                                char,
+                                orient(player),
+                                None,
+                                None,
+                                seed_at_coord,
+                            );
+                            layers = layers.merge(tile_layers);
+                        }
+                    }
+                    BoardChangeAction::Truncated => {
+                        if let Occupied(player, char) = change.detail.square {
+                            let tile_layers = Tex::board_game_tile(
+                                MappedTileVariant::Gone,
+                                char,
+                                orient(player),
+                                None,
+                                None,
+                                seed_at_coord,
+                            );
+                            layers = layers.merge(tile_layers);
+                        }
+                    }
+                    BoardChangeAction::Exploded => {
+                        if let Occupied(player, char) = change.detail.square {
+                            let tile_layers = Tex::board_game_tile(
+                                MappedTileVariant::Gone,
+                                char,
+                                orient(player),
+                                None,
+                                None,
+                                seed_at_coord,
+                            );
+                            layers = layers.merge(tile_layers);
+                        }
+                    }
+                }
+            }
+        }
+
         match square {
             Square::Occupied(player, character) => {
                 let mut highlight = None;
@@ -222,16 +296,20 @@ impl MappedBoard {
                     };
                 }
 
-                let orientation = if *player == self.for_player {
-                    Direction::North
-                } else {
-                    Direction::South
-                };
+                if highlight.is_none() {
+                    if tile_was_added {
+                        highlight = Some(hex_color!("#00ff00"));
+                    } else if tile_was_swapped {
+                        highlight = Some(hex_color!("#ff00ff"));
+                    } else if tile_was_victor {
+                        highlight = Some(Color32::GOLD);
+                    }
+                }
 
                 let tile_layers = Tex::board_game_tile(
                     MappedTileVariant::Healthy,
                     *character,
-                    orientation,
+                    orient(*player),
                     player_colors.get(*player).cloned(),
                     highlight,
                     seed_at_coord,
@@ -356,6 +434,7 @@ impl MappedBoard {
         ctx: &egui::Context,
         aesthetics: &AestheticDepot,
         interactions: Option<&InteractionDepot>,
+        gameplay: Option<&GameplayDepot>,
         board: &Board,
     ) {
         let mut tick_eq = true;
@@ -445,6 +524,7 @@ impl MappedBoard {
                                 tileset,
                                 tile_glyphs,
                                 interactions,
+                                gameplay,
                             );
                         },
                     );
@@ -467,6 +547,7 @@ impl MappedBoard {
                         tileset,
                         tile_glyphs,
                         interactions,
+                        gameplay,
                     );
                 });
             });

@@ -144,6 +144,7 @@ impl GeneratorState {
             &ui.ctx(),
             &self.active_game.depot.aesthetics,
             None,
+            None,
             &self.active_game.board,
         );
 

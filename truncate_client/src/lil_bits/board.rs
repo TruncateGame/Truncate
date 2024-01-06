@@ -301,7 +301,7 @@ impl<'a> BoardUI<'a> {
                     depot.interactions.hovered_square_on_board = hovered_square;
                 }
 
-                mapped_board.remap_texture(ui.ctx(), &depot.aesthetics, Some(&depot.interactions), self.board);
+                mapped_board.remap_texture(ui.ctx(), &depot.aesthetics, Some(&depot.interactions), Some(&depot.gameplay), self.board);
                 mapped_board.render_to_rect(board_texture_dest, ui);
             })
         })

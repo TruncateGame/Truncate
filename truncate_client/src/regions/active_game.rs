@@ -89,6 +89,7 @@ impl ActiveGame {
                 next_player_number,
                 error_msg: None,
                 winner: None,
+                changes: Vec::new(),
             },
             aesthetics: AestheticDepot {
                 theme,
@@ -686,6 +687,8 @@ impl ActiveGame {
             self.depot.timing.prev_to_next_turn =
                 (self.depot.timing.current_time, Duration::from_secs(*time));
         }
+
+        self.depot.gameplay.changes = changes.clone();
 
         self.board_changes.clear();
         for board_change in changes.iter().filter_map(|c| match c {

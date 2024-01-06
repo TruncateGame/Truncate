@@ -114,7 +114,7 @@ impl<'a> EditorUI<'a> {
                     player_colors: self.player_colors.clone(),
                 };
                 self.mapped_board
-                    .remap_texture(ui.ctx(), &aesthetics, None, &self.board);
+                    .remap_texture(ui.ctx(), &aesthetics, None, None, &self.board);
                 msg = Some(PlayerMessage::EditBoard(self.board.clone()));
             }
 

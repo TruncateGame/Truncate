@@ -75,7 +75,7 @@ impl Lobby {
 
     pub fn update_board(&mut self, board: Board, ui: &mut egui::Ui) {
         self.mapped_board
-            .remap_texture(&ui.ctx(), &self.aesthetics, None, &board);
+            .remap_texture(&ui.ctx(), &self.aesthetics, None, None, &board);
         self.board = board;
     }
 
@@ -251,8 +251,13 @@ impl Lobby {
             .render(true, &mut lobby_ui, theme, &self.aesthetics.map_texture)
             {
                 msg = Some(board_update);
-                self.mapped_board
-                    .remap_texture(&ui.ctx(), &self.aesthetics, None, &self.board);
+                self.mapped_board.remap_texture(
+                    &ui.ctx(),
+                    &self.aesthetics,
+                    None,
+                    None,
+                    &self.board,
+                );
             }
         }
 

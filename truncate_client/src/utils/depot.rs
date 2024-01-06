@@ -1,6 +1,8 @@
 use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
 use instant::Duration;
-use truncate_core::{board::Coordinate, generation::BoardSeed, messages::RoomCode};
+use truncate_core::{
+    board::Coordinate, generation::BoardSeed, messages::RoomCode, reporting::Change,
+};
 
 use crate::regions::active_game::HeaderType;
 
@@ -77,6 +79,7 @@ pub struct GameplayDepot {
     pub next_player_number: u64,
     pub error_msg: Option<String>,
     pub winner: Option<usize>,
+    pub changes: Vec<Change>,
 }
 
 #[derive(Clone)]
