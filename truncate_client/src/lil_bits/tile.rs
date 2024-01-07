@@ -4,7 +4,7 @@ use truncate_core::board::Coordinate;
 
 use crate::utils::{
     depot::TruncateDepot,
-    mapper::{MappedTile, MappedTileVariant},
+    mapper::{MappedTileVariant, MappedTiles},
     Lighten,
 };
 
@@ -224,69 +224,6 @@ impl TileUI {
             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
             if let Some(coord) = coord {
                 interactions.hovered_tile_on_board = Some(coord);
-            }
-        }
-
-        if ui.is_rect_visible(base_rect) {
-            let outline = if self.added {
-                Some(theme.addition)
-            } else if self.modified {
-                Some(theme.modification)
-            } else if self.selected || self.victor {
-                Some(theme.selection)
-            } else {
-                None
-            };
-
-            let variant = if tile_gone {
-                MappedTileVariant::Gone
-            } else if self.defeated {
-                MappedTileVariant::Dead
-            } else if self.truncated {
-                MappedTileVariant::Dying
-            } else {
-                MappedTileVariant::Healthy
-            };
-            let mapped_tile = if self.ghost {
-                MappedTile::new(
-                    variant,
-                    self.letter.unwrap_or(' '),
-                    None,
-                    Some(tile_color),
-                    coord,
-                    aesthetics.map_texture.clone(),
-                )
-            } else {
-                MappedTile::new(
-                    variant,
-                    self.letter.unwrap_or(' '),
-                    Some(tile_color),
-                    outline,
-                    coord,
-                    aesthetics.map_texture.clone(),
-                )
-            };
-            mapped_tile.render(base_rect, ui);
-
-            let mut char_rect = tile_rect.clone();
-            char_rect.set_height(char_rect.height() - tile_margin * 0.5);
-
-            if let Some(char) = self.letter {
-                CharacterUI::new(
-                    char,
-                    match self.player {
-                        TilePlayer::Own => CharacterOrient::North,
-                        TilePlayer::Enemy(_) => CharacterOrient::South,
-                    },
-                )
-                .hovered(hovered)
-                .selected(self.selected)
-                .active(self.active)
-                .ghost(self.ghost)
-                .defeated(self.defeated)
-                .truncated(self.truncated)
-                .gone(tile_gone)
-                .render(ui, char_rect, &theme);
             }
         }
 

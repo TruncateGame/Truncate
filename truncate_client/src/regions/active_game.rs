@@ -21,7 +21,7 @@ use crate::{
             AestheticDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot, TimingDepot,
             TruncateDepot, UIStateDepot,
         },
-        mapper::MappedBoard,
+        mapper::{MappedBoard, MappedTiles},
         tex::{render_tex_quad, render_tex_quads, tiles},
         text::TextHelper,
         Lighten, Theme,
@@ -46,6 +46,7 @@ pub struct ActiveGame {
     pub players: Vec<GamePlayerMessage>,
     pub board: Board,
     pub mapped_board: MappedBoard,
+    pub mapped_tiles: MappedTiles,
     pub hand: Hand,
     pub board_changes: HashMap<Coordinate, BoardChange>,
     pub new_hand_tiles: Vec<usize>,
@@ -101,6 +102,7 @@ impl ActiveGame {
 
         Self {
             mapped_board: MappedBoard::new(ctx, &depot.aesthetics, &board, player_number as usize),
+            mapped_tiles: MappedTiles::new(ctx, 7),
             depot,
             players,
             board,
@@ -458,9 +460,11 @@ impl ActiveGame {
                     let mut hand_ui = ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
                     let active =
                         self.depot.gameplay.player_number == self.depot.gameplay.next_player_number;
-                    HandUI::new(&mut self.hand)
-                        .active(active)
-                        .render(&mut hand_ui, &mut self.depot);
+                    HandUI::new(&mut self.hand).active(active).render(
+                        &mut hand_ui,
+                        &mut self.depot,
+                        &mut self.mapped_tiles,
+                    );
 
                     ui.add_space(10.0);
                 },

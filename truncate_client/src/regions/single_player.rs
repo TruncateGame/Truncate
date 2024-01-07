@@ -364,7 +364,11 @@ impl SinglePlayerState {
                     self.active_game.depot.interactions.highlight_tiles = added_tiles.cloned();
                     HandUI::new(&mut self.game.players[npc_player].hand)
                         .interactive(false)
-                        .render(ui, &mut self.active_game.depot);
+                        .render(
+                            ui,
+                            &mut self.active_game.depot,
+                            &mut self.active_game.mapped_tiles,
+                        );
                     self.active_game.depot.interactions.highlight_tiles = None;
 
                     ui.add_space(28.0);

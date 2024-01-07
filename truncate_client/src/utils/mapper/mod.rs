@@ -291,7 +291,7 @@ impl MappedBoard {
                     highlight = match (selected, hovered) {
                         (true, true) => Some(hex_color!("#ff00ff")),
                         (true, false) => Some(hex_color!("#ff0000")),
-                        (false, true) => Some(hex_color!("#00ff00")),
+                        (false, true) => Some(hex_color!("#00ffff")),
                         (false, false) => None,
                     };
                 }
@@ -555,7 +555,7 @@ impl MappedBoard {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum MappedTileVariant {
     Healthy,
     Dying,
@@ -563,52 +563,136 @@ pub enum MappedTileVariant {
     Gone,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct MappedTile {
-    resolved_tex: TexLayers,
-    map_texture: TextureHandle,
+    pub variant: MappedTileVariant,
+    pub character: char,
+    pub color: Option<Color32>,
+    pub highlight: Option<Color32>,
+    pub orientation: Direction,
 }
 
-impl MappedTile {
-    pub fn new(
-        variant: MappedTileVariant,
-        character: char,
-        color: Option<Color32>,
-        highlight: Option<Color32>,
-        coord: Option<Coordinate>,
-        map_texture: TextureHandle,
-    ) -> Self {
-        let resolved_tex = if let Some(coord) = coord {
-            Tex::board_game_tile(
-                variant,
-                character,
-                Direction::North,
-                color,
-                highlight,
-                coord.x * 99 + coord.y,
-            )
-        } else {
-            Tex::game_tile(character, Direction::North, color, highlight)
-        };
+#[derive(Clone)]
+pub struct MappedTiles {
+    tile_texture: TextureHandle,
+    slots: Vec<MappedTile>,
+    capacity: usize,
+}
 
+impl MappedTiles {
+    pub fn new(egui_ctx: &egui::Context, capacity: usize) -> Self {
         Self {
-            resolved_tex,
-            map_texture,
+            tile_texture: MappedTiles::reset_texture(capacity, egui_ctx),
+            slots: Vec::with_capacity(capacity),
+            capacity,
         }
     }
 
-    pub fn render(self, rect: Rect, ui: &mut egui::Ui) {
-        // for layer in self.resolved_tex.layers {
-        //     match layer {
-        //         super::tex::TexLayer::Tile(quad, _)
-        //         | super::tex::TexLayer::Highlight(quad, _)
-        //         | super::tex::TexLayer::Grass(quad)
-        //         | super::tex::TexLayer::Cracks(quad) => {
-        //             render_tex_quad(quad, rect, &self.map_texture, ui);
-        //         }
-        //         _ => {}
-        //     }
-        // }
+    #[must_use]
+    fn reset_texture(capacity: usize, egui_ctx: &egui::Context) -> TextureHandle {
+        let measures = TEXTURE_MEASUREMENT
+            .get()
+            .expect("Base texture should have been measured");
+
+        let tile_base = ColorImage::new(
+            [
+                capacity * measures.inner_tile_width_px * 2,
+                measures.inner_tile_height_px * 2,
+            ],
+            Color32::TRANSPARENT,
+        );
+        egui_ctx.load_texture(format!("tiles"), tile_base, egui::TextureOptions::NEAREST)
+    }
+
+    pub fn remap_texture(&mut self, egui_ctx: &egui::Context, slots: Vec<MappedTile>) {
+        if slots == self.slots {
+            return;
+        }
+
+        self.slots = slots;
+
+        if self.capacity < self.slots.len() {
+            self.tile_texture = MappedTiles::reset_texture(self.slots.len(), egui_ctx);
+        }
+
+        let measures = TEXTURE_MEASUREMENT
+            .get()
+            .expect("Base texture should have been measured");
+        let tileset = TEXTURE_IMAGE
+            .get()
+            .expect("Base image should have been loaded");
+        let tile_glyphs = GLYPH_IMAGE
+            .get()
+            .expect("Glyph image should have been loaded");
+
+        let tile_dims = [measures.inner_tile_width_px, measures.inner_tile_height_px];
+
+        for (i, slot) in self.slots.iter().enumerate() {
+            let tile_layers = Tex::board_game_tile(
+                slot.variant.clone(),
+                slot.character,
+                slot.orientation,
+                slot.color,
+                slot.highlight,
+                0,
+            );
+
+            let mut target =
+                ColorImage::new([tile_dims[0] * 2, tile_dims[1] * 2], Color32::TRANSPARENT);
+            for piece in tile_layers.pieces.iter() {
+                match piece {
+                    tex::PieceLayer::Texture(texs, tint) => {
+                        if *tint == Some(hex_color!("#ff0000")) {
+                            tr_log!({ "Painting a highlight ring!" });
+                        }
+                        for (tex, sub_loc) in texs.iter().zip([
+                            [0, 0],
+                            [tile_dims[0], 0],
+                            [tile_dims[0], tile_dims[1]],
+                            [0, tile_dims[1]],
+                        ]) {
+                            let mut image = tex.slice_as_image(tileset);
+                            if let Some(tint) = tint {
+                                image.tint(tint);
+                            }
+                            target.hard_overlay(&image, sub_loc);
+                        }
+                    }
+                    tex::PieceLayer::Character(char, color, is_flipped) => {
+                        let (_, achar) =
+                            tile_glyphs.glyphs.iter().find(|(c, _)| c == char).unwrap();
+                        let mut letter = achar.clone();
+                        let mut offset = [
+                            (target.width() - letter.width()) / 2 + 1, // small shift to center character
+                            (target.height() - letter.height()) / 2,
+                        ];
+                        if *is_flipped {
+                            letter.pixels.reverse();
+                            offset[0] -= 2; // Small shifts to center inverted characters
+                            offset[1] -= 2; // Small shifts to center inverted characters
+                        }
+                        letter.recolor(color);
+                        target.hard_overlay(&letter, offset);
+                    }
+                }
+            }
+
+            let dest_x = i * measures.inner_tile_width_px * 2;
+            self.tile_texture
+                .set_partial([dest_x, 0], target, egui::TextureOptions::NEAREST);
+        }
+    }
+
+    pub fn render_tile_to_rect(&self, slot: usize, rect: Rect, ui: &mut egui::Ui) {
+        let tile_width = 1.0 / self.capacity as f32;
+        let uv = Rect::from_min_max(
+            pos2(tile_width * (slot as f32), 0.0),
+            pos2(tile_width * (slot as f32) + tile_width, 1.0),
+        );
+
+        let mut mesh = Mesh::with_texture(self.tile_texture.id());
+        mesh.add_rect_with_uv(rect, uv, Color32::WHITE);
+        ui.painter().add(Shape::mesh(mesh));
     }
 }
 

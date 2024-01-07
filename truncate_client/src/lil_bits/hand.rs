@@ -1,10 +1,13 @@
 use instant::Duration;
 use truncate_core::player::Hand;
 
-use eframe::egui::{self, CursorIcon, Id, Order};
-use epaint::{emath::Align2, vec2, Vec2};
+use eframe::egui::{self, CursorIcon, Id, LayerId, Order, Sense};
+use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
 
-use crate::utils::depot::{HoveredRegion, TruncateDepot};
+use crate::utils::{
+    depot::{HoveredRegion, TruncateDepot},
+    mapper::{MappedTile, MappedTileVariant, MappedTiles},
+};
 
 use super::{tile::TilePlayer, HandSquareUI, TileUI};
 
@@ -37,12 +40,33 @@ impl<'a> HandUI<'a> {
 }
 
 impl<'a> HandUI<'a> {
-    pub fn render(self, ui: &mut egui::Ui, depot: &mut TruncateDepot) {
+    pub fn render(
+        self,
+        ui: &mut egui::Ui,
+        depot: &mut TruncateDepot,
+        mapped_tiles: &mut MappedTiles,
+    ) {
         let TruncateDepot {
             interactions,
             aesthetics,
+            gameplay,
             ..
         } = depot;
+
+        mapped_tiles.remap_texture(
+            ui.ctx(),
+            self.hand
+                .0
+                .iter()
+                .map(|c| MappedTile {
+                    variant: MappedTileVariant::Healthy,
+                    character: *c,
+                    color: Some(aesthetics.player_colors[gameplay.player_number as usize]),
+                    highlight: None,
+                    orientation: truncate_core::board::Direction::North,
+                })
+                .collect(),
+        );
 
         let mut rearrange = None;
         let mut next_selection = None;
@@ -92,16 +116,27 @@ impl<'a> HandUI<'a> {
                             false
                         };
 
-                        let tile_response = TileUI::new(Some(*char), TilePlayer::Own)
-                            .id(tile_id)
-                            .active(self.active)
-                            .ghost(is_being_dragged)
-                            .selected(Some(i) == depot.interactions.selected_tile_in_hand)
-                            .highlighted(highlight)
-                            .render(None, ui, true, None, depot);
+                        let (base_rect, _) = ui.allocate_exact_size(
+                            egui::vec2(
+                                depot.aesthetics.theme.grid_size,
+                                depot.aesthetics.theme.grid_size,
+                            ),
+                            egui::Sense::hover(),
+                        );
+
+                        mapped_tiles.render_tile_to_rect(i, base_rect, ui);
 
                         if !self.interactive {
                             return;
+                        }
+
+                        // TODO: Remove magic number somehow (currently 2px/16px for tile sprite border)
+                        let tile_margin = depot.aesthetics.theme.grid_size * 0.125;
+                        let tile_rect = base_rect.shrink(tile_margin);
+                        let tile_response =
+                            ui.interact(tile_rect, tile_id, Sense::click_and_drag());
+                        if tile_response.hovered() {
+                            ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
                         }
 
                         if tile_response.drag_started() {
@@ -134,80 +169,75 @@ impl<'a> HandUI<'a> {
                                 .memory(|mem| mem.data.get_temp(tile_id))
                                 .unwrap_or_default();
 
-                            // There is definitely a better way to do this, but this works for now.
-                            // The issue with using a layer directly, or with aligning this area to a corner,
-                            // is that the Tile is clipped to the screen bounds before we translate the layer.
-                            // So if we paint our tile on this layer at the bottom of the screen,
-                            // and then drag it over the board which might scale it up,
-                            // the bottom of our tile can be cut off due to it clipping based on its original location.
                             let area = egui::Area::new(tile_id.with("floating").with(drag_id))
                                 .movable(false)
                                 .order(Order::Tooltip)
-                                .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0));
+                                .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
 
-                            let response = area
-                                .show(ui.ctx(), |ui| {
-                                    let hover_scale = if let Some(region) =
-                                        &depot.interactions.hovered_square_on_board
-                                    {
-                                        region.rect.width() / depot.aesthetics.theme.grid_size
-                                    } else {
-                                        1.0
-                                    };
-                                    let bouncy_scale = ui.ctx().animate_value_with_time(
-                                        area.layer().id,
-                                        hover_scale,
-                                        depot.aesthetics.theme.animation_time,
-                                    );
-                                    TileUI::new(Some(*char), TilePlayer::Own)
-                                        .active(self.active)
-                                        .selected(false)
-                                        .hovered(true)
-                                        .ghost(depot.interactions.hovered_square_on_board.is_some())
-                                        .render(None, ui, false, Some(bouncy_scale), depot);
-                                })
-                                .response;
+                            area.show(ui.ctx(), |ui| {
+                                let ideal_width = if let Some(region) =
+                                    &depot.interactions.hovered_square_on_board
+                                {
+                                    region.rect.width()
+                                } else {
+                                    depot.aesthetics.theme.grid_size
+                                };
 
-                            let snap_to_rect = depot
-                                .interactions
-                                .hovered_square_on_board
-                                .as_ref()
-                                .map(|region| region.rect);
-
-                            let delta = if let Some(snap_rect) = snap_to_rect {
-                                snap_rect.center() - response.rect.center()
-                            } else if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-                                let drag_offset = if depot.ui_state.is_touch { -50.0 } else { 0.0 };
-
-                                let bounce_offset = ui.ctx().animate_value_with_time(
-                                    tile_id.with("initial_offset"),
-                                    drag_offset,
+                                let bouncy_width = ui.ctx().animate_value_with_time(
+                                    area.layer().id.with("width"),
+                                    ideal_width,
                                     depot.aesthetics.theme.animation_time,
                                 );
 
-                                let delta =
-                                    pointer_pos + vec2(0.0, bounce_offset) - response.rect.center();
-                                let original_delta: Vec2 =
-                                    ui.memory(|mem| mem.data.get_temp(tile_id).unwrap_or_default());
-                                delta - original_delta
-                            } else {
-                                vec2(0.0, 0.0)
-                            };
+                                let snap_to_rect = depot
+                                    .interactions
+                                    .hovered_square_on_board
+                                    .as_ref()
+                                    .map(|region| region.rect);
 
-                            let animated_delta = vec2(
-                                ui.ctx().animate_value_with_time(
-                                    area.layer().id.with("delta_x"),
-                                    delta.x,
-                                    depot.aesthetics.theme.animation_time,
-                                ),
-                                ui.ctx().animate_value_with_time(
-                                    area.layer().id.with("delta_y"),
-                                    delta.y,
-                                    depot.aesthetics.theme.animation_time,
-                                ),
-                            );
-                            ui.ctx()
-                                .translate_layer(area.layer(), animated_delta.round());
+                                let position = if let Some(snap) = snap_to_rect {
+                                    snap.left_top()
+                                } else if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                                    let drag_offset =
+                                        if depot.ui_state.is_touch { -50.0 } else { 0.0 };
+                                    let bounce_offset = ui.ctx().animate_value_with_time(
+                                        tile_id.with("initial_offset"),
+                                        drag_offset,
+                                        depot.aesthetics.theme.animation_time,
+                                    );
+                                    let original_delta: Vec2 = ui.memory(|mem| {
+                                        mem.data.get_temp(tile_id).unwrap_or_default()
+                                    });
+                                    pointer_pos + vec2(0.0, bounce_offset)
+                                        - original_delta
+                                        - Vec2::splat(bouncy_width / 2.0)
+                                } else {
+                                    tile_rect.left_top()
+                                };
+
+                                let animated_position = pos2(
+                                    ui.ctx().animate_value_with_time(
+                                        area.layer().id.with("delta_x"),
+                                        position.x,
+                                        depot.aesthetics.theme.animation_time,
+                                    ),
+                                    ui.ctx().animate_value_with_time(
+                                        area.layer().id.with("delta_y"),
+                                        position.y,
+                                        depot.aesthetics.theme.animation_time,
+                                    ),
+                                );
+
+                                mapped_tiles.render_tile_to_rect(
+                                    i,
+                                    Rect::from_min_size(
+                                        animated_position,
+                                        Vec2::splat(bouncy_width),
+                                    ),
+                                    ui,
+                                );
+                            })
+                            .response;
 
                             ui.ctx()
                                 .output_mut(|out| out.cursor_icon = CursorIcon::Grabbing);
