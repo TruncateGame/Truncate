@@ -57,22 +57,16 @@ pub fn get_daily_puzzle(
     let seed = (local_seconds / (60 * 60 * 24)) as u32;
     let day = seed - DAILY_PUZZLE_DAY_ZERO as u32;
     let mut board_seed = BoardSeed::new(seed).day(day);
-    let persisted_moves = get_persistent_game(&board_seed);
-    let mut header = HeaderType::Summary {
-        title: format!("Truncate Town Day #{day}"),
-        sentinel: '*',
-        attempt: Some(persisted_moves.attempts),
-    };
+
+    let header_title = format!("Truncate Town Day #{day}");
+    let mut header_sentinel = '*';
+
     let mut human_starts = true;
 
     let notes = loaded_notes.notes.get(&seed);
     if let Some(notes) = notes {
         human_starts = notes.best_player == 0;
-        header = HeaderType::Summary {
-            title: format!("Truncate Town Day #{day}"),
-            sentinel: '★',
-            attempt: Some(persisted_moves.attempts),
-        };
+        header_sentinel = '★';
         for _ in 0..notes.rerolls {
             board_seed.external_reroll();
         }
@@ -85,19 +79,23 @@ pub fn get_daily_puzzle(
         board,
         Some(board_seed.clone()),
         human_starts,
-        header.clone(),
+        HeaderType::None, // Replaced soon with HeaderType::Summary
     );
 
     if let Some(notes) = notes {
         let verification = get_game_verification(&game_state.game);
         if verification != notes.verification {
-            game_state.active_game.ctx.header_visible = HeaderType::Summary {
-                title: format!("Truncate Town Day #{day}"),
-                sentinel: '¤',
-                attempt: Some(persisted_moves.attempts),
-            };
+            header_sentinel = '¤';
         }
     }
+
+    let persisted_moves = get_persistent_game(&board_seed);
+    game_state.header = HeaderType::Summary {
+        title: header_title,
+        sentinel: header_sentinel,
+        attempt: Some(persisted_moves.attempts),
+    };
+    game_state.active_game.ctx.header_visible = game_state.header.clone();
 
     let delay = game_state.game.rules.battle_delay;
     game_state.game.rules.battle_delay = 0;
@@ -209,7 +207,6 @@ pub fn get_persistent_game(seed: &BoardSeed) -> PersistentGame {
         let key = format!("daily_{}", seed.seed);
 
         let Ok(record) = local_storage.get_item(&key) else {
-            eprintln!("Localstorage was inaccessible");
             return PersistentGame::default();
         };
 
@@ -233,18 +230,58 @@ pub fn wipe_persistent_game(seed: &BoardSeed) {
     }
 }
 
-#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-pub struct DailyResult {
-    pub winning_move_count: Option<u32>,
-    pub attempts: u32,
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct DailyAttempt {
+    pub moves: u32,
     pub battles: u32,
     pub largest_attack_destruction: u32,
     pub longest_word: Option<String>,
+    pub won: bool,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct DailyResult {
+    pub attempts: Vec<DailyAttempt>,
 }
 
 #[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DailyStats {
     pub days: BTreeMap<u32, DailyResult>,
+}
+
+impl DailyStats {
+    fn hydrate_missing_days(&mut self) {
+        let Some((start_day, _)) = self.days.first_key_value() else {
+            return;
+        };
+        let Some((end_day, _)) = self.days.last_key_value() else {
+            return;
+        };
+        for day in *start_day..*end_day {
+            if !self.days.contains_key(&day) {
+                self.days.insert(day, DailyResult::default());
+            }
+        }
+    }
+}
+
+pub fn get_stats() -> DailyStats {
+    let mut stats = DailyStats::default();
+    #[cfg(target_arch = "wasm32")]
+    {
+        let storage_key = "daily_puzzle_stats";
+
+        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+        let Ok(stored_stats) = local_storage.get_item(storage_key) else {
+            eprintln!("Localstorage was inaccessible");
+            return stats;
+        };
+        stats = stored_stats
+            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
+            .unwrap_or_default();
+        stats.hydrate_missing_days();
+    }
+    stats
 }
 
 pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt: usize) {
@@ -266,21 +303,15 @@ pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt
 
         let today = stats.days.entry(relative_day).or_default();
 
-        let attempt = attempt as u32;
-        if today.attempts != attempt {
-            today.attempts = attempt;
-            *today = DailyResult {
-                attempts: attempt,
-                ..DailyResult::default()
-            };
+        while today.attempts.get(attempt).is_none() {
+            today.attempts.push(DailyAttempt::default());
         }
 
-        today.winning_move_count = if game.winner == Some(human_player) {
-            Some(game.player_turn_count[human_player])
-        } else {
-            None
-        };
-        today.battles = game.battle_count;
+        let this_attempt = today.attempts.get_mut(attempt).unwrap();
+
+        this_attempt.moves = game.player_turn_count[human_player];
+        this_attempt.won = game.winner == Some(human_player);
+        this_attempt.battles = game.battle_count;
 
         let recent_attack_destruction = game
             .recent_changes
@@ -301,7 +332,7 @@ pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt
             })
             .count();
 
-        today.largest_attack_destruction = today
+        this_attempt.largest_attack_destruction = this_attempt
             .largest_attack_destruction
             .max(recent_attack_destruction as u32);
 
@@ -338,7 +369,9 @@ pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt
                             .is_some()
                     })
                     .for_each(|word| {
-                        let prev_longest = today.longest_word.get_or_insert_with(|| word.clone());
+                        let prev_longest = this_attempt
+                            .longest_word
+                            .get_or_insert_with(|| word.clone());
                         if word.len() > prev_longest.len() {
                             *prev_longest = word;
                         }

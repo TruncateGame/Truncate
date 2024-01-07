@@ -321,7 +321,7 @@ impl<'a> BoardUI<'a> {
             let maybe_zooming = zoom_delta != 1.0;
             let maybe_panning = scroll_delta != Vec2::ZERO;
 
-            let capture_action = maybe_zooming || maybe_panning 
+            let capture_action = (maybe_zooming || maybe_panning) 
             && match ui.ctx().layer_id_at(hover_pos) {
                 // No layer, probably fine 🤷
                 None => true,
@@ -372,12 +372,26 @@ impl<'a> BoardUI<'a> {
             board_pos = board_pos.translate(pointer_delta);
         }
 
-        // TODO: This is capturing gestures everywhere
         if let Some(touch) = ui.input(|i| i.multi_touch()) {
-            ctx.board_zoom *= (touch.zoom_delta - 1.0) * 0.25 + 1.0;
-            ctx.board_pan += touch.translation_delta;
-            ctx.board_moved = true;
-            board_pos = board_pos.translate(touch.translation_delta);
+            let capture_action = match ui.ctx().layer_id_at(touch.start_pos) {
+                // No layer, probably fine 🤷
+                None => true,
+                // Board layer, definitely ours
+                Some(layer) if layer == area_id => true,
+                // A background layer _should_ be the window itself,
+                // and thus the ocean. We'll handle this input.
+                Some(layer) if layer.order == Order::Background => true,
+                // Gesturing over something else, maybe scrolling a dialog.
+                // Cancel handling this input.
+                Some(_) => false
+            };
+            
+            if capture_action {
+                ctx.board_zoom *= (touch.zoom_delta - 1.0) * 0.25 + 1.0;
+                ctx.board_pan += touch.translation_delta;
+                ctx.board_moved = true;
+                board_pos = board_pos.translate(touch.translation_delta);
+            }
         }
 
 

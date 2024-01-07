@@ -16,9 +16,11 @@ use truncate_core::{
 
 use crate::{
     app_outer::Backchannel,
-    lil_bits::HandUI,
+    lil_bits::{DailySplashUI, HandUI},
     utils::{
-        daily::{persist_game_move, persist_game_retry, persist_game_win, persist_stats},
+        daily::{
+            persist_game_move, persist_game_retry, persist_game_win, persist_stats, DailyStats,
+        },
         game_evals::{best_move, get_main_dict, remember, WORDNIK},
         text::TextHelper,
         Lighten, Theme,
@@ -29,6 +31,7 @@ use super::active_game::{ActiveGame, HeaderType};
 
 pub struct SinglePlayerState {
     pub game: Game,
+    daily: bool,
     human_starts: bool,
     original_board: Board,
     pub active_game: ActiveGame,
@@ -40,7 +43,8 @@ pub struct SinglePlayerState {
     debugging_npc: bool,
     weights: BoardWeights,
     waiting_on_backchannel: Option<String>,
-    header: HeaderType,
+    pub header: HeaderType,
+    splash: Option<DailySplashUI>,
 }
 
 impl SinglePlayerState {
@@ -72,6 +76,7 @@ impl SinglePlayerState {
 
         game.start();
 
+        let daily = seed.as_ref().is_some_and(|s| s.day.is_some());
         let mut active_game = ActiveGame::new(
             "SINGLE_PLAYER".into(),
             seed,
@@ -87,6 +92,7 @@ impl SinglePlayerState {
 
         Self {
             game,
+            daily,
             human_starts,
             active_game,
             original_board: board,
@@ -99,6 +105,7 @@ impl SinglePlayerState {
             weights: BoardWeights::default(),
             waiting_on_backchannel: None,
             header,
+            splash: None,
         }
     }
 
@@ -310,7 +317,7 @@ impl SinglePlayerState {
             );
         }
 
-        if matches!(option_env!("TR_ENV"), Some("outpost")) {
+        if matches!(option_env!("TR_ENV"), Some("outpost_disabled")) {
             let (top_banner, _) =
                 ui.allocate_at_least(vec2(ui.available_width(), 40.0), Sense::hover());
             let mut banner_ui = ui.child_ui(top_banner, Layout::left_to_right(Align::Center));
@@ -482,6 +489,15 @@ impl SinglePlayerState {
         }
 
         if self.winner.is_some() {
+            let splash = self.splash.get_or_insert_with(|| {
+                DailySplashUI::new(&mut ui, &self.game, &mut self.active_game.ctx, current_time)
+            });
+            let splash_msg = splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
+
+            if matches!(splash_msg, Some(PlayerMessage::Rematch)) {
+                self.splash = None;
+                self.reset(current_time);
+            }
             return msg_to_server;
         }
 
