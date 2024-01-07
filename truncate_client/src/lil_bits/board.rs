@@ -247,7 +247,19 @@ impl<'a> BoardUI<'a> {
                                             } else if tile_response.drag_released()
                                                 && is_decidedly_dragging
                                             {
-                                                tr_log!({ "Dropping a tile...." })
+                                                let drop_coord = interactions
+                                                    .hovered_occupied_square_on_board
+                                                    .as_ref()
+                                                    .map(|region| region.coord)
+                                                    .flatten();
+
+                                                if let Some(drop_coord) = drop_coord {
+                                                    msg = Some(PlayerMessage::Swap(
+                                                        coord, drop_coord,
+                                                    ));
+                                                    interactions.selected_tile_on_board = None;
+                                                    interactions.selected_tile_in_hand = None;
+                                                }
                                             }
 
                                             if is_being_dragged {
