@@ -157,7 +157,7 @@ impl<'a> HandUI<'a> {
                         } else if tile_response.drag_released() && is_decidedly_dragging {
                             if let Some(HoveredRegion {
                                 coord: Some(coord), ..
-                            }) = depot.interactions.hovered_square_on_board
+                            }) = depot.interactions.hovered_unoccupied_square_on_board
                             {
                                 depot.interactions.released_tile = Some((i, coord));
                             }
@@ -176,7 +176,7 @@ impl<'a> HandUI<'a> {
 
                             area.show(ui.ctx(), |ui| {
                                 let ideal_width = if let Some(region) =
-                                    &depot.interactions.hovered_square_on_board
+                                    &depot.interactions.hovered_unoccupied_square_on_board
                                 {
                                     region.rect.width()
                                 } else {
@@ -191,7 +191,7 @@ impl<'a> HandUI<'a> {
 
                                 let snap_to_rect = depot
                                     .interactions
-                                    .hovered_square_on_board
+                                    .hovered_unoccupied_square_on_board
                                     .as_ref()
                                     .map(|region| region.rect);
 

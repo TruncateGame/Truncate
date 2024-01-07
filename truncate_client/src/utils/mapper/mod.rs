@@ -128,6 +128,37 @@ impl MappedBoard {
         }
     }
 
+    pub fn render_coord_to_rect(&self, mut coord: Coordinate, rect: Rect, ui: &mut egui::Ui) {
+        let Some(memory) = &self.state_memory else {
+            return;
+        };
+
+        let tile_width = 1.0 / memory.prev_board.width() as f32;
+        let tile_height = 1.0 / memory.prev_board.height() as f32;
+
+        if self.inverted {
+            coord.x = memory.prev_board.width() - coord.x - 1;
+            coord.y = memory.prev_board.height() - coord.y - 1;
+        }
+
+        let uv = Rect::from_min_max(
+            pos2(
+                tile_width * (coord.x as f32),
+                tile_height * (coord.y as f32),
+            ),
+            pos2(
+                tile_width * (coord.x as f32) + tile_width,
+                tile_height * (coord.y as f32) + tile_height,
+            ),
+        );
+
+        if let Some(tex) = &self.resolved_textures {
+            let mut mesh = Mesh::with_texture(tex.pieces.id());
+            mesh.add_rect_with_uv(rect, uv, Color32::WHITE);
+            ui.painter().add(Shape::mesh(mesh));
+        }
+    }
+
     fn wind_vane(&mut self, tick: u64) {
         if self.last_tick != tick {
             self.last_tick = tick;

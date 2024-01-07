@@ -1,4 +1,5 @@
 use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
+use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -6,7 +7,7 @@ use truncate_core::{
     reporting::BoardChange,
 };
 
-use eframe::egui::{self, Order, Sense};
+use eframe::egui::{self, Id, Order, Sense};
 use hashbrown::HashMap;
 
 use crate::utils::{depot::TruncateDepot, macros::tr_log, mapper::MappedBoard};
@@ -42,7 +43,8 @@ impl<'a> BoardUI<'a> {
         depot: &mut TruncateDepot,
     ) -> Option<PlayerMessage> {
         let mut msg = None;
-        let mut square_is_hovered = None;
+        let mut unoccupied_square_is_hovered = None;
+        let mut occupied_square_is_hovered = None;
         let mut tile_is_hovered = None;
 
         // TODO: Do something better for this
@@ -78,6 +80,12 @@ impl<'a> BoardUI<'a> {
             .order(Order::Background)
             .anchor(Align2::LEFT_TOP, depot.board_info.board_pan);
         let area_id = area.layer();
+
+        let mut drag_pos = None;
+        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+            let drag_offset = if depot.ui_state.is_touch { -50.0 } else { 0.0 };
+            drag_pos = Some(pointer_pos + vec2(0.0, drag_offset));
+        }
 
         let board_frame = area
             .show(ui.ctx(), |ui| {
@@ -120,18 +128,9 @@ impl<'a> BoardUI<'a> {
                                         let TruncateDepot { interactions, .. } = depot;
 
                                         if matches!(square, Square::Land) {
-                                            if let Some(pointer_pos) =
-                                                ui.ctx().pointer_interact_pos()
-                                            {
-                                                let drag_offset = if depot.ui_state.is_touch {
-                                                    -50.0
-                                                } else {
-                                                    0.0
-                                                };
-                                                let drag_pos = pointer_pos + vec2(0.0, drag_offset);
-
+                                            if let Some(drag_pos) = drag_pos {
                                                 if grid_cell.contains(drag_pos) {
-                                                    square_is_hovered =
+                                                    unoccupied_square_is_hovered =
                                                         Some(crate::utils::depot::HoveredRegion {
                                                             rect: grid_cell,
                                                             coord: Some(coord),
@@ -169,11 +168,23 @@ impl<'a> BoardUI<'a> {
                                             }
                                         } else if matches!(square, Square::Occupied(_, _)) {
                                             let tile_rect = grid_cell.shrink(2.0);
+                                            let tile_id =
+                                                Id::new("board_tile").with(coord).with("dragging");
                                             let tile_response = ui.interact(
                                                 tile_rect,
-                                                ui.id().with(coord),
+                                                tile_id,
                                                 Sense::click_and_drag(),
                                             );
+
+                                            if let Some(drag_pos) = drag_pos {
+                                                if grid_cell.contains(drag_pos) {
+                                                    occupied_square_is_hovered =
+                                                        Some(crate::utils::depot::HoveredRegion {
+                                                            rect: grid_cell,
+                                                            coord: Some(coord),
+                                                        });
+                                                }
+                                            }
 
                                             if tile_response.hovered() {
                                                 tile_is_hovered = Some(coord);
@@ -200,6 +211,126 @@ impl<'a> BoardUI<'a> {
                                                         Some(coord);
                                                 }
                                             }
+                                            let mut is_being_dragged =
+                                                ui.memory(|mem| mem.is_being_dragged(tile_id));
+                                            let is_decidedly_dragging = ui
+                                                .ctx()
+                                                .input(|inp| inp.pointer.is_decidedly_dragging());
+
+                                            // Bail out of a drag if we're not "decidedly dragging",
+                                            // as this could instead be just a click.
+                                            if is_being_dragged && !is_decidedly_dragging {
+                                                is_being_dragged = false;
+                                            }
+
+                                            if tile_response.drag_started() {
+                                                if let Some(pointer_pos) =
+                                                    ui.ctx().pointer_interact_pos()
+                                                {
+                                                    let delta =
+                                                        pointer_pos - tile_response.rect.center();
+                                                    ui.memory_mut(|mem| {
+                                                        mem.data.insert_temp(tile_id, delta);
+                                                        mem.data.insert_temp(
+                                                            tile_id,
+                                                            depot.timing.current_time,
+                                                        );
+                                                    });
+                                                }
+
+                                                depot.interactions.dragging_tile = true;
+                                                ui.ctx().animate_value_with_time(
+                                                    tile_id.with("initial_offset"),
+                                                    0.0,
+                                                    0.0,
+                                                );
+                                            } else if tile_response.drag_released()
+                                                && is_decidedly_dragging
+                                            {
+                                                tr_log!({ "Dropping a tile...." })
+                                            }
+
+                                            if is_being_dragged {
+                                                let drag_id: Duration = ui
+                                                    .memory(|mem| mem.data.get_temp(tile_id))
+                                                    .unwrap_or_default();
+
+                                                let area = egui::Area::new(
+                                                    tile_id.with("floating").with(drag_id),
+                                                )
+                                                .movable(false)
+                                                .order(Order::Tooltip)
+                                                .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
+
+                                                area.show(ui.ctx(), |ui| {
+                                                    let snap_to_rect = depot
+                                                        .interactions
+                                                        .hovered_occupied_square_on_board
+                                                        .as_ref()
+                                                        .map(|region| region.rect);
+
+                                                    let position = if let Some(snap) = snap_to_rect
+                                                    {
+                                                        snap.left_top()
+                                                    } else if let Some(pointer_pos) =
+                                                        ui.ctx().pointer_interact_pos()
+                                                    {
+                                                        let drag_offset = if depot.ui_state.is_touch
+                                                        {
+                                                            -50.0
+                                                        } else {
+                                                            0.0
+                                                        };
+                                                        let bounce_offset =
+                                                            ui.ctx().animate_value_with_time(
+                                                                tile_id.with("initial_offset"),
+                                                                drag_offset,
+                                                                depot
+                                                                    .aesthetics
+                                                                    .theme
+                                                                    .animation_time,
+                                                            );
+                                                        let original_delta: Vec2 =
+                                                            ui.memory(|mem| {
+                                                                mem.data
+                                                                    .get_temp(tile_id)
+                                                                    .unwrap_or_default()
+                                                            });
+                                                        pointer_pos + vec2(0.0, bounce_offset)
+                                                            - original_delta
+                                                            - (grid_cell.size() / 2.0)
+                                                    } else {
+                                                        tile_rect.left_top()
+                                                    };
+
+                                                    let animated_position = pos2(
+                                                        ui.ctx().animate_value_with_time(
+                                                            area.layer().id.with("delta_x"),
+                                                            position.x,
+                                                            depot.aesthetics.theme.animation_time,
+                                                        ),
+                                                        ui.ctx().animate_value_with_time(
+                                                            area.layer().id.with("delta_y"),
+                                                            position.y,
+                                                            depot.aesthetics.theme.animation_time,
+                                                        ),
+                                                    );
+
+                                                    mapped_board.render_coord_to_rect(
+                                                        coord,
+                                                        Rect::from_min_size(
+                                                            animated_position,
+                                                            grid_cell.size(),
+                                                        ),
+                                                        ui,
+                                                    );
+                                                })
+                                                .response;
+
+                                                ui.ctx().output_mut(|out| {
+                                                    out.cursor_icon = egui::CursorIcon::Grabbing
+                                                });
+                                            }
                                         }
                                     }
                                 });
@@ -219,7 +350,10 @@ impl<'a> BoardUI<'a> {
                         render(Box::new(self.board.squares.iter().enumerate()));
                     }
 
-                    depot.interactions.hovered_square_on_board = square_is_hovered;
+                    depot.interactions.hovered_unoccupied_square_on_board =
+                        unoccupied_square_is_hovered;
+                    depot.interactions.hovered_occupied_square_on_board =
+                        occupied_square_is_hovered;
                     depot.interactions.hovered_tile_on_board = tile_is_hovered;
 
                     mapped_board.remap_texture(
