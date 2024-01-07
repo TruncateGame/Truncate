@@ -585,7 +585,6 @@ impl ActiveGame {
         game_ref: Option<&truncate_core::game::Game>,
     ) -> Option<PlayerMessage> {
         self.depot.timing.current_time = current_time;
-        self.depot.interactions.hovered_tile_on_board = None;
         let cur_tick = current_time.as_secs() * 4 + current_time.subsec_millis() as u64 / 250;
         if cur_tick > self.depot.aesthetics.qs_tick {
             self.depot.aesthetics.qs_tick = cur_tick;

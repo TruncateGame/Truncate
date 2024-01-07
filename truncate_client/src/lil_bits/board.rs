@@ -1,4 +1,4 @@
-use epaint::{emath::Align2, vec2, Vec2, pos2, Rect};
+use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -6,26 +6,24 @@ use truncate_core::{
     reporting::BoardChange,
 };
 
-use eframe::egui::{self, Order};
+use eframe::egui::{self, Order, Sense};
 use hashbrown::HashMap;
 
-use crate::utils::{mapper::MappedBoard, depot::TruncateDepot, macros::tr_log};
-
-use super::{
-    tile::TilePlayer,
-    SquareUI, TileUI,
-};
+use crate::utils::{depot::TruncateDepot, macros::tr_log, mapper::MappedBoard};
 
 pub struct BoardUI<'a> {
     board: &'a Board,
-    interactive: bool
+    interactive: bool,
 }
 
 impl<'a> BoardUI<'a> {
     pub fn new(board: &'a Board) -> Self {
-        Self { board, interactive: true }
+        Self {
+            board,
+            interactive: true,
+        }
     }
-    
+
     pub fn interactive(mut self, interactive: bool) -> Self {
         self.interactive = interactive;
         self
@@ -41,11 +39,11 @@ impl<'a> BoardUI<'a> {
         board_changes: &HashMap<Coordinate, BoardChange>,
         ui: &mut egui::Ui,
         mapped_board: &mut MappedBoard,
-        depot: &mut TruncateDepot
+        depot: &mut TruncateDepot,
     ) -> Option<PlayerMessage> {
         let mut msg = None;
-        let mut next_selection = None;
-        let mut hovered_square = None;
+        let mut square_is_hovered = None;
+        let mut tile_is_hovered = None;
 
         // TODO: Do something better for this
         let invert = depot.gameplay.player_number == 0;
@@ -53,13 +51,14 @@ impl<'a> BoardUI<'a> {
         let game_area = ui.available_rect_before_wrap();
         ui.set_clip_rect(game_area);
 
-        let ((resolved_board_width, resolved_board_height), _, theme) = depot.aesthetics.theme.calc_rescale(
-            &game_area, 
-            self.board.width(),
-            self.board.height(),
-            0.4..2.0,
-            (0, 0)
-        );
+        let ((resolved_board_width, resolved_board_height), _, theme) =
+            depot.aesthetics.theme.calc_rescale(
+                &game_area,
+                self.board.width(),
+                self.board.height(),
+                0.4..2.0,
+                (0, 0),
+            );
         let theme = theme.rescale(depot.board_info.board_zoom);
         let outer_frame = egui::Frame::none().inner_margin(0.0);
 
@@ -80,232 +79,160 @@ impl<'a> BoardUI<'a> {
             .anchor(Align2::LEFT_TOP, depot.board_info.board_pan);
         let area_id = area.layer();
 
-        let board_frame = area.show(ui.ctx(), |ui| {
-            let styles = ui.style_mut();
-            styles.spacing.item_spacing = egui::vec2(0.0, 0.0);
-            styles.spacing.interact_size = egui::vec2(0.0, 0.0);
+        let board_frame = area
+            .show(ui.ctx(), |ui| {
+                let styles = ui.style_mut();
+                styles.spacing.item_spacing = egui::vec2(0.0, 0.0);
+                styles.spacing.interact_size = egui::vec2(0.0, 0.0);
 
-            outer_frame.show(ui, |ui| {
+                outer_frame.show(ui, |ui| {
+                    let board_texture_dest = Rect::from_min_size(
+                        ui.next_widget_position(),
+                        vec2(
+                            self.board.width() as f32 * depot.aesthetics.theme.grid_size,
+                            self.board.height() as f32 * depot.aesthetics.theme.grid_size,
+                        ),
+                    );
 
-                let board_texture_dest = Rect::from_min_size(
-                    ui.next_widget_position(),
-                    vec2(self.board.width() as f32 * depot.aesthetics.theme.grid_size, self.board.height() as f32 * depot.aesthetics.theme.grid_size)
-                );
-
-                let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
-                    let mut render_row =
-                        |rownum, row: Box<dyn Iterator<Item = (usize, &Square)>>| {
-                            ui.horizontal(|ui| {
-                                for (colnum, square) in row {
-                                    let grid_cell = Rect::from_min_size(ui.next_widget_position(), Vec2::splat(depot.aesthetics.theme.grid_size));
-                                    // An extra row seems to be clipped off the bottom in a normal calculation,
-                                    // so we expand each grid cell's check (painting one cell "outside" the screen)
-                                    if !ui.is_rect_visible(grid_cell.expand(depot.aesthetics.theme.grid_size)) {
-                                        // Skip all work for board that is offscreen, just move the cursor.
-                                        _ = ui.allocate_exact_size(
+                    let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
+                        let mut render_row =
+                            |rownum, row: Box<dyn Iterator<Item = (usize, &Square)>>| {
+                                ui.horizontal(|ui| {
+                                    for (colnum, square) in row {
+                                        let (grid_cell, square_response) = ui.allocate_exact_size(
                                             Vec2::splat(depot.aesthetics.theme.grid_size),
-                                            egui::Sense::hover(),
+                                            Sense::click(),
                                         );
-                                        continue;
-                                    }
-
-                                    let coord = Coordinate::new(colnum, rownum);
-                                    let is_selected = Some(coord) == depot.interactions.selected_tile_on_board;
-                                    let calc_tile_player = |p: &usize| {
-                                        if *p as u64 == depot.gameplay.player_number {
-                                            TilePlayer::Own
-                                        } else {
-                                            TilePlayer::Enemy(*p as usize)
+                                        // An extra row seems to be clipped off the bottom in a normal calculation,
+                                        // so we expand each grid cell's check (painting one cell "outside" the screen)
+                                        if !ui.is_rect_visible(
+                                            grid_cell.expand(depot.aesthetics.theme.grid_size),
+                                        ) {
+                                            // Skip all work for board parts that are offscreen.
+                                            continue;
                                         }
-                                    };
-
-
-                                    let mut tile = if let Square::Occupied(player, char) = square {
-                                        let is_winner = depot.gameplay.winner == Some(*player);
-                                        Some(
-                                            TileUI::new(None, calc_tile_player(player)).selected(is_selected).won(is_winner)
-                                        )
-                                    } else {
-                                        None
-                                    };
-
-                                    if let Some(change) = board_changes.get(&coord) {
-                                        use Square::*;
-                                        use truncate_core::reporting::BoardChangeAction;
-                                        tile = match (&change.action, tile) {
-                                            (BoardChangeAction::Added, Some(tile)) => Some(tile.added(true)),
-                                            (BoardChangeAction::Swapped, Some(tile)) => Some(tile.modified(true)),
-                                            (BoardChangeAction::Defeated, None) => 
-                                                match change.detail.square {
-                                                    Water | Land | Town{..} | Dock(_) => None,
-                                                    Occupied(player, char) => Some((player, char)),
-                                                }
-                                                .map(
-                                                    |(player, char)| {
-                                                        TileUI::new(None, calc_tile_player(&player))
-                                                            .selected(is_selected)
-                                                            .defeated(true)
-                                                    },
-                                                ),
-                                            (BoardChangeAction::Truncated, None) => 
-                                                match change.detail.square {
-                                                    Water | Land | Town{..} | Dock(_) => None,
-                                                    Occupied(player, char) => Some((player, char)),
-                                                }
-                                                .map(
-                                                    |(player, char)| {
-                                                        TileUI::new(None, calc_tile_player(&player))
-                                                            .selected(is_selected)
-                                                            .truncated(true)
-                                                    },
-                                                ),
-                                            (BoardChangeAction::Exploded, None) =>
-                                                match change.detail.square {
-                                                    Water | Land | Town{..} | Dock(_) => None,
-                                                    Occupied(player, char) => Some((player, char)),
-                                                }
-                                                .map(
-                                                    |(player, char)| {
-                                                        TileUI::new(None, calc_tile_player(&player))
-                                                            .selected(is_selected)
-                                                            .defeated(true)
-                                                    },
-                                                ),
-                                            (BoardChangeAction::Victorious, Some(tile)) => Some(tile.victor(true)),
-                                            (BoardChangeAction::Victorious, None) =>
-                                                match change.detail.square {
-                                                    Water | Land | Town{..} | Dock(_) => None,
-                                                    Occupied(player, char) => Some((player, char)),
-                                                }
-                                                .map(
-                                                    |(player, char)| {
-                                                        TileUI::new(None, calc_tile_player(&player))
-                                                            .selected(is_selected)
-                                                            .victor(true)
-                                                    },
-                                                ),
-                                            _ => {
-                                                eprintln!("Board message received that seems incompatible with the board");
-                                                eprintln!("{change}");
-                                                eprintln!("{}", self.board);
-                                                None
-                                            }
+                                        if !self.interactive {
+                                            continue;
                                         }
-                                    }
 
-                                    let mut overlay = None;
-                                    if let Some(placing_tile) = depot.interactions.selected_tile_in_hand {
+                                        let coord = Coordinate::new(colnum, rownum);
+
+                                        let TruncateDepot { interactions, .. } = depot;
+
                                         if matches!(square, Square::Land) {
-                                            overlay = Some(*hand.get(placing_tile).unwrap());
-                                        }
-                                    } else if let Some(placing_tile) = depot.interactions.selected_tile_on_board { // TODO: De-nest
-                                        if placing_tile != coord {
-                                            if let Square::Occupied(p, _) = square {
-                                                if p == &(depot.gameplay.player_number as usize) {
-                                                    if let Ok(Square::Occupied(_, char)) = self.board.get(placing_tile) {
-                                                        overlay = Some(char);
-                                                    }
+                                            if let Some(pointer_pos) =
+                                                ui.ctx().pointer_interact_pos()
+                                            {
+                                                let drag_offset = if depot.ui_state.is_touch {
+                                                    -50.0
+                                                } else {
+                                                    0.0
+                                                };
+                                                let drag_pos = pointer_pos + vec2(0.0, drag_offset);
+
+                                                if grid_cell.contains(drag_pos) {
+                                                    square_is_hovered =
+                                                        Some(crate::utils::depot::HoveredRegion {
+                                                            rect: grid_cell,
+                                                            coord: Some(coord),
+                                                        });
                                                 }
                                             }
-                                        }
-                                    }
 
-                                    if let Some(squares) = depot.interactions.highlight_squares.as_ref() {
-                                        if squares.contains(&coord) && depot.timing.current_time.subsec_millis() > 500 {
-                                            tile = tile.map(|t| t.highlighted(true));
-                                        }
-                                    }
+                                            if square_response.clicked() {
+                                                if let Some(tile) =
+                                                    interactions.selected_tile_in_hand
+                                                {
+                                                    msg = Some(PlayerMessage::Place(
+                                                        coord,
+                                                        *hand.get(tile).unwrap(),
+                                                    ));
 
-                                    // TODO: Devise a way to show this tile in the place of the board_selected_tile
+                                                    interactions.selected_tile_in_hand = None;
+                                                }
 
-                                    let (square_response, outer_rect) = SquareUI::new(coord)
-                                        .enabled(matches!(square, Square::Land | Square::Occupied(_, _)))
-                                        .empty(matches!(square, Square::Land))
-                                        .selected(is_selected)
-                                        .overlay(overlay)
-                                        .render(ui, depot, |ui, depot| {
-                                            if let Some(tile) = tile {
-                                                tile.render(Some(coord), ui, false, None, depot);
+                                                if interactions.selected_tile_on_board.is_some() {
+                                                    interactions.selected_tile_on_board = None;
+                                                }
                                             }
-                                        });
-                                    
-                                    if !self.interactive {
-                                        continue;
-                                    }
 
-                                    if matches!(square, Square::Land | Square::Occupied(_, _)) {
-                                        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-                                            let drag_offset = if depot.ui_state.is_touch { -50.0 } else { 0.0 };
-                                            let drag_pos = pointer_pos + vec2(0.0, drag_offset);
+                                            if let Some(tile) = interactions.released_tile {
+                                                if tile.1 == coord {
+                                                    msg = Some(PlayerMessage::Place(
+                                                        coord,
+                                                        *hand.get(tile.0).unwrap(),
+                                                    ));
+                                                    interactions.selected_tile_in_hand = None;
+                                                    interactions.selected_tile_on_board = None;
+                                                    interactions.released_tile = None;
+                                                }
+                                            }
+                                        } else if matches!(square, Square::Occupied(_, _)) {
+                                            let tile_rect = grid_cell.shrink(2.0);
+                                            let tile_response = ui.interact(
+                                                tile_rect,
+                                                ui.id().with(coord),
+                                                Sense::click_and_drag(),
+                                            );
 
-                                            if outer_rect.contains(drag_pos) {
-                                                hovered_square = Some(crate::utils::depot::HoveredRegion{
-                                                    rect: outer_rect,
-                                                    coord: Some(coord)
+                                            if tile_response.hovered() {
+                                                tile_is_hovered = Some(coord);
+                                                ui.output_mut(|o| {
+                                                    o.cursor_icon = egui::CursorIcon::PointingHand
                                                 });
                                             }
-                                        }
-
-
-                                        if square_response.clicked() {
-                                            if let Some(tile) = depot.interactions.selected_tile_in_hand {
-                                                msg =
-                                                    Some(PlayerMessage::Place(coord, *hand.get(tile).unwrap()));
-                                                next_selection = Some(None);
-                                            } else if is_selected {
-                                                next_selection = Some(None);
-                                            } else if let Some(selected_coord) = depot.interactions.selected_tile_on_board {
-                                                // Only try to swap onto a tile, otherwise just deselect
-                                                if matches!(square, Square::Occupied(_, _)) {
-                                                    msg = Some(PlayerMessage::Swap(coord, selected_coord));
+                                            if tile_response.clicked() {
+                                                if interactions.selected_tile_on_board
+                                                    == Some(coord)
+                                                {
+                                                    interactions.selected_tile_on_board = None;
+                                                } else if let Some(selected_coord) =
+                                                    interactions.selected_tile_on_board
+                                                {
+                                                    msg = Some(PlayerMessage::Swap(
+                                                        coord,
+                                                        selected_coord,
+                                                    ));
+                                                    interactions.selected_tile_on_board = None;
+                                                    interactions.selected_tile_in_hand = None;
+                                                } else {
+                                                    interactions.selected_tile_on_board =
+                                                        Some(coord);
                                                 }
-                                                next_selection = Some(None);
-                                            } else {
-                                                // Don't select coordinates that are empty
-                                                if matches!(square, Square::Occupied(_, _)) {
-                                                    next_selection = Some(Some(coord));
-                                                }
-                                            }
-                                        } else if let Some(tile) = depot.interactions.released_tile {
-                                            if tile.1 == coord {
-                                                msg = Some(PlayerMessage::Place(coord, *hand.get(tile.0).unwrap()));
-                                                next_selection = Some(None);
-                                                depot.interactions.released_tile = None;
                                             }
                                         }
                                     }
-                                }
-                            });
-                        };
+                                });
+                            };
 
-                    for (rownum, row) in rows {
-                        if invert {
-                            render_row(rownum, Box::new(row.iter().enumerate().rev()));
-                        } else {
-                            render_row(rownum, Box::new(row.iter().enumerate()));
+                        for (rownum, row) in rows {
+                            if invert {
+                                render_row(rownum, Box::new(row.iter().enumerate().rev()));
+                            } else {
+                                render_row(rownum, Box::new(row.iter().enumerate()));
+                            }
                         }
+                    };
+                    if invert {
+                        render(Box::new(self.board.squares.iter().enumerate().rev()));
+                    } else {
+                        render(Box::new(self.board.squares.iter().enumerate()));
                     }
-                };
-                if invert {
-                    render(Box::new(self.board.squares.iter().enumerate().rev()));
-                } else {
-                    render(Box::new(self.board.squares.iter().enumerate()));
-                }
 
-                if let Some(new_selection) = next_selection {
-                    depot.interactions.selected_tile_on_board = new_selection;
-                    depot.interactions.selected_tile_in_hand = None;
-                }
+                    depot.interactions.hovered_square_on_board = square_is_hovered;
+                    depot.interactions.hovered_tile_on_board = tile_is_hovered;
 
-                if hovered_square != depot.interactions.hovered_square_on_board {
-                    depot.interactions.hovered_square_on_board = hovered_square;
-                }
-
-                mapped_board.remap_texture(ui.ctx(), &depot.aesthetics, Some(&depot.interactions), Some(&depot.gameplay), self.board);
-                mapped_board.render_to_rect(board_texture_dest, ui);
+                    mapped_board.remap_texture(
+                        ui.ctx(),
+                        &depot.aesthetics,
+                        Some(&depot.interactions),
+                        Some(&depot.gameplay),
+                        self.board,
+                    );
+                    mapped_board.render_to_rect(board_texture_dest, ui);
+                })
             })
-        })
-        .inner;
+            .inner;
 
         if !self.interactive {
             return None;
@@ -319,10 +246,9 @@ impl<'a> BoardUI<'a> {
             // such that anything else that should be getting the drag this frame will already
             // exist in the `is_anything_being_dragged` check.
             // (The `layer_id_at` check should avoid this issue in most cases, I imagine)
-            if ui.input(|i| i.pointer.any_down() 
-            && i.pointer.any_pressed()) 
-            && !ui.memory(|mem| mem.is_anything_being_dragged()) {
-
+            if ui.input(|i| i.pointer.any_down() && i.pointer.any_pressed())
+                && !ui.memory(|mem| mem.is_anything_being_dragged())
+            {
                 if ui.ctx().layer_id_at(hover_pos) == Some(area_id) {
                     ui.memory_mut(|mem| mem.set_dragged_id(area_id.id))
                 }
@@ -337,25 +263,25 @@ impl<'a> BoardUI<'a> {
             let maybe_zooming = zoom_delta != 1.0;
             let maybe_panning = scroll_delta != Vec2::ZERO;
 
-            let capture_action = (maybe_zooming || maybe_panning) 
-            && match ui.ctx().layer_id_at(hover_pos) {
-                // No layer, probably fine 🤷
-                None => true,
-                // Board layer, definitely ours
-                Some(layer) if layer == area_id => true,
-                // A background layer _should_ be the window itself,
-                // and thus the ocean. We'll handle this input.
-                Some(layer) if layer.order == Order::Background => true,
-                // Gesturing over something else, maybe scrolling a dialog.
-                // Cancel handling this input.
-                Some(_) => false
-            };
+            let capture_action = (maybe_zooming || maybe_panning)
+                && match ui.ctx().layer_id_at(hover_pos) {
+                    // No layer, probably fine 🤷
+                    None => true,
+                    // Board layer, definitely ours
+                    Some(layer) if layer == area_id => true,
+                    // A background layer _should_ be the window itself,
+                    // and thus the ocean. We'll handle this input.
+                    Some(layer) if layer.order == Order::Background => true,
+                    // Gesturing over something else, maybe scrolling a dialog.
+                    // Cancel handling this input.
+                    Some(_) => false,
+                };
 
             if capture_action {
                 // --- Zooming ---
                 if zoom_delta != 1.0 {
                     depot.board_info.board_moved = true;
-                    
+
                     depot.board_info.board_zoom *= zoom_delta;
                     let diff = board_pos.size() - board_pos.size() * zoom_delta;
                     board_pos.set_right(board_pos.right() - diff.x);
@@ -364,7 +290,8 @@ impl<'a> BoardUI<'a> {
                     // Center the zoom around the cursor
                     let pointer_delta = hover_pos - depot.board_info.board_pan;
                     let zoom_diff = zoom_delta - 1.0;
-                    let zoom_pan_delta = pos2(pointer_delta.x * zoom_diff, pointer_delta.y * zoom_diff);
+                    let zoom_pan_delta =
+                        pos2(pointer_delta.x * zoom_diff, pointer_delta.y * zoom_diff);
                     depot.board_info.board_pan -= zoom_pan_delta.to_vec2();
                     board_pos = board_pos.translate(-zoom_pan_delta.to_vec2());
                 }
@@ -399,9 +326,9 @@ impl<'a> BoardUI<'a> {
                 Some(layer) if layer.order == Order::Background => true,
                 // Gesturing over something else, maybe scrolling a dialog.
                 // Cancel handling this input.
-                Some(_) => false
+                Some(_) => false,
             };
-            
+
             if capture_action {
                 depot.board_info.board_zoom *= (touch.zoom_delta - 1.0) * 0.25 + 1.0;
                 depot.board_info.board_pan += touch.translation_delta;
@@ -409,7 +336,6 @@ impl<'a> BoardUI<'a> {
                 board_pos = board_pos.translate(touch.translation_delta);
             }
         }
-
 
         let buffer = game_area.size() * 0.25;
         let bounce = 0.3;
@@ -433,7 +359,8 @@ impl<'a> BoardUI<'a> {
             bounced = true;
         }
         if bottom_overage > 0.0 {
-            depot.board_info.board_pan.y -= (bottom_overage * bounce).max(bounce).min(bottom_overage);
+            depot.board_info.board_pan.y -=
+                (bottom_overage * bounce).max(bounce).min(bottom_overage);
             bounced = true;
         }
         if bounced {

@@ -9,7 +9,7 @@ use crate::utils::{
     mapper::{MappedTile, MappedTileVariant, MappedTiles},
 };
 
-use super::{tile::TilePlayer, HandSquareUI, TileUI};
+use super::HandSquareUI;
 
 pub struct HandUI<'a> {
     hand: &'a mut Hand,

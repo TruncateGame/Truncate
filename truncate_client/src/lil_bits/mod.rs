@@ -6,8 +6,6 @@ mod character;
 mod daily_splash;
 mod hand;
 mod hand_square;
-mod square;
-mod tile;
 mod timer;
 
 pub use battle::BattleUI;
@@ -18,6 +16,4 @@ pub use character::CharacterUI;
 pub use daily_splash::DailySplashUI;
 pub use hand::HandUI;
 pub use hand_square::HandSquareUI;
-pub use square::SquareUI;
-pub use tile::TileUI;
 pub use timer::TimerUI;
