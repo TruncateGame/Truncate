@@ -55,11 +55,11 @@ impl TexLayers {
         self
     }
 
-    pub fn merge(self, mut other: TexLayers) -> Self {
-        other.terrain = self.terrain.or(other.terrain);
-        other.structures = self.structures.or(other.structures);
-        other.pieces.extend(self.pieces.into_iter());
-        other
+    pub fn merge(mut self, other: TexLayers) -> Self {
+        self.terrain = self.terrain.or(other.terrain);
+        self.structures = self.structures.or(other.structures);
+        self.pieces.extend(other.pieces.into_iter());
+        self
     }
 }
 

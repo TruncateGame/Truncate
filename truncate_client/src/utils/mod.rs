@@ -1,3 +1,4 @@
+pub mod control_devices;
 pub mod daily;
 pub mod depot;
 pub mod game_evals;

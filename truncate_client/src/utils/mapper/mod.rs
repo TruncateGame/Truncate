@@ -18,7 +18,7 @@ use super::{
     depot::{AestheticDepot, GameplayDepot, InteractionDepot},
     glyph_utils::BaseTileGlyphs,
     macros::tr_log,
-    tex::{self, tiles, BGTexType, Tex, TexLayers, TexQuad},
+    tex::{self, tiles, BGTexType, PieceLayer, Tex, TexLayers, TexQuad},
 };
 
 mod image_manipulation;
@@ -60,7 +60,8 @@ impl ResolvedTextureLayers {
 struct MapState {
     prev_board: Board,
     prev_tick: u64,
-    prev_selected: Option<Coordinate>,
+    prev_selected_square: Option<Coordinate>,
+    prev_selected_tile: Option<Coordinate>,
     prev_hover: Option<Coordinate>,
     prev_changes: Vec<Change>,
 }
@@ -350,6 +351,19 @@ impl MappedBoard {
             _ => {}
         }
 
+        if let Some(interactions) = interactions {
+            if interactions.selected_square_on_board == Some(coord) {
+                layers = layers.merge(TexLayers {
+                    terrain: None,
+                    structures: None,
+                    pieces: vec![PieceLayer::Texture(
+                        tex::tiles::quad::HIGHLIGHT,
+                        Some(Color32::GOLD),
+                    )],
+                });
+            }
+        }
+
         let cached = self
             .layer_memory
             .get_mut(coord.y)
@@ -469,26 +483,31 @@ impl MappedBoard {
         board: &Board,
     ) {
         let mut tick_eq = true;
-        let selected = interactions.map(|i| i.selected_tile_on_board).flatten();
+        let selected_tile = interactions.map(|i| i.selected_tile_on_board).flatten();
+        let selected_square = interactions.map(|i| i.selected_square_on_board).flatten();
         let hover = interactions.map(|i| i.hovered_tile_on_board).flatten();
 
         if let Some(memory) = self.state_memory.as_mut() {
             let board_eq = memory.prev_board == *board;
-            let selected_eq = memory.prev_selected == selected;
+            let selected_tile_eq = memory.prev_selected_tile == selected_tile;
+            let selected_square_eq = memory.prev_selected_square == selected_square;
             let hover_eq = memory.prev_hover == hover;
             if memory.prev_tick != aesthetics.qs_tick {
                 tick_eq = false;
             }
 
-            if board_eq && tick_eq && selected_eq && hover_eq {
+            if board_eq && tick_eq && selected_tile_eq && selected_square_eq && hover_eq {
                 return;
             }
 
             if !board_eq {
                 memory.prev_board = board.clone();
             }
-            if !selected_eq {
-                memory.prev_selected = selected;
+            if !selected_tile_eq {
+                memory.prev_selected_tile = selected_tile;
+            }
+            if !selected_square_eq {
+                memory.prev_selected_square = selected_square;
             }
             if !hover_eq {
                 memory.prev_hover = hover;
@@ -500,7 +519,8 @@ impl MappedBoard {
             self.state_memory = Some(MapState {
                 prev_board: board.clone(),
                 prev_tick: aesthetics.qs_tick,
-                prev_selected: selected,
+                prev_selected_tile: selected_tile,
+                prev_selected_square: selected_square,
                 prev_hover: hover,
                 prev_changes: vec![],
             });

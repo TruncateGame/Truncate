@@ -22,6 +22,7 @@ pub struct InteractionDepot {
     pub released_tile: Option<(usize, Coordinate)>,
     pub selected_tile_on_board: Option<Coordinate>,
     pub hovered_tile_on_board: Option<Coordinate>,
+    pub selected_square_on_board: Option<Coordinate>,
     pub hovered_unoccupied_square_on_board: Option<HoveredRegion>,
     pub hovered_occupied_square_on_board: Option<HoveredRegion>,
     pub playing_tile: Option<char>,
