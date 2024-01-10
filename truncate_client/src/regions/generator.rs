@@ -16,7 +16,6 @@ pub struct GeneratorState {
     infinite: bool,
     width: usize,
     height: usize,
-    land_slop: usize,
     water_level: f64,
     dispersion: f64,
     town_density: f64,
@@ -50,13 +49,12 @@ impl GeneratorState {
 
         Self {
             active_game,
-            seed: 1234,
+            seed: 1804,
             infinite: false,
-            width: 10,
-            height: 10,
-            land_slop: 2,
+            width: 30,
+            height: 30,
             water_level: 0.5,
-            dispersion: 3.0,
+            dispersion: 10.0,
             town_density: 0.5,
             jitter: 0.25,
             town_jitter: 0.5,
@@ -108,17 +106,6 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.height)
                         .clamp_range(4..=100)
-                        .speed(0.05),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
-
-                ui.label(RichText::new("Slop").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.land_slop)
-                        .clamp_range(0..=100)
                         .speed(0.05),
                 );
                 if r.changed() {
@@ -209,18 +196,19 @@ impl GeneratorState {
             changed = true;
         }
         if changed {
+            println!("Generating {}", self.seed);
             self.generation_result = Some(generate_board(BoardSeed {
                 generation: 999999,
                 seed: self.seed,
                 day: None,
                 current_iteration: 0,
-                resize_state: None,
+                width_resize_state: None,
+                height_resize_state: None,
                 max_attempts,
                 params: BoardParams {
                     ideal_land_dimensions: [self.width, self.height],
-                    land_slop: self.land_slop,
                     water_level: self.water_level,
-                    dispersion: self.dispersion,
+                    dispersion: [self.dispersion, self.dispersion],
                     town_density: self.town_density,
                     jitter: self.jitter,
                     town_jitter: self.town_jitter,

@@ -21,9 +21,8 @@ pub enum BoardType {
 #[derive(Debug, Clone)]
 pub struct BoardParams {
     pub ideal_land_dimensions: [usize; 2],
-    pub land_slop: usize,
     pub water_level: f64,
-    pub dispersion: f64,
+    pub dispersion: [f64; 2],
     pub town_density: f64,
     pub jitter: f64,
     pub town_jitter: f64,
@@ -36,9 +35,8 @@ pub struct BoardParams {
 // Updating an existing generation will break puzzle URLs.
 const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
     ideal_land_dimensions: [30, 30],
-    land_slop: 4,
     water_level: 0.004,
-    dispersion: 3.0,
+    dispersion: [3.0, 3.0],
     town_density: 0.2,
     jitter: 0.637,
     town_jitter: 0.36,
@@ -74,7 +72,8 @@ pub struct BoardSeed {
     pub day: Option<u32>,
     pub params: BoardParams,
     pub current_iteration: usize,
-    pub resize_state: Option<PreviousBoardResize>,
+    pub width_resize_state: Option<PreviousBoardResize>,
+    pub height_resize_state: Option<PreviousBoardResize>,
     pub max_attempts: usize,
 }
 
@@ -87,7 +86,8 @@ impl BoardSeed {
             day: None,
             params,
             current_iteration: 0,
-            resize_state: None,
+            width_resize_state: None,
+            height_resize_state: None,
             max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
         }
     }
@@ -100,7 +100,8 @@ impl BoardSeed {
             day: None,
             params,
             current_iteration: 0,
-            resize_state: None,
+            width_resize_state: None,
+            height_resize_state: None,
             max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
         }
     }
@@ -151,12 +152,12 @@ pub fn generate_board(
         seed,
         day: _,
         current_iteration,
-        resize_state,
+        width_resize_state,
+        height_resize_state,
         max_attempts,
         params:
             BoardParams {
                 ideal_land_dimensions,
-                land_slop,
                 water_level,
                 dispersion,
                 town_density,
@@ -211,7 +212,8 @@ pub fn generate_board(
             };
 
             // Get Simplex noise value
-            let noise_value = (simplex.get([ni * dispersion, nj * dispersion, 0.0]) + 1.0) / 2.0;
+            let noise_value =
+                (simplex.get([ni * dispersion[0], nj * dispersion[1], 0.0]) + 1.0) / 2.0;
 
             // Combine noise and gradient
             let value = noise_value - (gradient * jitter);
@@ -239,33 +241,56 @@ pub fn generate_board(
     // Remove extraneous water
     board.trim();
 
-    let width_diff = board.width() as isize - (ideal_land_dimensions[0] + 2) as isize;
-    let height_diff = board.height() as isize - (ideal_land_dimensions[1] + 2) as isize;
+    let mut width_diff = board.width() as isize - (ideal_land_dimensions[0] + 2) as isize;
 
-    // Raise or lower water slightly to try and hit the target island size
-    if width_diff.is_negative() || height_diff.is_negative() {
-        // Avoid oscillating around the target — once we have shrunk we won't enlarge again
-        if board_seed.resize_state != Some(PreviousBoardResize::Shrunk) {
+    // Raise or lower water slightly to try and hit the target island width
+    if width_diff.is_negative() {
+        // Avoid oscillating around the target — once we have shrunk we won't enlarge via water again
+        if width_resize_state != Some(PreviousBoardResize::Shrunk) {
             board_seed.params.water_level -= 0.01;
-            board_seed.resize_state = Some(PreviousBoardResize::Enlarged);
+            board_seed.width_resize_state = Some(PreviousBoardResize::Enlarged);
             return generate_board(board_seed);
+        } else {
+            let mut rng = Rand32::new(seed as u64);
+            while width_diff < 0 {
+                // Pick a random column to duplicate
+                let col = rng.rand_range(1..(board.squares[0].len() as u32 - 1)) as usize;
+
+                for row in board.squares.iter_mut() {
+                    row.insert(col, row[col]);
+                }
+
+                width_diff += 1;
+            }
         }
-    } else if width_diff.is_positive() || height_diff.is_positive() {
+    } else if width_diff.is_positive() {
         board_seed.params.water_level += 0.005;
-        board_seed.resize_state = Some(PreviousBoardResize::Shrunk);
+        board_seed.width_resize_state = Some(PreviousBoardResize::Shrunk);
         return generate_board(board_seed);
     }
 
-    /*
-       TODO:
-       To land on the correct width we should do something that only scales the noise dispersion in the Y axis,
-       to have the effect of stretching the map vertically.
-       This will allow us to avoid rerolls for invalid dimensions....
-    */
+    let mut height_diff = board.height() as isize - (ideal_land_dimensions[1] + 2) as isize;
 
-    // If our steady state landed outside tolerances, start again.
-    if width_diff.abs() > land_slop as isize || height_diff.abs() > land_slop as isize {
-        return retry_with(board_seed, board);
+    if height_diff != 0 {
+        let mut rng = Rand32::new(seed as u64);
+        while height_diff != 0 && board.squares.len() > 2 {
+            // Pick a random row to duplicate or delete
+            let row = rng.rand_range(1..(board.squares.len() as u32 - 2)) as usize;
+
+            if height_diff.is_negative() {
+                board.squares.insert(row, board.squares[row].clone());
+                height_diff += 1;
+            } else {
+                let removed = board.squares.remove(row);
+                // Overlay this row on a neighbor to avoid cutting the island
+                for (i, sq) in removed.into_iter().enumerate() {
+                    if sq == Square::Land {
+                        board.squares[row][i] = Square::Land;
+                    }
+                }
+                height_diff -= 1;
+            }
+        }
     }
 
     match board_type {
@@ -575,12 +600,20 @@ impl BoardGenerator for Board {
 
         assert_eq!(coastal_water.is_empty(), false);
 
-        let center_point = Coordinate {
+        let mut center_point = Coordinate {
             x: self.width() / 2,
             y: self.height() / 2,
         };
-        if self.get(center_point) != Ok(Square::Land) {
-            return Err(());
+        while self.get(center_point) != Ok(Square::Land) {
+            if self.get(center_point).is_err() {
+                return Err(());
+            }
+            let neighbors = center_point.neighbors_8();
+            center_point = neighbors
+                .iter()
+                .find(|p| self.get(**p) == Ok(Square::Land))
+                .unwrap_or_else(|| &neighbors[0])
+                .clone();
         }
 
         #[derive(Debug, Clone, PartialEq, Eq)]
