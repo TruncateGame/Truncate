@@ -1,29 +1,25 @@
 use time::Duration;
 use truncate_core::{messages::GamePlayerMessage, reporting::TimeChange};
 
-use eframe::egui::{self, widget_text::WidgetTextGalley, Layout, Margin, Response, Sense};
-use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, Vec2};
+use eframe::egui::{self, Layout, Response, Sense};
+use epaint::{emath::Align, hex_color, vec2, Color32, Stroke};
 
-use crate::{
-    regions::active_game::GameCtx,
-    utils::{self, text::TextHelper, Darken, Diaphanize, Theme},
-};
+use crate::utils::{depot::TruncateDepot, text::TextHelper, Darken, Diaphanize};
 
 pub struct TimerUI<'a> {
     player: &'a GamePlayerMessage,
-    current_time: instant::Duration,
+    depot: &'a TruncateDepot,
     time_adjustment: isize,
     time: Duration,
     friend: bool,
     active: bool,
     right_align: bool,
-    winner: Option<usize>,
 }
 
 impl<'a> TimerUI<'a> {
     pub fn new(
         player: &'a GamePlayerMessage,
-        current_time: instant::Duration,
+        depot: &'a TruncateDepot,
         time_changes: &'a Vec<TimeChange>,
     ) -> Self {
         let time_adjustment: isize = time_changes
@@ -34,13 +30,12 @@ impl<'a> TimerUI<'a> {
 
         Self {
             player,
-            current_time,
+            depot,
             time: Duration::default(),
             time_adjustment,
             friend: true,
             active: true,
             right_align: false,
-            winner: None,
         }
     }
 
@@ -54,11 +49,6 @@ impl<'a> TimerUI<'a> {
         self
     }
 
-    pub fn winner(mut self, winner: Option<usize>) -> Self {
-        self.winner = winner;
-        self
-    }
-
     pub fn right_align(mut self) -> Self {
         self.right_align = true;
         self
@@ -66,13 +56,15 @@ impl<'a> TimerUI<'a> {
 }
 
 impl<'a> TimerUI<'a> {
-    fn get_time_color(&self, theme: &Theme, ctx: &mut GameCtx) -> Color32 {
-        if self.winner == Some(self.player.index) {
-            theme.selection
+    fn get_time_color(&self) -> Color32 {
+        if self.depot.gameplay.winner == Some(self.player.index) {
+            self.depot.aesthetics.theme.selection
         } else if !self.active {
             hex_color!("#444444")
         } else {
-            ctx.player_colors[self.player.index].darken().darken()
+            self.depot.aesthetics.player_colors[self.player.index]
+                .darken()
+                .darken()
         }
     }
 
@@ -99,7 +91,7 @@ impl<'a> TimerUI<'a> {
     fn calculate_time(&mut self) -> String {
         match self.player.turn_starts_at {
             Some(next_turn) => {
-                let now = self.current_time.as_secs();
+                let now = self.depot.timing.current_time.as_secs();
                 let elapsed = now.checked_sub(next_turn);
                 if let Some(elapsed) = elapsed {
                     if let Some(time) = self.player.time_remaining {
@@ -129,7 +121,7 @@ impl<'a> TimerUI<'a> {
     }
 
     fn calculate_byline(&mut self) -> String {
-        match self.winner {
+        match self.depot.gameplay.winner {
             Some(player) if player == self.player.index => {
                 return "Victorious".into();
             }
@@ -141,7 +133,7 @@ impl<'a> TimerUI<'a> {
 
         match self.player.turn_starts_at {
             Some(next_turn) => {
-                let now = self.current_time.as_secs();
+                let now = self.depot.timing.current_time.as_secs();
                 let elapsed = now.checked_sub(next_turn);
                 if elapsed.is_some() {
                     if self.friend {
@@ -161,10 +153,10 @@ impl<'a> TimerUI<'a> {
     }
 
     /// Renders everything within our timer frame
-    pub fn render_inner(&mut self, ui: &mut egui::Ui, theme: &Theme, ctx: &mut GameCtx) {
+    pub fn render_inner(&mut self, ui: &mut egui::Ui) {
         let (bar_h, font_z, font_z_small) = (10.0, 14.0, 10.0);
-        let timer_color = self.get_time_color(theme, ctx);
-        let timer_rounding = theme.rounding / 4.0;
+        let timer_color = self.get_time_color();
+        let timer_rounding = self.depot.aesthetics.theme.rounding / 4.0;
 
         // Allocate our full space up front to fill the frame
         let inner_timer_rect = ui.available_rect_before_wrap();
@@ -248,8 +240,10 @@ impl<'a> TimerUI<'a> {
                 time_division_line[0].x += time_division_width;
                 time_division_line[1].x += time_division_width;
 
-                ui.painter()
-                    .line_segment(time_division_line, Stroke::new(1.0, theme.text));
+                ui.painter().line_segment(
+                    time_division_line,
+                    Stroke::new(1.0, self.depot.aesthetics.theme.text),
+                );
             }
         }
 
@@ -299,8 +293,6 @@ impl<'a> TimerUI<'a> {
         explicit_width: Option<f32>,
         center: bool,
         ui: &mut egui::Ui,
-        theme: &Theme,
-        ctx: &mut GameCtx,
     ) -> Response {
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
@@ -319,7 +311,7 @@ impl<'a> TimerUI<'a> {
         // All layout from here should use the layout UI scoped to the timer.
         let mut ui = ui.child_ui(timer_ui_rect, Layout::top_down(Align::LEFT));
 
-        self.render_inner(&mut ui, theme, ctx);
+        self.render_inner(&mut ui);
 
         response
     }

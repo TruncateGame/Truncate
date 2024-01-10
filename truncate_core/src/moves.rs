@@ -1,14 +1,6 @@
-use std::collections::HashSet;
-
 use serde::{Deserialize, Serialize};
 
-use super::board::{Board, Coordinate, Square};
-use super::judge::{Judge, Outcome};
-use super::reporting::{BoardChange, BoardChangeAction};
-use crate::bag::TileBag;
-use crate::error::GamePlayError;
-use crate::player::Player;
-use crate::reporting::Change;
+use super::board::Coordinate;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Move {
@@ -60,11 +52,14 @@ impl PartialEq for Move {
 
 #[cfg(test)]
 mod tests {
-    use time::Duration;
-
-    use crate::board::{tests as BoardUtils, Direction};
+    use crate::bag::TileBag;
+    use crate::board::{Board, Coordinate, Square};
+    use crate::error::GamePlayError;
     use crate::game::Game;
+    use crate::judge::Judge;
+    use crate::player::Player;
     use crate::reporting::*;
+    use crate::reporting::{BoardChange, BoardChangeAction};
 
     use super::super::bag::tests as TileUtils;
     use super::*;

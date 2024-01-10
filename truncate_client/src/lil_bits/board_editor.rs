@@ -1,4 +1,4 @@
-use epaint::{emath::Align, vec2, Color32, TextureHandle, Vec2};
+use epaint::{emath::Align, vec2, Color32, Rect, TextureHandle, Vec2};
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -9,6 +9,7 @@ use eframe::egui::{self, Id, Layout, Margin, RichText, Sense};
 use crate::{
     regions::lobby::BoardEditingMode,
     utils::{
+        depot::AestheticDepot,
         mapper::MappedBoard,
         tex::{render_tex_quads, Tex, TexQuad},
         text::TextHelper,
@@ -73,7 +74,7 @@ impl<'a> EditorUI<'a> {
         }
 
         let button_frame = egui::Frame::none().inner_margin(Margin::same(20.0));
-        let resp = button_frame.show(ui, |ui| {
+        button_frame.show(ui, |ui| {
             ui.style_mut().spacing.item_spacing = Vec2::splat(6.0);
 
             let tiled_button = |quads: Vec<TexQuad>, ui: &mut egui::Ui| {
@@ -106,7 +107,14 @@ impl<'a> EditorUI<'a> {
                 .clicked()
             {
                 self.board.grow();
-                self.mapped_board.remap(&self.board, &self.player_colors, 0);
+                let aesthetics = AestheticDepot {
+                    theme: theme.clone(),
+                    qs_tick: 0,
+                    map_texture: map_texture.clone(),
+                    player_colors: self.player_colors.clone(),
+                };
+                self.mapped_board
+                    .remap_texture(ui.ctx(), &aesthetics, None, None, &self.board);
                 msg = Some(PlayerMessage::EditBoard(self.board.clone()));
             }
 
@@ -160,6 +168,15 @@ impl<'a> EditorUI<'a> {
 
             let mut modify_pos = None;
             outer_frame.show(ui, |ui| {
+                let dest = Rect::from_min_size(
+                    ui.next_widget_position(),
+                    vec2(
+                        self.board.width() as f32 * theme.grid_size,
+                        self.board.height() as f32 * theme.grid_size,
+                    ),
+                );
+                self.mapped_board.render_to_rect(dest, ui);
+
                 for (rownum, row) in self.board.squares.iter().enumerate() {
                     ui.horizontal(|ui| {
                         for (colnum, square) in row.iter().enumerate() {
@@ -176,10 +193,10 @@ impl<'a> EditorUI<'a> {
                                 editing_mode = BoardEditingMode::None;
                             }
 
-                            let response = EditorSquareUI::new(coord)
+                            let response = EditorSquareUI::new()
                                 .square(square.clone())
                                 .action(editing_mode.clone())
-                                .render(ui, &theme, self.mapped_board, &map_texture);
+                                .render(ui, &theme, &map_texture);
 
                             if matches!(editing_mode, BoardEditingMode::None) {
                                 continue;

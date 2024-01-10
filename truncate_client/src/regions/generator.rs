@@ -1,5 +1,5 @@
 use eframe::egui::{self, DragValue, Layout, RichText, Sense};
-use epaint::{emath::Align, hex_color, vec2, Color32, TextureHandle, Vec2};
+use epaint::{emath::Align, vec2, Color32, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     game::Game,
@@ -28,10 +28,11 @@ pub struct GeneratorState {
 }
 
 impl GeneratorState {
-    pub fn new(map_texture: TextureHandle, theme: Theme) -> Self {
+    pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: Theme) -> Self {
         let mut game = Game::new(10, 10, None);
         game.add_player("p1".into());
         let mut active_game = ActiveGame::new(
+            ctx,
             "TARGET".into(),
             None,
             game.players.iter().map(Into::into).collect(),
@@ -42,10 +43,10 @@ impl GeneratorState {
             map_texture.clone(),
             theme.clone(),
         );
-        active_game.ctx.header_visible = HeaderType::None;
-        active_game.ctx.hand_visible = false;
-        active_game.ctx.sidebar_visible = false;
-        active_game.ctx.interactive = false;
+        active_game.depot.ui_state.game_header = HeaderType::None;
+        active_game.depot.ui_state.hand_hidden = true;
+        active_game.depot.ui_state.sidebar_hidden = true;
+        active_game.depot.interactions.view_only = true;
 
         Self {
             active_game,
@@ -244,10 +245,12 @@ impl GeneratorState {
         };
         self.active_game.board = board.clone();
         self.active_game.board.cache_special_squares();
-        self.active_game.mapped_board.remap(
+        self.active_game.mapped_board.remap_texture(
+            &ui.ctx(),
+            &self.active_game.depot.aesthetics,
+            None,
+            None,
             &self.active_game.board,
-            &self.active_game.ctx.player_colors,
-            0,
         );
 
         if generation_failed {
@@ -272,7 +275,6 @@ impl GeneratorState {
         );
         let mut game_ui = ui.child_ui(game_rect, Layout::left_to_right(Align::TOP));
 
-        self.active_game
-            .render(&mut game_ui, theme, None, current_time, None, None);
+        self.active_game.render(&mut game_ui, current_time, None);
     }
 }

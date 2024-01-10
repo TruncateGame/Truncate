@@ -4,13 +4,12 @@ use std::{
 };
 
 use crate::{
-    board::{self, Board, BoardDistances, Coordinate, Square},
+    board::{BoardDistances, Coordinate, Square},
     game::Game,
     judge::WordDict,
     messages::PlayerMessage,
     moves::Move,
     player::Hand,
-    reporting::{BoardChange, Change},
 };
 
 pub mod scoring;
@@ -42,6 +41,8 @@ impl Arborist {
         self.cap = cap;
     }
 
+    /// Useful for testing, dead in production code
+    #[allow(dead_code)]
     fn exhaustive() -> Self {
         Self {
             assessed: 0,
@@ -586,12 +587,7 @@ impl Game {
 mod tests {
     use super::*;
 
-    use crate::{
-        bag::TileBag,
-        board::Board,
-        judge::{Judge, WordData},
-        player::Player,
-    };
+    use crate::{bag::TileBag, board::Board, judge::WordData, player::Player};
 
     pub static TESTING_DICT: &str = include_str!("../../../word_freqs/final_wordlist.txt");
 

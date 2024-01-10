@@ -1,6 +1,5 @@
 use std::sync::{Mutex, MutexGuard};
 
-use instant::Duration;
 use truncate_core::{
     game::Game,
     judge::{WordData, WordDict},
@@ -100,7 +99,7 @@ pub fn best_move(game: &Game, weights: &BoardWeights) -> PlayerMessage {
     arb.capped(15000);
     let search_depth = 12;
 
-    let (best_move, score) = truncate_core::game::Game::best_move(
+    let (best_move, _score) = truncate_core::game::Game::best_move(
         game,
         npc_known_dict.as_ref(),
         player_known_dict.as_ref(),

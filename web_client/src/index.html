@@ -611,9 +611,9 @@
 
             const TILES = JSON.parse(`{{ tiles | json }}`);
             const TILEPACKS = {
-                GRASSES: [TILES.GRASS1, TILES.GRASS2, TILES.GRASS3, TILES.GRASS4],
-                HOUSES: [[TILES.HOUSE1, TILES.ROOF1], [TILES.HOUSE2, TILES.ROOF2], [TILES.HOUSE3, TILES.ROOF3], [TILES.HOUSE4, TILES.ROOF4]],
-                DECOR: [[TILES.PLANTER1, TILES.PLANTER1_COLOR], [TILES.PLANTER2, TILES.PLANTER2_COLOR], [TILES.BUSH, TILES.BUSH_COLOR], [TILES.WHEAT, TILES.NONE], [TILES.WELL, TILES.NONE]],
+                GRASSES: [TILES.BASE_GRASS, TILES.GRASS_0_WIND_0, TILES.GRASS_1_WIND_0, TILES.GRASS_2_WIND_0],
+                HOUSES: [[TILES.HOUSE_0, TILES.ROOF_0], [TILES.HOUSE_1, TILES.ROOF_1], [TILES.HOUSE_2, TILES.ROOF_2], [TILES.HOUSE_3, TILES.ROOF_3]],
+                DECOR: [[TILES.BUSH_0, TILES.BUSH_FLOWERS_0], [TILES.BUSH_1, TILES.BUSH_FLOWERS_1], [TILES.BUSH_2, TILES.BUSH_FLOWERS_2], [TILES.WHEAT, TILES.NONE], [TILES.WELL, TILES.NONE]],
             }
 
             const canvas = document.getElementById("splash");
@@ -775,11 +775,11 @@
                     const tiles = name.split('');
                     for (let c = 0; c < name.length * 2; c += 2) {
                         paint.tiles([
-                            [TILES.GRASS1, TILES.GRASS1],
-                            [TILES.GRASS1, TILES.GRASS1]
+                            [TILES.BASE_GRASS, TILES.BASE_GRASS],
+                            [TILES.BASE_GRASS, TILES.BASE_GRASS]
                         ], x + c * output_size, y);
 
-                        paint.tiles([[TILES.TILE_NW, TILES.TILE_NE], [TILES.TILE_SE, TILES.TILE_SW]], x + c * output_size, y);
+                        paint.tiles(TILES.QUAD.GAME_PIECE, x + c * output_size, y);
 
                         const tile = tiles.shift();
                         const metric = ctx.measureText(tile);
@@ -821,66 +821,42 @@
                     if (seed > dock_neg_threshold) return;
 
                     if (neighbors[1]) {
-                        paint.tiles([
-                            [TILES.DOCK_SOUTH_NW, TILES.DOCK_SOUTH_NE],
-                            [TILES.DOCK_SOUTH_SW, TILES.DOCK_SOUTH_SE]
-                        ], x, y);
-                        paint.tiles([
-                            [TILES.SAIL_SOUTH_NW, TILES.SAIL_SOUTH_NE],
-                            [TILES.SAIL_SOUTH_SW, TILES.SAIL_SOUTH_SE]
-                        ], x, y, pick.color(seed));
+                        paint.tiles(TILES.QUAD.SOUTH_DOCK, x, y);
+                        paint.tiles(TILES.QUAD.SOUTH_DOCK_SAIL_WIND_0, x, y, pick.color(seed));
                     } else if (neighbors[5]) {
-                        paint.tiles([
-                            [TILES.DOCK_NORTH_NW, TILES.DOCK_NORTH_NE],
-                            [TILES.DOCK_NORTH_SW, TILES.DOCK_NORTH_SE]
-                        ], x, y);
-                        paint.tiles([
-                            [TILES.SAIL_NORTH_NW, TILES.SAIL_NORTH_NE],
-                            [TILES.SAIL_NORTH_SW, TILES.SAIL_NORTH_SE]
-                        ], x, y, pick.color(seed));
+                        paint.tiles(TILES.QUAD.NORTH_DOCK, x, y);
+                        paint.tiles(TILES.QUAD.NORTH_DOCK_SAIL_WIND_0, x, y, pick.color(seed));
                     } else if (neighbors[3]) {
-                        paint.tiles([
-                            [TILES.DOCK_WEST_NW, TILES.DOCK_WEST_NE],
-                            [TILES.DOCK_WEST_SW, TILES.DOCK_WEST_SE]
-                        ], x, y);
-                        paint.tiles([
-                            [TILES.SAIL_WEST_NW, TILES.SAIL_WEST_NE],
-                            [TILES.SAIL_WEST_SW, TILES.SAIL_WEST_SE]
-                        ], x, y, pick.color(seed));
+                        paint.tiles(TILES.QUAD.WEST_DOCK, x, y);
+                        paint.tiles(TILES.QUAD.WEST_DOCK_SAIL_WIND_0, x, y, pick.color(seed));
                     } else if (neighbors[7]) {
-                        paint.tiles([
-                            [TILES.DOCK_EAST_NW, TILES.DOCK_EAST_NE],
-                            [TILES.DOCK_EAST_SW, TILES.DOCK_EAST_SE]
-                        ], x, y);
-                        paint.tiles([
-                            [TILES.SAIL_EAST_NW, TILES.SAIL_EAST_NE],
-                            [TILES.SAIL_EAST_SW, TILES.SAIL_EAST_SE]
-                        ], x, y, pick.color(seed));
+                        paint.tiles(TILES.QUAD.EAST_DOCK, x, y);
+                        paint.tiles(TILES.QUAD.EAST_DOCK_SAIL_WIND_0, x, y, pick.color(seed));
                     }
                 },
                 water_nw: (x, y, w, nw, n) => {
-                    if (w && n) paint.tile(TILES.WATER_NW, x, y);
-                    else if (w) paint.tile(TILES.WATER_W, x, y);
-                    else if (n) paint.tile(TILES.WATER_N, x, y);
-                    else if (nw) paint.tile(TILES.WATER_N_W, x, y);
+                    if (w && n) paint.tile(TILES.LAND_WITH_WATER_SE, x, y);
+                    else if (w) paint.tile(TILES.WATER_WITH_LAND_W, x, y);
+                    else if (n) paint.tile(TILES.WATER_WITH_LAND_N, x, y);
+                    else if (nw) paint.tile(TILES.WATER_WITH_LAND_NW, x, y);
                 },
                 water_ne: (x, y, n, ne, e) => {
-                    if (n && e) paint.tile(TILES.WATER_NE, x, y);
-                    else if (n) paint.tile(TILES.WATER_N, x, y);
-                    else if (e) paint.tile(TILES.WATER_E, x, y);
-                    else if (ne) paint.tile(TILES.WATER_N_E, x, y);
+                    if (n && e) paint.tile(TILES.LAND_WITH_WATER_SW, x, y);
+                    else if (n) paint.tile(TILES.WATER_WITH_LAND_N, x, y);
+                    else if (e) paint.tile(TILES.WATER_WITH_LAND_E, x, y);
+                    else if (ne) paint.tile(TILES.WATER_WITH_LAND_NE, x, y);
                 },
                 water_se: (neighbors, x, y, e, se, s) => {
-                    if (e && s) paint.tile(TILES.WATER_SE, x, y);
-                    else if (e) paint.tile(TILES.WATER_E, x, y);
-                    else if (s) paint.tile(TILES.WATER_S, x, y);
-                    else if (se) paint.tile(TILES.WATER_S_E, x, y);
+                    if (e && s) paint.tile(TILES.LAND_WITH_WATER_NW, x, y);
+                    else if (e) paint.tile(TILES.WATER_WITH_LAND_E, x, y);
+                    else if (s) paint.tile(TILES.WATER_WITH_LAND_S, x, y);
+                    else if (se) paint.tile(TILES.WATER_WITH_LAND_SE, x, y);
                 },
                 water_sw: (x, y, s, sw, w) => {
-                    if (s && w) paint.tile(TILES.WATER_SW, x, y);
-                    else if (s) paint.tile(TILES.WATER_S, x, y);
-                    else if (w) paint.tile(TILES.WATER_W, x, y);
-                    else if (sw) paint.tile(TILES.WATER_S_W, x, y);
+                    if (s && w) paint.tile(TILES.LAND_WITH_WATER_NE, x, y);
+                    else if (s) paint.tile(TILES.WATER_WITH_LAND_S, x, y);
+                    else if (w) paint.tile(TILES.WATER_WITH_LAND_W, x, y);
+                    else if (sw) paint.tile(TILES.WATER_WITH_LAND_SW, x, y);
                 },
             };
 

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    collections::{BinaryHeap, HashSet, VecDeque},
     hash::Hash,
     ops::Div,
 };
@@ -8,7 +8,7 @@ use noise::{NoiseFn, Simplex};
 use oorandom::Rand32;
 
 use crate::{
-    board::{self, Board, Coordinate, Square},
+    board::{Board, Coordinate, Square},
     game::Game,
 };
 

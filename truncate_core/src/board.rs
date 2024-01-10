@@ -1,14 +1,14 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
+use std::fmt;
 use std::slice::Iter;
-use std::{fmt, iter};
 
 use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
 use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::reporting::Change;
-use crate::{player, rules};
+use crate::rules;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -1757,7 +1757,6 @@ pub mod tests {
         );
 
         let dists = board.flood_fill_attacks(0);
-        let width = board.width();
 
         assert_eq!(
             dists.attackable_distance(&Coordinate { x: 0, y: 1 }),
