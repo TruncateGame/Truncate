@@ -290,10 +290,6 @@ impl eframe::App for OuterApplication {
             .duration_since(instant::SystemTime::UNIX_EPOCH)
             .expect("Please don't play Truncate earlier than 1970");
 
-        println!("Painting at {}", current_time.subsec_millis());
-        #[cfg(target_arch = "wasm32")]
-        web_sys::console::log_1(&format!("Painting at {}", current_time.subsec_millis()).into());
-
         egui::CentralPanel::default()
             .frame(Frame::default().fill(self.theme.water))
             .show(ctx, |ui| app_inner::render(self, ui, current_time));

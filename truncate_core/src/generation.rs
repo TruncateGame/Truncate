@@ -306,6 +306,7 @@ pub fn generate_board(
         .collect();
 
     for (i, pt) in shortest_attack_path.iter().enumerate() {
+        // Avoid processing the tiles closest to each players dock
         if i < minimum_choke || i >= shortest_attack_path.len() - minimum_choke {
             continue;
         }
@@ -318,14 +319,15 @@ pub fn generate_board(
             .unwrap();
         if choke_distance < minimum_choke {
             let mid = (minimum_choke / 2) as isize;
-            for x in -mid..(minimum_choke as isize - mid) {
-                for y in -mid..(minimum_choke as isize - mid) {
+            for x in (-mid)..(minimum_choke as isize - mid) {
+                for y in (-mid)..(minimum_choke as isize - mid) {
                     let c = Coordinate {
-                        x: pt.x + x as usize,
-                        y: pt.y + y as usize,
+                        x: pt.x.saturating_add_signed(x),
+                        y: pt.y.saturating_add_signed(y),
                     };
 
-                    if c.x == 0 || c.y == 0 || c.x == board.width() - 1 || c.y == board.height() - 1
+                    println!("%% {x},{y} = {c} (from {pt})");
+                    if c.x == 0 || c.y == 0 || c.x >= board.width() - 1 || c.y >= board.height() - 1
                     {
                         // Don't touch the outer rim of the board.
                         continue;

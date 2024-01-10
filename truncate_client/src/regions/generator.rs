@@ -78,7 +78,7 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.seed)
                         .clamp_range(1..=10000)
-                        .speed(1),
+                        .speed(0.05),
                 );
                 if r.changed() {
                     changed = true;
@@ -97,7 +97,7 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.width)
                         .clamp_range(4..=100)
-                        .speed(1),
+                        .speed(0.05),
                 );
                 if r.changed() {
                     changed = true;
@@ -108,7 +108,7 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.height)
                         .clamp_range(4..=100)
-                        .speed(1),
+                        .speed(0.05),
                 );
                 if r.changed() {
                     changed = true;
@@ -119,7 +119,7 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.land_slop)
                         .clamp_range(0..=100)
-                        .speed(1),
+                        .speed(0.05),
                 );
                 if r.changed() {
                     changed = true;
@@ -141,7 +141,7 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.dispersion)
                         .clamp_range(0.0..=100.0)
-                        .speed(0.001),
+                        .speed(0.01),
                 );
                 if r.changed() {
                     changed = true;
@@ -185,7 +185,7 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.minimum_choke)
                         .clamp_range(1..=100)
-                        .speed(1),
+                        .speed(0.05),
                 );
                 if r.changed() {
                     changed = true;

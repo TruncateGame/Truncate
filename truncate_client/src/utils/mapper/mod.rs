@@ -28,6 +28,7 @@ struct ResolvedTextureLayers {
     terrain: TextureHandle,
     structures: TextureHandle,
     pieces: TextureHandle,
+    fog: TextureHandle,
 }
 
 impl ResolvedTextureLayers {
@@ -49,6 +50,11 @@ impl ResolvedTextureLayers {
             ),
             pieces: ctx.load_texture(
                 format!("board_layer_pieces"),
+                layer_base.clone(),
+                egui::TextureOptions::NEAREST,
+            ),
+            fog: ctx.load_texture(
+                format!("board_layer_fog"),
                 layer_base.clone(),
                 egui::TextureOptions::NEAREST,
             ),
@@ -217,7 +223,12 @@ impl MappedBoard {
 
         let neighbor_base_types: Vec<_> = neighbor_squares
             .iter()
-            .map(|square| square.as_ref().map(Into::into).unwrap_or(BGTexType::Water))
+            .map(|square| {
+                square
+                    .as_ref()
+                    .map(Into::into)
+                    .unwrap_or(BGTexType::WaterOrFog)
+            })
             .collect();
 
         let tile_base_type = BGTexType::from(square);
@@ -368,7 +379,6 @@ impl MappedBoard {
         ];
 
         let paint_quad = |quad: [Tex; 4], canvas: &mut TextureHandle| {
-            println!("Painting some concrete image pixels to a texture canvas");
             for (tex, sub_loc) in quad.into_iter().zip(
                 [
                     [0, 0],
@@ -454,6 +464,14 @@ impl MappedBoard {
                     target,
                     egui::TextureOptions::NEAREST,
                 );
+            }
+        }
+
+        if cached.fog != layers.fog {
+            if cached.fog.is_some() && layers.fog.is_none() {
+                erase(&mut resolved_textures.fog);
+            } else if let Some(fog) = layers.fog {
+                paint_quad(fog, &mut resolved_textures.fog);
             }
         }
 

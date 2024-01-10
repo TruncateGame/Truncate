@@ -308,7 +308,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         }
         GameStatus::Generator(generator) => {
-            generator.render(ui, current_time);
+            generator.render(ui, theme, current_time);
         }
         GameStatus::Tutorial(tutorial) => {
             tutorial.render(ui, theme, current_time);

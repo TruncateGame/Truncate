@@ -31,6 +31,7 @@ pub struct TexLayers {
     pub terrain: Option<TexQuad>,
     pub structures: Option<TexQuad>,
     pub pieces: Vec<PieceLayer>,
+    pub fog: Option<TexQuad>,
 }
 
 impl TexLayers {
@@ -41,6 +42,11 @@ impl TexLayers {
 
     fn with_structures(mut self, quad: TexQuad) -> Self {
         self.structures = Some(quad);
+        self
+    }
+
+    fn with_fog(mut self, quad: TexQuad) -> Self {
+        self.fog = Some(quad);
         self
     }
 
@@ -66,17 +72,15 @@ impl TexLayers {
 #[derive(Debug, Copy, Clone)]
 pub enum BGTexType {
     Land,
-    Water,
+    WaterOrFog,
 }
 
 impl From<&Square> for BGTexType {
     fn from(sq: &Square) -> Self {
+        use truncate_core::board::Square::*;
         match sq {
-            truncate_core::board::Square::Water => Self::Water,
-            truncate_core::board::Square::Land => Self::Land,
-            truncate_core::board::Square::Town { .. } => Self::Land,
-            truncate_core::board::Square::Dock(_) => Self::Water,
-            truncate_core::board::Square::Occupied(_, _) => Self::Land,
+            Water | Fog | Dock(_) => Self::WaterOrFog,
+            Land | Town { .. } | Occupied(_, _) => Self::Land,
         }
     }
 }
@@ -86,12 +90,14 @@ pub enum FGTexType {
     None,
     Town(Color32),
     Dock(Color32),
+    Fog,
 }
 
 impl From<(&Square, &Vec<Color32>)> for FGTexType {
     fn from((sq, player_colors): (&Square, &Vec<Color32>)) -> Self {
         match sq {
             Square::Water => Self::None,
+            Square::Fog => Self::Fog,
             Square::Land => Self::None,
             Square::Town { player, .. } => {
                 Self::Town(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
@@ -549,6 +555,10 @@ impl Tex {
             return TexLayers::default().with_terrain([tiles::DEBUG; 4]);
         }
 
+        if matches!(layer_type, FGTexType::Fog) {
+            return TexLayers::default().with_fog([tiles::DEBUG; 4]);
+        }
+
         let grasses = match wind_at_coord {
             calm!() => [
                 tiles::BASE_GRASS,
@@ -586,45 +596,45 @@ impl Tex {
         use BGTexType::*;
         let top_left = match base_type {
             Land => rand_grass(seed),
-            Water => match (neighbors[7], neighbors[0], neighbors[1]) {
-                (Land, Land | Water, Land) => tiles::LAND_WITH_WATER_SE,
-                (Land, Land | Water, Water) => tiles::WATER_WITH_LAND_W,
-                (Water, Land | Water, Land) => tiles::WATER_WITH_LAND_N,
-                (Water, Land, Water) => tiles::WATER_WITH_LAND_NW,
-                (Water, Water, Water) => tiles::BASE_WATER,
+            WaterOrFog => match (neighbors[7], neighbors[0], neighbors[1]) {
+                (Land, Land | WaterOrFog, Land) => tiles::LAND_WITH_WATER_SE,
+                (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_W,
+                (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_N,
+                (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_NW,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
             },
         };
 
         let top_right = match base_type {
             Land => rand_grass(seed + 1),
-            Water => match (neighbors[1], neighbors[2], neighbors[3]) {
-                (Land, Land | Water, Land) => tiles::LAND_WITH_WATER_SW,
-                (Land, Land | Water, Water) => tiles::WATER_WITH_LAND_N,
-                (Water, Land | Water, Land) => tiles::WATER_WITH_LAND_E,
-                (Water, Land, Water) => tiles::WATER_WITH_LAND_NE,
-                (Water, Water, Water) => tiles::BASE_WATER,
+            WaterOrFog => match (neighbors[1], neighbors[2], neighbors[3]) {
+                (Land, Land | WaterOrFog, Land) => tiles::LAND_WITH_WATER_SW,
+                (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_N,
+                (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_E,
+                (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_NE,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
             },
         };
 
         let bottom_right = match base_type {
             Land => rand_grass(seed + 2),
-            Water => match (neighbors[3], neighbors[4], neighbors[5]) {
-                (Land, Land | Water, Land) => tiles::LAND_WITH_WATER_NW,
-                (Land, Land | Water, Water) => tiles::WATER_WITH_LAND_E,
-                (Water, Land | Water, Land) => tiles::WATER_WITH_LAND_S,
-                (Water, Land, Water) => tiles::WATER_WITH_LAND_SE,
-                (Water, Water, Water) => tiles::BASE_WATER,
+            WaterOrFog => match (neighbors[3], neighbors[4], neighbors[5]) {
+                (Land, Land | WaterOrFog, Land) => tiles::LAND_WITH_WATER_NW,
+                (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_E,
+                (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_S,
+                (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_SE,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
             },
         };
 
         let bottom_left = match base_type {
             Land => rand_grass(seed + 3),
-            Water => match (neighbors[5], neighbors[6], neighbors[7]) {
-                (Land, Land | Water, Land) => tiles::LAND_WITH_WATER_NE,
-                (Land, Land | Water, Water) => tiles::WATER_WITH_LAND_S,
-                (Water, Land | Water, Land) => tiles::WATER_WITH_LAND_W,
-                (Water, Land, Water) => tiles::WATER_WITH_LAND_SW,
-                (Water, Water, Water) => tiles::BASE_WATER,
+            WaterOrFog => match (neighbors[5], neighbors[6], neighbors[7]) {
+                (Land, Land | WaterOrFog, Land) => tiles::LAND_WITH_WATER_NE,
+                (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_S,
+                (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_W,
+                (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_SW,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
             },
         };
 
@@ -638,6 +648,7 @@ impl Tex {
             FGTexType::Dock(color) => {
                 layers = layers.merge(Tex::dock(color, neighbors, wind_at_coord))
             }
+            FGTexType::Fog => unreachable!(),
             FGTexType::None => {}
         }
 
