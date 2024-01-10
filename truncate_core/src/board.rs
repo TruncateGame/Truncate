@@ -706,7 +706,6 @@ impl Board {
         starting_pos: &Coordinate,
         ending_pos: &Coordinate,
     ) -> Option<Vec<Coordinate>> {
-        // Using BoardDistances here as a visited map — the distances themselves are unused.
         let mut distances = BoardDistances::new(self);
         distances.set_direct(starting_pos, 0);
 
@@ -722,12 +721,20 @@ impl Board {
 
             path.push(pt);
 
-            // Move on if we have ever visited this point,
-            // as this is a pure BFS.
-            if distances.direct_distance(&pt).is_some() {
-                continue;
+            match distances.direct_distance_mut(&pt) {
+                Some(Some(visited_dist)) => {
+                    if *visited_dist > path.len() {
+                        // We have now found a better path to this point, so we will reprocess it
+                        *visited_dist = path.len();
+                    } else {
+                        // We have previously found a better (or equal) path to this point, move to the next
+                        continue;
+                    }
+                }
+                _ => {
+                    distances.set_direct(&pt, path.len());
+                }
             }
-            distances.set_direct(&pt, 0); // distance unused.
 
             match self.get(pt) {
                 Ok(Square::Land) => {
@@ -1384,6 +1391,26 @@ impl BoardDistances {
             attackable: diff_attackable,
             direct: diff_direct,
         }
+    }
+
+    pub fn iter_attackable(&self) -> impl Iterator<Item = (Coordinate, usize)> + '_ {
+        self.attackable.iter().enumerate().flat_map(|(idx, dist)| {
+            if let Some(dist) = dist {
+                Some((Coordinate::from_1d(idx, self.board_width), *dist))
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn iter_direct(&self) -> impl Iterator<Item = (Coordinate, usize)> + '_ {
+        self.direct.iter().enumerate().flat_map(|(idx, dist)| {
+            if let Some(dist) = dist {
+                Some((Coordinate::from_1d(idx, self.board_width), *dist))
+            } else {
+                None
+            }
+        })
     }
 }
 

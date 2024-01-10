@@ -3,7 +3,7 @@ use epaint::{emath::Align, vec2, Color32, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     game::Game,
-    generation::{self, generate_board, BoardGenerationResult, BoardParams, BoardSeed, BoardType},
+    generation::{self, generate_board, BoardGenerationResult, BoardParams, BoardSeed},
 };
 
 use crate::utils::{Lighten, Theme};
@@ -18,11 +18,10 @@ pub struct GeneratorState {
     height: usize,
     water_level: f64,
     dispersion: f64,
-    town_density: f64,
-    jitter: f64,
-    town_jitter: f64,
+    maximum_town_density: f64,
+    maximum_town_distance: f64,
+    island_influence: f64,
     minimum_choke: usize,
-    board_type: BoardType,
     generation_result: Option<Result<BoardGenerationResult, BoardGenerationResult>>,
 }
 
@@ -55,11 +54,10 @@ impl GeneratorState {
             height: 30,
             water_level: 0.5,
             dispersion: 10.0,
-            town_density: 0.5,
-            jitter: 0.25,
-            town_jitter: 0.5,
+            maximum_town_density: 0.2,
+            maximum_town_distance: 0.2,
+            island_influence: 0.25,
             minimum_choke: 4,
-            board_type: BoardType::Island,
             generation_result: None,
         }
     }
@@ -135,9 +133,9 @@ impl GeneratorState {
                 }
                 ui.end_row();
 
-                ui.label(RichText::new("Towns").color(Color32::WHITE));
+                ui.label(RichText::new("Town Density").color(Color32::WHITE));
                 let r = ui.add(
-                    DragValue::new(&mut self.town_density)
+                    DragValue::new(&mut self.maximum_town_density)
                         .clamp_range(0.0..=1.0)
                         .speed(0.001),
                 );
@@ -146,9 +144,9 @@ impl GeneratorState {
                 }
                 ui.end_row();
 
-                ui.label(RichText::new("Land Jitter").color(Color32::WHITE));
+                ui.label(RichText::new("Town Distance").color(Color32::WHITE));
                 let r = ui.add(
-                    DragValue::new(&mut self.jitter)
+                    DragValue::new(&mut self.maximum_town_distance)
                         .clamp_range(0.0..=1.0)
                         .speed(0.001),
                 );
@@ -157,9 +155,9 @@ impl GeneratorState {
                 }
                 ui.end_row();
 
-                ui.label(RichText::new("Town Jitter").color(Color32::WHITE));
+                ui.label(RichText::new("Island Influence").color(Color32::WHITE));
                 let r = ui.add(
-                    DragValue::new(&mut self.town_jitter)
+                    DragValue::new(&mut self.island_influence)
                         .clamp_range(0.0..=1.0)
                         .speed(0.001),
                 );
@@ -175,16 +173,6 @@ impl GeneratorState {
                         .speed(0.05),
                 );
                 if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
-
-                ui.label(RichText::new("Board Type").color(Color32::WHITE));
-                if ui.button(format!("{:?}", self.board_type)).clicked() {
-                    self.board_type = match self.board_type {
-                        BoardType::Island => BoardType::Continental,
-                        BoardType::Continental => BoardType::Island,
-                    };
                     changed = true;
                 }
                 ui.end_row();
@@ -209,11 +197,10 @@ impl GeneratorState {
                     ideal_land_dimensions: [self.width, self.height],
                     water_level: self.water_level,
                     dispersion: [self.dispersion, self.dispersion],
-                    town_density: self.town_density,
-                    jitter: self.jitter,
-                    town_jitter: self.town_jitter,
+                    maximum_town_density: self.maximum_town_density,
+                    maximum_town_distance: self.maximum_town_distance,
+                    island_influence: self.island_influence,
                     minimum_choke: self.minimum_choke,
-                    board_type: self.board_type,
                 },
             }));
         }
