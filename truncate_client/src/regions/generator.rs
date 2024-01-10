@@ -16,7 +16,6 @@ pub struct GeneratorState {
     infinite: bool,
     width: usize,
     height: usize,
-    water_level: f64,
     dispersion: f64,
     maximum_town_density: f64,
     maximum_town_distance: f64,
@@ -52,7 +51,6 @@ impl GeneratorState {
             infinite: false,
             width: 30,
             height: 30,
-            water_level: 0.5,
             dispersion: 10.0,
             maximum_town_density: 0.2,
             maximum_town_distance: 0.2,
@@ -111,17 +109,6 @@ impl GeneratorState {
                 }
                 ui.end_row();
 
-                ui.label(RichText::new("Water").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.water_level)
-                        .clamp_range(0.0..=1.0)
-                        .speed(0.001),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
-
                 ui.label(RichText::new("Dispersion").color(Color32::WHITE));
                 let r = ui.add(
                     DragValue::new(&mut self.dispersion)
@@ -137,7 +124,7 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.maximum_town_density)
                         .clamp_range(0.0..=1.0)
-                        .speed(0.001),
+                        .speed(0.005),
                 );
                 if r.changed() {
                     changed = true;
@@ -148,7 +135,7 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.maximum_town_distance)
                         .clamp_range(0.0..=1.0)
-                        .speed(0.001),
+                        .speed(0.005),
                 );
                 if r.changed() {
                     changed = true;
@@ -159,7 +146,7 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.island_influence)
                         .clamp_range(0.0..=1.0)
-                        .speed(0.001),
+                        .speed(0.005),
                 );
                 if r.changed() {
                     changed = true;
@@ -192,10 +179,10 @@ impl GeneratorState {
                 current_iteration: 0,
                 width_resize_state: None,
                 height_resize_state: None,
+                water_level: 0.5,
                 max_attempts,
                 params: BoardParams {
                     ideal_land_dimensions: [self.width, self.height],
-                    water_level: self.water_level,
                     dispersion: [self.dispersion, self.dispersion],
                     maximum_town_density: self.maximum_town_density,
                     maximum_town_distance: self.maximum_town_distance,

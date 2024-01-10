@@ -15,7 +15,6 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct BoardParams {
     pub ideal_land_dimensions: [usize; 2],
-    pub water_level: f64,
     pub dispersion: [f64; 2],
     pub island_influence: f64,
     pub maximum_town_density: f64,
@@ -28,7 +27,6 @@ pub struct BoardParams {
 // Updating an existing generation will break puzzle URLs.
 const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
     ideal_land_dimensions: [30, 30],
-    water_level: 0.004,
     dispersion: [3.0, 3.0],
     maximum_town_density: 0.2,
     maximum_town_distance: 0.4,
@@ -66,6 +64,7 @@ pub struct BoardSeed {
     pub current_iteration: usize,
     pub width_resize_state: Option<PreviousBoardResize>,
     pub height_resize_state: Option<PreviousBoardResize>,
+    pub water_level: f64,
     pub max_attempts: usize,
 }
 
@@ -80,6 +79,7 @@ impl BoardSeed {
             current_iteration: 0,
             width_resize_state: None,
             height_resize_state: None,
+            water_level: 0.5,
             max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
         }
     }
@@ -94,6 +94,7 @@ impl BoardSeed {
             current_iteration: 0,
             width_resize_state: None,
             height_resize_state: None,
+            water_level: 0.5,
             max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
         }
     }
@@ -146,11 +147,11 @@ pub fn generate_board(
         current_iteration,
         width_resize_state,
         height_resize_state,
+        water_level,
         max_attempts,
         params:
             BoardParams {
                 ideal_land_dimensions,
-                water_level,
                 dispersion,
                 maximum_town_density,
                 maximum_town_distance,
@@ -216,7 +217,7 @@ pub fn generate_board(
     if width_diff.is_negative() {
         // Avoid oscillating around the target — once we have shrunk we won't enlarge via water again
         if width_resize_state != Some(PreviousBoardResize::Shrunk) {
-            board_seed.params.water_level -= 0.01;
+            board_seed.water_level -= 0.01;
             board_seed.width_resize_state = Some(PreviousBoardResize::Enlarged);
             return generate_board(board_seed);
         } else {
@@ -233,7 +234,7 @@ pub fn generate_board(
             }
         }
     } else if width_diff.is_positive() {
-        board_seed.params.water_level += 0.005;
+        board_seed.water_level += 0.005;
         board_seed.width_resize_state = Some(PreviousBoardResize::Shrunk);
         return generate_board(board_seed);
     }
