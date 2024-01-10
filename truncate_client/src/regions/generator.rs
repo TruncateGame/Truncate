@@ -16,10 +16,13 @@ pub struct GeneratorState {
     infinite: bool,
     width: usize,
     height: usize,
+    land_slop: usize,
     water_level: f64,
+    dispersion: f64,
     town_density: f64,
     jitter: f64,
     town_jitter: f64,
+    minimum_choke: usize,
     board_type: BoardType,
     generation_result: Option<Result<BoardGenerationResult, BoardGenerationResult>>,
 }
@@ -48,12 +51,15 @@ impl GeneratorState {
             active_game,
             seed: 1234,
             infinite: false,
-            width: 14,
-            height: 16,
+            width: 10,
+            height: 10,
+            land_slop: 2,
             water_level: 0.5,
+            dispersion: 3.0,
             town_density: 0.5,
-            jitter: 0.5,
+            jitter: 0.25,
             town_jitter: 0.5,
+            minimum_choke: 4,
             board_type: BoardType::Island,
             generation_result: None,
         }
@@ -108,10 +114,32 @@ impl GeneratorState {
                 }
                 ui.end_row();
 
+                ui.label(RichText::new("Slop").color(Color32::WHITE));
+                let r = ui.add(
+                    DragValue::new(&mut self.land_slop)
+                        .clamp_range(0..=100)
+                        .speed(1),
+                );
+                if r.changed() {
+                    changed = true;
+                }
+                ui.end_row();
+
                 ui.label(RichText::new("Water").color(Color32::WHITE));
                 let r = ui.add(
                     DragValue::new(&mut self.water_level)
                         .clamp_range(0.0..=1.0)
+                        .speed(0.001),
+                );
+                if r.changed() {
+                    changed = true;
+                }
+                ui.end_row();
+
+                ui.label(RichText::new("Dispersion").color(Color32::WHITE));
+                let r = ui.add(
+                    DragValue::new(&mut self.dispersion)
+                        .clamp_range(0.0..=100.0)
                         .speed(0.001),
                 );
                 if r.changed() {
@@ -152,6 +180,17 @@ impl GeneratorState {
                 }
                 ui.end_row();
 
+                ui.label(RichText::new("Min Choke").color(Color32::WHITE));
+                let r = ui.add(
+                    DragValue::new(&mut self.minimum_choke)
+                        .clamp_range(1..=100)
+                        .speed(1),
+                );
+                if r.changed() {
+                    changed = true;
+                }
+                ui.end_row();
+
                 ui.label(RichText::new("Board Type").color(Color32::WHITE));
                 if ui.button(format!("{:?}", self.board_type)).clicked() {
                     self.board_type = match self.board_type {
@@ -174,16 +213,17 @@ impl GeneratorState {
                 seed: self.seed,
                 day: None,
                 current_iteration: 0,
+                resize_state: None,
                 max_attempts,
                 params: BoardParams {
-                    bounding_width: self.width,
-                    bounding_height: self.height,
-                    maximum_land_width: None,
-                    maximum_land_height: None,
+                    ideal_land_dimensions: [self.width, self.height],
+                    land_slop: self.land_slop,
                     water_level: self.water_level,
+                    dispersion: self.dispersion,
                     town_density: self.town_density,
                     jitter: self.jitter,
                     town_jitter: self.town_jitter,
+                    minimum_choke: self.minimum_choke,
                     board_type: self.board_type,
                 },
             }));

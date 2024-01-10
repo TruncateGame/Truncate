@@ -697,6 +697,91 @@ impl Board {
         self.flood_fill(&outermost_attacker)
     }
 
+    /// Find the shortest land path between any two points on a board.
+    /// Does NOT take into account tiles defended by either player,
+    /// so isn't strictly correct once gameplay has begun.
+    /// Returned path is exlusive of the start and end points.
+    pub fn shortest_path_between(
+        &self,
+        starting_pos: &Coordinate,
+        ending_pos: &Coordinate,
+    ) -> Option<Vec<Coordinate>> {
+        // Using BoardDistances here as a visited map — the distances themselves are unused.
+        let mut distances = BoardDistances::new(self);
+        distances.set_direct(starting_pos, 0);
+
+        let initial_neighbors = self.neighbouring_squares(*starting_pos);
+        let mut bfs_queue: VecDeque<_> = initial_neighbors.iter().map(|n| (n.0, vec![])).collect();
+
+        while !bfs_queue.is_empty() {
+            let (pt, mut path) = bfs_queue.pop_front().unwrap();
+
+            if pt == *ending_pos {
+                return Some(path);
+            }
+
+            path.push(pt);
+
+            // Move on if we have ever visited this point,
+            // as this is a pure BFS.
+            if distances.direct_distance(&pt).is_some() {
+                continue;
+            }
+            distances.set_direct(&pt, 0); // distance unused.
+
+            match self.get(pt) {
+                Ok(Square::Land) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    bfs_queue.extend(neighbors.iter().map(|n| (n.0, path.clone())));
+                }
+                _ => continue,
+            }
+        }
+
+        return None;
+    }
+
+    /// Finds the nearest non-land tile (assuming all play must happen on land).
+    /// Allows certain points on the board to be ignored, to create false deadzones.
+    pub fn distance_to_closest_obstruction(
+        &self,
+        pt: &Coordinate,
+        excluding: &Vec<Coordinate>,
+    ) -> usize {
+        // Using BoardDistances here as a visited map — the distances themselves are unused.
+        let mut distances = BoardDistances::new(self);
+
+        let mut bfs_queue = VecDeque::from([(*pt, 0)]);
+        let mut last_processed_distance = 0;
+
+        while !bfs_queue.is_empty() {
+            let (pt, dist) = bfs_queue.pop_front().unwrap();
+
+            if excluding.contains(&pt) {
+                continue;
+            }
+
+            // Move on if we have ever visited this point,
+            // as this is a pure BFS.
+            if distances.direct_distance(&pt).is_some() {
+                continue;
+            }
+            distances.set_direct(&pt, 0); // distance unused.
+            last_processed_distance = dist;
+
+            match self.get(pt) {
+                Ok(Square::Land) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    bfs_queue.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                _ => return dist, // We have hit our closest obstruction (non-land), so we can bail out now
+            }
+        }
+
+        // Unlikely, but catches if the entire board is clear land with no water
+        return last_processed_distance;
+    }
+
     pub fn get_shape(&self) -> Vec<u64> {
         let width = self.width();
         let num_buckets = Coordinate {

@@ -1,6 +1,7 @@
 use std::{
     collections::{BinaryHeap, HashMap, HashSet, VecDeque},
     hash::Hash,
+    ops::Div,
 };
 
 use noise::{NoiseFn, Simplex};
@@ -19,14 +20,14 @@ pub enum BoardType {
 
 #[derive(Debug, Clone)]
 pub struct BoardParams {
-    pub bounding_width: usize,
-    pub bounding_height: usize,
-    pub maximum_land_width: Option<usize>,
-    pub maximum_land_height: Option<usize>,
+    pub ideal_land_dimensions: [usize; 2],
+    pub land_slop: usize,
     pub water_level: f64,
+    pub dispersion: f64,
     pub town_density: f64,
     pub jitter: f64,
     pub town_jitter: f64,
+    pub minimum_choke: usize,
     pub board_type: BoardType,
 }
 
@@ -34,14 +35,14 @@ pub struct BoardParams {
 // Add a new generation number with new parameters.
 // Updating an existing generation will break puzzle URLs.
 const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
-    bounding_width: 27,
-    bounding_height: 27,
-    maximum_land_width: Some(30),
-    maximum_land_height: Some(30),
+    ideal_land_dimensions: [30, 30],
+    land_slop: 4,
     water_level: 0.004,
+    dispersion: 3.0,
     town_density: 0.2,
     jitter: 0.637,
     town_jitter: 0.36,
+    minimum_choke: 4,
     board_type: BoardType::Continental,
 }];
 
@@ -60,6 +61,12 @@ impl BoardParams {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PreviousBoardResize {
+    Enlarged,
+    Shrunk,
+}
+
 #[derive(Debug, Clone)]
 pub struct BoardSeed {
     pub generation: u32,
@@ -67,6 +74,7 @@ pub struct BoardSeed {
     pub day: Option<u32>,
     pub params: BoardParams,
     pub current_iteration: usize,
+    pub resize_state: Option<PreviousBoardResize>,
     pub max_attempts: usize,
 }
 
@@ -79,6 +87,7 @@ impl BoardSeed {
             day: None,
             params,
             current_iteration: 0,
+            resize_state: None,
             max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
         }
     }
@@ -91,6 +100,7 @@ impl BoardSeed {
             day: None,
             params,
             current_iteration: 0,
+            resize_state: None,
             max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
         }
     }
@@ -141,17 +151,18 @@ pub fn generate_board(
         seed,
         day: _,
         current_iteration,
+        resize_state,
         max_attempts,
         params:
             BoardParams {
-                bounding_width,
-                bounding_height,
-                maximum_land_width,
-                maximum_land_height,
+                ideal_land_dimensions,
+                land_slop,
                 water_level,
+                dispersion,
                 town_density,
                 jitter,
                 town_jitter,
+                minimum_choke,
                 board_type,
             },
     } = board_seed;
@@ -172,43 +183,44 @@ pub fn generate_board(
     let simplex = Simplex::new(seed);
 
     let mut board = Board::new(3, 3);
-    board.squares =
-        vec![vec![crate::board::Square::Water; bounding_width + 2]; bounding_height + 2];
+    let canvas_size = [ideal_land_dimensions[0] * 2, ideal_land_dimensions[1] * 2];
+    // Expand the canvas when creating board squares to avoid setting anything in the outermost ring
+    board.squares = vec![vec![crate::board::Square::Water; canvas_size[0] + 2]; canvas_size[1] + 2];
 
-    for i in 1..=bounding_width {
-        for j in 1..=bounding_height {
-            let ni = i as f64 / (bounding_width + 1) as f64; // normalized coordinates
-            let nj = j as f64 / (bounding_height + 1) as f64;
+    for i in 1..=canvas_size[0] {
+        for j in 1..=canvas_size[1] {
+            let ni = i as f64 / (canvas_size[0] + 1) as f64; // normalized coordinates
+            let nj = j as f64 / (canvas_size[1] + 1) as f64;
             let x = ni - 0.5; // centering the coordinates
             let y = nj - 0.5;
-            let distance_to_center = (x * x + y * y).sqrt();
 
+            let distance_to_center = (x * x + y * y).sqrt();
             let gradient = match board_type {
                 BoardType::Island => {
                     // Simple radial gradient
-                    1.0 - distance_to_center * 2.0
+                    distance_to_center
                 }
                 BoardType::Continental => {
                     // Radial gradient, extremely biased to only affect the edges
                     if distance_to_center < 0.5 {
-                        0.5
+                        0.0
                     } else {
-                        (1.0 - distance_to_center * 2.0).powf(2.0)
+                        distance_to_center.powf(2.0)
                     }
                 }
             };
 
             // Get Simplex noise value
-            let noise_value = (simplex.get([80.0 * ni, 80.0 * nj, 0.0]) + 1.0) / 2.0;
+            let noise_value = (simplex.get([ni * dispersion, nj * dispersion, 0.0]) + 1.0) / 2.0;
 
             // Combine noise and gradient
-            let value = (noise_value * jitter) + (noise_value * gradient);
+            let value = noise_value - (gradient * jitter);
 
             let is_land = match board_type {
                 BoardType::Island => value > water_level,
                 BoardType::Continental => {
                     let water_amplitude = (water_level - 0.5) * 0.05;
-                    value > 0.5 + water_amplitude
+                    noise_value > 0.5 + water_amplitude
                 }
             };
 
@@ -221,21 +233,39 @@ pub fn generate_board(
     }
 
     if board.trim_nubs().is_err() {
-        board_seed.internal_reroll();
         return retry_with(board_seed, board);
     }
 
     // Remove extraneous water
     board.trim();
-    if let Some(maximum_land_width) = maximum_land_width {
-        if board.width() > maximum_land_width + 2 {
-            return retry_with(board_seed, board);
+
+    let width_diff = board.width() as isize - (ideal_land_dimensions[0] + 2) as isize;
+    let height_diff = board.height() as isize - (ideal_land_dimensions[1] + 2) as isize;
+
+    // Raise or lower water slightly to try and hit the target island size
+    if width_diff.is_negative() || height_diff.is_negative() {
+        // Avoid oscillating around the target — once we have shrunk we won't enlarge again
+        if board_seed.resize_state != Some(PreviousBoardResize::Shrunk) {
+            board_seed.params.water_level -= 0.01;
+            board_seed.resize_state = Some(PreviousBoardResize::Enlarged);
+            return generate_board(board_seed);
         }
+    } else if width_diff.is_positive() || height_diff.is_positive() {
+        board_seed.params.water_level += 0.005;
+        board_seed.resize_state = Some(PreviousBoardResize::Shrunk);
+        return generate_board(board_seed);
     }
-    if let Some(maximum_land_height) = maximum_land_height {
-        if board.height() > maximum_land_height + 2 {
-            return retry_with(board_seed, board);
-        }
+
+    /*
+       TODO:
+       To land on the correct width we should do something that only scales the noise dispersion in the Y axis,
+       to have the effect of stretching the map vertically.
+       This will allow us to avoid rerolls for invalid dimensions....
+    */
+
+    // If our steady state landed outside tolerances, start again.
+    if width_diff.abs() > land_slop as isize || height_diff.abs() > land_slop as isize {
+        return retry_with(board_seed, board);
     }
 
     match board_type {
@@ -250,6 +280,83 @@ pub fn generate_board(
             }
         }
     }
+
+    let Some(mut shortest_attack_path) =
+        board.shortest_path_between(&board.docks[0], &board.docks[1])
+    else {
+        return retry_with(board_seed, board);
+    };
+
+    let pathy: Vec<_> = shortest_attack_path
+        .iter()
+        .map(|pt| {
+            let choke_distance = pt
+                .neighbors_8()
+                .iter()
+                .map(|n| board.distance_to_closest_obstruction(&n, &shortest_attack_path))
+                .max()
+                .unwrap();
+            let v = if choke_distance >= 10 {
+                '+'
+            } else {
+                choke_distance.to_string().chars().next().unwrap()
+            };
+            return (pt, v);
+        })
+        .collect();
+
+    for (i, pt) in shortest_attack_path.iter().enumerate() {
+        if i < minimum_choke || i >= shortest_attack_path.len() - minimum_choke {
+            continue;
+        }
+
+        let choke_distance = pt
+            .neighbors_8()
+            .iter()
+            .map(|n| board.distance_to_closest_obstruction(&n, &shortest_attack_path))
+            .max()
+            .unwrap();
+        if choke_distance < minimum_choke {
+            let mid = (minimum_choke / 2) as isize;
+            for x in -mid..(minimum_choke as isize - mid) {
+                for y in -mid..(minimum_choke as isize - mid) {
+                    let c = Coordinate {
+                        x: pt.x + x as usize,
+                        y: pt.y + y as usize,
+                    };
+
+                    if c.x == 0 || c.y == 0 || c.x == board.width() - 1 || c.y == board.height() - 1
+                    {
+                        // Don't touch the outer rim of the board.
+                        continue;
+                    }
+
+                    match board.get(c) {
+                        Ok(Square::Land | Square::Dock(_)) => {}
+                        Err(_) => {}
+                        Ok(_) => {
+                            _ = board.set_square(
+                                c,
+                                Square::Town {
+                                    player: 0,
+                                    defeated: false,
+                                },
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (pt, v) in pathy {
+        _ = board.set_square(*pt, Square::Occupied(0, v));
+    }
+
+    return Ok(BoardGenerationResult {
+        board,
+        iterations: current_iteration,
+    });
 
     if board
         .generate_towns(seed, town_density, town_jitter, board_type)
@@ -508,8 +615,11 @@ impl BoardGenerator for Board {
             .filter(|DistanceToCoord { coord, .. }| coastal_water.contains(coord))
             .collect::<BinaryHeap<_>>();
 
+        // How far away from the extremeties are we allowed to land?
+        let distance_pool = self.width().max(self.height()).div(2) as u32;
+
         let mut pt = distances.pop();
-        for _ in 0..rng.rand_range(0..6) {
+        for _ in 0..rng.rand_range(0..distance_pool) {
             pt = distances.pop().or(pt);
         }
         let Some(DistanceToCoord {
@@ -531,7 +641,7 @@ impl BoardGenerator for Board {
             .collect();
 
         let mut pt = antipodes.pop();
-        for _ in 0..rng.rand_range(0..6) {
+        for _ in 0..rng.rand_range(0..distance_pool) {
             pt = antipodes.pop().or(pt);
         }
         let Some(DistanceToCoord {
