@@ -255,10 +255,12 @@ impl MappedBoard {
             use truncate_core::reporting::BoardChangeAction;
             use Square::*;
 
-            if let Some(change) = gameplay.changes.iter().find_map(|c| match c {
+            let changes = gameplay.changes.iter().filter_map(|c| match c {
                 Change::Board(b) if b.detail.coordinate == coord => Some(b),
                 _ => None,
-            }) {
+            });
+
+            for change in changes {
                 match change.action {
                     BoardChangeAction::Added => {
                         tile_was_added = true;
