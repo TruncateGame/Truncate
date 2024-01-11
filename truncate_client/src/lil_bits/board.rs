@@ -139,7 +139,7 @@ impl<'a> BoardUI<'a> {
                                             }
 
                                             if square_response.clicked() {
-                                                if let Some(tile) =
+                                                if let Some((tile, _)) =
                                                     interactions.selected_tile_in_hand
                                                 {
                                                     msg = Some(PlayerMessage::Place(

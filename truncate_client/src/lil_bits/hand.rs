@@ -2,7 +2,7 @@ use instant::Duration;
 use truncate_core::player::Hand;
 
 use eframe::egui::{self, CursorIcon, Id, LayerId, Order, Sense};
-use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
+use epaint::{emath::Align2, hex_color, pos2, vec2, Color32, Rect, Vec2};
 
 use crate::utils::{
     depot::{HoveredRegion, TruncateDepot},
@@ -53,16 +53,23 @@ impl<'a> HandUI<'a> {
             ..
         } = depot;
 
+        let selected = interactions.selected_tile_in_hand;
+
         mapped_tiles.remap_texture(
             ui.ctx(),
             self.hand
                 .0
                 .iter()
-                .map(|c| MappedTile {
+                .enumerate()
+                .map(|(i, c)| MappedTile {
                     variant: MappedTileVariant::Healthy,
                     character: *c,
                     color: Some(aesthetics.player_colors[gameplay.player_number as usize]),
-                    highlight: None,
+                    highlight: if selected.is_some_and(|(selected_index, _)| selected_index == i) {
+                        Some(Color32::GOLD)
+                    } else {
+                        None
+                    },
                     orientation: truncate_core::board::Direction::North,
                 })
                 .collect(),
@@ -244,13 +251,15 @@ impl<'a> HandUI<'a> {
                         }
 
                         if tile_response.clicked() {
-                            if let Some(selected) = depot.interactions.selected_tile_in_hand {
+                            if let Some((selected_index, selected_char)) =
+                                depot.interactions.selected_tile_in_hand
+                            {
                                 next_selection = Some(None);
-                                if selected != i {
-                                    rearrange = Some((selected, i));
+                                if selected_index != i {
+                                    rearrange = Some((selected_index, i));
                                 }
                             } else {
-                                next_selection = Some(Some(i));
+                                next_selection = Some(Some((i, self.hand.0[i])));
                             }
                         }
                     });
