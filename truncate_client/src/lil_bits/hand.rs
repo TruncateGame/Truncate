@@ -62,7 +62,11 @@ impl<'a> HandUI<'a> {
                 .iter()
                 .enumerate()
                 .map(|(i, c)| MappedTile {
-                    variant: MappedTileVariant::Healthy,
+                    variant: if gameplay.next_player_number == gameplay.player_number {
+                        MappedTileVariant::Healthy
+                    } else {
+                        MappedTileVariant::Gone
+                    },
                     character: *c,
                     color: Some(aesthetics.player_colors[gameplay.player_number as usize]),
                     highlight: if selected.is_some_and(|(selected_index, _)| selected_index == i) {
