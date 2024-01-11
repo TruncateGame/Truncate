@@ -603,8 +603,8 @@ impl BoardGenerator for Board {
 
         let town_distance = ((main_road.len() as f64) * maximum_town_distance) as usize;
 
-        let player_zero_dists = self.flood_fill(&docks[0]);
-        let player_one_dists = self.flood_fill(&docks[1]);
+        let player_zero_dists = self.flood_fill(&docks[player_zero]);
+        let player_one_dists = self.flood_fill(&docks[player_one]);
 
         let mut candidates = |dists: BoardDistances| {
             let mut candies: Vec<_> = dists
@@ -642,14 +642,14 @@ impl BoardGenerator for Board {
             _ = self.set_square(
                 town_zero,
                 Square::Town {
-                    player: 0,
+                    player: player_zero,
                     defeated: false,
                 },
             );
             _ = self.set_square(
                 town_one,
                 Square::Town {
-                    player: 1,
+                    player: player_one,
                     defeated: false,
                 },
             );
