@@ -15,7 +15,7 @@ use crate::{
 use self::image_manipulation::ImageMusher;
 
 use super::{
-    depot::{AestheticDepot, GameplayDepot, InteractionDepot},
+    depot::{AestheticDepot, GameplayDepot, HoveredRegion, InteractionDepot},
     glyph_utils::BaseTileGlyphs,
     macros::tr_log,
     tex::{self, tiles, BGTexType, Tex, TexLayers, TexQuad},
@@ -61,7 +61,8 @@ struct MapState {
     prev_board: Board,
     prev_tick: u64,
     prev_selected: Option<Coordinate>,
-    prev_hover: Option<Coordinate>,
+    prev_tile_hover: Option<Coordinate>,
+    prev_square_hover: Option<HoveredRegion>,
     prev_changes: Vec<Change>,
 }
 
@@ -349,6 +350,27 @@ impl MappedBoard {
                 );
                 layers = layers.merge(tile_layers);
             }
+            Square::Land => {
+                if let Some(interactions) = interactions {
+                    if let Some((_, tile_char)) = interactions.selected_tile_in_hand {
+                        if interactions
+                            .hovered_unoccupied_square_on_board
+                            .as_ref()
+                            .is_some_and(|h| h.coord == Some(coord))
+                        {
+                            let tile_layers = Tex::board_game_tile(
+                                MappedTileVariant::Healthy,
+                                tile_char,
+                                Direction::North,
+                                Some(Color32::DARK_GREEN),
+                                None,
+                                seed_at_coord,
+                            );
+                            layers = layers.merge(tile_layers);
+                        }
+                    }
+                }
+            }
             _ => {}
         }
 
@@ -472,17 +494,21 @@ impl MappedBoard {
     ) {
         let mut tick_eq = true;
         let selected = interactions.map(|i| i.selected_tile_on_board).flatten();
-        let hover = interactions.map(|i| i.hovered_tile_on_board).flatten();
+        let tile_hover = interactions.map(|i| i.hovered_tile_on_board).flatten();
+        let square_hover = interactions
+            .map(|i| i.hovered_unoccupied_square_on_board.clone())
+            .flatten();
 
         if let Some(memory) = self.state_memory.as_mut() {
             let board_eq = memory.prev_board == *board;
             let selected_eq = memory.prev_selected == selected;
-            let hover_eq = memory.prev_hover == hover;
+            let tile_hover_eq = memory.prev_tile_hover == tile_hover;
+            let square_hover_eq = memory.prev_square_hover == square_hover;
             if memory.prev_tick != aesthetics.qs_tick {
                 tick_eq = false;
             }
 
-            if board_eq && tick_eq && selected_eq && hover_eq {
+            if board_eq && tick_eq && selected_eq && tile_hover_eq && square_hover_eq {
                 return;
             }
 
@@ -492,8 +518,8 @@ impl MappedBoard {
             if !selected_eq {
                 memory.prev_selected = selected;
             }
-            if !hover_eq {
-                memory.prev_hover = hover;
+            if !tile_hover_eq {
+                memory.prev_tile_hover = tile_hover;
             }
             if !tick_eq {
                 memory.prev_tick = aesthetics.qs_tick;
@@ -503,7 +529,8 @@ impl MappedBoard {
                 prev_board: board.clone(),
                 prev_tick: aesthetics.qs_tick,
                 prev_selected: selected,
-                prev_hover: hover,
+                prev_tile_hover: tile_hover,
+                prev_square_hover: square_hover,
                 prev_changes: vec![],
             });
             tick_eq = false;
