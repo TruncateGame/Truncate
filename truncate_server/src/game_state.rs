@@ -158,14 +158,15 @@ impl GameManager {
     pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
         // TODO: Check correct # of players
 
-        let rand_board =
-            truncate_core::generation::generate_board(truncate_core::generation::BoardSeed::new(
+        let rand_board = truncate_core::generation::generate_board(
+            truncate_core::generation::BoardSeed::new_random(
                 (instant::SystemTime::now()
                     .duration_since(instant::SystemTime::UNIX_EPOCH)
                     .expect("Please don't play Truncate earlier than 1970")
                     .as_micros()
                     % 287520520) as u32,
-            ));
+            ),
+        );
         self.core_game.board = rand_board.expect("Board can be resolved").board;
 
         // Trim off all edges and add one back for our land edges to show in the gui

@@ -99,6 +99,34 @@ impl BoardSeed {
         }
     }
 
+    pub fn new_random(seed: u32) -> Self {
+        let mut rng = Rand32::new(seed as u64);
+
+        let disper = ((rng.rand_float() * 7.0) + 4.0) as f64;
+
+        Self {
+            generation: 9999,
+            seed,
+            day: None,
+            params: BoardParams {
+                ideal_land_dimensions: [
+                    rng.rand_range(10..39) as usize,
+                    rng.rand_range(10..39) as usize,
+                ],
+                dispersion: [disper, disper],
+                island_influence: (rng.rand_float() * 0.7) as f64,
+                maximum_town_density: (rng.rand_float() * 0.6 + 0.1) as f64,
+                maximum_town_distance: (rng.rand_float() * 0.2 + 0.1) as f64,
+                minimum_choke: 4,
+            },
+            current_iteration: 0,
+            width_resize_state: None,
+            height_resize_state: None,
+            water_level: 0.5,
+            max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
+        }
+    }
+
     pub fn day(mut self, day: u32) -> Self {
         self.day = Some(day);
         self
