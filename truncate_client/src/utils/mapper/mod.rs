@@ -18,7 +18,7 @@ use super::{
     depot::{AestheticDepot, GameplayDepot, HoveredRegion, InteractionDepot},
     glyph_utils::BaseTileGlyphs,
     macros::tr_log,
-    tex::{self, tiles, BGTexType, Tex, TexLayers, TexQuad},
+    tex::{self, tiles, BGTexType, Tex, TexLayers, TexQuad, TileDecoration},
     Lighten,
 };
 
@@ -292,6 +292,7 @@ impl MappedBoard {
                                 orient(player),
                                 None,
                                 None,
+                                TileDecoration::Grass,
                                 seed_at_coord,
                             );
                             layers = layers.merge(tile_layers);
@@ -305,6 +306,7 @@ impl MappedBoard {
                                 orient(player),
                                 None,
                                 None,
+                                TileDecoration::Grass,
                                 seed_at_coord,
                             );
                             layers = layers.merge(tile_layers);
@@ -318,6 +320,7 @@ impl MappedBoard {
                                 orient(player),
                                 None,
                                 None,
+                                TileDecoration::Grass,
                                 seed_at_coord,
                             );
                             layers = layers.merge(tile_layers);
@@ -359,6 +362,7 @@ impl MappedBoard {
                     orient(*player),
                     player_colors.get(*player).cloned().map(|c| c.lighten()),
                     highlight,
+                    TileDecoration::Grass,
                     seed_at_coord,
                 );
                 layers = layers.merge(tile_layers);
@@ -377,6 +381,7 @@ impl MappedBoard {
                                 Direction::North,
                                 Some(Color32::DARK_GREEN),
                                 None,
+                                TileDecoration::Grass,
                                 seed_at_coord,
                             );
                             layers = layers.merge(tile_layers);
@@ -714,6 +719,7 @@ impl MappedTiles {
                 slot.orientation,
                 slot.color.map(|c| c.lighten()),
                 slot.highlight,
+                TileDecoration::None,
                 0,
             );
 

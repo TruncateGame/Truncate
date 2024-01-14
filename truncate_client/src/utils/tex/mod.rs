@@ -110,6 +110,11 @@ impl From<(&Square, &Vec<Color32>)> for FGTexType {
     }
 }
 
+pub enum TileDecoration {
+    Grass,
+    None,
+}
+
 // Wind levels
 macro_rules! calm {
     () => {
@@ -199,28 +204,31 @@ impl Tex {
         orientation: Direction,
         color: Option<Color32>,
         highlight: Option<Color32>,
+        decoration: TileDecoration,
         seed: usize,
     ) -> TexLayers {
         let mut layers = Tex::game_tile(character, orientation, color, highlight);
-        layers = layers.with_piece_texture(
-            [
-                tiles::NONE,
-                tiles::NONE,
-                match quickrand(seed) % 100 {
-                    0..=25 => tiles::GAME_PIECE_GRASS_0_SE,
-                    26..=50 => tiles::GAME_PIECE_GRASS_1_SE,
-                    51..=75 => tiles::GAME_PIECE_GRASS_2_SE,
-                    _ => tiles::GAME_PIECE_GRASS_3_SE,
-                },
-                match quickrand(seed + 678) % 100 {
-                    0..=25 => tiles::GAME_PIECE_GRASS_0_SW,
-                    26..=50 => tiles::GAME_PIECE_GRASS_1_SW,
-                    51..=75 => tiles::GAME_PIECE_GRASS_2_SW,
-                    _ => tiles::GAME_PIECE_GRASS_3_SW,
-                },
-            ],
-            None,
-        );
+        if matches!(decoration, TileDecoration::Grass) {
+            layers = layers.with_piece_texture(
+                [
+                    tiles::NONE,
+                    tiles::NONE,
+                    match quickrand(seed) % 100 {
+                        0..=25 => tiles::GAME_PIECE_GRASS_0_SE,
+                        26..=50 => tiles::GAME_PIECE_GRASS_1_SE,
+                        51..=75 => tiles::GAME_PIECE_GRASS_2_SE,
+                        _ => tiles::GAME_PIECE_GRASS_3_SE,
+                    },
+                    match quickrand(seed + 678) % 100 {
+                        0..=25 => tiles::GAME_PIECE_GRASS_0_SW,
+                        26..=50 => tiles::GAME_PIECE_GRASS_1_SW,
+                        51..=75 => tiles::GAME_PIECE_GRASS_2_SW,
+                        _ => tiles::GAME_PIECE_GRASS_3_SW,
+                    },
+                ],
+                None,
+            );
+        }
 
         match variant {
             MappedTileVariant::Healthy => {}
