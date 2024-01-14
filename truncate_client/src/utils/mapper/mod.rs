@@ -335,20 +335,21 @@ impl MappedBoard {
                     let hovered = interactions.hovered_tile_on_board == Some(coord);
 
                     highlight = match (selected, hovered) {
-                        (true, true) => Some(hex_color!("#ff00ff")),
-                        (true, false) => Some(hex_color!("#ff0000")),
-                        (false, true) => Some(hex_color!("#00ffff")),
+                        (true, true) => Some(hex_color!("#FFDE85")),
+                        (true, false) => Some(hex_color!("#FFBE0B")),
+                        (false, true) => Some(hex_color!("#CDF7F6")),
                         (false, false) => None,
                     };
                 }
 
                 if highlight.is_none() {
                     if tile_was_added {
-                        highlight = Some(hex_color!("#00ff00"));
+                        highlight = Some(hex_color!("#0AFFC6"));
                     } else if tile_was_swapped {
-                        highlight = Some(hex_color!("#ff00ff"));
+                        highlight = Some(hex_color!("#FC3692"));
                     } else if tile_was_victor {
-                        highlight = Some(Color32::GOLD);
+                        // TODO: New animated victorious style
+                        // highlight = Some(Color32::GOLD);
                     }
                 }
 
