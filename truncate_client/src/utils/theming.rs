@@ -25,7 +25,7 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            water: hex_color!("#000000"),
+            water: hex_color!("#50A7E8"),
             grass: hex_color!("#7BCB69"),
             enemy: hex_color!("#F7BDB6"),
             text: hex_color!("#333333"),
