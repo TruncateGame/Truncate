@@ -77,6 +77,8 @@ impl<'a> HandUI<'a> {
                     orientation: truncate_core::board::Direction::North,
                 })
                 .collect(),
+            &aesthetics,
+            Some(interactions),
         );
 
         let mut rearrange = None;

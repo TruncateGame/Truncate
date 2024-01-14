@@ -260,6 +260,12 @@ impl MappedBoard {
             }
         };
 
+        let square_is_highlighted = interactions.is_some_and(|i| {
+            i.highlight_squares
+                .as_ref()
+                .is_some_and(|s| s.contains(&coord))
+        });
+
         let mut tile_was_added = false;
         let mut tile_was_swapped = false;
         let mut tile_was_victor = false;
@@ -358,11 +364,15 @@ impl MappedBoard {
                     }
                 }
 
-                let color = if being_dragged {
+                let mut color = if being_dragged {
                     Some(hex_color!("#FC3692"))
                 } else {
                     player_colors.get(*player).cloned().map(|c| c.lighten())
                 };
+
+                if square_is_highlighted && (tick % 4 < 2) {
+                    color = Some(hex_color!("#FFDE85"));
+                }
 
                 let tile_layers = Tex::board_game_tile(
                     MappedTileVariant::Healthy,
@@ -395,6 +405,19 @@ impl MappedBoard {
                             layers = layers.merge(tile_layers);
                         }
                     }
+                }
+
+                if square_is_highlighted && tick % 4 < 2 {
+                    let tile_layers = Tex::board_game_tile(
+                        MappedTileVariant::Healthy,
+                        ' ',
+                        Direction::North,
+                        Some(hex_color!("#FFDE85")),
+                        None,
+                        TileDecoration::Grass,
+                        seed_at_coord,
+                    );
+                    layers = layers.merge(tile_layers);
                 }
             }
             _ => {}
@@ -669,6 +692,8 @@ pub struct MappedTile {
 pub struct MappedTiles {
     tile_texture: TextureHandle,
     slots: Vec<MappedTile>,
+    last_tick: u64,
+    last_selected: Option<Vec<char>>,
     capacity: usize,
 }
 
@@ -677,6 +702,8 @@ impl MappedTiles {
         Self {
             tile_texture: MappedTiles::reset_texture(capacity, egui_ctx),
             slots: Vec::with_capacity(capacity),
+            last_tick: 0,
+            last_selected: None,
             capacity,
         }
     }
@@ -697,12 +724,28 @@ impl MappedTiles {
         egui_ctx.load_texture(format!("tiles"), tile_base, egui::TextureOptions::NEAREST)
     }
 
-    pub fn remap_texture(&mut self, egui_ctx: &egui::Context, slots: Vec<MappedTile>) {
-        if slots == self.slots {
+    pub fn remap_texture(
+        &mut self,
+        egui_ctx: &egui::Context,
+        slots: Vec<MappedTile>,
+        aesthetics: &AestheticDepot,
+        interactions: Option<&InteractionDepot>,
+    ) {
+        let selected_tiles = interactions.map(|i| i.highlight_tiles.clone()).flatten();
+        // We only animate if there are selected tiles,
+        // otherwise we don't want the tick to trigger re-rendering.
+        let tick = if selected_tiles.is_some() {
+            aesthetics.qs_tick
+        } else {
+            0
+        };
+        if slots == self.slots && selected_tiles == self.last_selected && tick == self.last_tick {
             return;
         }
 
         self.slots = slots;
+        self.last_selected = selected_tiles;
+        self.last_tick = tick;
 
         if self.capacity < self.slots.len() {
             self.tile_texture = MappedTiles::reset_texture(self.slots.len(), egui_ctx);
@@ -721,11 +764,22 @@ impl MappedTiles {
         let tile_dims = [measures.inner_tile_width_px, measures.inner_tile_height_px];
 
         for (i, slot) in self.slots.iter().enumerate() {
+            let tile_is_highlighted = self
+                .last_selected
+                .as_ref()
+                .is_some_and(|t| t.contains(&slot.character));
+
+            let color = if tile_is_highlighted && tick % 4 < 2 {
+                Some(hex_color!("#FFDE85"))
+            } else {
+                slot.color.map(|c| c.lighten())
+            };
+
             let tile_layers = Tex::board_game_tile(
                 slot.variant.clone(),
                 slot.character,
                 slot.orientation,
-                slot.color.map(|c| c.lighten()),
+                color,
                 slot.highlight,
                 TileDecoration::None,
                 0,
