@@ -333,9 +333,11 @@ impl MappedBoard {
         match square {
             Square::Occupied(player, character) => {
                 let mut highlight = None;
+                let mut being_dragged = false;
                 if let Some(interactions) = interactions {
                     let selected = interactions.selected_tile_on_board == Some(coord);
                     let hovered = interactions.hovered_tile_on_board == Some(coord);
+                    being_dragged = interactions.dragging_board_coord == Some(coord);
 
                     highlight = match (selected, hovered) {
                         (true, true) => Some(hex_color!("#FFDE85")),
@@ -356,11 +358,17 @@ impl MappedBoard {
                     }
                 }
 
+                let color = if being_dragged {
+                    Some(hex_color!("#FC3692"))
+                } else {
+                    player_colors.get(*player).cloned().map(|c| c.lighten())
+                };
+
                 let tile_layers = Tex::board_game_tile(
                     MappedTileVariant::Healthy,
                     *character,
                     orient(*player),
-                    player_colors.get(*player).cloned().map(|c| c.lighten()),
+                    color,
                     highlight,
                     TileDecoration::Grass,
                     seed_at_coord,

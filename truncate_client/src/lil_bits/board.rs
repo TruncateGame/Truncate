@@ -46,6 +46,7 @@ impl<'a> BoardUI<'a> {
         let mut unoccupied_square_is_hovered = None;
         let mut occupied_square_is_hovered = None;
         let mut tile_is_hovered = None;
+        let mut drag_underway = false;
 
         // TODO: Do something better for this
         let invert = depot.gameplay.player_number == 0;
@@ -238,7 +239,8 @@ impl<'a> BoardUI<'a> {
                                                     });
                                                 }
 
-                                                depot.interactions.dragging_tile = true;
+                                                depot.interactions.dragging_board_coord =
+                                                    Some(coord);
                                                 ui.ctx().animate_value_with_time(
                                                     tile_id.with("initial_offset"),
                                                     0.0,
@@ -263,6 +265,10 @@ impl<'a> BoardUI<'a> {
                                             }
 
                                             if is_being_dragged {
+                                                drag_underway = true;
+                                                depot.interactions.dragging_board_coord =
+                                                    Some(coord);
+
                                                 let drag_id: Duration = ui
                                                     .memory(|mem| mem.data.get_temp(tile_id))
                                                     .unwrap_or_default();
@@ -379,6 +385,10 @@ impl<'a> BoardUI<'a> {
                 })
             })
             .inner;
+
+        if !drag_underway {
+            depot.interactions.dragging_board_coord = None;
+        }
 
         if !self.interactive {
             return None;

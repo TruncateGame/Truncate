@@ -159,7 +159,6 @@ impl<'a> HandUI<'a> {
                                 });
                             }
                             next_selection = Some(None);
-                            depot.interactions.dragging_tile = true;
                             ui.ctx().animate_value_with_time(
                                 tile_id.with("initial_offset"),
                                 0.0,
@@ -172,7 +171,6 @@ impl<'a> HandUI<'a> {
                             {
                                 depot.interactions.released_tile = Some((i, coord));
                             }
-                            depot.interactions.dragging_tile = false;
                         }
 
                         if is_being_dragged {
