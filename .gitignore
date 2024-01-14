@@ -11,6 +11,7 @@ truncate_client/img/package-lock.json
 _site
 # ungzipped word definition db
 defs.db
+local_defs.db
 unsummed_wordlist.txt
 unmarked_wordlist.txt
 objectionable.json
