@@ -36,13 +36,19 @@ impl ImageMusher for ColorImage {
         }
     }
 
+    /// Tints white/grey images to tints of the given color
     fn tint(&mut self, tint: &Color32) {
         self.pixels.iter_mut().for_each(|px| {
-            let mut col = Hsva::from(*px);
-            col.h = Hsva::from(*tint).h;
-            col.v *= 0.8;
-            col.s = 0.8;
-            *px = Color32::from(col);
+            if px.a() == 0 {
+                return;
+            }
+            let shade_factor = px.r() as f32 / 255.0;
+
+            *px = Color32::from_rgb(
+                (tint.r() as f32 * shade_factor) as u8,
+                (tint.g() as f32 * shade_factor) as u8,
+                (tint.b() as f32 * shade_factor) as u8,
+            );
         });
     }
 

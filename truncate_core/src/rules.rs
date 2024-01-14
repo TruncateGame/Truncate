@@ -108,8 +108,8 @@ impl Default for GameRules {
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
             },
-            visibility: Visibility::LandFog,
-            truncation: Truncation::None,
+            visibility: Visibility::Standard,
+            truncation: Truncation::Root,
             timing: Timing::PerPlayer {
                 time_allowance: 60 * 20,
                 overtime_rule: OvertimeRule::Elimination,

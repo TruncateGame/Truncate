@@ -19,6 +19,7 @@ use super::{
     glyph_utils::BaseTileGlyphs,
     macros::tr_log,
     tex::{self, tiles, BGTexType, Tex, TexLayers, TexQuad},
+    Lighten,
 };
 
 mod image_manipulation;
@@ -355,7 +356,7 @@ impl MappedBoard {
                     MappedTileVariant::Healthy,
                     *character,
                     orient(*player),
-                    player_colors.get(*player).cloned(),
+                    player_colors.get(*player).cloned().map(|c| c.lighten()),
                     highlight,
                     seed_at_coord,
                 );
@@ -710,7 +711,7 @@ impl MappedTiles {
                 slot.variant.clone(),
                 slot.character,
                 slot.orientation,
-                slot.color,
+                slot.color.map(|c| c.lighten()),
                 slot.highlight,
                 0,
             );
