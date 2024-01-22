@@ -14,7 +14,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct BoardParams {
-    pub ideal_land_dimensions: [usize; 2],
+    pub land_dimensions: [usize; 2],
     pub dispersion: [f64; 2],
     pub island_influence: f64,
     pub maximum_town_density: f64,
@@ -26,12 +26,12 @@ pub struct BoardParams {
 // Add a new generation number with new parameters.
 // Updating an existing generation will break puzzle URLs.
 const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
-    ideal_land_dimensions: [30, 30],
-    dispersion: [3.0, 3.0],
+    land_dimensions: [10, 10],
+    dispersion: [5.0, 5.0],
     maximum_town_density: 0.2,
-    maximum_town_distance: 0.4,
-    island_influence: 0.637,
-    minimum_choke: 4,
+    maximum_town_distance: 0.15,
+    island_influence: 0.0,
+    minimum_choke: 3,
 }];
 
 impl BoardParams {
@@ -109,7 +109,7 @@ impl BoardSeed {
             seed,
             day: None,
             params: BoardParams {
-                ideal_land_dimensions: [
+                land_dimensions: [
                     rng.rand_range(10..39) as usize,
                     rng.rand_range(10..39) as usize,
                 ],
@@ -179,7 +179,7 @@ pub fn generate_board(
         max_attempts,
         params:
             BoardParams {
-                ideal_land_dimensions,
+                land_dimensions: ideal_land_dimensions,
                 dispersion,
                 maximum_town_density,
                 maximum_town_distance,
@@ -295,9 +295,14 @@ pub fn generate_board(
         return retry_with(board_seed, board);
     }
 
-    if board.expand_choke_points(minimum_choke).is_err() {
+    if board.expand_choke_points(minimum_choke, true).is_err() {
         return retry_with(board_seed, board);
     }
+
+    return Ok(BoardGenerationResult {
+        board,
+        iterations: current_iteration,
+    });
 
     // Recalculate the shortest path, as expanding the choke points
     // may have created new paths altogether
@@ -332,7 +337,7 @@ pub fn generate_board(
 trait BoardGenerator {
     fn trim_nubs(&mut self) -> Result<(), ()>;
 
-    fn expand_choke_points(&mut self, minimum_choke: usize) -> Result<(), ()>;
+    fn expand_choke_points(&mut self, minimum_choke: usize, debug: bool) -> Result<(), ()>;
 
     fn drop_island_docks(&mut self, seed: u32) -> Result<(), ()>;
 
@@ -408,31 +413,59 @@ impl BoardGenerator for Board {
         Ok(())
     }
 
-    fn expand_choke_points(&mut self, minimum_choke: usize) -> Result<(), ()> {
+    fn expand_choke_points(&mut self, minimum_choke: usize, debug: bool) -> Result<(), ()> {
         let Some(shortest_attack_path) = self.shortest_path_between(&self.docks[0], &self.docks[1])
         else {
             return Err(());
         };
 
-        for (i, pt) in shortest_attack_path.iter().enumerate() {
-            // Avoid processing the tiles closest to each players dock
-            if i < minimum_choke || i >= shortest_attack_path.len() - minimum_choke {
-                continue;
-            }
+        let measurements = shortest_attack_path
+            .iter()
+            .enumerate()
+            .filter_map(|(i, pt)| {
+                // Avoid processing the tiles closest to each players dock
+                if i < minimum_choke || i >= shortest_attack_path.len() - minimum_choke {
+                    return None;
+                }
 
-            let choke_distance = pt
-                .neighbors_8()
-                .iter()
-                .map(|n| self.distance_to_closest_obstruction(&n, &shortest_attack_path))
-                .max()
-                .unwrap();
-            if choke_distance < minimum_choke {
-                let mid = (minimum_choke / 2) as isize;
+                let choke_distance = pt
+                    .neighbors_8()
+                    .iter()
+                    .map(|n| self.distance_to_closest_obstruction(&n, &shortest_attack_path))
+                    .max()
+                    .unwrap();
+
+                Some((*pt, choke_distance))
+            })
+            .collect::<Vec<_>>();
+
+        for (pt, choke_distance) in &measurements {
+            let buffer = minimum_choke / 2 + 1; // How far our points must be from the edges of the world
+
+            let buffered_pt = Coordinate {
+                x: if pt.x.checked_sub(buffer).is_none() {
+                    buffer
+                } else if (pt.x + buffer) >= self.width() {
+                    self.width() - buffer - 1
+                } else {
+                    pt.x
+                },
+                y: if pt.y.checked_sub(buffer).is_none() {
+                    buffer
+                } else if (pt.y + buffer) >= self.height() {
+                    self.height() - buffer - 1
+                } else {
+                    pt.y
+                },
+            };
+
+            let mid = (minimum_choke / 2) as isize;
+            if *choke_distance < minimum_choke {
                 for x in (-mid)..(minimum_choke as isize - mid) {
                     for y in (-mid)..(minimum_choke as isize - mid) {
                         let c = Coordinate {
-                            x: pt.x.saturating_add_signed(x),
-                            y: pt.y.saturating_add_signed(y),
+                            x: buffered_pt.x.saturating_add_signed(x),
+                            y: buffered_pt.y.saturating_add_signed(y),
                         };
 
                         if c.x == 0
@@ -448,12 +481,31 @@ impl BoardGenerator for Board {
                             Ok(Square::Land | Square::Dock(_)) => {}
                             Err(_) => {}
                             Ok(_) => {
-                                _ = self.set_square(c, Square::Land);
+                                if debug {
+                                    _ = self.set_square(
+                                        c,
+                                        Square::Town {
+                                            player: 0,
+                                            defeated: false,
+                                        },
+                                    );
+                                } else {
+                                    _ = self.set_square(c, Square::Land);
+                                }
                             }
                         }
                     }
                 }
             }
+        }
+
+        for (pt, dist) in measurements {
+            let char = if dist < 10 {
+                dist.to_string().chars().next().unwrap()
+            } else {
+                '+'
+            };
+            _ = self.set_square(pt, Square::Occupied(0, char));
         }
 
         Ok(())

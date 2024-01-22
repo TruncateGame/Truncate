@@ -47,15 +47,15 @@ impl GeneratorState {
 
         Self {
             active_game,
-            seed: 1804,
+            seed: 1843,
             infinite: false,
-            width: 30,
-            height: 30,
-            dispersion: 10.0,
+            width: 10,
+            height: 10,
+            dispersion: 5.0,
             maximum_town_density: 0.2,
             maximum_town_distance: 0.2,
-            island_influence: 0.25,
-            minimum_choke: 4,
+            island_influence: 0.0,
+            minimum_choke: 3,
             generation_result: None,
         }
     }
@@ -182,7 +182,7 @@ impl GeneratorState {
                 water_level: 0.5,
                 max_attempts,
                 params: BoardParams {
-                    ideal_land_dimensions: [self.width, self.height],
+                    land_dimensions: [self.width, self.height],
                     dispersion: [self.dispersion, self.dispersion],
                     maximum_town_density: self.maximum_town_density,
                     maximum_town_distance: self.maximum_town_distance,
