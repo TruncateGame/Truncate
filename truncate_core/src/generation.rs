@@ -295,14 +295,9 @@ pub fn generate_board(
         return retry_with(board_seed, board);
     }
 
-    if board.expand_choke_points(minimum_choke, true).is_err() {
+    if board.expand_choke_points(minimum_choke, false).is_err() {
         return retry_with(board_seed, board);
     }
-
-    return Ok(BoardGenerationResult {
-        board,
-        iterations: current_iteration,
-    });
 
     // Recalculate the shortest path, as expanding the choke points
     // may have created new paths altogether
