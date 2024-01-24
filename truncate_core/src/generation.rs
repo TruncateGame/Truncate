@@ -494,13 +494,15 @@ impl BoardGenerator for Board {
             }
         }
 
-        for (pt, dist) in measurements {
-            let char = if dist < 10 {
-                dist.to_string().chars().next().unwrap()
-            } else {
-                '+'
-            };
-            _ = self.set_square(pt, Square::Occupied(0, char));
+        if debug {
+            for (pt, dist) in measurements {
+                let char = if dist < 10 {
+                    dist.to_string().chars().next().unwrap()
+                } else {
+                    '+'
+                };
+                _ = self.set_square(pt, Square::Occupied(0, char));
+            }
         }
 
         Ok(())

@@ -1,7 +1,10 @@
+mod accounts;
 mod definitions;
 mod game_state;
 
 use parking_lot::Mutex;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
 use std::collections::HashMap;
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
@@ -25,6 +28,8 @@ struct ServerState {
     assignments: Arc<Mutex<HashMap<SocketAddr, String>>>,
     peers: Arc<Mutex<HashMap<SocketAddr, UnboundedSender<GameMessage>>>>,
     word_db: Arc<Mutex<WordDB>>,
+    truncate_db: Option<PgPool>,
+    signing_secret: Option<String>,
 }
 
 impl ServerState {
@@ -226,7 +231,9 @@ async fn handle_player_msg(
                         .unwrap();
 
                     for player in &game_manager.players {
-                        let Some(socket) = player.socket else { continue };
+                        let Some(socket) = player.socket else {
+                            continue;
+                        };
 
                         server_state
                             .send_to_player(
@@ -266,10 +273,12 @@ async fn handle_player_msg(
         }
         RejoinGame(token) => {
             let Ok(claims) = jwt_key.verify_token::<PlayerClaims>(&token, None) else {
-                server_state.send_to_player(
-                    &player_addr,
-                    GameMessage::GenericError("Invalid Token".into()),
-                ).unwrap();
+                server_state
+                    .send_to_player(
+                        &player_addr,
+                        GameMessage::GenericError("Invalid Token".into()),
+                    )
+                    .unwrap();
                 return Ok(());
             };
             let PlayerClaims {
@@ -350,7 +359,9 @@ async fn handle_player_msg(
                 };
 
                 for player in &game_manager.players {
-                    let Some(socket) = player.socket else { continue };
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
                     server_state
                         .send_to_player(
                             &socket,
@@ -387,7 +398,9 @@ async fn handle_player_msg(
                     };
 
                     for player in &game_manager.players {
-                        let Some(socket) = player.socket else { continue };
+                        let Some(socket) = player.socket else {
+                            continue;
+                        };
                         server_state
                             .send_to_player(
                                 &socket,
@@ -409,7 +422,9 @@ async fn handle_player_msg(
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
                 let mut game_manager = existing_game.lock();
                 for (player, message) in game_manager.start() {
-                    let Some(socket) = player.socket else { continue };
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
                     server_state.send_to_player(&socket, message).unwrap();
                 }
             } else {
@@ -422,7 +437,9 @@ async fn handle_player_msg(
                 for (player, message) in
                     game_manager.play(player_addr, position, tile, server_state.words())
                 {
-                    let Some(socket) = player.socket else { continue };
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
                     server_state.send_to_player(&socket, message).unwrap();
                 }
                 // TODO: Error handling flow
@@ -436,7 +453,9 @@ async fn handle_player_msg(
                 for (player, message) in
                     game_manager.swap(player_addr, from, to, server_state.words())
                 {
-                    let Some(socket) = player.socket else { continue };
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
                     server_state.send_to_player(&socket, message).unwrap();
                 }
                 // TODO: Error handling flow
@@ -486,7 +505,9 @@ async fn handle_player_msg(
                     let new_game_manager = new_game.lock();
 
                     for (i, player) in new_game_manager.players.iter().enumerate() {
-                        let Some(socket) = player.socket else { continue };
+                        let Some(socket) = player.socket else {
+                            continue;
+                        };
 
                         server_state.attach_player_to_game(&socket, &new_game_id);
 
@@ -630,7 +651,9 @@ async fn check_game_over(game_id: String, check_in_ms: i128, server_state: Serve
 
     if let Some(winner) = game_manager.core_game.winner {
         for (player_index, player) in game_manager.players.iter().enumerate() {
-            let Some(socket) = player.socket else { continue };
+            let Some(socket) = player.socket else {
+                continue;
+            };
             let mut end_game_msg = game_manager.game_msg(player_index, None);
             // Don't send any of the latest battles or hand changes
             end_game_msg.changes = vec![];
@@ -671,14 +694,49 @@ async fn main() -> Result<(), IoError> {
         .nth(1)
         .unwrap_or_else(|| "0.0.0.0:8080".to_string());
 
-    let server_state = ServerState {
+    // Load from env file if one exists (local dev).
+    _ = dotenvy::dotenv();
+
+    let mut server_state = ServerState {
         games: Arc::new(Mutex::new(HashMap::new())),
         assignments: Arc::new(Mutex::new(HashMap::new())),
         peers: Arc::new(Mutex::new(HashMap::new())),
         word_db: Arc::new(Mutex::new(read_defs())),
+        truncate_db: None,
+        signing_secret: env::var("SIGNING_SECRET").ok(),
     };
 
-    let jwt_key = HS256Key::generate();
+    let jwt_key = if let Some(s) = &server_state.signing_secret {
+        println!("Loading the signing secret for JWTs");
+        HS256Key::from_bytes(&hex::decode(s).expect("Signing secret should be valid hex"))
+    } else {
+        let k = HS256Key::generate();
+        println!("Running without a dedicated secret — generating a new one:");
+        println!("{}", hex::encode(k.to_bytes()));
+        k
+    };
+
+    if let Ok(db_url) = env::var("DATABASE_URL") {
+        println!("Initializing database shtuff");
+
+        let pool = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&db_url)
+            .await
+            .expect("Database should be alive");
+
+        println!("Running database migrations");
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("Database migrations should succeed");
+
+        server_state.truncate_db = Some(pool);
+
+        println!("Database is ready.");
+    } else {
+        println!("Running the Truncate server without a database connection.");
+    }
 
     let try_socket = TcpListener::bind(&addr).await;
     let listener = try_socket.expect("Failed to bind");

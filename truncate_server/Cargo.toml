@@ -23,4 +23,18 @@ rand = "0.8.5"
 truncate_core = { path = "../truncate_core" }
 reqwest = { version = "0.11", features = ["json"] }
 jwt-simple = "0.10"
+hex = "0.4"
 instant = "0.1"
+dotenvy = "0.15.7"
+uuid = "1.7.0"
+sqlx = { version = "0.7", features = [
+    "postgres",
+    "migrate",
+    "uuid",
+    "json",
+    "runtime-tokio",
+    "tls-rustls",
+] }
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
