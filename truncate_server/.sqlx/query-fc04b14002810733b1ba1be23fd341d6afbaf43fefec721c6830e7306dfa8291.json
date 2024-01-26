@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            dpr.daily_puzzle, \n            ARRAY_AGG(dpa.move_count ORDER BY dpa.attempt_number) AS move_counts,\n            ARRAY_AGG(dpa.won ORDER BY dpa.attempt_number) AS wins\n        FROM \n            daily_puzzle_results dpr\n        JOIN \n            daily_puzzle_attempts dpa ON dpr.result_id = dpa.result_id\n        WHERE \n            dpr.player_id = $1\n        GROUP BY \n            dpr.daily_puzzle;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "daily_puzzle",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "move_counts",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 2,
+        "name": "wins",
+        "type_info": "BoolArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "fc04b14002810733b1ba1be23fd341d6afbaf43fefec721c6830e7306dfa8291"
+}

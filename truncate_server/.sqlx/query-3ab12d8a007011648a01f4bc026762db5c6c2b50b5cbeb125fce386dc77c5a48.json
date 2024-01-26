@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE daily_puzzle_attempts \n         SET sequence_of_moves = $1, move_count = $2, won = $3\n         WHERE attempt_id = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3ab12d8a007011648a01f4bc026762db5c6c2b50b5cbeb125fce386dc77c5a48"
+}
