@@ -719,24 +719,15 @@ impl BoardGenerator for Board {
     }
 }
 
-#[derive(Hash)]
-struct BoardVerification {
-    board: String,
-    hands: Vec<String>,
-}
+pub fn get_game_verification(game: &Game) -> String {
+    let mut digest = chksum_hash_sha2::sha2_256::default();
 
-pub fn get_game_verification(game: &Game) -> u64 {
-    let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-    let verification = BoardVerification {
-        board: game.board.to_string(),
-        hands: game
-            .players
-            .iter()
-            .map(|p| p.hand.0.iter().collect::<String>())
-            .collect(),
-    };
-    verification.hash(&mut hasher);
-    hasher.digest()
+    digest.update(game.board.to_string());
+    for player in &game.players {
+        digest.update(player.hand.0.iter().collect::<String>());
+    }
+
+    digest.digest().to_hex_lowercase()
 }
 
 #[cfg(test)]

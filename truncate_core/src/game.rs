@@ -105,17 +105,12 @@ impl Game {
 
         for (player_number, player) in self.players.iter().enumerate() {
             let Some(mut time_remaining) = player.time_remaining else {
-                println!("Player {player_number} has not started a turn yet");
                 continue;
             };
-            println!("⏰ Player {player_number} has {time_remaining} game time left");
             if let Some(turn_starts) = player.turn_starts_at {
                 let elapsed_time = now().saturating_sub(turn_starts);
-                println!("⏰ Player {player_number} is mid-turn, and has used {elapsed_time}");
                 time_remaining -= Duration::seconds(elapsed_time as i64);
             }
-            println!("⏰ Player {player_number} has {time_remaining} total time left");
-            println!("Current most overtime: {most_overtime_player:?}");
 
             if !time_remaining.is_positive() {
                 match most_overtime_player {
