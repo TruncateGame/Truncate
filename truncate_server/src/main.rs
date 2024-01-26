@@ -548,8 +548,20 @@ async fn handle_player_msg(
                     .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
                     .unwrap();
             }
-            Err(_e) => {
-                return player_err("Invalid Token".into());
+            Err(e) => {
+                eprintln!("Player did not exist, creating a new player instead: {e}\n{e:?}");
+                match accounts::create_player(&server_state).await {
+                    Ok(new_player) => {
+                        let token = accounts::get_player_token(&server_state, new_player);
+
+                        server_state
+                            .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
+                            .unwrap();
+                    }
+                    Err(_) => {
+                        todo!("Error handling for database actions");
+                    }
+                }
             }
         },
         LoadDailyPuzzle(token, day) => {
