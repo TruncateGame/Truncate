@@ -23,7 +23,9 @@ use crate::game_state::{Player, PlayerClaims};
 use crate::storage::daily;
 use game_state::GameManager;
 use storage::accounts;
-use truncate_core::messages::{GameMessage, GameStateMessage, LobbyPlayerMessage, PlayerMessage};
+use truncate_core::messages::{
+    DailyStateMessage, GameMessage, GameStateMessage, LobbyPlayerMessage, PlayerMessage,
+};
 
 #[derive(Clone)]
 pub struct ServerState {
@@ -558,6 +560,17 @@ async fn handle_player_msg(
             if let Ok(Some(puzzle)) = daily::load_attempt(&server_state, authed, day as i32).await {
                 server_state
                     .send_to_player(&player_addr, GameMessage::ResumeDailyPuzzle(puzzle))
+                    .unwrap();
+            } else {
+                server_state
+                    .send_to_player(
+                        &player_addr,
+                        GameMessage::ResumeDailyPuzzle(DailyStateMessage {
+                            puzzle_day: day,
+                            attempt: 1,
+                            current_moves: vec![],
+                        }),
+                    )
                     .unwrap();
             }
         }
