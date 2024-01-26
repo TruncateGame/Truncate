@@ -35,6 +35,7 @@ pub enum PlayerMessage {
         day: u32,
         human_player: u32,
         moves: Vec<Move>,
+        won: bool,
     },
 }
 
@@ -73,6 +74,7 @@ impl fmt::Display for PlayerMessage {
                 human_player: _,
                 day,
                 moves,
+                won: _,
             } => {
                 write!(f, "Persist {} move(s) for day {day:?}", moves.len())
             }

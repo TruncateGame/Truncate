@@ -11,4 +11,6 @@ pub enum TruncateServerError {
     InvalidUser(Uuid),
     #[error("invalid token")]
     InvalidToken,
+    #[error("this daily puzzle has already been won")]
+    PuzzleComplete,
 }

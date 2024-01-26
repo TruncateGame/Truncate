@@ -579,6 +579,7 @@ async fn handle_player_msg(
             day,
             human_player,
             moves,
+            won,
         } => {
             let Ok(authed) = accounts::auth_player_token(&server_state, player_token) else {
                 return player_err("Invalid Token".into());
@@ -590,6 +591,7 @@ async fn handle_player_msg(
                 day as i32,
                 human_player as i32,
                 moves,
+                won,
             )
             .await
             {

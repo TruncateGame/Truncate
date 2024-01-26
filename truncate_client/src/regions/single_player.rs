@@ -218,11 +218,6 @@ impl SinglePlayerState {
         match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
             Ok(winner) => {
                 self.winner = winner;
-                if winner == Some(human_player) {
-                    if let Some(seed) = &self.active_game.depot.board_info.board_seed {
-                        // TODO: ask server to mark game as won
-                    }
-                }
 
                 let changes: Vec<_> = self
                     .game
@@ -585,6 +580,7 @@ impl SinglePlayerState {
                                 day: seed.seed,
                                 human_player: human_player as u32,
                                 moves: self.move_sequence.clone(),
+                                won: self.winner == Some(human_player),
                             });
                         }
                     }

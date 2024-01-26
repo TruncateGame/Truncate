@@ -15,6 +15,7 @@ pub struct AttemptRecord {
     attempt_id: Uuid,
     attempt_number: i32,
     sequence_of_moves: String,
+    won: bool,
 }
 pub struct DailyPuzzleRecord {
     result_id: Uuid,
@@ -135,7 +136,7 @@ async fn get_latest_attempt_for_day(
 
     sqlx::query_as!(
         AttemptRecord,
-        "SELECT attempt_id, sequence_of_moves, attempt_number FROM daily_puzzle_attempts WHERE result_id = $1 ORDER BY attempt_number DESC LIMIT 1",
+        "SELECT attempt_id, sequence_of_moves, attempt_number, won FROM daily_puzzle_attempts WHERE result_id = $1 ORDER BY attempt_number DESC LIMIT 1",
         result_id
     )
     .fetch_optional(pool)
@@ -169,6 +170,7 @@ async fn create_new_attempt(
         attempt_id: new_attempt.attempt_id,
         attempt_number: new_attempt_number,
         sequence_of_moves: String::new(),
+        won: false,
     })
 }
 
@@ -178,6 +180,7 @@ pub async fn persist_moves(
     daily_puzzle: i32,
     human_player: i32,
     moves: Vec<Move>,
+    won: bool,
 ) -> Result<(), TruncateServerError> {
     let Some(pool) = &server_state.truncate_db else {
         return Err(TruncateServerError::DatabaseOffline);
@@ -186,6 +189,10 @@ pub async fn persist_moves(
     let (_, mut attempt) =
         get_or_create_latest_attempt(server_state, player.clone(), daily_puzzle, human_player)
             .await?;
+
+    if attempt.won {
+        return Err(TruncateServerError::PuzzleComplete);
+    }
 
     let packed_moves = pack_moves(&moves, 2);
 
@@ -209,12 +216,16 @@ pub async fn persist_moves(
         })
         .count();
 
+    // TODO: If `won` is supposedly true, we should simulate the puzzle
+    // to ensure that the move sequence indeed wins
+
     sqlx::query!(
         "UPDATE daily_puzzle_attempts 
-         SET sequence_of_moves = $1, move_count = $2
-         WHERE attempt_id = $3",
+         SET sequence_of_moves = $1, move_count = $2, won = $3
+         WHERE attempt_id = $4",
         packed_moves,
         human_moves as i32,
+        won,
         attempt.attempt_id
     )
     .execute(pool)
