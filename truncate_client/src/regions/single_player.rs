@@ -5,7 +5,7 @@ use truncate_core::{
     board::Board,
     game::{Game, GAME_COLORS},
     generation::BoardSeed,
-    messages::{GameStateMessage, PlayerMessage},
+    messages::{DailyStats, GameStateMessage, PlayerMessage},
     moves::Move,
     npc::scoring::BoardWeights,
     reporting::{Change, HandChange, WordMeaning},
@@ -37,6 +37,7 @@ pub struct SinglePlayerState {
     weights: BoardWeights,
     waiting_on_backchannel: Option<String>,
     pub header: HeaderType,
+    pub daily_stats: Option<DailyStats>,
     splash: Option<DailySplashUI>,
     pub move_sequence: Vec<Move>,
 }
@@ -100,6 +101,7 @@ impl SinglePlayerState {
             weights: BoardWeights::default(),
             waiting_on_backchannel: None,
             header,
+            daily_stats: None,
             splash: None,
             move_sequence: vec![],
         }
@@ -481,19 +483,37 @@ impl SinglePlayerState {
         }
 
         if self.winner.is_some() {
-            let splash = self.splash.get_or_insert_with(|| {
-                DailySplashUI::new(
-                    &mut ui,
-                    &self.game,
-                    &mut self.active_game.depot,
-                    current_time,
-                )
-            });
-            let splash_msg = splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
+            if let Some(token) = logged_in_as {
+                if self.splash.is_none() {
+                    msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
+                }
+            }
 
-            if matches!(splash_msg, Some(PlayerMessage::Rematch)) {
-                self.splash = None;
-                self.reset(current_time, ui.ctx());
+            // Refresh our stats UI if we receive updated stats from the server
+            if let Some(mut stats) = self.daily_stats.take() {
+                stats.hydrate_missing_days();
+
+                let matches = self.splash.as_ref().is_some_and(|s| s.stats == stats);
+
+                if !matches {
+                    self.splash = Some(DailySplashUI::new(
+                        &mut ui,
+                        &self.game,
+                        &mut self.active_game.depot,
+                        current_time,
+                        stats,
+                    ));
+                }
+            }
+
+            if let Some(splash) = &mut self.splash {
+                let splash_msg =
+                    splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
+
+                if matches!(splash_msg, Some(PlayerMessage::Rematch)) {
+                    self.splash = None;
+                    self.reset(current_time, ui.ctx());
+                }
             }
             return msgs_to_server;
         }
@@ -582,6 +602,7 @@ impl SinglePlayerState {
                                 moves: self.move_sequence.clone(),
                                 won: self.winner == Some(human_player),
                             });
+                            msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
                         }
                     }
                 }

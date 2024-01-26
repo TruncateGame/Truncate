@@ -1,4 +1,7 @@
-use std::fmt::{self, Debug};
+use std::{
+    collections::BTreeMap,
+    fmt::{self, Debug},
+};
 use time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -37,6 +40,7 @@ pub enum PlayerMessage {
         moves: Vec<Move>,
         won: bool,
     },
+    RequestStats(TruncateToken),
 }
 
 impl fmt::Display for PlayerMessage {
@@ -78,6 +82,7 @@ impl fmt::Display for PlayerMessage {
             } => {
                 write!(f, "Persist {} move(s) for day {day:?}", moves.len())
             }
+            PlayerMessage::RequestStats(_token) => write!(f, "Requesting daily puzzle stats!"),
         }
     }
 }
@@ -162,6 +167,38 @@ impl fmt::Display for DailyStateMessage {
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct DailyAttempt {
+    pub moves: u32,
+    pub won: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct DailyResult {
+    pub attempts: Vec<DailyAttempt>,
+}
+
+#[derive(Default, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DailyStats {
+    pub days: BTreeMap<u32, DailyResult>,
+}
+
+impl DailyStats {
+    pub fn hydrate_missing_days(&mut self) {
+        let Some((start_day, _)) = self.days.first_key_value() else {
+            return;
+        };
+        let Some((end_day, _)) = self.days.last_key_value() else {
+            return;
+        };
+        for day in *start_day..*end_day {
+            if !self.days.contains_key(&day) {
+                self.days.insert(day, DailyResult::default());
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
     Ping,
@@ -181,6 +218,7 @@ pub enum GameMessage {
     SupplyDefinitions(Vec<(String, Option<Vec<WordMeaning>>)>),
     LoggedInAs(TruncateToken),
     ResumeDailyPuzzle(DailyStateMessage),
+    DailyStats(DailyStats),
 }
 
 impl fmt::Display for GameMessage {
@@ -225,6 +263,7 @@ impl fmt::Display for GameMessage {
                 write!(f, "Logged in as a player")
             }
             GameMessage::ResumeDailyPuzzle(puzzle) => write!(f, "Starting puzzle:\n{}", puzzle),
+            GameMessage::DailyStats(stats) => write!(f, "Stats for {} days", stats.days.len()),
         }
     }
 }

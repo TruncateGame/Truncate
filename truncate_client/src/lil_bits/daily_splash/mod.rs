@@ -1,7 +1,10 @@
 use epaint::{emath::Align2, vec2, Color32, TextureHandle};
 use instant::Duration;
 use interpolation::Ease;
-use truncate_core::{game::Game, messages::PlayerMessage};
+use truncate_core::{
+    game::Game,
+    messages::{DailyStats, PlayerMessage},
+};
 
 mod graph;
 mod msg_mock;
@@ -10,7 +13,7 @@ use eframe::egui::{self, Id, Order, Sense};
 
 use crate::{
     app_outer::Backchannel,
-    utils::{daily::DailyStats, depot::TruncateDepot, text::TextHelper, Lighten, Theme},
+    utils::{depot::TruncateDepot, text::TextHelper, Lighten, Theme},
 };
 
 use self::{graph::DailySplashGraph, msg_mock::ShareMessageMock};
@@ -25,7 +28,7 @@ TODOs for the daily splash screen:
 
 #[derive(Clone)]
 pub struct DailySplashUI {
-    stats: DailyStats,
+    pub stats: DailyStats,
     graph: DailySplashGraph,
     msg_mock: ShareMessageMock,
     streak_length: usize,
@@ -38,10 +41,8 @@ impl DailySplashUI {
         game: &Game,
         depot: &mut TruncateDepot,
         current_time: Duration,
+        stats: DailyStats,
     ) -> Self {
-        // let stats = get_stats();
-        let stats = DailyStats::default();
-
         let streak_length = stats
             .days
             .values()

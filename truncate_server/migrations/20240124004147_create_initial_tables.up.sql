@@ -14,7 +14,6 @@ CREATE TABLE daily_puzzle_results (
     player_id UUID REFERENCES players(player_id),
     daily_puzzle INT NOT NULL,
     human_player INT NOT NULL,
-    success BOOLEAN NOT NULL DEFAULT false,
     UNIQUE(player_id, daily_puzzle)
 );
 

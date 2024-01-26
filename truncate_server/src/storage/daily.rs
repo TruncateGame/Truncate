@@ -1,8 +1,10 @@
+use std::collections::BTreeMap;
+
 use jwt_simple::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 use truncate_core::{
-    messages::{DailyStateMessage, TruncateToken},
+    messages::{DailyAttempt, DailyResult, DailyStateMessage, DailyStats, TruncateToken},
     moves::{self, packing::pack_moves, Move},
 };
 use uuid::Uuid;
@@ -190,6 +192,7 @@ pub async fn persist_moves(
         get_or_create_latest_attempt(server_state, player.clone(), daily_puzzle, human_player)
             .await?;
 
+    // We don't allow continued play after winning an attempt on that day's puzzle
     if attempt.won {
         return Err(TruncateServerError::PuzzleComplete);
     }
@@ -232,4 +235,62 @@ pub async fn persist_moves(
     .await?;
 
     Ok(())
+}
+
+pub async fn load_stats(
+    server_state: &ServerState,
+    player: AuthedTruncateToken,
+) -> Result<DailyStats, TruncateServerError> {
+    let Some(pool) = &server_state.truncate_db else {
+        return Err(TruncateServerError::DatabaseOffline);
+    };
+    let player_id = player.player();
+
+    struct PuzzleStatsRecord {
+        daily_puzzle: i32,
+        move_counts: Option<Vec<i32>>,
+        wins: Option<Vec<bool>>,
+    }
+
+    let results = sqlx::query_as!(
+        PuzzleStatsRecord,
+        "SELECT
+            dpr.daily_puzzle, 
+            ARRAY_AGG(dpa.move_count ORDER BY dpa.attempt_number) AS move_counts,
+            ARRAY_AGG(dpa.won ORDER BY dpa.attempt_number) AS wins
+        FROM 
+            daily_puzzle_results dpr
+        JOIN 
+            daily_puzzle_attempts dpa ON dpr.result_id = dpa.result_id
+        WHERE 
+            dpr.player_id = $1
+        GROUP BY 
+            dpr.daily_puzzle;",
+        player_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let day_iter = results.into_iter().map(|day| {
+        // Re-pack our aggregation into attempt structs (though could maybe use json_build_object within Postgres)
+        let attempts = day
+            .move_counts
+            .unwrap_or_default()
+            .into_iter()
+            .zip(day.wins.unwrap_or_default().into_iter())
+            .map(|(moves, won)| DailyAttempt {
+                moves: moves.try_into().unwrap_or_default(),
+                won,
+            })
+            .collect::<Vec<_>>();
+
+        (
+            day.daily_puzzle.try_into().unwrap_or_default(),
+            DailyResult { attempts },
+        )
+    });
+
+    Ok(DailyStats {
+        days: BTreeMap::from_iter(day_iter),
+    })
 }

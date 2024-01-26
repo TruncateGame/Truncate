@@ -4,8 +4,9 @@ use epaint::{
     Rect, Shape, Stroke, TextureHandle,
 };
 use instant::Duration;
+use truncate_core::messages::DailyStats;
 
-use crate::utils::{daily::DailyStats, text::TextHelper};
+use crate::utils::text::TextHelper;
 
 /*
 

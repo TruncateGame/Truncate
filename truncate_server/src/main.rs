@@ -598,6 +598,22 @@ async fn handle_player_msg(
                 eprintln!("Errored persisting daily game moves: {e}\n{e:?}");
             }
         }
+        RequestStats(token) => {
+            let Ok(authed) = accounts::auth_player_token(&server_state, token) else {
+                return player_err("Invalid Token".into());
+            };
+
+            match daily::load_stats(&server_state, authed).await {
+                Ok(stats) => {
+                    server_state
+                        .send_to_player(&player_addr, GameMessage::DailyStats(stats))
+                        .unwrap();
+                }
+                Err(e) => {
+                    eprintln!("Errored loading stats for player: {e}\n{e:?}");
+                }
+            }
+        }
     }
 
     Ok(())

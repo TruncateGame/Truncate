@@ -1,10 +1,10 @@
 use eframe::egui::{self, RichText, Sense};
 use epaint::{hex_color, vec2, Color32, TextureHandle, Vec2};
-use truncate_core::game::Game;
+use truncate_core::{game::Game, messages::DailyStats};
 
 use crate::{
     app_outer::Backchannel,
-    utils::{daily::DailyStats, depot::TruncateDepot, text::TextHelper, Lighten, Theme},
+    utils::{depot::TruncateDepot, text::TextHelper, Lighten, Theme},
 };
 
 /*

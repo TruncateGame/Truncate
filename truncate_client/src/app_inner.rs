@@ -223,6 +223,12 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                 puzzle_game.active_game.depot.ui_state.game_header = puzzle_game.header.clone();
                 outer.game_status = GameStatus::SinglePlayer(puzzle_game);
             }
+            GameMessage::DailyStats(stats) => match &mut outer.game_status {
+                GameStatus::SinglePlayer(game) => {
+                    game.daily_stats = Some(stats);
+                }
+                _ => {}
+            },
         }
     }
 }

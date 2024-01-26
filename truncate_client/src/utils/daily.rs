@@ -103,38 +103,3 @@ pub fn get_daily_puzzle(
 
     game_state
 }
-
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-pub struct DailyAttempt {
-    pub moves: u32,
-    pub battles: u32,
-    pub largest_attack_destruction: u32,
-    pub longest_word: Option<String>,
-    pub won: bool,
-}
-
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-pub struct DailyResult {
-    pub attempts: Vec<DailyAttempt>,
-}
-
-#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct DailyStats {
-    pub days: BTreeMap<u32, DailyResult>,
-}
-
-impl DailyStats {
-    fn hydrate_missing_days(&mut self) {
-        let Some((start_day, _)) = self.days.first_key_value() else {
-            return;
-        };
-        let Some((end_day, _)) = self.days.last_key_value() else {
-            return;
-        };
-        for day in *start_day..*end_day {
-            if !self.days.contains_key(&day) {
-                self.days.insert(day, DailyResult::default());
-            }
-        }
-    }
-}
