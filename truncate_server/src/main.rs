@@ -785,6 +785,7 @@ async fn main() -> Result<(), IoError> {
 
         println!("Running database migrations");
         sqlx::migrate!("./migrations")
+            .set_ignore_missing(true)
             .run(&pool)
             .await
             .expect("Database migrations should succeed");
