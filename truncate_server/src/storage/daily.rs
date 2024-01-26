@@ -198,12 +198,23 @@ pub async fn persist_moves(
         attempt = create_new_attempt(server_state, day_record.result_id).await?;
     }
 
+    let human_moves = moves
+        .iter()
+        .filter(|m| {
+            let player = match m {
+                Move::Place { player, .. } => player,
+                Move::Swap { player, .. } => player,
+            };
+            *player as i32 == human_player
+        })
+        .count();
+
     sqlx::query!(
         "UPDATE daily_puzzle_attempts 
          SET sequence_of_moves = $1, move_count = $2
          WHERE attempt_id = $3",
         packed_moves,
-        moves.len() as i32,
+        human_moves as i32,
         attempt.attempt_id
     )
     .execute(pool)
