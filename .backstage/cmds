@@ -1,0 +1,17 @@
+# migrations
+sqlx migrate add -r some_migration_name
+sqlx migrate revert
+sqlx migrate run
+
+# create staging db
+fly postgres create
+
+# prod
+flyctl secrets set -a truncate-citadel "DATABASE_URL=..."
+# staging
+flyctl secrets set -a truncate-coup "DATABASE_URL=..."
+
+# Remember ?sslmode=disable on the database url
+
+# to access postgresql://localhost:15432
+fly proxy 15432:5432 -a truncate-staging
