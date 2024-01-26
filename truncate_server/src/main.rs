@@ -567,7 +567,7 @@ async fn handle_player_msg(
                         &player_addr,
                         GameMessage::ResumeDailyPuzzle(DailyStateMessage {
                             puzzle_day: day,
-                            attempt: 1,
+                            attempt: 0,
                             current_moves: vec![],
                         }),
                     )

@@ -98,7 +98,7 @@ pub fn get_daily_puzzle(
     game_state.header = HeaderType::Summary {
         title: header_title,
         sentinel: header_sentinel,
-        attempt: Some(1),
+        attempt: Some(0),
     };
 
     game_state
