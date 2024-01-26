@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO daily_puzzle_attempts (result_id, attempt_number) VALUES ($1, $2) RETURNING attempt_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "attempt_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "661dba878064202940b5aedbda000bd7e1d6f70589c769d1b31ced7f8064f185"
+}
