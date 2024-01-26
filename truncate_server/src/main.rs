@@ -1,6 +1,7 @@
-mod accounts;
 mod definitions;
+mod errors;
 mod game_state;
+mod storage;
 
 use parking_lot::Mutex;
 use sqlx::postgres::PgPoolOptions;
@@ -10,7 +11,7 @@ use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 
 use definitions::WordDB;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
-use jwt_simple::prelude::*;
+use jwt_simple::{prelude::*, token};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
@@ -19,17 +20,19 @@ use tungstenite::protocol::Message;
 
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
+use crate::storage::daily;
 use game_state::GameManager;
+use storage::accounts;
 use truncate_core::messages::{GameMessage, GameStateMessage, LobbyPlayerMessage, PlayerMessage};
 
 #[derive(Clone)]
-struct ServerState {
+pub struct ServerState {
     games: Arc<Mutex<HashMap<String, Arc<Mutex<GameManager>>>>>,
     assignments: Arc<Mutex<HashMap<SocketAddr, String>>>,
     peers: Arc<Mutex<HashMap<SocketAddr, UnboundedSender<GameMessage>>>>,
     word_db: Arc<Mutex<WordDB>>,
     truncate_db: Option<PgPool>,
-    signing_secret: Option<String>,
+    jwt_key: HS256Key,
 }
 
 impl ServerState {
@@ -98,7 +101,6 @@ async fn handle_player_msg(
     msg: Message,
     player_addr: SocketAddr,
     server_state: ServerState,
-    jwt_key: HS256Key,
 ) -> Result<(), tungstenite::Error> {
     let mut parsed_msg: PlayerMessage =
         serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
@@ -114,13 +116,22 @@ async fn handle_player_msg(
         if let Ok(JWTClaims {
             custom: PlayerClaims { room_code, .. },
             ..
-        }) = jwt_key.verify_token::<PlayerClaims>(&token, None)
+        }) = server_state
+            .jwt_key
+            .verify_token::<PlayerClaims>(&token, None)
         {
             if joining_room_code.to_uppercase() == room_code.to_uppercase() {
                 parsed_msg = PlayerMessage::RejoinGame(token.clone());
             }
         }
     }
+
+    let player_err = |msg: String| {
+        server_state
+            .send_to_player(&player_addr, GameMessage::GenericError(msg))
+            .unwrap();
+        Ok(())
+    };
 
     match parsed_msg {
         Ping => { /* TODO: Track pings and notify the game when players disconnect */ }
@@ -153,7 +164,8 @@ async fn handle_player_msg(
                 },
                 Duration::from_days(7), // TODO: Determine game expiration time
             );
-            let token = jwt_key
+            let token = server_state
+                .jwt_key
                 .authenticate(claims)
                 .expect("Claims should be serializable");
 
@@ -182,16 +194,10 @@ async fn handle_player_msg(
                 // TODO: This is the easiest place to check for lobby capacity right now,
                 // but we'll need to reevaluate if we ever support >2 players, or spectators.
                 if game_manager.players.len() >= 2 {
-                    server_state
-                        .send_to_player(
-                            &player_addr,
-                            GameMessage::GenericError(format!(
-                                "Room {} already has two players, cannot join",
-                                code.to_ascii_uppercase()
-                            )),
-                        )
-                        .unwrap();
-                    return Ok(());
+                    return player_err(format!(
+                        "Room {} already has two players, cannot join",
+                        code.to_ascii_uppercase()
+                    ));
                 }
 
                 server_state.attach_player_to_game(&player_addr, &room_code);
@@ -213,7 +219,8 @@ async fn handle_player_msg(
                         },
                         Duration::from_days(7), // TODO: Determine game expiration time
                     );
-                    let token = jwt_key
+                    let token = server_state
+                        .jwt_key
                         .authenticate(claims)
                         .expect("Claims should be serializable");
 
@@ -249,37 +256,21 @@ async fn handle_player_msg(
                     }
                 } else {
                     // TODO: Render a better error here
-                    server_state
-                        .send_to_player(
-                            &player_addr,
-                            GameMessage::GenericError(format!(
-                                "Unable to join room {}",
-                                code.to_ascii_uppercase()
-                            )),
-                        )
-                        .unwrap();
+                    return player_err(format!(
+                        "Unable to join room {}",
+                        code.to_ascii_uppercase()
+                    ));
                 }
             } else {
-                server_state
-                    .send_to_player(
-                        &player_addr,
-                        GameMessage::GenericError(format!(
-                            "Room {} does not exist",
-                            code.to_ascii_uppercase()
-                        )),
-                    )
-                    .unwrap();
+                return player_err(format!("Room {} does not exist", code.to_ascii_uppercase()));
             }
         }
         RejoinGame(token) => {
-            let Ok(claims) = jwt_key.verify_token::<PlayerClaims>(&token, None) else {
-                server_state
-                    .send_to_player(
-                        &player_addr,
-                        GameMessage::GenericError("Invalid Token".into()),
-                    )
-                    .unwrap();
-                return Ok(());
+            let Ok(claims) = server_state
+                .jwt_key
+                .verify_token::<PlayerClaims>(&token, None)
+            else {
+                return player_err("Invalid Token".into());
             };
             let PlayerClaims {
                 player_index,
@@ -319,24 +310,14 @@ async fn handle_player_msg(
                         }
                     }
                     Err(_) => {
-                        server_state
-                            .send_to_player(
-                                &player_addr,
-                                GameMessage::GenericError("Error rejoining existing game".into()),
-                            )
-                            .unwrap();
+                        return player_err("Error rejoining existing game".into());
                     }
                 }
             } else {
-                server_state
-                    .send_to_player(
-                        &player_addr,
-                        GameMessage::GenericError(format!(
-                            "Room {} no longer exists",
-                            code.to_ascii_uppercase()
-                        )),
-                    )
-                    .unwrap();
+                return player_err(format!(
+                    "Room {} no longer exists",
+                    code.to_ascii_uppercase()
+                ));
             }
         }
         EditBoard(board) => {
@@ -467,12 +448,7 @@ async fn handle_player_msg(
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
                 let mut existing_game_manager = existing_game.lock();
                 if existing_game_manager.core_game.winner.is_none() {
-                    server_state
-                        .send_to_player(
-                            &player_addr,
-                            GameMessage::GenericError("Cannot rematch unfinished game".into()),
-                        )
-                        .unwrap();
+                    return player_err("Cannot rematch unfinished game".into());
                 } else {
                     let new_game_id = server_state.game_code();
                     let mut new_game = GameManager::new(new_game_id.clone());
@@ -518,7 +494,8 @@ async fn handle_player_msg(
                             },
                             Duration::from_days(7), // TODO: Determine game expiration time
                         );
-                        let token = jwt_key
+                        let token = server_state
+                            .jwt_key
                             .authenticate(claims)
                             .expect("Claims should be serializable");
 
@@ -551,17 +528,67 @@ async fn handle_player_msg(
                 .send_to_player(&player_addr, GameMessage::SupplyDefinitions(definitions))
                 .unwrap();
         }
+        CreateAnonymousPlayer => match accounts::create_player(&server_state).await {
+            Ok(new_player) => {
+                let token = accounts::get_player_token(&server_state, new_player);
+
+                server_state
+                    .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
+                    .unwrap();
+            }
+            Err(_) => {
+                todo!("Error handling for database actions");
+            }
+        },
+        Login(token) => match accounts::login(&server_state, token.clone()).await {
+            Ok(_player_id) => {
+                server_state
+                    .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
+                    .unwrap();
+            }
+            Err(_e) => {
+                return player_err("Invalid Token".into());
+            }
+        },
+        LoadDailyPuzzle(token, day) => {
+            let Ok(authed) = accounts::auth_player_token(&server_state, token) else {
+                return player_err("Invalid Token".into());
+            };
+
+            if let Ok(Some(puzzle)) = daily::load_attempt(&server_state, authed, day as i32).await {
+                server_state
+                    .send_to_player(&player_addr, GameMessage::ResumeDailyPuzzle(puzzle))
+                    .unwrap();
+            }
+        }
+        PersistPuzzleMoves {
+            player_token,
+            day,
+            human_player,
+            moves,
+        } => {
+            let Ok(authed) = accounts::auth_player_token(&server_state, player_token) else {
+                return player_err("Invalid Token".into());
+            };
+
+            if let Err(e) = daily::persist_moves(
+                &server_state,
+                authed,
+                day as i32,
+                human_player as i32,
+                moves,
+            )
+            .await
+            {
+                eprintln!("Errored persisting daily game moves: {e}\n{e:?}");
+            }
+        }
     }
 
     Ok(())
 }
 
-async fn handle_connection(
-    server_state: ServerState,
-    raw_stream: TcpStream,
-    addr: SocketAddr,
-    jwt_key: HS256Key,
-) {
+async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, addr: SocketAddr) {
     println!("Incoming TCP connection from: {}", addr);
 
     let ws_stream = tokio_tungstenite::accept_async(raw_stream)
@@ -576,8 +603,8 @@ async fn handle_connection(
 
     // TODO: try_for_each from TryStreamExt is quite nice,
     // look to bring that trait to the other stream places
-    let handle_player_msg = incoming
-        .try_for_each(|msg| handle_player_msg(msg, addr, server_state.clone(), jwt_key.clone()));
+    let handle_player_msg =
+        incoming.try_for_each(|msg| handle_player_msg(msg, addr, server_state.clone()));
 
     let messages_to_player = {
         UnboundedReceiverStream::new(player_rx)
@@ -697,16 +724,7 @@ async fn main() -> Result<(), IoError> {
     // Load from env file if one exists (local dev).
     _ = dotenvy::dotenv();
 
-    let mut server_state = ServerState {
-        games: Arc::new(Mutex::new(HashMap::new())),
-        assignments: Arc::new(Mutex::new(HashMap::new())),
-        peers: Arc::new(Mutex::new(HashMap::new())),
-        word_db: Arc::new(Mutex::new(read_defs())),
-        truncate_db: None,
-        signing_secret: env::var("SIGNING_SECRET").ok(),
-    };
-
-    let jwt_key = if let Some(s) = &server_state.signing_secret {
+    let jwt_key = if let Some(s) = env::var("SIGNING_SECRET").ok() {
         println!("Loading the signing secret for JWTs");
         HS256Key::from_bytes(&hex::decode(s).expect("Signing secret should be valid hex"))
     } else {
@@ -714,6 +732,15 @@ async fn main() -> Result<(), IoError> {
         println!("Running without a dedicated secret — generating a new one:");
         println!("{}", hex::encode(k.to_bytes()));
         k
+    };
+
+    let mut server_state = ServerState {
+        games: Arc::new(Mutex::new(HashMap::new())),
+        assignments: Arc::new(Mutex::new(HashMap::new())),
+        peers: Arc::new(Mutex::new(HashMap::new())),
+        word_db: Arc::new(Mutex::new(read_defs())),
+        truncate_db: None,
+        jwt_key,
     };
 
     if let Ok(db_url) = env::var("DATABASE_URL") {
@@ -762,12 +789,7 @@ async fn main() -> Result<(), IoError> {
     });
 
     while let Ok((stream, addr)) = listener.accept().await {
-        tokio::spawn(handle_connection(
-            server_state.clone(),
-            stream,
-            addr,
-            jwt_key.clone(),
-        ));
+        tokio::spawn(handle_connection(server_state.clone(), stream, addr));
     }
 
     Ok(())

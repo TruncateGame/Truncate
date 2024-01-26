@@ -40,9 +40,18 @@ pub struct NotesFile {
     pub notes: BTreeMap<u32, SeedNote>,
 }
 
+pub fn get_puzzle_day(current_time: Duration) -> u32 {
+    let seconds_offset = chrono::Local::now().offset().fix().local_minus_utc();
+    let local_seconds = current_time.as_secs() as i32 + seconds_offset;
+    let seed = (local_seconds / (60 * 60 * 24)) as u32;
+    let day = seed - DAILY_PUZZLE_DAY_ZERO as u32;
+
+    day
+}
+
 pub fn get_daily_puzzle(
     ctx: &egui::Context,
-    current_time: Duration,
+    day: u32,
     map_texture: &TextureHandle,
     theme: &Theme,
     backchannel: &Backchannel,
@@ -50,18 +59,14 @@ pub fn get_daily_puzzle(
     let loaded_notes: NotesFile =
         serde_yaml::from_slice(SEED_NOTES).expect("Seed notes should match the spec");
 
-    let seconds_offset = chrono::Local::now().offset().fix().local_minus_utc();
-    let local_seconds = current_time.as_secs() as i32 + seconds_offset;
-    let seed = (local_seconds / (60 * 60 * 24)) as u32;
-    let day = seed - DAILY_PUZZLE_DAY_ZERO as u32;
-    let mut board_seed = BoardSeed::new(seed).day(day);
+    let mut board_seed = BoardSeed::new(day).day(day);
 
     let header_title = format!("Truncate Town Day #{day}");
     let mut header_sentinel = '*';
 
     let mut human_starts = true;
 
-    let notes = loaded_notes.notes.get(&seed);
+    let notes = loaded_notes.notes.get(&day);
     if let Some(notes) = notes {
         human_starts = notes.best_player == 0;
         header_sentinel = '★';
@@ -90,146 +95,13 @@ pub fn get_daily_puzzle(
         }
     }
 
-    let persisted_moves = get_persistent_game(&board_seed);
     game_state.header = HeaderType::Summary {
         title: header_title,
         sentinel: header_sentinel,
-        attempt: Some(persisted_moves.attempts),
+        attempt: Some(1),
     };
-    game_state.active_game.depot.ui_state.game_header = game_state.header.clone();
-
-    let delay = game_state.game.rules.battle_delay;
-    game_state.game.rules.battle_delay = 0;
-    for next_move in persisted_moves.moves.into_iter() {
-        if game_state.handle_move(next_move, backchannel).is_err() {
-            wipe_persistent_game(&board_seed);
-            return get_daily_puzzle(ctx, current_time, map_texture, theme, backchannel);
-        }
-    }
-    game_state.game.rules.battle_delay = delay;
 
     game_state
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct PersistentGame {
-    pub won: bool,
-    pub attempts: usize,
-    pub moves: Vec<Move>,
-}
-
-pub fn persist_game_retry(seed: &BoardSeed) {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-
-        let key = format!("daily_{}", seed.seed);
-
-        let Ok(record) = local_storage.get_item(&key) else {
-            eprintln!("Localstorage was inaccessible");
-            return;
-        };
-
-        let mut current_game: PersistentGame = record
-            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
-            .unwrap_or_default();
-
-        current_game.attempts += 1;
-        current_game.moves = vec![];
-
-        local_storage
-            .set_item(
-                &key,
-                &serde_json::to_string(&current_game).expect("Our game should be serializable"),
-            )
-            .unwrap();
-    }
-}
-
-pub fn persist_game_win(seed: &BoardSeed) {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-
-        let key = format!("daily_{}", seed.seed);
-
-        let Ok(record) = local_storage.get_item(&key) else {
-            eprintln!("Localstorage was inaccessible");
-            return;
-        };
-
-        let mut current_game: PersistentGame = record
-            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
-            .unwrap_or_default();
-
-        current_game.won = true;
-
-        local_storage
-            .set_item(
-                &key,
-                &serde_json::to_string(&current_game).expect("Our game should be serializable"),
-            )
-            .unwrap();
-    }
-}
-
-pub fn persist_game_move(seed: &BoardSeed, action: Move) {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-
-        let key = format!("daily_{}", seed.seed);
-
-        let Ok(record) = local_storage.get_item(&key) else {
-            eprintln!("Localstorage was inaccessible");
-            return;
-        };
-
-        let mut current_game: PersistentGame = record
-            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
-            .unwrap_or_default();
-
-        current_game.moves.push(action);
-
-        local_storage
-            .set_item(
-                &key,
-                &serde_json::to_string(&current_game).expect("Our game should be serializable"),
-            )
-            .unwrap();
-    }
-}
-
-#[allow(unreachable_code)]
-pub fn get_persistent_game(seed: &BoardSeed) -> PersistentGame {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-
-        let key = format!("daily_{}", seed.seed);
-
-        let Ok(record) = local_storage.get_item(&key) else {
-            return PersistentGame::default();
-        };
-
-        let current_game: PersistentGame = record
-            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
-            .unwrap_or_default();
-
-        return current_game;
-    }
-    PersistentGame::default()
-}
-
-pub fn wipe_persistent_game(seed: &BoardSeed) {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-
-        let key = format!("daily_{}", seed.seed);
-
-        _ = local_storage.remove_item(&key);
-    }
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -246,7 +118,7 @@ pub struct DailyResult {
     pub attempts: Vec<DailyAttempt>,
 }
 
-#[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DailyStats {
     pub days: BTreeMap<u32, DailyResult>,
 }
@@ -264,128 +136,5 @@ impl DailyStats {
                 self.days.insert(day, DailyResult::default());
             }
         }
-    }
-}
-
-pub fn get_stats() -> DailyStats {
-    let mut stats = DailyStats::default();
-    #[cfg(target_arch = "wasm32")]
-    {
-        let storage_key = "daily_puzzle_stats";
-
-        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-        let Ok(stored_stats) = local_storage.get_item(storage_key) else {
-            eprintln!("Localstorage was inaccessible");
-            return stats;
-        };
-        stats = stored_stats
-            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
-            .unwrap_or_default();
-        stats.hydrate_missing_days();
-    }
-    stats
-}
-
-pub fn persist_stats(seed: &BoardSeed, game: &Game, human_player: usize, attempt: usize) {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let Some(relative_day) = seed.day else {
-            return;
-        };
-        let storage_key = "daily_puzzle_stats";
-
-        let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-        let Ok(stored_stats) = local_storage.get_item(storage_key) else {
-            eprintln!("Localstorage was inaccessible");
-            return;
-        };
-        let mut stats: DailyStats = stored_stats
-            .map(|stored| serde_json::from_str(&stored).unwrap_or_default())
-            .unwrap_or_default();
-
-        let today = stats.days.entry(relative_day).or_default();
-
-        while today.attempts.get(attempt).is_none() {
-            today.attempts.push(DailyAttempt::default());
-        }
-
-        let this_attempt = today.attempts.get_mut(attempt).unwrap();
-
-        this_attempt.moves = game.player_turn_count[human_player];
-        this_attempt.won = game.winner == Some(human_player);
-        this_attempt.battles = game.battle_count;
-
-        let recent_attack_destruction = game
-            .recent_changes
-            .iter()
-            .filter(|change| {
-                use truncate_core::reporting::Change::Board;
-                match change {
-                    Board(BoardChange {
-                        detail:
-                            BoardChangeDetail {
-                                square: Square::Occupied(player, _),
-                                ..
-                            },
-                        action: BoardChangeAction::Defeated | BoardChangeAction::Truncated,
-                    }) if *player != human_player => true,
-                    _ => false,
-                }
-            })
-            .count();
-
-        this_attempt.largest_attack_destruction = this_attempt
-            .largest_attack_destruction
-            .max(recent_attack_destruction as u32);
-
-        let new_player_tile = game.recent_changes.iter().find_map(|change| {
-            use truncate_core::reporting::Change::Board;
-            match change {
-                Board(BoardChange {
-                    detail:
-                        BoardChangeDetail {
-                            square: Square::Occupied(player, _),
-                            coordinate,
-                        },
-                    action: BoardChangeAction::Added,
-                }) if *player == human_player => Some(coordinate),
-                _ => None,
-            }
-        });
-        if let Some(new_player_tile) = new_player_tile {
-            let word_coords = game.board.get_words(*new_player_tile);
-            let dict_lock = get_main_dict();
-            let dict = dict_lock.as_ref().unwrap();
-            if let Ok(words) = game.board.word_strings(&word_coords) {
-                words
-                    .into_iter()
-                    .filter(|word| {
-                        game.judge
-                            .valid(
-                                &word,
-                                &game.rules.win_condition,
-                                Some(dict),
-                                None,
-                                &mut None,
-                            )
-                            .is_some()
-                    })
-                    .for_each(|word| {
-                        let prev_longest = this_attempt
-                            .longest_word
-                            .get_or_insert_with(|| word.clone());
-                        if word.len() > prev_longest.len() {
-                            *prev_longest = word;
-                        }
-                    });
-            }
-        }
-
-        local_storage
-            .set_item(
-                storage_key,
-                &serde_json::to_string(&stats).expect("Our stats should be serializable"),
-            )
-            .unwrap();
     }
 }

@@ -15,6 +15,7 @@ TODOs for the message mock:
 
  */
 
+#[derive(Clone)]
 pub struct ShareMessageMock {
     share_text: String,
     share_copied: bool,

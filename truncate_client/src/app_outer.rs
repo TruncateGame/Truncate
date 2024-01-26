@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 
 use futures::channel::mpsc::{Receiver, Sender};
+use instant::Duration;
 use serde::{Deserialize, Serialize};
 type R = Receiver<GameMessage>;
 type S = Sender<PlayerMessage>;
@@ -91,6 +92,8 @@ impl Backchannel {
 pub struct OuterApplication {
     pub name: String,
     pub theme: Theme,
+    pub started_login_at: Option<Duration>,
+    pub logged_in_as: Option<String>,
     pub game_status: app_inner::GameStatus,
     pub rx_game: R,
     pub tx_player: S,
@@ -106,7 +109,7 @@ impl OuterApplication {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         rx_game: R,
-        tx_player: S,
+        mut tx_player: S,
         room_code: Option<String>,
         #[cfg(target_arch = "wasm32")] backchannel: js_sys::Function,
     ) -> Self {
@@ -146,6 +149,7 @@ impl OuterApplication {
 
         let mut game_status = app_inner::GameStatus::None("".into(), None);
         let mut player_name = "___AUTO___".to_string();
+        let mut player_token: Option<String> = None;
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -158,6 +162,25 @@ impl OuterApplication {
 
             if let Some(existing_name) = local_storage.get_item("truncate_name_history").unwrap() {
                 player_name = existing_name.into();
+            }
+
+            if let Some(existing_player_token) =
+                local_storage.get_item("truncate_player_token").unwrap()
+            {
+                player_token = Some(existing_player_token);
+            }
+        }
+
+        match &player_token {
+            Some(existing_token) => {
+                tx_player
+                    .try_send(PlayerMessage::Login(existing_token.clone()))
+                    .unwrap();
+            }
+            None => {
+                tx_player
+                    .try_send(PlayerMessage::CreateAnonymousPlayer)
+                    .unwrap();
             }
         }
 
@@ -199,9 +222,15 @@ impl OuterApplication {
             cc.egui_ctx.clone(),
         ));
 
+        let current_time = instant::SystemTime::now()
+            .duration_since(instant::SystemTime::UNIX_EPOCH)
+            .expect("Please don't play Truncate earlier than 1970");
+
         Self {
             name: player_name,
             theme,
+            started_login_at: Some(current_time),
+            logged_in_as: player_token,
             game_status,
             rx_game,
             tx_player,

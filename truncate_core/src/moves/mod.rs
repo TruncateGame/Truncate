@@ -1,3 +1,5 @@
+pub mod packing;
+
 use serde::{Deserialize, Serialize};
 
 use super::board::Coordinate;

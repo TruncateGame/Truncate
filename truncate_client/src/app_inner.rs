@@ -5,27 +5,34 @@ use truncate_core::{
     board::Board,
     generation::{generate_board, BoardSeed},
     messages::RoomCode,
-    messages::{LobbyPlayerMessage, Token},
+    messages::{LobbyPlayerMessage, TruncateToken},
 };
 
 use crate::{
+    lil_bits::SplashUI,
     regions::active_game::ActiveGame,
     regions::{
         active_game::HeaderType, generator::GeneratorState, lobby::Lobby,
         single_player::SinglePlayerState, tutorial::TutorialState,
     },
-    utils::{daily::get_daily_puzzle, text::TextHelper, Lighten},
+    utils::{
+        daily::{get_daily_puzzle, get_puzzle_day},
+        macros::tr_log,
+        text::TextHelper,
+        Lighten,
+    },
 };
 
 use super::OuterApplication;
 use truncate_core::messages::{GameMessage, GameStateMessage, PlayerMessage};
 
 pub enum GameStatus {
-    None(RoomCode, Option<Token>),
+    None(RoomCode, Option<TruncateToken>),
     Generator(GeneratorState),
     Tutorial(TutorialState),
     PendingSinglePlayer(Lobby),
     SinglePlayer(SinglePlayerState),
+    PendingDaily,
     PendingJoin(RoomCode),
     PendingCreate,
     PendingStart(Lobby),
@@ -33,47 +40,250 @@ pub enum GameStatus {
     Concluded(ActiveGame, u64),
 }
 
-pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Duration) {
-    let OuterApplication {
-        name,
-        theme,
-        game_status,
-        rx_game,
-        tx_player,
-        map_texture,
-        launched_room,
-        error,
-        backchannel,
-        log_frames,
-        frames,
-    } = client;
+pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Duration) {
+    let mut recv = || match outer.rx_game.try_next() {
+        Ok(Some(msg)) => Ok(msg),
+        _ => Err(()),
+    };
 
-    if *log_frames {
+    while let Ok(msg) = recv() {
+        match msg {
+            GameMessage::Ping => {}
+            GameMessage::JoinedLobby(player_index, id, players, board, token) => {
+                // If we're already in a lobby, treat this as a lobby update
+                // (the websocket probably dropped and reconnected)
+                if let GameStatus::PendingStart(lobby) = &mut outer.game_status {
+                    if lobby.room_code.to_uppercase() == id.to_uppercase() {
+                        lobby.players = players;
+                        lobby.update_board(board, ui);
+                        continue;
+                    }
+                }
+
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let local_storage =
+                        web_sys::window().unwrap().local_storage().unwrap().unwrap();
+                    local_storage
+                        .set_item("truncate_active_token", &token)
+                        .unwrap();
+
+                    // If we're joining a lobby, update the URL to match
+                    _ = web_sys::window()
+                        .unwrap()
+                        .location()
+                        .set_hash(id.to_uppercase().as_str());
+                }
+
+                outer.game_status = GameStatus::PendingStart(Lobby::new(
+                    ui.ctx(),
+                    id.to_uppercase(),
+                    players,
+                    player_index,
+                    board,
+                    outer.map_texture.clone(),
+                ))
+            }
+            GameMessage::LobbyUpdate(_player_index, _id, players, board) => {
+                match &mut outer.game_status {
+                    GameStatus::PendingStart(editor_state) => {
+                        // TODO: Assert that this message is for the correct lobby
+                        editor_state.players = players;
+                        editor_state.update_board(board, ui);
+                    }
+                    _ => panic!("Game update hit an unknown state"),
+                }
+            }
+            GameMessage::StartedGame(GameStateMessage {
+                room_code,
+                players,
+                player_number,
+                next_player_number,
+                board,
+                hand,
+                changes: _,
+            }) => {
+                // If we're already in a game, treat this as a game update
+                // (the websocket probably dropped and reconnected)
+                if let GameStatus::Active(game) = &mut outer.game_status {
+                    if game.depot.gameplay.room_code.to_uppercase() == room_code.to_uppercase() {
+                        let update = GameStateMessage {
+                            room_code,
+                            players,
+                            player_number,
+                            next_player_number,
+                            board,
+                            hand,
+                            changes: vec![], // TODO: Try get latest changes on reconnect without dupes
+                        };
+                        game.apply_new_state(update);
+                        continue;
+                    }
+                }
+
+                outer.game_status = GameStatus::Active(ActiveGame::new(
+                    ui.ctx(),
+                    room_code.to_uppercase(),
+                    None,
+                    players,
+                    player_number,
+                    next_player_number,
+                    board,
+                    hand,
+                    outer.map_texture.clone(),
+                    outer.theme.clone(),
+                ));
+                println!("Starting a game")
+            }
+            GameMessage::GameUpdate(state_message) => match &mut outer.game_status {
+                GameStatus::Active(game) => {
+                    game.apply_new_state(state_message);
+                }
+                _ => todo!("Game update hit an unknown state"),
+            },
+            GameMessage::GameEnd(state_message, winner) => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let local_storage =
+                        web_sys::window().unwrap().local_storage().unwrap().unwrap();
+                    local_storage.remove_item("truncate_active_token").unwrap();
+                }
+
+                match &mut outer.game_status {
+                    GameStatus::Active(game) => {
+                        game.apply_new_state(state_message);
+                        outer.game_status = GameStatus::Concluded(game.clone(), winner);
+                    }
+                    _ => {}
+                }
+            }
+            GameMessage::GameError(_id, _num, err) => match &mut outer.game_status {
+                GameStatus::Active(game) => {
+                    // assert_eq!(game.room_code, id);
+                    // assert_eq!(game.player_number, num);
+                    game.depot.gameplay.error_msg = Some(err);
+                }
+                _ => {}
+            },
+            GameMessage::GenericError(err) => {
+                outer.error = Some(err);
+            }
+            GameMessage::SupplyDefinitions(definitions) => {
+                match &mut outer.game_status {
+                    GameStatus::SinglePlayer(game) => {
+                        game.hydrate_meanings(definitions);
+                    }
+                    _ => { /* Soft unreachable */ }
+                }
+            }
+            GameMessage::LoggedInAs(player_token) => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let local_storage =
+                        web_sys::window().unwrap().local_storage().unwrap().unwrap();
+                    local_storage
+                        .set_item("truncate_player_token", &player_token)
+                        .unwrap();
+                }
+
+                outer.logged_in_as = Some(player_token);
+            }
+            GameMessage::ResumeDailyPuzzle(puzzle_state) => {
+                let mut puzzle_game = get_daily_puzzle(
+                    ui.ctx(),
+                    puzzle_state.puzzle_day,
+                    &outer.map_texture,
+                    &outer.theme,
+                    &outer.backchannel,
+                );
+
+                let unplayed_puzzle = puzzle_game.clone();
+
+                match &mut puzzle_game.header {
+                    HeaderType::Summary { attempt, .. } => {
+                        *attempt = Some(puzzle_state.attempt as usize)
+                    }
+                    _ => {}
+                }
+                puzzle_game.move_sequence = puzzle_state.current_moves.clone();
+
+                let delay = puzzle_game.game.rules.battle_delay;
+                puzzle_game.game.rules.battle_delay = 0;
+                for next_move in puzzle_state.current_moves.into_iter() {
+                    if puzzle_game
+                        .handle_move(next_move, &outer.backchannel)
+                        .is_err()
+                    {
+                        puzzle_game = unplayed_puzzle;
+                        break;
+                    }
+                }
+                puzzle_game.game.rules.battle_delay = delay;
+
+                puzzle_game.active_game.depot.ui_state.game_header = puzzle_game.header.clone();
+                outer.game_status = GameStatus::SinglePlayer(puzzle_game);
+            }
+        }
+    }
+}
+
+pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Duration) {
+    handle_server_msg(outer, ui, current_time);
+
+    if outer.log_frames {
         let ctx = ui.ctx().clone();
 
         egui::Window::new("🔍 Inspection")
             .vscroll(true)
             .default_pos(ui.next_widget_position() + vec2(ui.available_width(), 0.0))
             .show(&ctx, |ui| {
-                frames.ui(ui);
+                outer.frames.ui(ui);
                 ctx.inspection_ui(ui);
             });
     }
 
     let mut send = |msg| {
-        tx_player.try_send(msg).unwrap();
+        outer.tx_player.try_send(msg).unwrap();
     };
 
-    let mut recv = || match rx_game.try_next() {
-        Ok(Some(msg)) => Ok(msg),
-        _ => Err(()),
-    };
+    // Block all further actions until we have a login token from the server,
+    // or until the player accepts to play offline.
+    if let (Some(waiting_for_login), None) = (&outer.started_login_at, &outer.logged_in_as) {
+        if (current_time - *waiting_for_login) < Duration::from_secs(10) {
+            SplashUI::new(vec!["INITIALIZING".to_string()])
+                .animated(true)
+                .render(ui, &outer.theme, current_time, &outer.map_texture);
+            return;
+        } else {
+            let resp = SplashUI::new(vec![
+                "COULD NOT CONNECT".to_string(),
+                "TO TRUNCATE".to_string(),
+            ])
+            .byline(vec![
+                "Offline play may not be saved.".to_string(),
+                "Reload to try again,".to_string(),
+                "or continue to play offline.".to_string(),
+            ])
+            .with_button(
+                "continue",
+                "CONTINUE".to_string(),
+                outer.theme.selection.lighten().lighten(),
+            )
+            .render(ui, &outer.theme, current_time, &outer.map_texture);
+
+            if resp.clicked == Some("continue") {
+                outer.started_login_at = None;
+            } else {
+                return;
+            }
+        }
+    }
 
     let mut new_game_status = None;
 
-    if let Some(launched_room) = launched_room.take() {
+    if let Some(launched_room) = outer.launched_room.take() {
         if launched_room == "__REJOIN__" {
-            match game_status {
+            match &mut outer.game_status {
                 GameStatus::None(_, Some(token)) => {
                     send(PlayerMessage::RejoinGame(token.to_string()));
                     new_game_status = Some(GameStatus::PendingJoin("...".into()));
@@ -85,8 +295,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         } else if launched_room == "TUTORIAL_01" {
             new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                 ui.ctx(),
-                map_texture.clone(),
-                theme.clone(),
+                outer.map_texture.clone(),
+                outer.theme.clone(),
             )));
         } else if launched_room == "SINGLE_PLAYER" {
             let mut board = Board::new(9, 9);
@@ -108,12 +318,15 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 ],
                 0,
                 board,
-                map_texture.clone(),
+                outer.map_texture.clone(),
             )));
         } else if launched_room == "DAILY_PUZZLE" {
-            let puzzle_game =
-                get_daily_puzzle(ui.ctx(), current_time, map_texture, theme, backchannel);
-            new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+            let day = get_puzzle_day(current_time);
+            if let Some(token) = &outer.logged_in_as {
+                send(PlayerMessage::LoadDailyPuzzle(token.clone(), day));
+            }
+
+            new_game_status = Some(GameStatus::PendingDaily);
         } else if launched_room == "RANDOM_PUZZLE" {
             let seed = (current_time.as_micros() % 243985691) as u32;
             let board_seed = BoardSeed::new(seed);
@@ -127,8 +340,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             };
             let puzzle_game = SinglePlayerState::new(
                 ui.ctx(),
-                map_texture.clone(),
-                theme.clone(),
+                outer.map_texture.clone(),
+                outer.theme.clone(),
                 board,
                 Some(board_seed),
                 true,
@@ -159,8 +372,8 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             };
             let puzzle_game = SinglePlayerState::new(
                 ui.ctx(),
-                map_texture.clone(),
-                theme.clone(),
+                outer.map_texture.clone(),
+                outer.theme.clone(),
                 board,
                 Some(board_seed),
                 player == 0,
@@ -172,21 +385,21 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
             let behemoth_game = SinglePlayerState::new(
                 ui.ctx(),
-                map_texture.clone(),
-                theme.clone(),
+                outer.map_texture.clone(),
+                outer.theme.clone(),
                 behemoth_board,
                 Some(seed_for_hand_tiles),
                 true,
                 HeaderType::Timers,
             );
             new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
-            *log_frames = true;
+            outer.log_frames = true;
         } else if launched_room.is_empty() {
             // No room code means we start a new game.
-            send(PlayerMessage::NewGame(name.clone()));
+            send(PlayerMessage::NewGame(outer.name.clone()));
             new_game_status = Some(GameStatus::PendingCreate);
         } else {
-            let token = if let GameStatus::None(_, token) = game_status {
+            let token = if let GameStatus::None(_, token) = &outer.game_status {
                 token.clone()
             } else {
                 None
@@ -194,7 +407,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
 
             send(PlayerMessage::JoinGame(
                 launched_room.clone(),
-                name.clone(),
+                outer.name.clone(),
                 token,
             ));
 
@@ -202,46 +415,20 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         }
     }
 
-    // ui.horizontal(|ui| {
-    //     if option_env!("TR_PROD").is_none() {
-    //         if let (Some(commit_msg), Some(commit_hash)) =
-    //             (option_env!("TR_MSG"), option_env!("TR_COMMIT"))
-    //         {
-    //             ui.hyperlink_to(
-    //                 format!("Running \"{commit_msg}\""),
-    //                 format!("https://github.com/TruncateGame/Truncate/commit/{commit_hash}"),
-    //             );
-    //         } else {
-    //             ui.label(format!("No tagged commit."));
-    //         }
-    //     }
-
-    //     if matches!(game_status, GameStatus::None(_, _)) {
-    //         ui.horizontal(|ui| {
-    //             ui.label("Name: ");
-    //             ui.text_edit_singleline(name);
-    //         });
-    //     } else {
-    //         ui.label(format!("Playing as {name}"));
-    //     }
-    // });
-
-    // ui.separator();
-
-    match game_status {
+    match &mut outer.game_status {
         GameStatus::None(room_code, token) => {
             if ui.button("Generator").clicked() {
                 new_game_status = Some(GameStatus::Generator(GeneratorState::new(
                     ui.ctx(),
-                    map_texture.clone(),
-                    theme.clone(),
+                    outer.map_texture.clone(),
+                    outer.theme.clone(),
                 )));
             }
             if ui.button("Tutorial").clicked() {
                 new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                     ui.ctx(),
-                    map_texture.clone(),
-                    theme.clone(),
+                    outer.map_texture.clone(),
+                    outer.theme.clone(),
                 )));
             }
             if ui.button("Single Player").clicked() {
@@ -264,7 +451,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                     ],
                     0,
                     board,
-                    map_texture.clone(),
+                    outer.map_texture.clone(),
                 )));
             }
             if ui.button("Behemoth").clicked() {
@@ -273,19 +460,19 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
                 let behemoth_game = SinglePlayerState::new(
                     ui.ctx(),
-                    map_texture.clone(),
-                    theme.clone(),
+                    outer.map_texture.clone(),
+                    outer.theme.clone(),
                     behemoth_board,
                     Some(seed_for_hand_tiles),
                     true,
                     HeaderType::Timers,
                 );
                 new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
-                *log_frames = true;
+                outer.log_frames = true;
             }
             if ui.button("New Game").clicked() {
                 // TODO: Send player name in NewGame message
-                send(PlayerMessage::NewGame(name.clone()));
+                send(PlayerMessage::NewGame(outer.name.clone()));
                 new_game_status = Some(GameStatus::PendingCreate);
             }
             ui.horizontal(|ui| {
@@ -293,7 +480,7 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
                 if ui.button("Join Game").clicked() {
                     send(PlayerMessage::JoinGame(
                         room_code.clone(),
-                        name.clone(),
+                        outer.name.clone(),
                         token.clone(),
                     ));
                     new_game_status = Some(GameStatus::PendingJoin(room_code.clone()));
@@ -308,19 +495,19 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
             }
         }
         GameStatus::Generator(generator) => {
-            generator.render(ui, theme, current_time);
+            generator.render(ui, &outer.theme, current_time);
         }
         GameStatus::Tutorial(tutorial) => {
-            tutorial.render(ui, theme, current_time);
+            tutorial.render(ui, &outer.theme, current_time);
         }
         GameStatus::PendingSinglePlayer(editor_state) => {
-            if let Some(msg) = editor_state.render(ui, theme) {
+            if let Some(msg) = editor_state.render(ui, &outer.theme) {
                 match msg {
                     PlayerMessage::StartGame => {
                         let single_player_game = SinglePlayerState::new(
                             ui.ctx(),
-                            map_texture.clone(),
-                            theme.clone(),
+                            outer.map_texture.clone(),
+                            outer.theme.clone(),
                             editor_state.board.clone(),
                             editor_state.board_seed.clone(),
                             true,
@@ -336,95 +523,95 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         }
         GameStatus::SinglePlayer(sp) => {
             // Special performance debug mode — hide the sidebar to give us more space
-            if *log_frames {
+            if outer.log_frames {
                 sp.active_game.depot.ui_state.sidebar_hidden = true;
             }
 
-            // Single player _can_ talk to the server, e.g. to ask for word definitions
-            if let Some(msg) = sp.render(ui, theme, current_time, &backchannel) {
+            // Single player can talk to the server, e.g. to ask for word definitions and to persist data
+            for msg in sp.render(
+                ui,
+                &outer.theme,
+                current_time,
+                &outer.backchannel,
+                &outer.logged_in_as,
+            ) {
                 send(msg);
-            };
+            }
+        }
+        GameStatus::PendingDaily => {
+            let splash = SplashUI::new(if let Some(error) = &outer.error {
+                vec![error.clone()]
+            } else {
+                vec![format!("LOADING DAILY PUZZLE")]
+            })
+            .animated(outer.error.is_none())
+            .with_button(
+                "cancel",
+                "CANCEL".to_string(),
+                outer.theme.selection.lighten().lighten(),
+            );
+
+            let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
+
+            if resp.clicked == Some("cancel") {
+                // TODO: Neatly kick back to the wrapper page without a reload
+                #[cfg(target_arch = "wasm32")]
+                {
+                    _ = web_sys::window().unwrap().location().set_hash("");
+                    _ = web_sys::window().unwrap().location().reload();
+                }
+            }
         }
         GameStatus::PendingJoin(room_code) => {
-            let dot_count = (current_time.as_millis() / 500) % 4;
-            let mut dots = vec!["."; dot_count as usize];
-            dots.extend(vec![" "; 4 - dot_count as usize]);
-            let msg = if let Some(error) = error {
-                error.clone()
+            let splash = SplashUI::new(if let Some(error) = &outer.error {
+                vec![error.clone()]
             } else {
-                format!("JOINING {room_code}{}", dots.join(""))
-            };
-
-            let msg_text = TextHelper::heavy(&msg, 14.0, None, ui);
-            let button_text = TextHelper::heavy("CANCEL", 14.0, None, ui);
-            let required_size = vec2(
-                msg_text.size().x,
-                msg_text.size().y + button_text.size().y * 2.0,
+                vec![format!("JOINING {room_code}")]
+            })
+            .animated(outer.error.is_none())
+            .with_button(
+                "cancel",
+                "CANCEL".to_string(),
+                outer.theme.selection.lighten().lighten(),
             );
 
-            let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
-            let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
-            outer_frame.show(ui, |ui| {
-                msg_text.paint(Color32::WHITE, ui, false);
-                ui.add_space(8.0);
-                if button_text
-                    .centered_button(
-                        theme.selection.lighten().lighten(),
-                        theme.text,
-                        &map_texture,
-                        ui,
-                    )
-                    .clicked()
+            let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
+
+            if resp.clicked == Some("cancel") {
+                // TODO: Neatly kick back to the wrapper page without a reload
+                #[cfg(target_arch = "wasm32")]
                 {
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        _ = web_sys::window().unwrap().location().set_hash("");
-                        _ = web_sys::window().unwrap().location().reload();
-                    }
+                    _ = web_sys::window().unwrap().location().set_hash("");
+                    _ = web_sys::window().unwrap().location().reload();
                 }
-            });
+            }
         }
         GameStatus::PendingCreate => {
-            let dot_count = (current_time.as_millis() / 500) % 4;
-            let mut dots = vec!["."; dot_count as usize];
-            dots.extend(vec![" "; 4 - dot_count as usize]);
-            let msg = if let Some(error) = error {
-                error.clone()
+            let splash = SplashUI::new(if let Some(error) = &outer.error {
+                vec![error.clone()]
             } else {
-                format!("CREATING ROOM{}", dots.join(""))
-            };
-
-            let msg_text = TextHelper::heavy(&msg, 14.0, None, ui);
-            let button_text = TextHelper::heavy("CANCEL", 14.0, None, ui);
-            let required_size = vec2(
-                msg_text.size().x,
-                msg_text.size().y + button_text.size().y * 2.0,
+                vec!["CREATING ROOM".to_string()]
+            })
+            .animated(outer.error.is_none())
+            .with_button(
+                "cancel",
+                "CANCEL".to_string(),
+                outer.theme.selection.lighten().lighten(),
             );
 
-            let margins = (ui.available_size_before_wrap() - required_size) / 2.0;
-            let outer_frame = egui::Frame::none().inner_margin(Margin::from(margins));
-            outer_frame.show(ui, |ui| {
-                msg_text.paint(Color32::WHITE, ui, false);
-                ui.add_space(8.0);
-                if button_text
-                    .centered_button(
-                        theme.selection.lighten().lighten(),
-                        theme.text,
-                        &map_texture,
-                        ui,
-                    )
-                    .clicked()
+            let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
+
+            if resp.clicked == Some("cancel") {
+                // TODO: Neatly kick back to the wrapper page without a reload
+                #[cfg(target_arch = "wasm32")]
                 {
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        _ = web_sys::window().unwrap().location().set_hash("");
-                        _ = web_sys::window().unwrap().location().reload();
-                    }
+                    _ = web_sys::window().unwrap().location().set_hash("");
+                    _ = web_sys::window().unwrap().location().reload();
                 }
-            });
+            }
         }
         GameStatus::PendingStart(editor_state) => {
-            if let Some(msg) = editor_state.render(ui, theme) {
+            if let Some(msg) = editor_state.render(ui, &outer.theme) {
                 send(msg);
             }
         }
@@ -440,139 +627,6 @@ pub fn render(client: &mut OuterApplication, ui: &mut egui::Ui, current_time: Du
         }
     }
     if let Some(new_game_status) = new_game_status {
-        *game_status = new_game_status;
-    }
-
-    while let Ok(msg) = recv() {
-        match msg {
-            GameMessage::Ping => {}
-            GameMessage::JoinedLobby(player_index, id, players, board, token) => {
-                // If we're already in a lobby, treat this as a lobby update
-                // (the websocket probably dropped and reconnected)
-                if let GameStatus::PendingStart(lobby) = game_status {
-                    if lobby.room_code.to_uppercase() == id.to_uppercase() {
-                        lobby.players = players;
-                        lobby.update_board(board, ui);
-                        continue;
-                    }
-                }
-
-                #[cfg(target_arch = "wasm32")]
-                {
-                    let local_storage =
-                        web_sys::window().unwrap().local_storage().unwrap().unwrap();
-                    local_storage
-                        .set_item("truncate_active_token", &token)
-                        .unwrap();
-
-                    // If we're joining a lobby, update the URL to match
-                    _ = web_sys::window()
-                        .unwrap()
-                        .location()
-                        .set_hash(id.to_uppercase().as_str());
-                }
-
-                *game_status = GameStatus::PendingStart(Lobby::new(
-                    ui.ctx(),
-                    id.to_uppercase(),
-                    players,
-                    player_index,
-                    board,
-                    map_texture.clone(),
-                ))
-            }
-            GameMessage::LobbyUpdate(_player_index, _id, players, board) => {
-                match game_status {
-                    GameStatus::PendingStart(editor_state) => {
-                        // TODO: Assert that this message is for the correct lobby
-                        editor_state.players = players;
-                        editor_state.update_board(board, ui);
-                    }
-                    _ => panic!("Game update hit an unknown state"),
-                }
-            }
-            GameMessage::StartedGame(GameStateMessage {
-                room_code,
-                players,
-                player_number,
-                next_player_number,
-                board,
-                hand,
-                changes: _,
-            }) => {
-                // If we're already in a game, treat this as a game update
-                // (the websocket probably dropped and reconnected)
-                if let GameStatus::Active(game) = game_status {
-                    if game.depot.gameplay.room_code.to_uppercase() == room_code.to_uppercase() {
-                        let update = GameStateMessage {
-                            room_code,
-                            players,
-                            player_number,
-                            next_player_number,
-                            board,
-                            hand,
-                            changes: vec![], // TODO: Try get latest changes on reconnect without dupes
-                        };
-                        game.apply_new_state(update);
-                        continue;
-                    }
-                }
-
-                *game_status = GameStatus::Active(ActiveGame::new(
-                    ui.ctx(),
-                    room_code.to_uppercase(),
-                    None,
-                    players,
-                    player_number,
-                    next_player_number,
-                    board,
-                    hand,
-                    map_texture.clone(),
-                    theme.clone(),
-                ));
-                println!("Starting a game")
-            }
-            GameMessage::GameUpdate(state_message) => match game_status {
-                GameStatus::Active(game) => {
-                    game.apply_new_state(state_message);
-                }
-                _ => todo!("Game update hit an unknown state"),
-            },
-            GameMessage::GameEnd(state_message, winner) => {
-                #[cfg(target_arch = "wasm32")]
-                {
-                    let local_storage =
-                        web_sys::window().unwrap().local_storage().unwrap().unwrap();
-                    local_storage.remove_item("truncate_active_token").unwrap();
-                }
-
-                match game_status {
-                    GameStatus::Active(game) => {
-                        game.apply_new_state(state_message);
-                        *game_status = GameStatus::Concluded(game.clone(), winner);
-                    }
-                    _ => {}
-                }
-            }
-            GameMessage::GameError(_id, _num, err) => match game_status {
-                GameStatus::Active(game) => {
-                    // assert_eq!(game.room_code, id);
-                    // assert_eq!(game.player_number, num);
-                    game.depot.gameplay.error_msg = Some(err);
-                }
-                _ => {}
-            },
-            GameMessage::GenericError(err) => {
-                *error = Some(err);
-            }
-            GameMessage::SupplyDefinitions(definitions) => {
-                match game_status {
-                    GameStatus::SinglePlayer(game) => {
-                        game.hydrate_meanings(definitions);
-                    }
-                    _ => { /* Soft unreachable */ }
-                }
-            }
-        }
+        outer.game_status = new_game_status;
     }
 }

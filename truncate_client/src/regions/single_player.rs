@@ -15,7 +15,6 @@ use crate::{
     app_outer::Backchannel,
     lil_bits::{DailySplashUI, HandUI},
     utils::{
-        daily::{persist_game_move, persist_game_retry, persist_game_win, persist_stats},
         game_evals::{best_move, get_main_dict, remember},
         text::TextHelper,
         Lighten, Theme,
@@ -24,6 +23,7 @@ use crate::{
 
 use super::active_game::{ActiveGame, HeaderType};
 
+#[derive(Clone)]
 pub struct SinglePlayerState {
     pub game: Game,
     human_starts: bool,
@@ -38,6 +38,7 @@ pub struct SinglePlayerState {
     waiting_on_backchannel: Option<String>,
     pub header: HeaderType,
     splash: Option<DailySplashUI>,
+    pub move_sequence: Vec<Move>,
 }
 
 impl SinglePlayerState {
@@ -100,13 +101,13 @@ impl SinglePlayerState {
             waiting_on_backchannel: None,
             header,
             splash: None,
+            move_sequence: vec![],
         }
     }
 
     pub fn reset(&mut self, current_time: Duration, ctx: &egui::Context) {
         if let Some(seed) = &self.active_game.depot.board_info.board_seed {
             if seed.day.is_some() {
-                persist_game_retry(seed);
                 match &mut self.header {
                     HeaderType::Summary {
                         attempt: Some(attempt),
@@ -172,6 +173,7 @@ impl SinglePlayerState {
         self.turns = 0;
         self.next_response_at = None;
         self.winner = None;
+        self.move_sequence = vec![];
     }
 
     /// If the server sent through some new word definitions,
@@ -218,7 +220,7 @@ impl SinglePlayerState {
                 self.winner = winner;
                 if winner == Some(human_player) {
                     if let Some(seed) = &self.active_game.depot.board_info.board_seed {
-                        persist_game_win(seed);
+                        // TODO: ask server to mark game as won
                     }
                 }
 
@@ -301,8 +303,9 @@ impl SinglePlayerState {
         theme: &Theme,
         current_time: Duration,
         backchannel: &Backchannel,
-    ) -> Option<PlayerMessage> {
-        let mut msg_to_server = None;
+        logged_in_as: &Option<String>,
+    ) -> Vec<PlayerMessage> {
+        let mut msgs_to_server = vec![];
         let human_player = if self.human_starts { 0 } else { 1 };
         let npc_player = if self.human_starts { 1 } else { 0 };
 
@@ -465,7 +468,7 @@ impl SinglePlayerState {
                     ui.style_mut().text_styles = prev_text_styles;
                 });
             });
-            return None;
+            return msgs_to_server;
         }
 
         let (rect, _) = ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
@@ -479,7 +482,7 @@ impl SinglePlayerState {
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
             self.reset(current_time, ui.ctx());
-            return msg_to_server;
+            return msgs_to_server;
         }
 
         if self.winner.is_some() {
@@ -497,12 +500,12 @@ impl SinglePlayerState {
                 self.splash = None;
                 self.reset(current_time, ui.ctx());
             }
-            return msg_to_server;
+            return msgs_to_server;
         }
 
         if let Some(next_response_at) = self.next_response_at {
             if next_response_at > self.active_game.depot.timing.current_time {
-                return msg_to_server;
+                return msgs_to_server;
             }
         }
         self.next_response_at = None;
@@ -572,21 +575,24 @@ impl SinglePlayerState {
 
         if let Some(next_move) = next_move {
             if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel) {
+                self.move_sequence.push(next_move.clone());
+
                 if let Some(seed) = &self.active_game.depot.board_info.board_seed {
                     if seed.day.is_some() {
-                        persist_game_move(seed, next_move);
-                        let attempt = match self.header {
-                            HeaderType::Summary { attempt, .. } => attempt,
-                            _ => None,
+                        if let Some(token) = logged_in_as {
+                            msgs_to_server.push(PlayerMessage::PersistPuzzleMoves {
+                                player_token: token.clone(),
+                                day: seed.seed,
+                                human_player: human_player as u32,
+                                moves: self.move_sequence.clone(),
+                            });
                         }
-                        .unwrap_or_default();
-                        persist_stats(seed, &self.game, human_player, attempt);
                     }
                 }
                 let delay = if battle_words.is_empty() { 200 } else { 1200 };
 
                 if !battle_words.is_empty() {
-                    msg_to_server = Some(PlayerMessage::RequestDefinitions(battle_words));
+                    msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
                 }
 
                 self.next_response_at = Some(
@@ -601,6 +607,6 @@ impl SinglePlayerState {
             }
         }
 
-        msg_to_server
+        msgs_to_server
     }
 }

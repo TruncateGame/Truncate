@@ -17,12 +17,14 @@ TODOs for the splash graph:
 
  */
 
+#[derive(Clone)]
 struct DayHighlight {
     day_from_right: usize,
     label: String,
     bar_height: f32,
 }
 
+#[derive(Clone)]
 pub struct DailySplashGraph {
     moves_graph_texture: TextureHandle,
     streak_graph_texture: TextureHandle,

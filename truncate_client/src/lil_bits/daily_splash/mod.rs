@@ -10,12 +10,7 @@ use eframe::egui::{self, Id, Order, Sense};
 
 use crate::{
     app_outer::Backchannel,
-    utils::{
-        daily::{get_stats, DailyStats},
-        depot::TruncateDepot,
-        text::TextHelper,
-        Lighten, Theme,
-    },
+    utils::{daily::DailyStats, depot::TruncateDepot, text::TextHelper, Lighten, Theme},
 };
 
 use self::{graph::DailySplashGraph, msg_mock::ShareMessageMock};
@@ -28,6 +23,7 @@ TODOs for the daily splash screen:
 
  */
 
+#[derive(Clone)]
 pub struct DailySplashUI {
     stats: DailyStats,
     graph: DailySplashGraph,
@@ -43,7 +39,8 @@ impl DailySplashUI {
         depot: &mut TruncateDepot,
         current_time: Duration,
     ) -> Self {
-        let stats = get_stats();
+        // let stats = get_stats();
+        let stats = DailyStats::default();
 
         let streak_length = stats
             .days
