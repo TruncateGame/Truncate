@@ -19,11 +19,12 @@ pub struct Tex {
 
 pub type TexQuad = [Tex; 4];
 pub type IsFlipped = bool;
+pub type YOffset = isize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PieceLayer {
     Texture(TexQuad, Option<Color32>),
-    Character(char, Color32, IsFlipped),
+    Character(char, Color32, IsFlipped, YOffset),
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -56,9 +57,15 @@ impl TexLayers {
         self
     }
 
-    fn with_piece_character(mut self, char: char, color: Color32, flipped: IsFlipped) -> Self {
+    fn with_piece_character(
+        mut self,
+        char: char,
+        color: Color32,
+        flipped: IsFlipped,
+        y_offset: YOffset,
+    ) -> Self {
         self.pieces
-            .push(PieceLayer::Character(char, color, flipped));
+            .push(PieceLayer::Character(char, color, flipped, y_offset));
         self
     }
 
@@ -189,6 +196,7 @@ impl Tex {
                 character,
                 hex_color!("#333333"),
                 orientation != Direction::North,
+                -1,
             );
 
         if let Some(highlight) = highlight {
@@ -290,6 +298,7 @@ impl Tex {
                         character,
                         hex_color!("#888888"),
                         orientation != Direction::North,
+                        0,
                     );
             }
         }

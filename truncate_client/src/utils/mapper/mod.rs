@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use chrono::offset;
 use eframe::egui;
 use epaint::{hex_color, pos2, vec2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
 use truncate_core::{
@@ -8,15 +9,15 @@ use truncate_core::{
 };
 
 use crate::{
-    app_outer::{TextureMeasurement, GLYPH_IMAGE, TEXTURE_IMAGE, TEXTURE_MEASUREMENT},
+    app_outer::{TextureMeasurement, GLYPHER, TEXTURE_IMAGE, TEXTURE_MEASUREMENT},
     utils::tex::FGTexType,
 };
 
-use self::image_manipulation::ImageMusher;
+pub use self::image_manipulation::ImageMusher;
 
 use super::{
     depot::{AestheticDepot, GameplayDepot, HoveredRegion, InteractionDepot},
-    glyph_utils::BaseTileGlyphs,
+    glyph_utils::{BaseTileGlyphs, Glypher},
     macros::tr_log,
     tex::{self, tiles, BGTexType, Tex, TexLayers, TexQuad, TileDecoration},
     Lighten,
@@ -214,7 +215,7 @@ impl MappedBoard {
         square: &Square,
         measures: &TextureMeasurement,
         tileset: &ColorImage,
-        tiles: &BaseTileGlyphs,
+        glypher: &Glypher,
         interactions: Option<&InteractionDepot>,
         gameplay: Option<&GameplayDepot>,
     ) {
@@ -505,9 +506,6 @@ impl MappedBoard {
                 for piece in layers.pieces.iter() {
                     match piece {
                         tex::PieceLayer::Texture(texs, tint) => {
-                            if *tint == Some(hex_color!("#ff0000")) {
-                                tr_log!({ "Painting a highlight ring!" });
-                            }
                             for (tex, sub_loc) in texs.iter().zip([
                                 [0, 0],
                                 [tile_dims[0], 0],
@@ -521,20 +519,21 @@ impl MappedBoard {
                                 target.hard_overlay(&image, sub_loc);
                             }
                         }
-                        tex::PieceLayer::Character(char, color, is_flipped) => {
-                            let (_, achar) = tiles.glyphs.iter().find(|(c, _)| c == char).unwrap();
-                            let mut letter = achar.clone();
-                            let mut offset = [
-                                (target.width() - letter.width()) / 2 + 1, // small shift to center character
-                                (target.height() - letter.height()) / 2,
-                            ];
+                        tex::PieceLayer::Character(char, color, is_flipped, y_offset) => {
+                            let mut glyph = glypher.paint(*char, 16);
+
                             if *is_flipped {
-                                letter.pixels.reverse();
-                                offset[0] -= 2; // Small shifts to center inverted characters
-                                offset[1] -= 2; // Small shifts to center inverted characters
+                                glyph.flip_y();
                             }
-                            letter.recolor(color);
-                            target.hard_overlay(&letter, offset);
+
+                            let offset = [
+                                (target.width() - glyph.width()) / 2,
+                                ((target.height() - glyph.height()) / 2)
+                                    .saturating_add_signed(*y_offset),
+                            ];
+
+                            glyph.recolor(color);
+                            target.hard_overlay(&glyph, offset);
                         }
                     }
                 }
@@ -620,9 +619,7 @@ impl MappedBoard {
         let tileset = TEXTURE_IMAGE
             .get()
             .expect("Base image should have been loaded");
-        let tile_glyphs = GLYPH_IMAGE
-            .get()
-            .expect("Glyph image should have been loaded");
+        let glypher = GLYPHER.get().expect("Glypher should have been initialized");
 
         let final_width = measures.inner_tile_width_px * board.width() * 2;
         let final_height = measures.inner_tile_height_px * board.height() * 2;
@@ -656,7 +653,7 @@ impl MappedBoard {
                                 square,
                                 measures,
                                 tileset,
-                                tile_glyphs,
+                                glypher,
                                 interactions,
                                 gameplay,
                             );
@@ -679,7 +676,7 @@ impl MappedBoard {
                         square,
                         measures,
                         tileset,
-                        tile_glyphs,
+                        glypher,
                         interactions,
                         gameplay,
                     );
@@ -775,9 +772,7 @@ impl MappedTiles {
         let tileset = TEXTURE_IMAGE
             .get()
             .expect("Base image should have been loaded");
-        let tile_glyphs = GLYPH_IMAGE
-            .get()
-            .expect("Glyph image should have been loaded");
+        let glypher = GLYPHER.get().expect("Glypher should have been initialized");
 
         let tile_dims = [measures.inner_tile_width_px, measures.inner_tile_height_px];
 
@@ -824,21 +819,21 @@ impl MappedTiles {
                             target.hard_overlay(&image, sub_loc);
                         }
                     }
-                    tex::PieceLayer::Character(char, color, is_flipped) => {
-                        let (_, achar) =
-                            tile_glyphs.glyphs.iter().find(|(c, _)| c == char).unwrap();
-                        let mut letter = achar.clone();
-                        let mut offset = [
-                            (target.width() - letter.width()) / 2 + 1, // small shift to center character
-                            (target.height() - letter.height()) / 2,
-                        ];
+                    tex::PieceLayer::Character(char, color, is_flipped, y_offset) => {
+                        let mut glyph = glypher.paint(*char, 16);
+
                         if *is_flipped {
-                            letter.pixels.reverse();
-                            offset[0] -= 2; // Small shifts to center inverted characters
-                            offset[1] -= 2; // Small shifts to center inverted characters
+                            glyph.flip_y();
                         }
-                        letter.recolor(color);
-                        target.hard_overlay(&letter, offset);
+
+                        let offset = [
+                            (target.width() - glyph.width()) / 2,
+                            ((target.height() - glyph.height()) / 2)
+                                .saturating_add_signed(*y_offset),
+                        ];
+
+                        glyph.recolor(color);
+                        target.hard_overlay(&glyph, offset);
                     }
                 }
             }

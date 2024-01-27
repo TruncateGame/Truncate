@@ -7,6 +7,8 @@ pub trait ImageMusher {
     fn hard_overlay(&mut self, other: &Self, position: [usize; 2]);
     fn tint(&mut self, tint: &Color32);
     fn recolor(&mut self, color: &Color32);
+    fn trim(&mut self);
+    fn flip_y(&mut self);
 }
 
 impl ImageMusher for ColorImage {
@@ -24,7 +26,7 @@ impl ImageMusher for ColorImage {
 
         for (other_row, self_row) in (min_y..max_y).enumerate() {
             let other_row =
-                &other.pixels[other_row * other_stride..other_row * other_stride + other.size[1]];
+                &other.pixels[other_row * other_stride..other_row * other_stride + other_stride];
             self.pixels[self_row * self_stride + min_x..self_row * self_stride + max_x]
                 .iter_mut()
                 .zip(other_row)
@@ -58,5 +60,57 @@ impl ImageMusher for ColorImage {
                 *px = *color;
             }
         });
+    }
+
+    fn trim(&mut self) {
+        let are_blank = |px: &Color32| px.a() == 0;
+
+        let stride = self.width();
+        while self.pixels[0..stride].iter().all(are_blank) {
+            self.pixels.drain(0..stride);
+            self.size[1] -= 1;
+        }
+
+        loop {
+            let len = self.pixels.len();
+            if self.pixels[len - stride..len].iter().all(are_blank) {
+                self.pixels.drain(len - stride..len);
+                self.size[1] -= 1;
+            } else {
+                break;
+            }
+        }
+
+        loop {
+            let width = self.width();
+            if self.pixels.iter().step_by(width).all(are_blank) {
+                let mut i = 0;
+                self.pixels.retain(|_| {
+                    i += 1;
+                    (i - 1) % width > 0
+                });
+                self.size[0] -= 1;
+            } else {
+                break;
+            }
+        }
+
+        loop {
+            let width = self.width();
+            if self.pixels.iter().rev().step_by(width).all(are_blank) {
+                let mut i = self.pixels.len();
+                self.pixels.retain(|_| {
+                    i -= 1;
+                    i % width > 0
+                });
+                self.size[0] -= 1;
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn flip_y(&mut self) {
+        self.pixels.reverse();
     }
 }
