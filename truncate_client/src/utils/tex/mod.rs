@@ -3,7 +3,7 @@ use epaint::{
     hex_color, pos2, vec2, Color32, ColorImage, Mesh, Pos2, Rect, Shape, TextureHandle, TextureId,
     Vec2,
 };
-use truncate_core::board::{Direction, Square};
+use truncate_core::board::{Coordinate, Direction, Square};
 
 use crate::{app_outer::TEXTURE_MEASUREMENT, regions::lobby::BoardEditingMode};
 
@@ -29,6 +29,7 @@ pub enum PieceLayer {
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct TexLayers {
     pub terrain: Option<TexQuad>,
+    pub checkerboard: Option<TexQuad>,
     pub structures: Option<TexQuad>,
     pub pieces: Vec<PieceLayer>,
     pub fog: Option<TexQuad>,
@@ -557,6 +558,7 @@ impl Tex {
         seed: usize,
         tick: u64,
         wind_at_coord: u8,
+        coord: Coordinate,
     ) -> TexLayers {
         debug_assert_eq!(neighbors.len(), 8);
         if neighbors.len() != 8 {
@@ -658,6 +660,13 @@ impl Tex {
             }
             FGTexType::Fog => unreachable!(),
             FGTexType::None => {}
+        }
+
+        if matches!(base_type, Land) && matches!(layer_type, FGTexType::None) {
+            let is_checker = (coord.x % 2) != (coord.y % 2);
+            if is_checker {
+                layers.checkerboard = Some(tiles::quad::CHECKERBOARD);
+            }
         }
 
         layers

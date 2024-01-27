@@ -27,6 +27,7 @@ mod image_manipulation;
 #[derive(Clone)]
 struct ResolvedTextureLayers {
     terrain: TextureHandle,
+    checkerboard: TextureHandle,
     structures: TextureHandle,
     pieces: TextureHandle,
     fog: TextureHandle,
@@ -41,6 +42,11 @@ impl ResolvedTextureLayers {
         Self {
             terrain: ctx.load_texture(
                 format!("board_layer_terrain"),
+                layer_base.clone(),
+                egui::TextureOptions::NEAREST,
+            ),
+            checkerboard: ctx.load_texture(
+                format!("board_layer_checkerboard"),
                 layer_base.clone(),
                 egui::TextureOptions::NEAREST,
             ),
@@ -131,6 +137,8 @@ impl MappedBoard {
 
         if let Some(tex) = &self.resolved_textures {
             paint(tex.terrain.id(), Color32::WHITE);
+            // This is where we make the checkerboard overlay translucent
+            paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
             paint(tex.structures.id(), Color32::WHITE);
             paint(tex.pieces.id(), Color32::WHITE);
         }
@@ -250,6 +258,7 @@ impl MappedBoard {
             seed_at_coord,
             tick,
             wind_at_coord,
+            coord,
         );
 
         let orient = |player: usize| {
@@ -467,6 +476,15 @@ impl MappedBoard {
                 erase(&mut resolved_textures.terrain);
             } else if let Some(terrain) = layers.terrain {
                 paint_quad(terrain, &mut resolved_textures.terrain);
+            }
+        }
+
+        if cached.checkerboard != layers.checkerboard {
+            // Always erase the checkerboard if it needs to be repainted,
+            // as it is transparent and will overlay otherwise.
+            erase(&mut resolved_textures.checkerboard);
+            if let Some(checkerboard) = layers.checkerboard {
+                paint_quad(checkerboard, &mut resolved_textures.checkerboard);
             }
         }
 
