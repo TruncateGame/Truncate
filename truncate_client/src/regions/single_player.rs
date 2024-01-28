@@ -13,7 +13,7 @@ use truncate_core::{
 
 use crate::{
     app_outer::Backchannel,
-    lil_bits::{DailySplashUI, HandUI},
+    lil_bits::{HandUI, ResultModalUI},
     utils::{
         game_evals::{best_move, get_main_dict, remember},
         text::TextHelper,
@@ -38,7 +38,7 @@ pub struct SinglePlayerState {
     waiting_on_backchannel: Option<String>,
     pub header: HeaderType,
     pub daily_stats: Option<DailyStats>,
-    splash: Option<DailySplashUI>,
+    splash: Option<ResultModalUI>,
     pub move_sequence: Vec<Move>,
 }
 
@@ -496,7 +496,7 @@ impl SinglePlayerState {
                 let matches = self.splash.as_ref().is_some_and(|s| s.stats == stats);
 
                 if !matches {
-                    self.splash = Some(DailySplashUI::new(
+                    self.splash = Some(ResultModalUI::new(
                         &mut ui,
                         &self.game,
                         &mut self.active_game.depot,

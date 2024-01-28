@@ -27,7 +27,7 @@ TODOs for the daily splash screen:
  */
 
 #[derive(Clone)]
-pub struct DailySplashUI {
+pub struct ResultModalUI {
     pub stats: DailyStats,
     graph: DailySplashGraph,
     msg_mock: ShareMessageMock,
@@ -35,7 +35,7 @@ pub struct DailySplashUI {
     win_rate: f32,
 }
 
-impl DailySplashUI {
+impl ResultModalUI {
     pub fn new(
         ui: &mut egui::Ui,
         game: &Game,
@@ -65,7 +65,7 @@ impl DailySplashUI {
 
         let game_count: usize = stats.days.values().map(|day| day.attempts.len()).sum();
 
-        DailySplashUI::seed_animations(ui);
+        ResultModalUI::seed_animations(ui);
 
         let graph = DailySplashGraph::new(ui, &stats, current_time);
 
@@ -95,12 +95,12 @@ impl Into<Id> for Anim {
     }
 }
 
-impl DailySplashUI {
+impl ResultModalUI {
     fn seed_animations(ui: &mut egui::Ui) {
-        DailySplashUI::anim(ui, Anim::Background, 0.0, 0.0);
-        DailySplashUI::anim(ui, Anim::ModalPos, 0.0, 0.0);
-        DailySplashUI::anim(ui, Anim::Items, 0.0, 0.0);
-        DailySplashUI::anim(ui, Anim::Viz, 0.0, 0.0);
+        ResultModalUI::anim(ui, Anim::Background, 0.0, 0.0);
+        ResultModalUI::anim(ui, Anim::ModalPos, 0.0, 0.0);
+        ResultModalUI::anim(ui, Anim::Items, 0.0, 0.0);
+        ResultModalUI::anim(ui, Anim::Viz, 0.0, 0.0);
     }
 
     // Animates to a given value once (can't be retriggered), applying an easing function
@@ -115,7 +115,7 @@ impl DailySplashUI {
     }
 }
 
-impl DailySplashUI {
+impl ResultModalUI {
     pub fn render(
         &mut self,
         ui: &mut egui::Ui,
@@ -146,7 +146,7 @@ impl DailySplashUI {
             // Capture events on our overlay to stop them falling through to the game
             ui.allocate_rect(screen_dimension, Sense::click());
 
-            let bg_alpha = DailySplashUI::anim(ui, Anim::Background, 0.5, 1.5);
+            let bg_alpha = ResultModalUI::anim(ui, Anim::Background, 0.5, 1.5);
             let bg = Color32::BLACK.gamma_multiply(bg_alpha);
 
             ui.painter().clone().rect_filled(screen_dimension, 10.0, bg);
@@ -168,7 +168,7 @@ impl DailySplashUI {
 
             let mut modal_dimension = screen_dimension.shrink2(vec2(x_difference, y_difference));
 
-            let modal_pos = DailySplashUI::anim(ui, Anim::ModalPos, 1.0, 0.5);
+            let modal_pos = ResultModalUI::anim(ui, Anim::ModalPos, 1.0, 0.5);
             let bg = Color32::BLACK.gamma_multiply(modal_pos); // Fade in the modal background
             let offset = (1.0 - modal_pos) * 40.0;
             modal_dimension = modal_dimension.translate(vec2(0.0, offset)); // Animate the modal in vertically
@@ -184,7 +184,7 @@ impl DailySplashUI {
             ui.allocate_ui_at_rect(modal_inner_dimension, |mut ui| {
                 // TODO: Add close button (reference game sidebar on mobile)
 
-                let modal_items = DailySplashUI::anim(ui, Anim::Items, 1.0, 0.75);
+                let modal_items = ResultModalUI::anim(ui, Anim::Items, 1.0, 0.75);
                 let offset = (1.0 - modal_items) * 50.0;
                 ui.add_space(offset); // Animate the main text upward
 
@@ -246,7 +246,7 @@ impl DailySplashUI {
                 }
 
                 // Paint over everything below the heading stats to fade them in from black
-                let fade_in_animation = DailySplashUI::anim(ui, Anim::Viz, 1.0, 0.6);
+                let fade_in_animation = ResultModalUI::anim(ui, Anim::Viz, 1.0, 0.6);
                 if fade_in_animation < 1.0 {
                     ui.painter().rect_filled(
                         modal_remainder,
