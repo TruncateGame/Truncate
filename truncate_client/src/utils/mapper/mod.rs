@@ -399,18 +399,27 @@ impl MappedBoard {
             Square::Land => {
                 if let Some(interactions) = interactions {
                     if let Some((_, tile_char)) = interactions.selected_tile_in_hand {
-                        if interactions
-                            .hovered_unoccupied_square_on_board
-                            .as_ref()
-                            .is_some_and(|h| h.coord == Some(coord))
+                        // Don't show preview tiles if anything is being dragged (i.e. a tile from the hand)
+                        if !ctx.memory(|m| m.is_anything_being_dragged())
+                            && interactions
+                                .hovered_unoccupied_square_on_board
+                                .as_ref()
+                                .is_some_and(|h| h.coord == Some(coord))
                         {
+                            let self_color = gameplay
+                                .map(|gameplay| {
+                                    player_colors.get(gameplay.player_number as usize).cloned()
+                                })
+                                .flatten()
+                                .unwrap_or(aesthetics.theme.ring_selected);
+
                             let tile_layers = Tex::board_game_tile(
                                 MappedTileVariant::Healthy,
                                 tile_char,
                                 Direction::North,
-                                Some(Color32::DARK_GREEN),
+                                Some(self_color.lighten()),
                                 None,
-                                TileDecoration::Grass,
+                                TileDecoration::None,
                                 seed_at_coord,
                             );
                             layers = layers.merge(tile_layers);
