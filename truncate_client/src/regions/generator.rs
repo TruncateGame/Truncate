@@ -8,7 +8,7 @@ use truncate_core::{
 
 use crate::utils::{Lighten, Theme};
 
-use super::active_game::{ActiveGame, HeaderType};
+use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
 pub struct GeneratorState {
     active_game: ActiveGame,
@@ -40,6 +40,7 @@ impl GeneratorState {
             game.players[0].hand.clone(),
             map_texture.clone(),
             theme.clone(),
+            GameLocation::Local,
         );
         active_game.depot.ui_state.game_header = HeaderType::None;
         active_game.depot.ui_state.hand_hidden = true;

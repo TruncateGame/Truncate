@@ -12,8 +12,11 @@ use crate::{
     lil_bits::SplashUI,
     regions::active_game::ActiveGame,
     regions::{
-        active_game::HeaderType, generator::GeneratorState, lobby::Lobby,
-        single_player::SinglePlayerState, tutorial::TutorialState,
+        active_game::{GameLocation, HeaderType},
+        generator::GeneratorState,
+        lobby::Lobby,
+        single_player::SinglePlayerState,
+        tutorial::TutorialState,
     },
     utils::{
         daily::{get_daily_puzzle, get_puzzle_day},
@@ -132,6 +135,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                     hand,
                     outer.map_texture.clone(),
                     outer.theme.clone(),
+                    GameLocation::Online,
                 ));
                 println!("Starting a game")
             }
@@ -372,7 +376,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 .expect("Common seeds can be reasonably expected to produce a board")
                 .board;
             let header = HeaderType::Summary {
-                title: format!("Truncate Puzzle {generation}:{seed}"),
+                title: format!("Random Truncate Puzzle"),
                 sentinel: '•',
                 attempt: None,
             };

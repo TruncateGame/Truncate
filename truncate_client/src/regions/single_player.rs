@@ -13,7 +13,10 @@ use truncate_core::{
 
 use crate::{
     app_outer::Backchannel,
-    lil_bits::{HandUI, ResultModalUI},
+    lil_bits::{
+        result_modal::{ResultModalAction, ResultModalDaily, ResultModalVariant},
+        HandUI, ResultModalUI,
+    },
     utils::{
         game_evals::{best_move, get_main_dict, remember},
         text::TextHelper,
@@ -21,7 +24,7 @@ use crate::{
     },
 };
 
-use super::active_game::{ActiveGame, HeaderType};
+use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
 #[derive(Clone)]
 pub struct SinglePlayerState {
@@ -85,6 +88,7 @@ impl SinglePlayerState {
             game.players[if human_starts { 0 } else { 1 }].hand.clone(),
             map_texture.clone(),
             theme.clone(),
+            GameLocation::Local,
         );
         active_game.depot.ui_state.game_header = header.clone();
 
@@ -167,6 +171,7 @@ impl SinglePlayerState {
                 .clone(),
             self.map_texture.clone(),
             self.theme.clone(),
+            GameLocation::Local,
         );
         active_game.depot.ui_state.game_header = self.header.clone();
 
@@ -483,25 +488,56 @@ impl SinglePlayerState {
         }
 
         if self.winner.is_some() {
-            if let Some(token) = logged_in_as {
-                if self.splash.is_none() {
-                    msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
+            let is_daily_puzzle = self
+                .active_game
+                .depot
+                .board_info
+                .board_seed
+                .as_ref()
+                .is_some_and(|s| s.day.is_some());
+
+            if is_daily_puzzle {
+                if let Some(token) = logged_in_as {
+                    if self.splash.is_none() {
+                        msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
+                    }
                 }
-            }
 
-            // Refresh our stats UI if we receive updated stats from the server
-            if let Some(mut stats) = self.daily_stats.take() {
-                stats.hydrate_missing_days();
+                // Refresh our stats UI if we receive updated stats from the server
+                if let Some(mut stats) = self.daily_stats.take() {
+                    stats.hydrate_missing_days();
 
-                let matches = self.splash.as_ref().is_some_and(|s| s.stats == stats);
+                    let matches = match &self.splash {
+                        Some(ResultModalUI {
+                            contents:
+                                ResultModalVariant::Daily(ResultModalDaily {
+                                    stats: existing_stats,
+                                    ..
+                                }),
+                            ..
+                        }) => *existing_stats == stats,
+                        _ => false,
+                    };
 
-                if !matches {
-                    self.splash = Some(ResultModalUI::new(
+                    if !matches {
+                        self.splash = Some(ResultModalUI::new_daily(
+                            &mut ui,
+                            &self.game,
+                            &mut self.active_game.depot,
+                            stats,
+                        ));
+                    }
+                }
+            } else {
+                if self.splash.is_none() {
+                    self.splash = Some(ResultModalUI::new_unique(
                         &mut ui,
                         &self.game,
                         &mut self.active_game.depot,
-                        current_time,
-                        stats,
+                        matches!(
+                            self.winner,
+                            Some(p) if  p == human_player
+                        ),
                     ));
                 }
             }
@@ -510,9 +546,21 @@ impl SinglePlayerState {
                 let splash_msg =
                     splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
 
-                if matches!(splash_msg, Some(PlayerMessage::Rematch)) {
-                    self.splash = None;
-                    self.reset(current_time, ui.ctx());
+                match splash_msg {
+                    Some(ResultModalAction::NewPuzzle) => {
+                        self.splash = None;
+                        self.reset(current_time, ui.ctx());
+                    }
+                    Some(ResultModalAction::TryAgain) => {
+                        self.splash = None;
+
+                        if let Some(seed) = &self.active_game.depot.board_info.board_seed {
+                            self.reset_to(seed.clone(), self.human_starts, ui.ctx());
+                        } else {
+                            self.reset(current_time, ui.ctx());
+                        }
+                    }
+                    None => {}
                 }
             }
             return msgs_to_server;

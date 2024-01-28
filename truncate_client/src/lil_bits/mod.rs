@@ -4,7 +4,7 @@ mod board_editor;
 mod board_editor_square;
 mod hand;
 mod hand_square;
-mod result_modal;
+pub mod result_modal;
 mod splash;
 mod timer;
 

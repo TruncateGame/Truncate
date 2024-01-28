@@ -28,9 +28,9 @@ impl Board {
         url_prefix: String,
     ) -> String {
         let player_won = won == Some(player);
-        let water = if player_won { SQ_BLUE } else { SQ_BLACK };
+        let water = SQ_BLUE;
         let land = if player_won { SQ_GREEN } else { SQ_BROWN };
-        let tile = if player_won { SQ_YELLOW } else { SQ_ORANGE };
+        let tile = if player_won { SQ_YELLOW } else { SQ_PURPLE };
 
         let emoji_for_square = |sq: &Square| match sq {
             crate::board::Square::Water => water,
@@ -148,9 +148,9 @@ impl Board {
             }
         } else {
             if player_won {
-                format!("Truncate Town Custom Puzzle\nWon{counts}.\n{url}{joined_grid}\n")
+                format!("Truncate Town Random Puzzle\nWon{counts}.\n{url}{joined_grid}\n")
             } else {
-                format!("Truncate Town Custom Puzzle\nLost{counts}.\n{url}{joined_grid}\n")
+                format!("Truncate Town Random Puzzle\nLost{counts}.\n{url}{joined_grid}\n")
             }
         }
     }

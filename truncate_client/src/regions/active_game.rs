@@ -41,6 +41,12 @@ pub enum HeaderType {
 }
 
 #[derive(Clone)]
+pub enum GameLocation {
+    Local,
+    Online,
+}
+
+#[derive(Clone)]
 pub struct ActiveGame {
     pub depot: TruncateDepot,
     pub players: Vec<GamePlayerMessage>,
@@ -53,6 +59,7 @@ pub struct ActiveGame {
     pub new_hand_tiles: Vec<usize>,
     pub time_changes: Vec<TimeChange>,
     pub turn_reports: Vec<Vec<Change>>,
+    pub location: GameLocation,
 }
 
 impl ActiveGame {
@@ -67,6 +74,7 @@ impl ActiveGame {
         hand: Hand,
         map_texture: TextureHandle,
         theme: Theme,
+        location: GameLocation,
     ) -> Self {
         let player_colors = players
             .iter()
@@ -113,6 +121,7 @@ impl ActiveGame {
             new_hand_tiles: vec![],
             time_changes: vec![],
             turn_reports: vec![],
+            location,
         }
     }
 }
@@ -435,13 +444,7 @@ impl ActiveGame {
                     ui.add_space(10.0);
 
                     if self.depot.gameplay.winner.is_some() {
-                        let is_daily = self
-                            .depot
-                            .board_info
-                            .board_seed
-                            .as_ref()
-                            .is_some_and(|seed| seed.day.is_some());
-                        if !is_daily {
+                        if matches!(self.location, GameLocation::Online) {
                             let text = TextHelper::heavy("REMATCH", 12.0, None, ui);
                             if text
                                 .centered_button(

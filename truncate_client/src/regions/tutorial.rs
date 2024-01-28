@@ -17,7 +17,7 @@ use truncate_core::{
 
 use crate::utils::{text::TextHelper, Diaphanize, Lighten, Theme};
 
-use super::active_game::{ActiveGame, HeaderType};
+use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
 const TUTORIAL_01: &[u8] = include_bytes!("../../tutorials/tutorial_01.yml");
 
@@ -164,6 +164,7 @@ impl TutorialState {
             game.players[0].hand.clone(),
             map_texture,
             theme,
+            GameLocation::Local,
         );
         active_game.depot.ui_state.game_header = HeaderType::None;
 
