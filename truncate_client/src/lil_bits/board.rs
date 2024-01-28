@@ -1,7 +1,7 @@
 use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
 use instant::Duration;
 use truncate_core::{
-    board::{Board, Coordinate, Square},
+    board::{Board, Coordinate, Direction, Square},
     messages::PlayerMessage,
     player::Hand,
     reporting::BoardChange,
@@ -10,7 +10,11 @@ use truncate_core::{
 use eframe::egui::{self, Id, Order, Sense};
 use hashbrown::HashMap;
 
-use crate::utils::{depot::TruncateDepot, macros::tr_log, mapper::MappedBoard};
+use crate::utils::{
+    depot::{HoveredRegion, TruncateDepot},
+    macros::tr_log,
+    mapper::{MappedBoard, MappedTile, MappedTileVariant, MappedTiles},
+};
 
 pub struct BoardUI<'a> {
     board: &'a Board,
@@ -40,6 +44,7 @@ impl<'a> BoardUI<'a> {
         board_changes: &HashMap<Coordinate, BoardChange>,
         ui: &mut egui::Ui,
         mapped_board: &mut MappedBoard,
+        mapped_overlay: &mut MappedTiles,
         depot: &mut TruncateDepot,
     ) -> Option<PlayerMessage> {
         let mut msg = None;
@@ -126,7 +131,12 @@ impl<'a> BoardUI<'a> {
 
                                         let coord = Coordinate::new(colnum, rownum);
 
-                                        let TruncateDepot { interactions, .. } = depot;
+                                        let TruncateDepot {
+                                            aesthetics,
+                                            interactions,
+                                            gameplay,
+                                            ..
+                                        } = depot;
 
                                         if matches!(square, Square::Land) {
                                             if let Some(drag_pos) = drag_pos {
@@ -135,6 +145,7 @@ impl<'a> BoardUI<'a> {
                                                         Some(crate::utils::depot::HoveredRegion {
                                                             rect: grid_cell,
                                                             coord: Some(coord),
+                                                            square: Some(*square),
                                                         });
                                                 }
                                             }
@@ -167,7 +178,9 @@ impl<'a> BoardUI<'a> {
                                                     interactions.released_tile = None;
                                                 }
                                             }
-                                        } else if matches!(square, Square::Occupied(_, _)) {
+                                        } else if let Square::Occupied(square_player, square_char) =
+                                            square
+                                        {
                                             let tile_rect = grid_cell.shrink(2.0);
                                             let tile_id =
                                                 Id::new("board_tile").with(coord).with("dragging");
@@ -183,22 +196,24 @@ impl<'a> BoardUI<'a> {
                                                         Some(crate::utils::depot::HoveredRegion {
                                                             rect: grid_cell,
                                                             coord: Some(coord),
+                                                            square: Some(*square),
                                                         });
                                                 }
                                             }
 
                                             if tile_response.hovered() {
-                                                tile_is_hovered = Some(coord);
+                                                tile_is_hovered = Some((coord, *square));
                                                 ui.output_mut(|o| {
                                                     o.cursor_icon = egui::CursorIcon::PointingHand
                                                 });
                                             }
                                             if tile_response.clicked() {
-                                                if interactions.selected_tile_on_board
-                                                    == Some(coord)
-                                                {
+                                                if matches!(
+                                                    interactions.selected_tile_on_board,
+                                                    Some((c, _)) if c == coord
+                                                ) {
                                                     interactions.selected_tile_on_board = None;
-                                                } else if let Some(selected_coord) =
+                                                } else if let Some((selected_coord, _)) =
                                                     interactions.selected_tile_on_board
                                                 {
                                                     msg = Some(PlayerMessage::Swap(
@@ -209,7 +224,7 @@ impl<'a> BoardUI<'a> {
                                                     interactions.selected_tile_in_hand = None;
                                                 } else {
                                                     interactions.selected_tile_on_board =
-                                                        Some(coord);
+                                                        Some((coord, *square));
                                                 }
                                             }
                                             let mut is_being_dragged =
@@ -239,12 +254,34 @@ impl<'a> BoardUI<'a> {
                                                     });
                                                 }
 
-                                                depot.interactions.dragging_board_coord =
-                                                    Some(coord);
                                                 ui.ctx().animate_value_with_time(
                                                     tile_id.with("initial_offset"),
                                                     0.0,
                                                     0.0,
+                                                );
+
+                                                // Map out a texture for this tile that we can use to drag it around.
+                                                // (we can't use the board itself, as this tile might be
+                                                //  changed out to preview a swap)
+                                                mapped_overlay.remap_texture(
+                                                    ui.ctx(),
+                                                    vec![MappedTile {
+                                                        variant: MappedTileVariant::Healthy,
+                                                        character: *square_char,
+                                                        color: Some(
+                                                            aesthetics.theme.ring_selected_hovered,
+                                                        ),
+                                                        highlight: None,
+                                                        orientation: if *square_player
+                                                            == gameplay.player_number as usize
+                                                        {
+                                                            Direction::North
+                                                        } else {
+                                                            Direction::South
+                                                        },
+                                                    }],
+                                                    aesthetics,
+                                                    Some(interactions),
                                                 );
                                             } else if tile_response.drag_released()
                                                 && is_decidedly_dragging
@@ -266,8 +303,8 @@ impl<'a> BoardUI<'a> {
 
                                             if is_being_dragged {
                                                 drag_underway = true;
-                                                depot.interactions.dragging_board_coord =
-                                                    Some(coord);
+                                                interactions.dragging_tile_on_board =
+                                                    Some((coord, *square));
 
                                                 let drag_id: Duration = ui
                                                     .memory(|mem| mem.data.get_temp(tile_id))
@@ -334,8 +371,8 @@ impl<'a> BoardUI<'a> {
                                                         ),
                                                     );
 
-                                                    mapped_board.render_coord_to_rect(
-                                                        coord,
+                                                    mapped_overlay.render_tile_to_rect(
+                                                        0,
                                                         Rect::from_min_size(
                                                             animated_position,
                                                             grid_cell.size(),
@@ -387,7 +424,7 @@ impl<'a> BoardUI<'a> {
             .inner;
 
         if !drag_underway {
-            depot.interactions.dragging_board_coord = None;
+            depot.interactions.dragging_tile_on_board = None;
         }
 
         if !self.interactive {

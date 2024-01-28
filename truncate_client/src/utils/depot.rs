@@ -1,27 +1,32 @@
 use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
-    board::Coordinate, generation::BoardSeed, messages::RoomCode, reporting::Change,
+    board::{Coordinate, Square},
+    generation::BoardSeed,
+    messages::RoomCode,
+    reporting::Change,
 };
 
 use crate::regions::active_game::HeaderType;
 
 use super::Theme;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HoveredRegion {
     pub rect: Rect,
     // If we're hovering the board, what coordinate is it?
     pub coord: Option<Coordinate>,
+    // If we're hovering the board, what square is it?
+    pub square: Option<Square>,
 }
 
 #[derive(Clone, Default)]
 pub struct InteractionDepot {
     pub view_only: bool,
-    pub dragging_board_coord: Option<Coordinate>,
     pub released_tile: Option<(usize, Coordinate)>,
-    pub selected_tile_on_board: Option<Coordinate>,
-    pub hovered_tile_on_board: Option<Coordinate>,
+    pub dragging_tile_on_board: Option<(Coordinate, Square)>,
+    pub selected_tile_on_board: Option<(Coordinate, Square)>,
+    pub hovered_tile_on_board: Option<(Coordinate, Square)>,
     pub hovered_unoccupied_square_on_board: Option<HoveredRegion>,
     pub hovered_occupied_square_on_board: Option<HoveredRegion>,
     pub playing_tile: Option<char>,

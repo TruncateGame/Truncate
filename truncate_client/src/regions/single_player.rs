@@ -371,7 +371,7 @@ impl SinglePlayerState {
                         .render(
                             ui,
                             &mut self.active_game.depot,
-                            &mut self.active_game.mapped_tiles,
+                            &mut self.active_game.mapped_hand,
                         );
                     self.active_game.depot.interactions.highlight_tiles = None;
 

@@ -5,6 +5,7 @@ use eframe::egui;
 use epaint::{hex_color, pos2, vec2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
 use truncate_core::{
     board::{Board, Coordinate, Direction, Square},
+    player,
     reporting::Change,
 };
 
@@ -74,8 +75,10 @@ impl ResolvedTextureLayers {
 struct MapState {
     prev_board: Board,
     prev_tick: u64,
-    prev_selected: Option<Coordinate>,
-    prev_tile_hover: Option<Coordinate>,
+    prev_selected: Option<(Coordinate, Square)>,
+    prev_tile_hover: Option<(Coordinate, Square)>,
+    prev_dragging: Option<(Coordinate, Square)>,
+    prev_occupied_hover: Option<HoveredRegion>,
     prev_square_hover: Option<HoveredRegion>,
     prev_changes: Vec<Change>,
 }
@@ -351,10 +354,17 @@ impl MappedBoard {
             Square::Occupied(player, character) => {
                 let mut highlight = None;
                 let mut being_dragged = false;
+
+                let mut render_as_swap = None;
+
                 if let Some(interactions) = interactions {
-                    let selected = interactions.selected_tile_on_board == Some(coord);
-                    let hovered = interactions.hovered_tile_on_board == Some(coord);
-                    being_dragged = interactions.dragging_board_coord == Some(coord);
+                    let selected =
+                        matches!(interactions.selected_tile_on_board, Some((c, _)) if c == coord);
+                    let hovered =
+                        matches!(interactions.hovered_tile_on_board, Some((c, _)) if c == coord);
+                    let hovered_occupied = matches!(interactions.hovered_occupied_square_on_board, Some(HoveredRegion { coord: Some(c), .. }) if c == coord);
+                    being_dragged =
+                        matches!(interactions.dragging_tile_on_board, Some((c, _)) if c == coord);
 
                     highlight = match (selected, hovered) {
                         (true, true) => Some(aesthetics.theme.ring_selected_hovered),
@@ -362,6 +372,52 @@ impl MappedBoard {
                         (false, true) => Some(aesthetics.theme.ring_hovered),
                         (false, false) => None,
                     };
+
+                    // Preview click-to-swap from this tile to another
+                    if selected && !hovered {
+                        if let Some((_, Square::Occupied(hovered_player, hovered_char))) =
+                            interactions.hovered_tile_on_board
+                        {
+                            if hovered_player == *player {
+                                render_as_swap = Some(hovered_char);
+                            }
+                        }
+                    }
+
+                    // Preview click-to-swap from another tile to this one
+                    if hovered && !selected {
+                        if let Some((_, Square::Occupied(selected_player, selected_char))) =
+                            interactions.selected_tile_on_board
+                        {
+                            if selected_player == *player {
+                                render_as_swap = Some(selected_char);
+                            }
+                        }
+                    }
+
+                    // Preview drag-to-swap from this tile to another
+                    if being_dragged && !hovered_occupied {
+                        if let Some(HoveredRegion {
+                            square: Some(Square::Occupied(hovered_player, hovered_char)),
+                            ..
+                        }) = interactions.hovered_occupied_square_on_board
+                        {
+                            if hovered_player == *player {
+                                render_as_swap = Some(hovered_char);
+                            }
+                        }
+                    }
+
+                    // Preview drag-to-swap from another tile to this one
+                    // if hovered_occupied && !being_dragged {
+                    //     if let Some((_, Square::Occupied(dragging_player, dragging_char))) =
+                    //         interactions.dragging_tile_on_board
+                    //     {
+                    //         if dragging_player == *player {
+                    //             render_as_swap = Some(dragging_char);
+                    //         }
+                    //     }
+                    // }
                 }
 
                 if highlight.is_none() {
@@ -375,8 +431,8 @@ impl MappedBoard {
                     }
                 }
 
-                let mut color = if being_dragged {
-                    Some(hex_color!("#FC3692"))
+                let mut color = if being_dragged || render_as_swap.is_some() {
+                    Some(aesthetics.theme.ring_selected_hovered)
                 } else {
                     player_colors.get(*player).cloned().map(|c| c.lighten())
                 };
@@ -387,7 +443,7 @@ impl MappedBoard {
 
                 let tile_layers = Tex::board_game_tile(
                     MappedTileVariant::Healthy,
-                    *character,
+                    render_as_swap.unwrap_or(*character),
                     orient(*player),
                     color,
                     highlight,
@@ -432,7 +488,7 @@ impl MappedBoard {
                         MappedTileVariant::Healthy,
                         ' ',
                         Direction::North,
-                        Some(hex_color!("#FFDE85")),
+                        Some(aesthetics.theme.ring_selected_hovered),
                         None,
                         TileDecoration::Grass,
                         seed_at_coord,
@@ -578,6 +634,10 @@ impl MappedBoard {
         let mut tick_eq = true;
         let selected = interactions.map(|i| i.selected_tile_on_board).flatten();
         let tile_hover = interactions.map(|i| i.hovered_tile_on_board).flatten();
+        let dragging = interactions.map(|i| i.dragging_tile_on_board).flatten();
+        let occupied_hover = interactions
+            .map(|i| i.hovered_occupied_square_on_board)
+            .flatten();
         let square_hover = interactions
             .map(|i| i.hovered_unoccupied_square_on_board.clone())
             .flatten();
@@ -586,12 +646,21 @@ impl MappedBoard {
             let board_eq = memory.prev_board == *board;
             let selected_eq = memory.prev_selected == selected;
             let tile_hover_eq = memory.prev_tile_hover == tile_hover;
+            let dragging_eq = memory.prev_dragging == dragging;
+            let occupied_hover_eq = memory.prev_occupied_hover == occupied_hover;
             let square_hover_eq = memory.prev_square_hover == square_hover;
             if memory.prev_tick != aesthetics.qs_tick {
                 tick_eq = false;
             }
 
-            if board_eq && tick_eq && selected_eq && tile_hover_eq && square_hover_eq {
+            if board_eq
+                && tick_eq
+                && selected_eq
+                && tile_hover_eq
+                && dragging_eq
+                && occupied_hover_eq
+                && square_hover_eq
+            {
                 return;
             }
 
@@ -604,6 +673,15 @@ impl MappedBoard {
             if !tile_hover_eq {
                 memory.prev_tile_hover = tile_hover;
             }
+            if !dragging_eq {
+                memory.prev_dragging = dragging;
+            }
+            if !occupied_hover_eq {
+                memory.prev_occupied_hover = occupied_hover;
+            }
+            if !square_hover_eq {
+                memory.prev_square_hover = square_hover;
+            }
             if !tick_eq {
                 memory.prev_tick = aesthetics.qs_tick;
             }
@@ -613,6 +691,8 @@ impl MappedBoard {
                 prev_tick: aesthetics.qs_tick,
                 prev_selected: selected,
                 prev_tile_hover: tile_hover,
+                prev_dragging: dragging,
+                prev_occupied_hover: occupied_hover,
                 prev_square_hover: square_hover,
                 prev_changes: vec![],
             });

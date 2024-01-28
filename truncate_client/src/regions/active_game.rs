@@ -46,7 +46,8 @@ pub struct ActiveGame {
     pub players: Vec<GamePlayerMessage>,
     pub board: Board,
     pub mapped_board: MappedBoard,
-    pub mapped_tiles: MappedTiles,
+    pub mapped_hand: MappedTiles,
+    pub mapped_overlay: MappedTiles,
     pub hand: Hand,
     pub board_changes: HashMap<Coordinate, BoardChange>,
     pub new_hand_tiles: Vec<usize>,
@@ -102,7 +103,8 @@ impl ActiveGame {
 
         Self {
             mapped_board: MappedBoard::new(ctx, &depot.aesthetics, &board, player_number as usize),
-            mapped_tiles: MappedTiles::new(ctx, 7),
+            mapped_hand: MappedTiles::new(ctx, 7),
+            mapped_overlay: MappedTiles::new(ctx, 1),
             depot,
             players,
             board,
@@ -463,7 +465,7 @@ impl ActiveGame {
                     HandUI::new(&mut self.hand).active(active).render(
                         &mut hand_ui,
                         &mut self.depot,
-                        &mut self.mapped_tiles,
+                        &mut self.mapped_hand,
                     );
 
                     ui.add_space(10.0);
@@ -641,6 +643,7 @@ impl ActiveGame {
                 &self.board_changes,
                 &mut game_space_ui,
                 &mut self.mapped_board,
+                &mut self.mapped_overlay,
                 &mut self.depot,
             )
             .or(control_player_message)
