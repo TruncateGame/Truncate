@@ -117,7 +117,7 @@ impl TutorialState {
                     hand_capacity: loaded_tutorial.player_hand.len(),
                     allotted_time: None,
                     time_remaining: None,
-                    turn_starts_at: Some(
+                    turn_starts_no_later_than: Some(
                         instant::SystemTime::now()
                             .duration_since(instant::SystemTime::UNIX_EPOCH)
                             .expect("Please don't play Truncate earlier than 1970")
@@ -134,7 +134,7 @@ impl TutorialState {
                     hand_capacity: loaded_tutorial.computer_hand.len(),
                     allotted_time: None,
                     time_remaining: None,
-                    turn_starts_at: None,
+                    turn_starts_no_later_than: None,
                     swap_count: 0,
                     penalties_incurred: 0,
                     color: (255, 80, 80),

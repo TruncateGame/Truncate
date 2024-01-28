@@ -526,17 +526,18 @@ impl SinglePlayerState {
         self.next_response_at = None;
 
         if self.game.next_player == npc_player {
-            if let Some(turn_starts_at) = self
+            if let Some(turn_starts_no_later_than) = self
                 .game
                 .get_player(self.game.next_player)
                 .unwrap()
-                .turn_starts_at
+                .turn_starts_no_later_than
             {
                 if backchannel.is_open() {
                     if let Some(pending_msg) = &self.waiting_on_backchannel {
                         // Do nothing if a message is pending but our turn hasn't yet started,
                         // we'll fetch the turn once we're allowed to play.
-                        if turn_starts_at <= current_time.as_secs() {
+                        // It is allowed to play here, but waiting lets battle animations play out.
+                        if turn_starts_no_later_than <= current_time.as_secs() {
                             let msg_response =
                                 backchannel.send_msg(crate::app_outer::BackchannelMsg::QueryFor {
                                     id: pending_msg.clone(),
@@ -567,7 +568,7 @@ impl SinglePlayerState {
                     let mut evaluation_game = self.game.clone();
                     evaluation_game.board = filtered_board;
 
-                    if turn_starts_at <= current_time.as_secs() {
+                    if turn_starts_no_later_than <= current_time.as_secs() {
                         let best = best_move(&evaluation_game, &self.weights);
                         next_msg = Some((npc_player, best));
                     }

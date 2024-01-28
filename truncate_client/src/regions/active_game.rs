@@ -686,7 +686,7 @@ impl ActiveGame {
 
         self.depot.gameplay.next_player_number = next_player_number;
         if let Some(GamePlayerMessage {
-            turn_starts_at: Some(time),
+            turn_starts_no_later_than: Some(time),
             ..
         }) = self.players.get(next_player_number as usize)
         {

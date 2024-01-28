@@ -151,7 +151,7 @@ pub fn backchannel(msg: String) -> String {
             game.players = players;
             game.next_player = next_player;
 
-            game.players[next_player].turn_starts_at = Some(
+            game.players[next_player].turn_starts_no_later_than = Some(
                 instant::SystemTime::now()
                     .duration_since(instant::SystemTime::UNIX_EPOCH)
                     .expect("Please don't play Truncate before 1970")

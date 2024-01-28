@@ -97,7 +97,7 @@ impl Game {
     pub fn start(&mut self) {
         self.started_at = Some(now());
         // TODO: Lookup player by `index` field rather than vec position
-        self.players[self.next_player].turn_starts_at = Some(now());
+        self.players[self.next_player].turn_starts_no_later_than = Some(now());
     }
 
     pub fn any_player_is_overtime(&self) -> Option<usize> {
@@ -107,7 +107,7 @@ impl Game {
             let Some(mut time_remaining) = player.time_remaining else {
                 continue;
             };
-            if let Some(turn_starts) = player.turn_starts_at {
+            if let Some(turn_starts) = player.turn_starts_no_later_than {
                 let elapsed_time = now().saturating_sub(turn_starts);
                 time_remaining -= Duration::seconds(elapsed_time as i64);
             }
@@ -173,14 +173,11 @@ impl Game {
             return Err("Only the next player can play".into());
         }
 
-        let turn_duration = now().checked_sub(
+        let turn_duration = now().saturating_sub(
             self.players[player]
-                .turn_starts_at
+                .turn_starts_no_later_than
                 .expect("Player played without the time running"),
         );
-        let Some(turn_duration) = turn_duration else {
-            return Err("Player's turn has not yet started".into());
-        };
 
         self.recent_changes = match self.make_move(
             next_move,
@@ -251,16 +248,17 @@ impl Game {
             };
         }
 
-        self.players[player].turn_starts_at = None;
+        self.players[player].turn_starts_no_later_than = None;
 
         if self
             .recent_changes
             .iter()
             .any(|c| matches!(c, Change::Battle(_)))
         {
-            self.players[self.next_player].turn_starts_at = Some(now() + self.rules.battle_delay);
+            self.players[self.next_player].turn_starts_no_later_than =
+                Some(now() + self.rules.battle_delay);
         } else {
-            self.players[self.next_player].turn_starts_at = Some(now());
+            self.players[self.next_player].turn_starts_no_later_than = Some(now());
         }
 
         Ok(None)

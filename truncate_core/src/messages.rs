@@ -101,7 +101,7 @@ pub struct GamePlayerMessage {
     pub color: (u8, u8, u8),
     pub allotted_time: Option<Duration>,
     pub time_remaining: Option<Duration>,
-    pub turn_starts_at: Option<u64>,
+    pub turn_starts_no_later_than: Option<u64>,
 }
 
 impl From<&Player> for GamePlayerMessage {
@@ -112,7 +112,7 @@ impl From<&Player> for GamePlayerMessage {
             color: p.color,
             allotted_time: p.allotted_time,
             time_remaining: p.time_remaining,
-            turn_starts_at: p.turn_starts_at,
+            turn_starts_no_later_than: p.turn_starts_no_later_than,
         }
     }
 }

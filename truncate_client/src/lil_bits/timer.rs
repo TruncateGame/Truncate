@@ -89,7 +89,7 @@ impl<'a> TimerUI<'a> {
     }
 
     fn calculate_time(&mut self) -> String {
-        match self.player.turn_starts_at {
+        match self.player.turn_starts_no_later_than {
             Some(next_turn) => {
                 let now = self.depot.timing.current_time.as_secs();
                 let elapsed = now.checked_sub(next_turn);
@@ -131,7 +131,7 @@ impl<'a> TimerUI<'a> {
             _ => {}
         };
 
-        match self.player.turn_starts_at {
+        match self.player.turn_starts_no_later_than {
             Some(next_turn) => {
                 let now = self.depot.timing.current_time.as_secs();
                 let elapsed = now.checked_sub(next_turn);
