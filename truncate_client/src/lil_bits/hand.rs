@@ -166,7 +166,7 @@ impl<'a> HandUI<'a> {
                             depot.interactions.hovered_tile_in_hand = Some((i, *char));
                         }
 
-                        if tile_response.drag_started() && is_decidedly_dragging {
+                        if tile_response.drag_started() {
                             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                                 let delta = pointer_pos - tile_response.rect.center();
                                 ui.memory_mut(|mem| {
@@ -174,7 +174,6 @@ impl<'a> HandUI<'a> {
                                     mem.data.insert_temp(tile_id, depot.timing.current_time);
                                 });
                             }
-                            next_selection = Some(None);
                             ui.ctx().animate_value_with_time(
                                 tile_id.with("initial_offset"),
                                 0.0,
@@ -190,6 +189,8 @@ impl<'a> HandUI<'a> {
                         }
 
                         if is_being_dragged {
+                            next_selection = Some(None);
+
                             let drag_id: Duration = ui
                                 .memory(|mem| mem.data.get_temp(tile_id))
                                 .unwrap_or_default();
