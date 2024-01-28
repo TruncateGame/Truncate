@@ -32,8 +32,6 @@ steps:
       This tutorial will help you understand the basics of the game.
 
   - message: |-
-      <game lore>
-
       To win Truncate, you must place a valid word that touches your opponent's town.
 
   - message: |-
