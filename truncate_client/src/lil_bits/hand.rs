@@ -163,7 +163,7 @@ impl<'a> HandUI<'a> {
                             depot.interactions.hovered_tile_in_hand = Some((i, *char));
                         }
 
-                        if tile_response.drag_started() {
+                        if tile_response.drag_started() && is_decidedly_dragging {
                             if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
                                 let delta = pointer_pos - tile_response.rect.center();
                                 ui.memory_mut(|mem| {
@@ -266,13 +266,12 @@ impl<'a> HandUI<'a> {
                         }
 
                         if tile_response.clicked() {
-                            if let Some((selected_index, selected_char)) =
-                                depot.interactions.selected_tile_in_hand
+                            if matches!(
+                                depot.interactions.selected_tile_in_hand,
+                                Some((selected_index, selected_char))
+                                    if selected_index == i && selected_char == self.hand.0[i])
                             {
                                 next_selection = Some(None);
-                                if selected_index != i {
-                                    rearrange = Some((selected_index, i));
-                                }
                             } else {
                                 next_selection = Some(Some((i, self.hand.0[i])));
                             }
