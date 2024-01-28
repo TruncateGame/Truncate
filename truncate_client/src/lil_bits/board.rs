@@ -414,6 +414,7 @@ impl<'a> BoardUI<'a> {
                     mapped_board.remap_texture(
                         ui.ctx(),
                         &depot.aesthetics,
+                        &depot.timing,
                         Some(&depot.interactions),
                         Some(&depot.gameplay),
                         self.board,

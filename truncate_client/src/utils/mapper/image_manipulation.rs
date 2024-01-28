@@ -1,4 +1,4 @@
-use epaint::{Color32, ColorImage, Hsva, Rect};
+use epaint::{Color32, ColorImage, Hsva, Rect, Rgba};
 
 // Sometimes we prefer to mush images in CPU-space so that they can live on the same texture,
 // without the GPU having to tint multiple UV rects when painting.
@@ -113,4 +113,24 @@ impl ImageMusher for ColorImage {
     fn flip_y(&mut self) {
         self.pixels.reverse();
     }
+}
+
+pub fn alpha_blend(base: Color32, overlay: Color32, overlay_opacity: Option<f32>) -> Color32 {
+    let overlay = Rgba::from(overlay);
+    let base = Rgba::from(base);
+
+    let overlay_alpha = overlay_opacity.unwrap_or_else(|| overlay.a());
+
+    let final_a = 1.0 - (1.0 - overlay_alpha) * (1.0 - base.a());
+    let blended_channel = |b: f32, o: f32| {
+        o * overlay_alpha / final_a + b * base.a() * (1.0 - overlay_alpha) / final_a
+    };
+
+    Rgba::from_rgba_premultiplied(
+        blended_channel(base.r(), overlay.r()),
+        blended_channel(base.g(), overlay.g()),
+        blended_channel(base.b(), overlay.b()),
+        final_a,
+    )
+    .into()
 }

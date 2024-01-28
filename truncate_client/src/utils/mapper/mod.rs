@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use chrono::offset;
 use eframe::egui;
 use epaint::{hex_color, pos2, vec2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
+use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Direction, Square},
     player,
@@ -14,10 +15,11 @@ use crate::{
     utils::tex::FGTexType,
 };
 
+use self::image_manipulation::alpha_blend;
 pub use self::image_manipulation::ImageMusher;
 
 use super::{
-    depot::{AestheticDepot, GameplayDepot, HoveredRegion, InteractionDepot},
+    depot::{AestheticDepot, GameplayDepot, HoveredRegion, InteractionDepot, TimingDepot},
     glyph_utils::{BaseTileGlyphs, Glypher},
     macros::tr_log,
     tex::{self, tiles, BGTexType, Tex, TexLayers, TexQuad, TileDecoration},
@@ -25,6 +27,8 @@ use super::{
 };
 
 mod image_manipulation;
+
+type WantsRepaint = bool;
 
 #[derive(Clone)]
 struct ResolvedTextureLayers {
@@ -81,12 +85,15 @@ struct MapState {
     prev_occupied_hover: Option<HoveredRegion>,
     prev_square_hover: Option<HoveredRegion>,
     prev_changes: Vec<Change>,
+    generic_tick: u32,
 }
 
 #[derive(Clone)]
 pub struct MappedBoard {
     layer_memory: Vec<Vec<TexLayers>>,
     state_memory: Option<MapState>,
+    /// Used to break cache and force a repaint
+    generic_repaint_tick: u32,
     resolved_textures: Option<ResolvedTextureLayers>,
     map_seed: usize,
     inverted: bool,
@@ -115,6 +122,7 @@ impl MappedBoard {
                 board.squares.len()
             ],
             state_memory: None,
+            generic_repaint_tick: 0,
             resolved_textures: None,
             map_seed: (secs % 100000) as usize,
             inverted: for_player == 0,
@@ -125,7 +133,7 @@ impl MappedBoard {
             winds: vec![0; board.width() + board.height()].into(),
         };
 
-        mapper.remap_texture(ctx, aesthetics, None, None, board);
+        mapper.remap_texture(ctx, aesthetics, &TimingDepot::default(), None, None, board);
 
         mapper
     }
@@ -222,7 +230,9 @@ impl MappedBoard {
         interactions: Option<&InteractionDepot>,
         gameplay: Option<&GameplayDepot>,
         aesthetics: &AestheticDepot,
-    ) {
+        timing: &TimingDepot,
+    ) -> WantsRepaint {
+        let mut wants_repaint = false;
         let coord = Coordinate::new(source_col, source_row);
         let resolved_textures = self.resolved_textures.as_mut().unwrap();
 
@@ -284,14 +294,42 @@ impl MappedBoard {
         let mut tile_was_swapped = false;
         let mut tile_was_victor = false;
 
+        let base_destructo_time = (timing.current_time - timing.last_turn_change).as_secs_f32();
+        let mut destructo_time = base_destructo_time;
+
         if let Some(gameplay) = gameplay {
             use truncate_core::reporting::BoardChangeAction;
             use Square::*;
+
+            if let Some(battle_origin) = gameplay.last_battle_origin {
+                let dist = coord.distance_to(&battle_origin) as f32;
+                destructo_time -= dist * aesthetics.destruction_tick;
+                if destructo_time < 0.0 {
+                    destructo_time = 0.0;
+                }
+            }
 
             let changes = gameplay.changes.iter().filter_map(|c| match c {
                 Change::Board(b) if b.detail.coordinate == coord => Some(b),
                 _ => None,
             });
+
+            let base_color = |player: usize| {
+                player_colors
+                    .get(player)
+                    .cloned()
+                    .map(|c| c.lighten())
+                    .unwrap_or_default()
+            };
+
+            let mut animated_variant = |player: usize| {
+                if destructo_time < aesthetics.destruction_duration {
+                    wants_repaint = true;
+                    (MappedTileVariant::Healthy, Some(base_color(player)))
+                } else {
+                    (MappedTileVariant::Gone, None)
+                }
+            };
 
             for change in changes {
                 match change.action {
@@ -306,11 +344,30 @@ impl MappedBoard {
                     }
                     BoardChangeAction::Defeated => {
                         if let Occupied(player, char) = change.detail.square {
+                            let validity_color =
+                                if base_destructo_time < aesthetics.destruction_duration {
+                                    let traj = ((aesthetics.destruction_duration
+                                        - base_destructo_time)
+                                        .clamp(0.0, 1.0)
+                                        / aesthetics.destruction_duration)
+                                        .sqrt();
+                                    let color = alpha_blend(
+                                        base_color(player),
+                                        aesthetics.theme.word_invalid,
+                                        Some(traj),
+                                    );
+
+                                    Some(color)
+                                } else {
+                                    None
+                                };
+                            let (variant, color) = animated_variant(player);
+
                             let tile_layers = Tex::board_game_tile(
-                                MappedTileVariant::Gone,
+                                variant,
                                 char,
                                 orient(player),
-                                None,
+                                validity_color.or(color),
                                 None,
                                 TileDecoration::Grass,
                                 seed_at_coord,
@@ -320,11 +377,13 @@ impl MappedBoard {
                     }
                     BoardChangeAction::Truncated => {
                         if let Occupied(player, char) = change.detail.square {
+                            let (variant, color) = animated_variant(player);
+
                             let tile_layers = Tex::board_game_tile(
-                                MappedTileVariant::Gone,
+                                variant,
                                 char,
                                 orient(player),
-                                None,
+                                color,
                                 None,
                                 TileDecoration::Grass,
                                 seed_at_coord,
@@ -334,11 +393,13 @@ impl MappedBoard {
                     }
                     BoardChangeAction::Exploded => {
                         if let Occupied(player, char) = change.detail.square {
+                            let (variant, color) = animated_variant(player);
+
                             let tile_layers = Tex::board_game_tile(
-                                MappedTileVariant::Gone,
+                                variant,
                                 char,
                                 orient(player),
-                                None,
+                                color,
                                 None,
                                 TileDecoration::Grass,
                                 seed_at_coord,
@@ -396,6 +457,7 @@ impl MappedBoard {
                     }
 
                     // Preview drag-to-swap from this tile to another
+                    // (the inverse is handled in the dragging logic itself within the board)
                     if being_dragged && !hovered_occupied {
                         if let Some(HoveredRegion {
                             square: Some(Square::Occupied(hovered_player, hovered_char)),
@@ -407,17 +469,6 @@ impl MappedBoard {
                             }
                         }
                     }
-
-                    // Preview drag-to-swap from another tile to this one
-                    // if hovered_occupied && !being_dragged {
-                    //     if let Some((_, Square::Occupied(dragging_player, dragging_char))) =
-                    //         interactions.dragging_tile_on_board
-                    //     {
-                    //         if dragging_player == *player {
-                    //             render_as_swap = Some(dragging_char);
-                    //         }
-                    //     }
-                    // }
                 }
 
                 if highlight.is_none() {
@@ -425,9 +476,6 @@ impl MappedBoard {
                         highlight = Some(aesthetics.theme.ring_added);
                     } else if tile_was_swapped {
                         highlight = Some(aesthetics.theme.ring_modified);
-                    } else if tile_was_victor {
-                        // TODO: New animated victorious style
-                        // highlight = Some(Color32::GOLD);
                     }
                 }
 
@@ -436,6 +484,15 @@ impl MappedBoard {
                 } else {
                     player_colors.get(*player).cloned().map(|c| c.lighten())
                 };
+
+                if tile_was_victor && base_destructo_time < aesthetics.destruction_duration {
+                    wants_repaint = true;
+                    let traj = ((aesthetics.destruction_duration - base_destructo_time)
+                        .clamp(0.0, 1.0)
+                        / aesthetics.destruction_duration)
+                        .sqrt();
+                    color = color.map(|c| alpha_blend(c, aesthetics.theme.word_valid, Some(traj)));
+                }
 
                 if square_is_highlighted && (tick % 4 < 2) {
                     color = Some(aesthetics.theme.ring_selected_hovered);
@@ -507,7 +564,7 @@ impl MappedBoard {
             .unwrap();
 
         if *cached == layers {
-            return;
+            return wants_repaint;
         }
 
         let tile_dims = [measures.inner_tile_width_px, measures.inner_tile_height_px];
@@ -621,12 +678,15 @@ impl MappedBoard {
         }
 
         *cached = layers;
+
+        wants_repaint
     }
 
     pub fn remap_texture(
         &mut self,
         ctx: &egui::Context,
         aesthetics: &AestheticDepot,
+        timing: &TimingDepot,
         interactions: Option<&InteractionDepot>,
         gameplay: Option<&GameplayDepot>,
         board: &Board,
@@ -641,6 +701,7 @@ impl MappedBoard {
         let square_hover = interactions
             .map(|i| i.hovered_unoccupied_square_on_board.clone())
             .flatten();
+        let generic_repaint_tick = self.generic_repaint_tick;
 
         if let Some(memory) = self.state_memory.as_mut() {
             let board_eq = memory.prev_board == *board;
@@ -649,6 +710,7 @@ impl MappedBoard {
             let dragging_eq = memory.prev_dragging == dragging;
             let occupied_hover_eq = memory.prev_occupied_hover == occupied_hover;
             let square_hover_eq = memory.prev_square_hover == square_hover;
+            let generic_tick_eq = memory.generic_tick == generic_repaint_tick;
             if memory.prev_tick != aesthetics.qs_tick {
                 tick_eq = false;
             }
@@ -660,6 +722,7 @@ impl MappedBoard {
                 && dragging_eq
                 && occupied_hover_eq
                 && square_hover_eq
+                && generic_tick_eq
             {
                 return;
             }
@@ -685,6 +748,9 @@ impl MappedBoard {
             if !tick_eq {
                 memory.prev_tick = aesthetics.qs_tick;
             }
+            if !generic_tick_eq {
+                memory.generic_tick = generic_repaint_tick;
+            }
         } else {
             self.state_memory = Some(MapState {
                 prev_board: board.clone(),
@@ -695,6 +761,7 @@ impl MappedBoard {
                 prev_occupied_hover: occupied_hover,
                 prev_square_hover: square_hover,
                 prev_changes: vec![],
+                generic_tick: 0,
             });
             tick_eq = false;
         }
@@ -731,7 +798,7 @@ impl MappedBoard {
                 |(dest_row, (source_row, row))| {
                     row.iter().enumerate().rev().enumerate().for_each(
                         |(dest_col, (source_col, square))| {
-                            self.paint_square_offscreen(
+                            let wants_repaint = self.paint_square_offscreen(
                                 ctx,
                                 board,
                                 &aesthetics.player_colors,
@@ -747,7 +814,13 @@ impl MappedBoard {
                                 interactions,
                                 gameplay,
                                 aesthetics,
+                                timing,
                             );
+
+                            if wants_repaint {
+                                ctx.request_repaint_after(Duration::from_millis(16));
+                                self.generic_repaint_tick += 1;
+                            }
                         },
                     );
                 },
@@ -755,7 +828,7 @@ impl MappedBoard {
         } else {
             board.squares.iter().enumerate().for_each(|(rownum, row)| {
                 row.iter().enumerate().for_each(|(colnum, square)| {
-                    self.paint_square_offscreen(
+                    let wants_repaint = self.paint_square_offscreen(
                         ctx,
                         board,
                         &aesthetics.player_colors,
@@ -771,14 +844,20 @@ impl MappedBoard {
                         interactions,
                         gameplay,
                         aesthetics,
+                        timing,
                     );
+
+                    if wants_repaint {
+                        ctx.request_repaint_after(Duration::from_millis(16));
+                        self.generic_repaint_tick += 1;
+                    }
                 });
             });
         }
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum MappedTileVariant {
     Healthy,
     Dying,

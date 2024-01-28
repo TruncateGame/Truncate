@@ -1,4 +1,5 @@
 use epaint::{emath::Align, vec2, Color32, Rect, TextureHandle, Vec2};
+use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -9,7 +10,7 @@ use eframe::egui::{self, Id, Layout, Margin, RichText, Sense};
 use crate::{
     regions::lobby::BoardEditingMode,
     utils::{
-        depot::AestheticDepot,
+        depot::{AestheticDepot, TimingDepot},
         mapper::MappedBoard,
         tex::{render_tex_quads, Tex, TexQuad},
         text::TextHelper,
@@ -112,9 +113,17 @@ impl<'a> EditorUI<'a> {
                     qs_tick: 0,
                     map_texture: map_texture.clone(),
                     player_colors: self.player_colors.clone(),
+                    destruction_tick: 0.0,
+                    destruction_duration: 0.0,
                 };
-                self.mapped_board
-                    .remap_texture(ui.ctx(), &aesthetics, None, None, &self.board);
+                self.mapped_board.remap_texture(
+                    ui.ctx(),
+                    &aesthetics,
+                    &TimingDepot::default(),
+                    None,
+                    None,
+                    &self.board,
+                );
                 msg = Some(PlayerMessage::EditBoard(self.board.clone()));
             }
 

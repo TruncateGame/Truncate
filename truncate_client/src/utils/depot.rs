@@ -73,10 +73,10 @@ impl Default for BoardDepot {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TimingDepot {
     pub current_time: Duration,
-    pub prev_to_next_turn: (Duration, Duration),
+    pub last_turn_change: Duration,
 }
 
 #[derive(Clone)]
@@ -87,6 +87,7 @@ pub struct GameplayDepot {
     pub error_msg: Option<String>,
     pub winner: Option<usize>,
     pub changes: Vec<Change>,
+    pub last_battle_origin: Option<Coordinate>,
 }
 
 #[derive(Clone)]
@@ -95,6 +96,8 @@ pub struct AestheticDepot {
     pub qs_tick: u64,
     pub map_texture: TextureHandle,
     pub player_colors: Vec<Color32>,
+    pub destruction_tick: f32,
+    pub destruction_duration: f32,
 }
 
 #[derive(Clone)]

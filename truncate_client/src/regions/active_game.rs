@@ -5,7 +5,7 @@ use truncate_core::{
     generation::BoardSeed,
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
     player::Hand,
-    reporting::{BoardChange, Change, TimeChange},
+    reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, TimeChange},
 };
 
 use eframe::{
@@ -81,10 +81,7 @@ impl ActiveGame {
                 board_seed: game_seed,
                 ..BoardDepot::default()
             },
-            timing: TimingDepot {
-                current_time: Duration::from_secs(0),
-                prev_to_next_turn: (Duration::from_secs(0), Duration::from_secs(0)),
-            },
+            timing: TimingDepot::default(),
             gameplay: GameplayDepot {
                 room_code,
                 player_number,
@@ -92,12 +89,15 @@ impl ActiveGame {
                 error_msg: None,
                 winner: None,
                 changes: Vec::new(),
+                last_battle_origin: None,
             },
             aesthetics: AestheticDepot {
                 theme,
                 qs_tick: 0,
                 map_texture,
                 player_colors,
+                destruction_tick: 0.05,
+                destruction_duration: 0.6,
             },
         };
 
@@ -690,8 +690,7 @@ impl ActiveGame {
             ..
         }) = self.players.get(next_player_number as usize)
         {
-            self.depot.timing.prev_to_next_turn =
-                (self.depot.timing.current_time, Duration::from_secs(*time));
+            self.depot.timing.last_turn_change = self.depot.timing.current_time;
         }
 
         self.depot.gameplay.changes = changes.clone();
@@ -730,11 +729,23 @@ impl ActiveGame {
             })
             .collect();
 
-        if changes
+        let battle_occurred = changes
             .iter()
-            .any(|change| matches!(change, Change::Battle(_)))
-        {
+            .any(|change| matches!(change, Change::Battle(_)));
+
+        if battle_occurred {
             self.depot.ui_state.unread_sidebar = true;
+
+            self.depot.gameplay.last_battle_origin =
+                changes.iter().find_map(|change| match change {
+                    Change::Board(BoardChange {
+                        detail: BoardChangeDetail { coordinate, .. },
+                        action: BoardChangeAction::Added,
+                    }) => Some(*coordinate),
+                    _ => None,
+                });
+        } else {
+            self.depot.gameplay.last_battle_origin = None;
         }
 
         self.turn_reports.push(changes);

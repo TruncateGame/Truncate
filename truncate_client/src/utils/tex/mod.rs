@@ -255,17 +255,29 @@ impl Tex {
                 );
             }
             MappedTileVariant::Dead => {
-                layers = layers.with_piece_texture(
-                    match quickrand(seed) % 100 {
-                        0..=19 => tiles::quad::GAME_PIECE_CRACKS_0,
-                        20..=39 => tiles::quad::GAME_PIECE_CRACKS_1,
-                        40..=59 => tiles::quad::GAME_PIECE_CRACKS_2,
-                        60..=79 => tiles::quad::GAME_PIECE_CRACKS_3,
-                        _ => tiles::quad::GAME_PIECE_CRACKS_4,
-                    }
-                    .tint(color.unwrap_or_default()),
-                    None,
-                );
+                layers = layers
+                    .with_piece_texture(
+                        match quickrand(seed + 983) % 100 {
+                            0..=19 => tiles::quad::GAME_PIECE_CRACKS_0,
+                            20..=39 => tiles::quad::GAME_PIECE_CRACKS_1,
+                            40..=59 => tiles::quad::GAME_PIECE_CRACKS_2,
+                            60..=79 => tiles::quad::GAME_PIECE_CRACKS_3,
+                            _ => tiles::quad::GAME_PIECE_CRACKS_4,
+                        }
+                        .tint(color.unwrap_or_default()),
+                        None,
+                    )
+                    .with_piece_texture(
+                        match quickrand(seed + 8073) % 100 {
+                            0..=19 => tiles::quad::GAME_PIECE_CRACKS_0,
+                            20..=39 => tiles::quad::GAME_PIECE_CRACKS_1,
+                            40..=59 => tiles::quad::GAME_PIECE_CRACKS_2,
+                            60..=79 => tiles::quad::GAME_PIECE_CRACKS_3,
+                            _ => tiles::quad::GAME_PIECE_CRACKS_4,
+                        }
+                        .tint(color.unwrap_or_default()),
+                        None,
+                    );
             }
             MappedTileVariant::Gone => {
                 layers = TexLayers::default()

@@ -3,6 +3,7 @@ use epaint::{
     hex_color, vec2, Color32, Stroke, TextureHandle, Vec2,
 };
 
+use instant::Duration;
 use truncate_core::{
     board::Board,
     generation::BoardSeed,
@@ -14,7 +15,10 @@ use eframe::egui::{self, Layout, Order, RichText, ScrollArea};
 use crate::{
     lil_bits::EditorUI,
     utils::{
-        depot::AestheticDepot, mapper::MappedBoard, text::TextHelper, Diaphanize, Lighten, Theme,
+        depot::{AestheticDepot, TimingDepot},
+        mapper::MappedBoard,
+        text::TextHelper,
+        Diaphanize, Lighten, Theme,
     },
 };
 
@@ -37,6 +41,7 @@ pub struct Lobby {
     pub editing_mode: BoardEditingMode,
     pub copied_code: bool,
     pub aesthetics: AestheticDepot,
+    pub timing: TimingDepot,
 }
 
 impl Lobby {
@@ -58,6 +63,8 @@ impl Lobby {
             qs_tick: 0,
             map_texture,
             player_colors,
+            destruction_tick: 0.0,
+            destruction_duration: 0.0,
         };
 
         Self {
@@ -70,12 +77,19 @@ impl Lobby {
             editing_mode: BoardEditingMode::None,
             copied_code: false,
             aesthetics,
+            timing: TimingDepot::default(),
         }
     }
 
     pub fn update_board(&mut self, board: Board, ui: &mut egui::Ui) {
-        self.mapped_board
-            .remap_texture(&ui.ctx(), &self.aesthetics, None, None, &board);
+        self.mapped_board.remap_texture(
+            &ui.ctx(),
+            &self.aesthetics,
+            &self.timing,
+            None,
+            None,
+            &board,
+        );
         self.board = board;
     }
 
@@ -254,6 +268,7 @@ impl Lobby {
                 self.mapped_board.remap_texture(
                     &ui.ctx(),
                     &self.aesthetics,
+                    &self.timing,
                     None,
                     None,
                     &self.board,
