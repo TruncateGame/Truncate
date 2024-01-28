@@ -326,7 +326,7 @@ impl SinglePlayerState {
             };
             if text
                 .centered_button(
-                    theme.selection.lighten().lighten(),
+                    theme.button_primary,
                     theme.text,
                     &self.map_texture,
                     &mut banner_ui,

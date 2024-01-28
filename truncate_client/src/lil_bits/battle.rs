@@ -47,7 +47,7 @@ impl<'a> BattleUI<'a> {
                 aesthetics.theme.letter_size * 0.75,
                 egui::FontFamily::Name("Truncate-Heavy".into()),
             ),
-            aesthetics.theme.outlines.darken(),
+            aesthetics.theme.text,
         );
 
         let mut words: Vec<_> = battle_words
@@ -65,9 +65,9 @@ impl<'a> BattleUI<'a> {
                             ),
                             match (transparent, w.valid) {
                                 (true, _) => Color32::TRANSPARENT,
-                                (false, Some(true)) => aesthetics.theme.addition.darken().darken(),
-                                (false, Some(false)) => aesthetics.theme.defeated.darken(),
-                                (false, None) => aesthetics.theme.outlines.darken().darken(),
+                                (false, Some(true)) => aesthetics.theme.word_valid,
+                                (false, Some(false)) => aesthetics.theme.word_invalid,
+                                (false, None) => aesthetics.theme.text,
                             },
                         )
                     } else {
@@ -79,9 +79,9 @@ impl<'a> BattleUI<'a> {
                             ),
                             match (transparent, w.valid) {
                                 (true, _) => Color32::TRANSPARENT,
-                                (false, Some(true)) => aesthetics.theme.addition.darken().darken(),
-                                (false, Some(false)) => aesthetics.theme.defeated.darken(),
-                                (false, None) => aesthetics.theme.outlines.darken().darken(),
+                                (false, Some(true)) => aesthetics.theme.word_valid,
+                                (false, Some(false)) => aesthetics.theme.word_invalid,
+                                (false, None) => aesthetics.theme.text,
                             },
                         )
                     },
@@ -263,12 +263,11 @@ impl<'a> BattleUI<'a> {
 
         let (msg, _) = match self.battle.outcome {
             truncate_core::judge::Outcome::AttackerWins(_) => {
-                ("won an attack against", aesthetics.theme.addition.darken())
+                ("won an attack against", aesthetics.theme.word_valid)
             }
-            truncate_core::judge::Outcome::DefenderWins => (
-                "failed an attack against",
-                aesthetics.theme.defeated.darken(),
-            ),
+            truncate_core::judge::Outcome::DefenderWins => {
+                ("failed an attack against", aesthetics.theme.word_invalid)
+            }
         };
         let galley = ui.painter().layout_no_wrap(
             msg.to_string(),

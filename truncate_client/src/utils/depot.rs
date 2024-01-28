@@ -25,6 +25,7 @@ pub struct InteractionDepot {
     pub hovered_unoccupied_square_on_board: Option<HoveredRegion>,
     pub hovered_occupied_square_on_board: Option<HoveredRegion>,
     pub playing_tile: Option<char>,
+    pub hovered_tile_in_hand: Option<(usize, char)>,
     pub selected_tile_in_hand: Option<(usize, char)>,
     pub highlight_tiles: Option<Vec<char>>,
     pub highlight_squares: Option<Vec<Coordinate>>,

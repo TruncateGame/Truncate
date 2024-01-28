@@ -443,7 +443,7 @@ impl ActiveGame {
                             let text = TextHelper::heavy("REMATCH", 12.0, None, ui);
                             if text
                                 .centered_button(
-                                    self.depot.aesthetics.theme.selection.lighten().lighten(),
+                                    self.depot.aesthetics.theme.button_primary,
                                     self.depot.aesthetics.theme.text,
                                     &self.depot.aesthetics.map_texture,
                                     ui,

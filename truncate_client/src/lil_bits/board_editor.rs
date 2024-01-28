@@ -65,11 +65,11 @@ impl<'a> EditorUI<'a> {
 
         let mut highlights = [None; 5];
         match self.editing_mode {
-            BoardEditingMode::Land => highlights[0] = Some(theme.selection),
-            BoardEditingMode::Town(0) => highlights[1] = Some(theme.selection),
-            BoardEditingMode::Town(1) => highlights[2] = Some(theme.selection),
-            BoardEditingMode::Dock(0) => highlights[3] = Some(theme.selection),
-            BoardEditingMode::Dock(1) => highlights[4] = Some(theme.selection),
+            BoardEditingMode::Land => highlights[0] = Some(theme.ring_selected),
+            BoardEditingMode::Town(0) => highlights[1] = Some(theme.ring_selected),
+            BoardEditingMode::Town(1) => highlights[2] = Some(theme.ring_selected),
+            BoardEditingMode::Dock(0) => highlights[3] = Some(theme.ring_selected),
+            BoardEditingMode::Dock(1) => highlights[4] = Some(theme.ring_selected),
             _ => unreachable!("Unknown board editing mode — player count has likely increased"),
         }
 

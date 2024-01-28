@@ -111,12 +111,7 @@ impl ShareMessageMock {
             "SHARE"
         };
         let text = TextHelper::heavy(msg, 12.0, None, ui);
-        let share_button = text.centered_button(
-            theme.selection.lighten().lighten(),
-            theme.text,
-            map_texture,
-            ui,
-        );
+        let share_button = text.centered_button(theme.button_primary, theme.text, map_texture, ui);
         // Extra events to get this message through the backchannel early,
         // as our frontend relies on attaching the copy to a browser event
         // on mouseup/touchend.

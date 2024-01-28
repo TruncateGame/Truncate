@@ -13,7 +13,6 @@ use super::HandSquareUI;
 
 pub struct HandUI<'a> {
     hand: &'a mut Hand,
-
     active: bool,
     interactive: bool,
 }
@@ -22,7 +21,6 @@ impl<'a> HandUI<'a> {
     pub fn new(hand: &'a mut Hand) -> Self {
         Self {
             hand,
-
             active: true,
             interactive: true,
         }
@@ -54,6 +52,7 @@ impl<'a> HandUI<'a> {
         } = depot;
 
         let selected = interactions.selected_tile_in_hand;
+        let hovered = interactions.hovered_tile_in_hand;
 
         mapped_tiles.remap_texture(
             ui.ctx(),
@@ -61,20 +60,30 @@ impl<'a> HandUI<'a> {
                 .0
                 .iter()
                 .enumerate()
-                .map(|(i, c)| MappedTile {
-                    variant: if gameplay.next_player_number == gameplay.player_number {
-                        MappedTileVariant::Healthy
-                    } else {
-                        MappedTileVariant::Gone
-                    },
-                    character: *c,
-                    color: Some(aesthetics.player_colors[gameplay.player_number as usize]),
-                    highlight: if selected.is_some_and(|(selected_index, _)| selected_index == i) {
-                        Some(Color32::GOLD)
-                    } else {
-                        None
-                    },
-                    orientation: truncate_core::board::Direction::North,
+                .map(|(i, c)| {
+                    // NB: Hovering and selecting here will be delayed by one frame since
+                    // we remap before handling interactions.
+                    let hovered = matches!(hovered, Some((p, _)) if p == i);
+                    let selected = matches!(selected, Some((p, _)) if p == i);
+                    MappedTile {
+                        variant: if gameplay.next_player_number == gameplay.player_number {
+                            MappedTileVariant::Healthy
+                        } else {
+                            MappedTileVariant::Gone
+                        },
+                        character: *c,
+                        color: Some(aesthetics.player_colors[gameplay.player_number as usize]),
+                        highlight: if selected && hovered {
+                            Some(aesthetics.theme.ring_selected_hovered)
+                        } else if selected {
+                            Some(aesthetics.theme.ring_selected)
+                        } else if hovered {
+                            Some(aesthetics.theme.ring_hovered)
+                        } else {
+                            None
+                        },
+                        orientation: truncate_core::board::Direction::North,
+                    }
                 })
                 .collect(),
             &aesthetics,
@@ -84,6 +93,7 @@ impl<'a> HandUI<'a> {
         let mut rearrange = None;
         let mut next_selection = None;
         let mut highlights = interactions.highlight_tiles.clone();
+        interactions.hovered_tile_in_hand = None;
 
         ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
@@ -150,6 +160,7 @@ impl<'a> HandUI<'a> {
                             ui.interact(tile_rect, tile_id, Sense::click_and_drag());
                         if tile_response.hovered() {
                             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+                            depot.interactions.hovered_tile_in_hand = Some((i, *char));
                         }
 
                         if tile_response.drag_started() {

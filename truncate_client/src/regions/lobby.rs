@@ -114,7 +114,7 @@ impl Lobby {
                         let text = TextHelper::heavy("COPY GAME LINK", 14.0, None, ui);
                         if text
                             .full_button(
-                                theme.selection.lighten().lighten(),
+                                theme.button_primary,
                                 theme.text,
                                 &self.aesthetics.map_texture,
                                 ui,
@@ -137,7 +137,7 @@ impl Lobby {
                     }
 
                     let start_button_color = if self.players.len() > 1 {
-                        theme.selection.lighten().lighten()
+                        theme.button_primary
                     } else {
                         theme.text.lighten().lighten()
                     };

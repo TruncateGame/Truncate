@@ -58,7 +58,7 @@ impl<'a> TimerUI<'a> {
 impl<'a> TimerUI<'a> {
     fn get_time_color(&self) -> Color32 {
         if self.depot.gameplay.winner == Some(self.player.index) {
-            self.depot.aesthetics.theme.selection
+            self.depot.aesthetics.theme.gold_medal
         } else if !self.active {
             hex_color!("#444444")
         } else {

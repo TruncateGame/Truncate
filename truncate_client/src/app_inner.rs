@@ -273,7 +273,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             .with_button(
                 "continue",
                 "CONTINUE".to_string(),
-                outer.theme.selection.lighten().lighten(),
+                outer.theme.button_primary,
             )
             .render(ui, &outer.theme, current_time, &outer.map_texture);
 
@@ -551,11 +551,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 vec![format!("LOADING DAILY PUZZLE")]
             })
             .animated(outer.error.is_none())
-            .with_button(
-                "cancel",
-                "CANCEL".to_string(),
-                outer.theme.selection.lighten().lighten(),
-            );
+            .with_button("cancel", "CANCEL".to_string(), outer.theme.button_primary);
 
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
@@ -575,11 +571,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 vec![format!("JOINING {room_code}")]
             })
             .animated(outer.error.is_none())
-            .with_button(
-                "cancel",
-                "CANCEL".to_string(),
-                outer.theme.selection.lighten().lighten(),
-            );
+            .with_button("cancel", "CANCEL".to_string(), outer.theme.button_primary);
 
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
@@ -599,11 +591,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 vec!["CREATING ROOM".to_string()]
             })
             .animated(outer.error.is_none())
-            .with_button(
-                "cancel",
-                "CANCEL".to_string(),
-                outer.theme.selection.lighten().lighten(),
-            );
+            .with_button("cancel", "CANCEL".to_string(), outer.theme.button_primary);
 
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 

@@ -218,6 +218,7 @@ impl MappedBoard {
         glypher: &Glypher,
         interactions: Option<&InteractionDepot>,
         gameplay: Option<&GameplayDepot>,
+        aesthetics: &AestheticDepot,
     ) {
         let coord = Coordinate::new(source_col, source_row);
         let resolved_textures = self.resolved_textures.as_mut().unwrap();
@@ -356,18 +357,18 @@ impl MappedBoard {
                     being_dragged = interactions.dragging_board_coord == Some(coord);
 
                     highlight = match (selected, hovered) {
-                        (true, true) => Some(hex_color!("#FFDE85")),
-                        (true, false) => Some(hex_color!("#FFBE0B")),
-                        (false, true) => Some(hex_color!("#CDF7F6")),
+                        (true, true) => Some(aesthetics.theme.ring_selected_hovered),
+                        (true, false) => Some(aesthetics.theme.ring_selected),
+                        (false, true) => Some(aesthetics.theme.ring_hovered),
                         (false, false) => None,
                     };
                 }
 
                 if highlight.is_none() {
                     if tile_was_added {
-                        highlight = Some(hex_color!("#0AFFC6"));
+                        highlight = Some(aesthetics.theme.ring_added);
                     } else if tile_was_swapped {
-                        highlight = Some(hex_color!("#FC3692"));
+                        highlight = Some(aesthetics.theme.ring_modified);
                     } else if tile_was_victor {
                         // TODO: New animated victorious style
                         // highlight = Some(Color32::GOLD);
@@ -381,7 +382,7 @@ impl MappedBoard {
                 };
 
                 if square_is_highlighted && (tick % 4 < 2) {
-                    color = Some(hex_color!("#FFDE85"));
+                    color = Some(aesthetics.theme.ring_selected_hovered);
                 }
 
                 let tile_layers = Tex::board_game_tile(
@@ -656,6 +657,7 @@ impl MappedBoard {
                                 glypher,
                                 interactions,
                                 gameplay,
+                                aesthetics,
                             );
                         },
                     );
@@ -679,6 +681,7 @@ impl MappedBoard {
                         glypher,
                         interactions,
                         gameplay,
+                        aesthetics,
                     );
                 });
             });
@@ -803,9 +806,6 @@ impl MappedTiles {
             for piece in tile_layers.pieces.iter() {
                 match piece {
                     tex::PieceLayer::Texture(texs, tint) => {
-                        if *tint == Some(hex_color!("#ff0000")) {
-                            tr_log!({ "Painting a highlight ring!" });
-                        }
                         for (tex, sub_loc) in texs.iter().zip([
                             [0, 0],
                             [tile_dims[0], 0],

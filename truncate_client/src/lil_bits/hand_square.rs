@@ -53,16 +53,6 @@ impl HandSquareUI {
                     depot,
                 );
             }
-
-            if is_hovered {
-                if self.empty && !ui.ctx().memory(|mem| mem.is_anything_being_dragged()) {
-                    ui.painter().rect_filled(
-                        rect.shrink(depot.aesthetics.theme.tile_margin),
-                        depot.aesthetics.theme.rounding,
-                        depot.aesthetics.theme.outlines,
-                    );
-                }
-            }
         }
 
         (response, rect)

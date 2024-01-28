@@ -238,12 +238,8 @@ impl DailySplashUI {
                     ui.add_space(16.0);
 
                     let text = TextHelper::heavy("TRY AGAIN", 12.0, None, ui);
-                    let try_again_button = text.centered_button(
-                        theme.selection.lighten().lighten(),
-                        theme.text,
-                        map_texture,
-                        ui,
-                    );
+                    let try_again_button =
+                        text.centered_button(theme.button_primary, theme.text, map_texture, ui);
                     if try_again_button.clicked() {
                         msg = Some(PlayerMessage::Rematch);
                     }
