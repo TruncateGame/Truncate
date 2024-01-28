@@ -65,14 +65,17 @@ impl<'a> HandUI<'a> {
                     // we remap before handling interactions.
                     let hovered = matches!(hovered, Some((p, _)) if p == i);
                     let selected = matches!(selected, Some((p, _)) if p == i);
+
+                    let color = if gameplay.next_player_number == gameplay.player_number {
+                        aesthetics.player_colors[gameplay.player_number as usize]
+                    } else {
+                        aesthetics.theme.faded
+                    };
+
                     MappedTile {
-                        variant: if gameplay.next_player_number == gameplay.player_number {
-                            MappedTileVariant::Healthy
-                        } else {
-                            MappedTileVariant::Gone
-                        },
+                        variant: MappedTileVariant::Healthy,
                         character: *c,
-                        color: Some(aesthetics.player_colors[gameplay.player_number as usize]),
+                        color: Some(color),
                         highlight: if selected && hovered {
                             Some(aesthetics.theme.ring_selected_hovered)
                         } else if selected {
