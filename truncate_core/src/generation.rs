@@ -16,6 +16,7 @@ use crate::{
 pub struct BoardParams {
     pub land_dimensions: [usize; 2],
     pub dispersion: [f64; 2],
+    pub isolation: f64,
     pub island_influence: f64,
     pub maximum_town_density: f64,
     pub maximum_town_distance: f64,
@@ -28,6 +29,7 @@ pub struct BoardParams {
 const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
     land_dimensions: [10, 10],
     dispersion: [5.0, 5.0],
+    isolation: 2.0,
     maximum_town_density: 0.2,
     maximum_town_distance: 0.15,
     island_influence: 0.0,
@@ -114,6 +116,7 @@ impl BoardSeed {
                     rng.rand_range(10..39) as usize,
                 ],
                 dispersion: [disper, disper],
+                isolation: (rng.rand_float() * 2.0 + 1.0) as f64,
                 island_influence: (rng.rand_float() * 0.7) as f64,
                 maximum_town_density: (rng.rand_float() * 0.6 + 0.1) as f64,
                 maximum_town_distance: (rng.rand_float() * 0.2 + 0.1) as f64,
@@ -181,6 +184,7 @@ pub fn generate_board(
             BoardParams {
                 land_dimensions: ideal_land_dimensions,
                 dispersion,
+                isolation,
                 maximum_town_density,
                 maximum_town_distance,
                 island_influence: jitter,
@@ -204,7 +208,10 @@ pub fn generate_board(
     let simplex = Simplex::new(seed);
 
     let mut board = Board::new(3, 3);
-    let canvas_size = [ideal_land_dimensions[0] * 2, ideal_land_dimensions[1] * 2];
+    let canvas_size = [
+        (ideal_land_dimensions[0] as f64 * isolation) as usize,
+        (ideal_land_dimensions[1] as f64 * isolation) as usize,
+    ];
     // Expand the canvas when creating board squares to avoid setting anything in the outermost ring
     board.squares = vec![vec![crate::board::Square::Water; canvas_size[0] + 2]; canvas_size[1] + 2];
 

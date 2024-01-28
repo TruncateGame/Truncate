@@ -17,6 +17,7 @@ pub struct GeneratorState {
     width: usize,
     height: usize,
     dispersion: f64,
+    isolation: f64,
     maximum_town_density: f64,
     maximum_town_distance: f64,
     island_influence: f64,
@@ -45,17 +46,20 @@ impl GeneratorState {
         active_game.depot.ui_state.sidebar_hidden = true;
         active_game.depot.interactions.view_only = true;
 
+        let (_, default) = BoardParams::latest();
+
         Self {
             active_game,
             seed: 1843,
             infinite: false,
-            width: 10,
-            height: 10,
-            dispersion: 5.0,
-            maximum_town_density: 0.2,
-            maximum_town_distance: 0.2,
-            island_influence: 0.0,
-            minimum_choke: 3,
+            width: default.land_dimensions[0],
+            height: default.land_dimensions[1],
+            dispersion: default.dispersion[0],
+            isolation: default.isolation,
+            maximum_town_density: default.maximum_town_density,
+            maximum_town_distance: default.maximum_town_distance,
+            island_influence: default.island_influence,
+            minimum_choke: default.minimum_choke,
             generation_result: None,
         }
     }
@@ -113,6 +117,17 @@ impl GeneratorState {
                 let r = ui.add(
                     DragValue::new(&mut self.dispersion)
                         .clamp_range(0.0..=100.0)
+                        .speed(0.01),
+                );
+                if r.changed() {
+                    changed = true;
+                }
+                ui.end_row();
+
+                ui.label(RichText::new("Isolation").color(Color32::WHITE));
+                let r = ui.add(
+                    DragValue::new(&mut self.isolation)
+                        .clamp_range(1.0..=10.0)
                         .speed(0.01),
                 );
                 if r.changed() {
@@ -184,6 +199,7 @@ impl GeneratorState {
                 params: BoardParams {
                     land_dimensions: [self.width, self.height],
                     dispersion: [self.dispersion, self.dispersion],
+                    isolation: self.isolation,
                     maximum_town_density: self.maximum_town_density,
                     maximum_town_distance: self.maximum_town_distance,
                     island_influence: self.island_influence,
