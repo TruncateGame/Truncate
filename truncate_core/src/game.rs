@@ -126,7 +126,7 @@ impl Game {
         most_overtime_player.map(|(_, player_number)| player_number)
     }
 
-    pub fn calculate_game_over(&mut self) {
+    pub fn calculate_game_over(&mut self, current_player: usize) {
         let overtime_rule = match &self.rules.timing {
             rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
             _ => None,
@@ -141,7 +141,14 @@ impl Game {
                 _ => {}
             }
         }
-        for (player_index, _player) in self.players.iter().enumerate() {
+
+        // If any opponents were blocked out by this turn, they lose
+        for (player_index, _player) in self
+            .players
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != current_player)
+        {
             if self.board.playable_positions(player_index).is_empty() {
                 self.board.defeat_player(player_index);
                 self.winner = Some((player_index + 1) % 2);
@@ -160,15 +167,16 @@ impl Game {
             return Err("Game is already over".into());
         }
 
-        self.calculate_game_over();
-        if self.winner.is_some() {
-            return Ok(self.winner);
-        }
-
         let player = match next_move {
             Move::Place { player, .. } => player,
             Move::Swap { player, .. } => player,
         };
+
+        self.calculate_game_over(player);
+        if self.winner.is_some() {
+            return Ok(self.winner);
+        }
+
         if player != self.next_player {
             return Err("Only the next player can play".into());
         }
@@ -202,7 +210,7 @@ impl Game {
         }
 
         // Check for de-facto winning by blocking all moves
-        self.calculate_game_over();
+        self.calculate_game_over(player);
         if self.winner.is_some() {
             return Ok(self.winner);
         }
