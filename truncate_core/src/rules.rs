@@ -110,10 +110,7 @@ impl Default for GameRules {
             },
             visibility: Visibility::Standard,
             truncation: Truncation::Root,
-            timing: Timing::PerPlayer {
-                time_allowance: 60 * 20,
-                overtime_rule: OvertimeRule::Elimination,
-            },
+            timing: Timing::None,
             hand_size: 7,
             tile_distribution: TileDistribution::Standard,
             tile_bag_behaviour: TileBagBehaviour::Standard,

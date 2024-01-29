@@ -235,7 +235,7 @@ impl ActiveGame {
 
                     let remaining_width = ui.available_width();
                     let total_width = 700.0_f32.min(remaining_width);
-                    let padding = (remaining_width / total_width) / 2.0;
+                    let padding = (remaining_width - total_width) / 2.0;
 
                     ui.add_space(padding);
 
