@@ -999,11 +999,23 @@ impl Board {
         let cols = self.width();
         let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
 
-        if matches!(visibility, rules::Visibility::LandFog) {
-            for (x, y) in squares {
-                let c = Coordinate { x, y };
-                if !visible_coords.contains(&c) {
-                    _ = new_board.set_square(c, Square::Fog);
+        match visibility {
+            rules::Visibility::Standard => {}
+            rules::Visibility::TileFog => {
+                for (x, y) in squares {
+                    let c = Coordinate { x, y };
+                    let is_tile = matches!(new_board.get(c), Ok(Square::Occupied(_, _)));
+                    if !visible_coords.contains(&c) && is_tile {
+                        _ = new_board.set_square(c, Square::Land);
+                    }
+                }
+            }
+            rules::Visibility::LandFog => {
+                for (x, y) in squares {
+                    let c = Coordinate { x, y };
+                    if !visible_coords.contains(&c) {
+                        _ = new_board.set_square(c, Square::Fog);
+                    }
                 }
             }
         }
