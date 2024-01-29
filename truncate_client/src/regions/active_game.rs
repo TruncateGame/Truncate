@@ -303,11 +303,12 @@ impl ActiveGame {
                                 _ => "".to_string(),
                             };
 
+                            let active_player = self.depot.gameplay.player_number;
                             let summary = if let Some(game) = game_ref {
                                 format!(
                                     "{attempt_str}{} move{}",
-                                    game.player_turn_count[0],
-                                    if game.player_turn_count[0] == 1 {
+                                    game.player_turn_count[active_player as usize],
+                                    if game.player_turn_count[active_player as usize] == 1 {
                                         ""
                                     } else {
                                         "s"
