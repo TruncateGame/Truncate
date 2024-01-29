@@ -42,9 +42,15 @@ pub struct ResultModalUnique {
 }
 
 #[derive(Clone)]
+pub struct ResultModalResigning {
+    msg: String,
+}
+
+#[derive(Clone)]
 pub enum ResultModalVariant {
     Daily(ResultModalDaily),
     Unique(ResultModalUnique),
+    Resigning(ResultModalResigning),
 }
 
 #[derive(Clone)]
@@ -112,6 +118,13 @@ impl ResultModalUI {
             }),
         }
     }
+    pub fn new_resigning(ui: &mut egui::Ui, msg: String) -> Self {
+        ResultModalUI::seed_animations(ui);
+
+        Self {
+            contents: ResultModalVariant::Resigning(ResultModalResigning { msg }),
+        }
+    }
 }
 
 #[derive(Hash)]
@@ -151,6 +164,8 @@ impl ResultModalUI {
 pub enum ResultModalAction {
     TryAgain,
     NewPuzzle,
+    Dismiss,
+    Resign,
 }
 
 impl ResultModalUI {
@@ -169,7 +184,11 @@ impl ResultModalUI {
             .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
 
         let ideal_modal_width = 370.0;
-        let ideal_modal_height = 570.0;
+        let ideal_modal_height = match self.contents {
+            ResultModalVariant::Daily(_) => 570.0,
+            ResultModalVariant::Unique(_) => 570.0,
+            ResultModalVariant::Resigning(_) => 300.0,
+        };
 
         area.show(ui.ctx(), |ui| {
             let screen_dimension = ui.max_rect();
@@ -204,7 +223,7 @@ impl ResultModalUI {
             let offset = (1.0 - modal_pos) * 40.0;
             modal_dimension = modal_dimension.translate(vec2(0.0, offset)); // Animate the modal in vertically
 
-            ui.painter().rect_filled(modal_dimension, 7.0, bg);
+            ui.painter().rect_filled(modal_dimension, 0.0, bg);
 
             // Wait for the modal position to be close before showing the contents
             if modal_pos < 0.7 {
@@ -251,6 +270,10 @@ impl ResultModalUI {
                                 TextHelper::heavy(&summary_string, 14.0, None, &mut ui);
                             summary_text.paint(Color32::WHITE, ui, true);
                         }
+                    }
+                    ResultModalVariant::Resigning(r) => {
+                        let summary_text = TextHelper::heavy(&r.msg, 14.0, None, &mut ui);
+                        summary_text.paint(Color32::WHITE, ui, true);
                     }
                 }
 
@@ -347,6 +370,27 @@ impl ResultModalUI {
                             text.centered_button(theme.button_primary, theme.text, map_texture, ui);
                         if new_puzzle_button.clicked() {
                             msg = Some(ResultModalAction::NewPuzzle);
+                        }
+                    }
+                    ResultModalVariant::Resigning(_r) => {
+                        ui.add_space(20.0);
+                        let text = TextHelper::heavy("RESIGN", 12.0, None, ui);
+                        let try_again_button =
+                            text.centered_button(theme.button_primary, theme.text, map_texture, ui);
+                        if try_again_button.clicked() {
+                            msg = Some(ResultModalAction::Resign);
+                        }
+
+                        ui.add_space(10.0);
+                        let text = TextHelper::heavy("CONTINUE PLAYING", 12.0, None, ui);
+                        let new_puzzle_button = text.centered_button(
+                            theme.water.lighten().lighten(),
+                            theme.text,
+                            map_texture,
+                            ui,
+                        );
+                        if new_puzzle_button.clicked() {
+                            msg = Some(ResultModalAction::Dismiss);
                         }
                     }
                 };

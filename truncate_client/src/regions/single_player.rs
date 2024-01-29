@@ -485,6 +485,50 @@ impl SinglePlayerState {
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
             self.reset(current_time, ui.ctx());
             return msgs_to_server;
+        } else if matches!(next_msg, Some((_, PlayerMessage::Resign))) {
+            match self.active_game.location {
+                GameLocation::Local => {
+                    self.splash = Some(ResultModalUI::new_resigning(
+                        &mut ui,
+                        "Resign and try again?".to_string(),
+                    ))
+                }
+                GameLocation::Online => {
+                    self.splash = Some(ResultModalUI::new_resigning(
+                        &mut ui,
+                        "Resign this game?".to_string(),
+                    ))
+                }
+            }
+        }
+
+        if let Some(splash) = &mut self.splash {
+            let splash_msg = splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
+
+            match splash_msg {
+                Some(ResultModalAction::NewPuzzle) => {
+                    self.splash = None;
+                    self.reset(current_time, ui.ctx());
+                }
+                Some(ResultModalAction::TryAgain) => {
+                    self.splash = None;
+
+                    if let Some(seed) = &self.active_game.depot.board_info.board_seed {
+                        self.reset_to(seed.clone(), self.human_starts, ui.ctx());
+                    } else {
+                        self.reset(current_time, ui.ctx());
+                    }
+                }
+                Some(ResultModalAction::Dismiss) => {
+                    self.splash = None;
+                }
+                Some(ResultModalAction::Resign) => {
+                    self.splash = None;
+                    self.game.resign_player(human_player);
+                    self.winner = Some(npc_player);
+                }
+                None => {}
+            }
         }
 
         if self.winner.is_some() {
@@ -539,28 +583,6 @@ impl SinglePlayerState {
                             Some(p) if  p == human_player
                         ),
                     ));
-                }
-            }
-
-            if let Some(splash) = &mut self.splash {
-                let splash_msg =
-                    splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
-
-                match splash_msg {
-                    Some(ResultModalAction::NewPuzzle) => {
-                        self.splash = None;
-                        self.reset(current_time, ui.ctx());
-                    }
-                    Some(ResultModalAction::TryAgain) => {
-                        self.splash = None;
-
-                        if let Some(seed) = &self.active_game.depot.board_info.board_seed {
-                            self.reset_to(seed.clone(), self.human_starts, ui.ctx());
-                        } else {
-                            self.reset(current_time, ui.ctx());
-                        }
-                    }
-                    None => {}
                 }
             }
             return msgs_to_server;

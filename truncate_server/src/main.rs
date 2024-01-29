@@ -414,6 +414,19 @@ async fn handle_player_msg(
                 todo!("Handle player not being enrolled in a game");
             }
         }
+        Resign => {
+            if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let mut game_manager = existing_game.lock();
+                for (player, message) in game_manager.resign(player_addr) {
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
+                    server_state.send_to_player(&socket, message).unwrap();
+                }
+            } else {
+                todo!("Handle player not being enrolled in a game");
+            }
+        }
         Place(position, tile) => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
                 let mut game_manager = existing_game.lock();
@@ -713,7 +726,7 @@ async fn check_game_over(game_id: String, check_in_ms: i128, server_state: Serve
     };
     println!("[GAME CHECKER] Game found for {game_id}");
     let mut game_manager = existing_game.lock();
-    game_manager.core_game.calculate_game_over();
+    game_manager.core_game.calculate_game_over(None);
     println!(
         "[GAME CHECKER] Checked game, winner is: {:?}",
         game_manager.core_game.winner

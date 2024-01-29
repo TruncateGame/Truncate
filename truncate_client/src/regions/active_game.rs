@@ -127,7 +127,6 @@ impl ActiveGame {
 }
 
 impl ActiveGame {
-    // TODO: This never returns Some(PlayerMessage)
     pub fn render_header_strip(
         &mut self,
         ui: &mut egui::Ui,
@@ -139,6 +138,7 @@ impl ActiveGame {
 
         let timer_area = ui.available_rect_before_wrap();
         let avail_width = ui.available_width();
+        let mut msg = None;
 
         let area = egui::Area::new(egui::Id::new("timers_layer"))
             .movable(false)
@@ -151,7 +151,7 @@ impl ActiveGame {
                 ui.painter().clone().rect_filled(
                     bg_rect,
                     0.0,
-                    self.depot.aesthetics.theme.water.gamma_multiply(0.75),
+                    self.depot.aesthetics.theme.water.gamma_multiply(0.9),
                 );
             }
 
@@ -159,29 +159,85 @@ impl ActiveGame {
 
             ui.allocate_ui_with_layout(
                 vec2(avail_width, 10.0),
-                Layout::left_to_right(Align::TOP),
+                Layout::right_to_left(Align::TOP),
                 |ui| {
-                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
-                    let button_size = 48.0;
-                    let mut total_width = 700.0;
+                    ui.expand_to_include_x(timer_area.left());
+                    ui.expand_to_include_x(timer_area.right());
 
-                    if self.depot.ui_state.is_mobile {
-                        if total_width + button_size + 10.0 > ui.available_width() {
-                            total_width = ui.available_width() - button_size - 10.0;
+                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+                    let item_spacing = 10.0;
+                    let button_size = 48.0;
+
+                    ui.add_space(item_spacing);
+                    let (mut sidebar_button_rect, sidebar_button_resp) =
+                        ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
+                    if sidebar_button_resp.hovered() {
+                        sidebar_button_rect = sidebar_button_rect.translate(vec2(0.0, -2.0));
+                        ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                    }
+
+                    if !self.depot.ui_state.sidebar_toggled {
+                        if self.depot.ui_state.unread_sidebar {
+                            render_tex_quads(
+                                &[tiles::quad::INFO_BUTTON, tiles::quad::BUTTON_NOTIFICATION],
+                                sidebar_button_rect,
+                                &self.depot.aesthetics.map_texture,
+                                ui,
+                            );
+                        } else {
+                            render_tex_quad(
+                                tiles::quad::INFO_BUTTON,
+                                sidebar_button_rect,
+                                &self.depot.aesthetics.map_texture,
+                                ui,
+                            );
                         }
                     } else {
-                        if total_width + 10.0 > ui.available_width() {
-                            total_width = ui.available_width() - 10.0;
+                        render_tex_quad(
+                            tiles::quad::COLLAPSE_BUTTON,
+                            sidebar_button_rect,
+                            &self.depot.aesthetics.map_texture,
+                            ui,
+                        );
+                    }
+
+                    if sidebar_button_resp.clicked() {
+                        self.depot.ui_state.sidebar_toggled = !self.depot.ui_state.sidebar_toggled;
+                        self.depot.ui_state.unread_sidebar = false;
+                    }
+
+                    // TODO: Resigning is largely implented for multiplayer games as well, but we need to:
+                    // - Resolve why the update isn't being sent from the server
+                    // - Show the confirmation modal inside active_game (we only show it in single player)
+                    //   otherwise this button is an immediate resign.
+                    if matches!(self.location, GameLocation::Local) {
+                        ui.add_space(item_spacing);
+                        let (mut resign_button_rect, resign_button_resp) =
+                            ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
+                        if resign_button_resp.hovered() {
+                            resign_button_rect = resign_button_rect.translate(vec2(0.0, -2.0));
+                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        }
+
+                        render_tex_quad(
+                            tiles::quad::RESIGN_BUTTON,
+                            resign_button_rect,
+                            &self.depot.aesthetics.map_texture,
+                            ui,
+                        );
+
+                        if resign_button_resp.clicked() {
+                            msg = Some(PlayerMessage::Resign);
                         }
                     }
 
-                    let item_spacing = 10.0;
-                    let outer_x_padding = if !self.depot.ui_state.is_mobile {
-                        (ui.available_width() - total_width) / 2.0
-                    } else {
-                        0.0
-                    };
-                    ui.add_space(outer_x_padding);
+                    ui.add_space(item_spacing);
+
+                    let remaining_width = ui.available_width();
+                    let total_width = 700.0_f32.min(remaining_width);
+                    let padding = (remaining_width / total_width) / 2.0;
+
+                    ui.add_space(padding);
 
                     match &self.depot.ui_state.game_header {
                         HeaderType::Timers => {
@@ -228,8 +284,9 @@ impl ActiveGame {
                             attempt,
                         } => {
                             let summary_height = 50.0;
+                            let summary_width = ui.available_width();
                             let (rect, _) = ui.allocate_exact_size(
-                                vec2(total_width, summary_height),
+                                vec2(summary_width, summary_height),
                                 Sense::hover(),
                             );
                             let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
@@ -260,13 +317,24 @@ impl ActiveGame {
                                 "".to_string()
                             };
 
-                            let title_text = TextHelper::heavy(title, 14.0, None, &mut ui);
+                            let mut fz = 14.0;
+                            let mut title_text = TextHelper::heavy(title, fz, None, &mut ui);
+                            while title_text.mesh_size().x > summary_width {
+                                fz -= 1.0;
+                                title_text = TextHelper::heavy(title, fz, None, &mut ui)
+                            }
                             let title_text_mesh_size = title_text.mesh_size();
-                            let title_x_offset = (total_width - title_text_mesh_size.x) / 2.0;
+                            let title_x_offset = (summary_width - title_text_mesh_size.x) / 2.0;
 
-                            let summary_text = TextHelper::heavy(&summary, 10.0, None, &mut ui);
+                            let mut fz = 10.0;
+                            let mut summary_text = TextHelper::heavy(&summary, fz, None, &mut ui);
+                            while summary_text.mesh_size().x > summary_width {
+                                fz -= 1.0;
+                                summary_text = TextHelper::heavy(&summary, fz, None, &mut ui);
+                            }
+
                             let summary_text_mesh_size = summary_text.mesh_size();
-                            let summary_x_offset = (total_width - summary_text_mesh_size.x) / 2.0;
+                            let summary_x_offset = (summary_width - summary_text_mesh_size.x) / 2.0;
 
                             let spacing = 5.0;
                             let y_offset = (summary_height
@@ -301,40 +369,7 @@ impl ActiveGame {
                         HeaderType::None => unreachable!(),
                     }
 
-                    if !self.depot.ui_state.is_mobile {
-                        ui.add_space(outer_x_padding);
-                    } else {
-                        let (mut button_rect, button_resp) =
-                            ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
-                        if button_resp.hovered() {
-                            button_rect = button_rect.translate(vec2(0.0, -2.0));
-                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-                        }
-
-                        if self.depot.ui_state.unread_sidebar {
-                            render_tex_quads(
-                                &[tiles::quad::INFO_BUTTON, tiles::quad::BUTTON_NOTIFICATION],
-                                button_rect,
-                                &self.depot.aesthetics.map_texture,
-                                ui,
-                            );
-                        } else {
-                            render_tex_quad(
-                                tiles::quad::INFO_BUTTON,
-                                button_rect,
-                                &self.depot.aesthetics.map_texture,
-                                ui,
-                            );
-                        }
-
-                        if button_resp.clicked() {
-                            self.depot.ui_state.sidebar_toggled =
-                                !self.depot.ui_state.sidebar_toggled;
-                            self.depot.ui_state.unread_sidebar = false;
-                        }
-
-                        ui.add_space(item_spacing);
-                    }
+                    ui.add_space(item_spacing);
                 },
             );
 
@@ -343,7 +378,7 @@ impl ActiveGame {
 
         self.depot.regions.headers_total_rect = Some(resp.response.rect);
 
-        (Some(resp.response.rect), None)
+        (Some(resp.response.rect), msg)
     }
 
     pub fn render_control_strip(
@@ -431,7 +466,7 @@ impl ActiveGame {
                 ui.painter().clone().rect_filled(
                     bg_rect,
                     0.0,
-                    self.depot.aesthetics.theme.water.gamma_multiply(0.75),
+                    self.depot.aesthetics.theme.water.gamma_multiply(0.9),
                 );
             }
 
@@ -482,9 +517,7 @@ impl ActiveGame {
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui) -> Option<PlayerMessage> {
-        if self.depot.ui_state.sidebar_hidden
-            || (self.depot.ui_state.is_mobile && !self.depot.ui_state.sidebar_toggled)
-        {
+        if self.depot.ui_state.sidebar_hidden || !self.depot.ui_state.sidebar_toggled {
             return None;
         }
 
@@ -614,10 +647,17 @@ impl ActiveGame {
             && ui.available_size().x >= self.depot.aesthetics.theme.mobile_breakpoint
         {
             self.depot.ui_state.is_mobile = false;
+        } else {
+            if self.depot.ui_state.is_mobile == false {
+                // Close the sidebar overlay when transitioning to the mobile breakpoint
+                self.depot.ui_state.sidebar_toggled = false;
+            }
+            self.depot.ui_state.is_mobile = true;
+        }
+
+        if !self.depot.ui_state.is_mobile && self.depot.ui_state.sidebar_toggled {
             game_space.set_right(game_space.right() - 300.0);
             sidebar_space.set_left(sidebar_space.right() - 300.0);
-        } else {
-            self.depot.ui_state.is_mobile = true;
         }
 
         let mut control_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));

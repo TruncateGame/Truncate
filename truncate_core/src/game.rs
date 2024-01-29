@@ -126,7 +126,7 @@ impl Game {
         most_overtime_player.map(|(_, player_number)| player_number)
     }
 
-    pub fn calculate_game_over(&mut self, current_player: usize) {
+    pub fn calculate_game_over(&mut self, current_player: Option<usize>) {
         let overtime_rule = match &self.rules.timing {
             rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
             _ => None,
@@ -143,17 +143,23 @@ impl Game {
         }
 
         // If any opponents were blocked out by this turn, they lose
-        for (player_index, _player) in self
-            .players
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| *i != current_player)
-        {
+        for (player_index, _player) in self.players.iter().enumerate().filter(|(i, _)| {
+            if let Some(p) = current_player {
+                *i != p
+            } else {
+                true
+            }
+        }) {
             if self.board.playable_positions(player_index).is_empty() {
                 self.board.defeat_player(player_index);
                 self.winner = Some((player_index + 1) % 2);
             }
         }
+    }
+
+    pub fn resign_player(&mut self, resigning_player: usize) {
+        self.board.defeat_player(resigning_player);
+        self.winner = Some((resigning_player + 1) % 2);
     }
 
     pub fn play_turn(
@@ -172,7 +178,7 @@ impl Game {
             Move::Swap { player, .. } => player,
         };
 
-        self.calculate_game_over(player);
+        self.calculate_game_over(Some(player));
         if self.winner.is_some() {
             return Ok(self.winner);
         }
@@ -210,7 +216,7 @@ impl Game {
         }
 
         // Check for de-facto winning by blocking all moves
-        self.calculate_game_over(player);
+        self.calculate_game_over(Some(player));
         if self.winner.is_some() {
             return Ok(self.winner);
         }
