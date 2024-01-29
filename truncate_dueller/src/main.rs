@@ -195,7 +195,7 @@ fn main() {
         return;
     };
 
-    let mut starting_day = 1;
+    let mut starting_day = 0;
     while current_notes.notes.contains_key(&starting_day) {
         starting_day += 1;
     }

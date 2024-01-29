@@ -21,8 +21,8 @@ use crate::{
 use super::{game_evals::get_main_dict, Theme};
 
 const SEED_NOTES: &[u8] = include_bytes!("../../../truncate_dueller/seed_notes.yml");
-// January 27, 2023
-pub const DAILY_PUZZLE_DAY_ONE: usize = 19749;
+// January 29, 2023
+pub const DAILY_PUZZLE_DAY_ZERO: usize = 19751;
 
 /**
  * TODO: Store NotesFile and SeedNote type definitions in a common crate
@@ -44,7 +44,7 @@ pub fn get_puzzle_day(current_time: Duration) -> u32 {
     let seconds_offset = chrono::Local::now().offset().fix().local_minus_utc();
     let local_seconds = current_time.as_secs() as i32 + seconds_offset;
     let seed = (local_seconds / (60 * 60 * 24)) as u32;
-    let day = (seed - DAILY_PUZZLE_DAY_ONE as u32) + 1;
+    let day = (seed - DAILY_PUZZLE_DAY_ZERO as u32);
 
     day
 }
