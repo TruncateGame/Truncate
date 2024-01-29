@@ -165,6 +165,7 @@ impl fmt::Display for Change {
 
 pub(crate) fn filter_to_player(
     changes: &Vec<Change>,
+    full_board: &Board,
     visible_board: &Board,
     player_index: usize,
     visibility: &rules::Visibility,
@@ -172,23 +173,38 @@ pub(crate) fn filter_to_player(
 ) -> Vec<Change> {
     changes
         .iter()
-        .filter(|change| match change {
+        .filter_map(|change| match change {
             Change::Hand(HandChange {
                 player: changed_player,
                 removed: _,
                 added: _,
-            }) => *changed_player == player_index,
+            }) => {
+                if *changed_player == player_index {
+                    Some(change.clone())
+                } else {
+                    None
+                }
+            }
             Change::Board(BoardChange {
-                detail:
-                    BoardChangeDetail {
-                        coordinate,
-                        square: _,
-                    },
+                detail: BoardChangeDetail { coordinate, square },
                 action,
             }) => {
+                let Some(relative_coord) =
+                    full_board.map_game_coord_to_player(player_index, *coordinate, visibility)
+                else {
+                    return None;
+                };
+                let relative_change = Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
+                        square: square.clone(),
+                        coordinate: relative_coord,
+                    },
+                    action: action.clone(),
+                });
+
                 // All board visibility is restored when the game ends
                 if winner.is_some() {
-                    return true;
+                    return Some(relative_change);
                 }
 
                 if action == &BoardChangeAction::Victorious
@@ -196,19 +212,20 @@ pub(crate) fn filter_to_player(
                     || action == &BoardChangeAction::Truncated
                     || action == &BoardChangeAction::Exploded
                 {
-                    return true;
+                    return Some(relative_change);
                 }
                 match visibility {
-                    rules::Visibility::Standard => true,
-                    rules::Visibility::FogOfWar => match visible_board.get(*coordinate) {
-                        Ok(Square::Occupied(_, _)) => true,
-                        _ => false,
-                    },
+                    rules::Visibility::Standard => Some(relative_change),
+                    rules::Visibility::TileFog | rules::Visibility::LandFog => {
+                        match visible_board.get(relative_coord) {
+                            Ok(Square::Occupied(_, _)) => Some(relative_change),
+                            _ => None,
+                        }
+                    }
                 }
             }
-            Change::Battle(_) => true,
-            Change::Time(_) => true,
+            Change::Battle(_) => Some(change.clone()),
+            Change::Time(_) => Some(change.clone()),
         })
-        .cloned()
         .collect::<Vec<_>>()
 }

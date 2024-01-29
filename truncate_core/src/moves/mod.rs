@@ -1,11 +1,10 @@
-use super::board::{Board, Coordinate, Square};
-use super::judge::{Judge, Outcome};
-use super::reporting::{BoardChange, BoardChangeAction};
-use crate::bag::TileBag;
-use crate::error::GamePlayError;
-use crate::player::Player;
-use crate::reporting::Change;
+pub mod packing;
 
+use serde::{Deserialize, Serialize};
+
+use super::board::Coordinate;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Move {
     // TODO: make Move a struct and make player a top level property of it
     Place {
@@ -55,11 +54,14 @@ impl PartialEq for Move {
 
 #[cfg(test)]
 mod tests {
-    use time::Duration;
-
-    use crate::board::{tests as BoardUtils, Direction};
+    use crate::bag::TileBag;
+    use crate::board::{Board, Coordinate, Square};
+    use crate::error::GamePlayError;
     use crate::game::Game;
+    use crate::judge::Judge;
+    use crate::player::Player;
     use crate::reporting::*;
+    use crate::reporting::{BoardChange, BoardChangeAction};
 
     use super::super::bag::tests as TileUtils;
     use super::*;
@@ -87,7 +89,7 @@ mod tests {
             Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
         ];
 
-        let position = Coordinate { x: 10, y: 10 };
+        let position = Coordinate { x: 11, y: 11 };
         let out_of_bounds = Move::Place {
             player: 0,
             tile: 'A',
@@ -96,33 +98,34 @@ mod tests {
         let mut game = Game {
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3)
+            ..Game::new(3, 3, None)
         };
         assert_eq!(
-            game.make_move(out_of_bounds, None, None),
+            game.make_move(out_of_bounds, None, None, None),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
-        let position = Coordinate { x: 10, y: 0 };
+        let position = Coordinate { x: 11, y: 1 };
         let out_of_bounds = Move::Place {
             player: 0,
             tile: 'A',
             position,
         };
         assert_eq!(
-            game.make_move(out_of_bounds, None, None),
+            game.make_move(out_of_bounds, None, None, None),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
 
-        let position = Coordinate { x: 1, y: 0 };
+        let position = Coordinate { x: 2, y: 1 };
         let dead = Move::Place {
             player: 0,
             tile: 'A',
             position,
         };
         assert_eq!(
-            game.make_move(dead, None, None),
+            game.make_move(dead, None, None, None),
             Err(GamePlayError::InvalidPosition { position })
         );
     }
@@ -135,8 +138,9 @@ mod tests {
         let mut game = Game {
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3)
+            ..Game::new(3, 3, None)
         };
 
         // Places beside dock
@@ -144,8 +148,9 @@ mod tests {
             Move::Place {
                 player: 0,
                 tile: 'A',
-                position: Coordinate { x: 2, y: 1 },
+                position: Coordinate { x: 3, y: 2 },
             },
+            None,
             None,
             None,
         );
@@ -158,7 +163,7 @@ mod tests {
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
                     square: Square::Occupied(0, 'A'),
-                    coordinate: Coordinate { x: 2, y: 1 },
+                    coordinate: Coordinate { x: 3, y: 2 },
                 },
                 action: BoardChangeAction::Added
             })])
@@ -185,10 +190,11 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: 'B',
-                    position: Coordinate { x: 2, y: 1 }
+                    position: Coordinate { x: 3, y: 2 }
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::OccupiedPlace)
         );
@@ -199,10 +205,11 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: 'B',
-                    position: Coordinate { x: 3, y: 2 }
+                    position: Coordinate { x: 4, y: 3 }
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::NonAdjacentPlace)
         );
@@ -213,10 +220,11 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: 'B',
-                    position: Coordinate { x: 2, y: 2 }
+                    position: Coordinate { x: 3, y: 3 }
                 },
                 None,
                 None,
+                None
             )
             .map(|c| {
                 c.into_iter()
@@ -226,7 +234,7 @@ mod tests {
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
                     square: Square::Occupied(0, 'B'),
-                    coordinate: Coordinate { x: 2, y: 2 },
+                    coordinate: Coordinate { x: 3, y: 3 },
                 },
                 action: BoardChangeAction::Added
             })])
@@ -238,10 +246,11 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: 'B',
-                    position: Coordinate { x: 2, y: 2 }
+                    position: Coordinate { x: 3, y: 3 }
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::OccupiedPlace)
         );
@@ -251,23 +260,24 @@ mod tests {
             game.make_move(
                 Move::Swap {
                     player: 0,
-                    positions: [Coordinate { x: 2, y: 1 }, Coordinate { x: 2, y: 2 }]
+                    positions: [Coordinate { x: 3, y: 2 }, Coordinate { x: 3, y: 3 }]
                 },
                 None,
                 None,
+                None
             ),
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
                         square: Square::Occupied(0, 'B'),
-                        coordinate: Coordinate { x: 2, y: 1 },
+                        coordinate: Coordinate { x: 3, y: 2 },
                     },
                     action: BoardChangeAction::Swapped
                 }),
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
                         square: Square::Occupied(0, 'A'),
-                        coordinate: Coordinate { x: 2, y: 2 },
+                        coordinate: Coordinate { x: 3, y: 3 },
                     },
                     action: BoardChangeAction::Swapped
                 })
@@ -286,8 +296,9 @@ mod tests {
         let mut game = Game {
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3)
+            ..Game::new(3, 3, None)
         };
 
         assert_eq!(
@@ -295,10 +306,11 @@ mod tests {
                 Move::Place {
                     player: 2,
                     tile: 'A',
-                    position: Coordinate { x: 2, y: 2 }
+                    position: Coordinate { x: 3, y: 3 }
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::NonAdjacentPlace)
         );
@@ -308,10 +320,11 @@ mod tests {
                 Move::Place {
                     player: 0,
                     tile: '&',
-                    position: Coordinate { x: 1, y: 0 }
+                    position: Coordinate { x: 2, y: 1 }
                 },
                 None,
                 None,
+                None
             ),
             Err(GamePlayError::PlayerDoesNotHaveTile {
                 player: 0,
@@ -433,8 +446,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1)
+            ..Game::new(1, 1, None)
         };
 
         game.make_move(
@@ -443,6 +457,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
+            None,
             None,
             None,
         )
@@ -477,8 +492,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
 
         game.make_move(
@@ -487,6 +503,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
+            None,
             None,
             None,
         )
@@ -531,8 +548,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
 
         game.make_move(
@@ -541,6 +559,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
+            None,
             None,
             None,
         )
@@ -583,8 +602,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
 
         game.make_move(
@@ -593,6 +613,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 2, y: 3 },
             },
+            None,
             None,
             None,
         )
@@ -631,8 +652,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -642,6 +664,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
+            None,
             None,
             None,
         );
@@ -687,8 +710,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -698,6 +722,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
+            None,
             None,
             None,
         );
@@ -743,8 +768,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -754,6 +780,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
+            None,
             None,
             None,
         );
@@ -799,8 +826,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -810,6 +838,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
+            None,
             None,
             None,
         );
@@ -855,8 +884,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
         game.start();
 
@@ -866,6 +896,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 2, y: 5 },
             },
+            None,
             None,
             None,
         );
@@ -882,6 +913,62 @@ mod tests {
         );
         assert_eq!(
             game.board.get(Coordinate { x: 2, y: 6 }).unwrap(),
+            Square::Town {
+                player: 1,
+                defeated: true
+            }
+        );
+        assert_eq!(game.winner, Some(0));
+    }
+
+    #[test]
+    fn resolve_win_via_blocking() {
+        let b = Board::from_string(
+            "__ __ __ __ S0 |0 __\n\
+             #1 __ __ __ T0 __ __\n\
+             ~~ __ __ A0 R0 __ __\n\
+             |1 __ D0 B0 __ __ __\n\
+             ~~ __ __ __ __ __ __\n\
+             #1 __ __ __ __ __ __",
+        );
+        let mut bag = TileUtils::trivial_bag();
+        let players = vec![
+            Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
+            Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
+        ];
+
+        let mut game = Game {
+            board: b,
+            bag,
+            players,
+            player_turn_count: vec![0, 0],
+            judge: short_dict(),
+            ..Game::new(3, 1, None)
+        };
+        game.start();
+
+        _ = game.play_turn(
+            Move::Place {
+                player: 0,
+                tile: 'A',
+                position: Coordinate { x: 1, y: 3 },
+            },
+            None,
+            None,
+            None,
+        );
+
+        assert_eq!(
+            game.board.to_string(),
+            "__ __ __ __ S0 |0 __\n\
+             ⊭1 __ __ __ T0 __ __\n\
+             ~~ __ __ A0 R0 __ __\n\
+             |1 A0 D0 B0 __ __ __\n\
+             ~~ __ __ __ __ __ __\n\
+             ⊭1 __ __ __ __ __ __",
+        );
+        assert_eq!(
+            game.board.get(Coordinate { x: 0, y: 1 }).unwrap(),
             Square::Town {
                 player: 1,
                 defeated: true
@@ -909,8 +996,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1)
+            ..Game::new(3, 1, None)
         };
 
         game.make_move(
@@ -919,6 +1007,7 @@ mod tests {
                 tile: 'A',
                 position: Coordinate { x: 2, y: 0 },
             },
+            None,
             None,
             None,
         )
@@ -955,8 +1044,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1)
+            ..Game::new(1, 1, None)
         };
 
         game.make_move(
@@ -966,6 +1056,7 @@ mod tests {
                 position: Coordinate { x: 1, y: 3 },
             },
             Some(&b_dict().builtin_dictionary),
+            None,
             None,
         )
         .unwrap();
@@ -1003,8 +1094,9 @@ mod tests {
             board: b,
             bag,
             players,
+            player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1)
+            ..Game::new(1, 1, None)
         };
 
         game.make_move(
@@ -1015,6 +1107,7 @@ mod tests {
             },
             None,
             Some(&b_dict().builtin_dictionary),
+            None,
         )
         .unwrap();
 

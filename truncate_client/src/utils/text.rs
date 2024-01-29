@@ -1,16 +1,12 @@
-use eframe::egui::{self, widget_text::WidgetTextGalley, Id, Sense};
-use epaint::{vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
+use eframe::egui::{self, widget_text::WidgetTextGalley, Sense};
+use epaint::{emath::Align2, pos2, vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
 
-use super::{
-    glyph_meaure::GlyphMeasure,
-    tex::{paint_dialog_background, render_texs_clockwise, Tex, Tint},
-};
+use super::tex::{paint_dialog_background, render_texs_clockwise, Tex, Tint};
 
 const DIALOG_TIME_PER_CHAR: f32 = 0.05;
 
 pub struct TextHelper<'a> {
     original_text: &'a str,
-    font: &'static str,
     size: f32,
     max_width: Option<f32>,
     galley: WidgetTextGalley,
@@ -35,7 +31,6 @@ impl<'a> TextHelper<'a> {
         );
         Self {
             original_text: text,
-            font: "Truncate-Heavy",
             size,
             max_width,
             galley,
@@ -60,7 +55,6 @@ impl<'a> TextHelper<'a> {
         );
         Self {
             original_text: text,
-            font: "Truncate-Light",
             size,
             max_width,
             galley,
@@ -73,11 +67,6 @@ impl<'a> TextHelper<'a> {
 
     pub fn mesh_size(&self) -> Vec2 {
         self.galley.galley.mesh_bounds.size()
-    }
-
-    pub fn paint_at(self, pos: Pos2, color: Color32, ui: &mut egui::Ui) {
-        self.galley
-            .paint_with_color_override(ui.painter(), pos, color);
     }
 
     pub fn get_partial_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
@@ -102,23 +91,44 @@ impl<'a> TextHelper<'a> {
         ))
     }
 
-    pub fn paint(self, color: Color32, ui: &mut egui::Ui) -> egui::Response {
+    pub fn paint_at(self, pos: Pos2, color: Color32, ui: &mut egui::Ui) {
+        self.galley
+            .paint_with_color_override(ui.painter(), pos, color);
+    }
+
+    pub fn paint_within(self, bounds: Rect, alignment: Align2, color: Color32, ui: &mut egui::Ui) {
+        let dims = self.mesh_size();
+        let Align2([ha, va]) = alignment;
+        let x_pos = match ha {
+            egui::Align::Min => bounds.left(),
+            egui::Align::Center => bounds.left() + (bounds.width() - dims.x) / 2.0,
+            egui::Align::Max => bounds.left() + (bounds.width() - dims.x),
+        };
+        let y_pos = match va {
+            egui::Align::Min => bounds.top(),
+            egui::Align::Center => bounds.top() + (bounds.height() - dims.y) / 2.0,
+            egui::Align::Max => bounds.top() + (bounds.height() - dims.y),
+        };
+
+        self.galley
+            .paint_with_color_override(ui.painter(), pos2(x_pos, y_pos), color);
+    }
+
+    pub fn paint(self, color: Color32, ui: &mut egui::Ui, centered: bool) -> egui::Response {
         let text_size = self.galley.galley.mesh_bounds.size();
 
-        let (text_rect, text_resp) =
-            ui.allocate_exact_size(vec2(text_size.x, text_size.y), Sense::hover());
+        let (text_rect, text_resp) = if centered {
+            ui.horizontal(|ui| {
+                let centered_offset = (ui.available_width() - text_size.x) * 0.5;
+                ui.add_space(centered_offset);
+                ui.allocate_exact_size(vec2(text_size.x, text_size.y), Sense::hover())
+            })
+            .inner
+        } else {
+            ui.allocate_exact_size(vec2(text_size.x, text_size.y), Sense::hover())
+        };
 
-        let mut offset = (text_rect.size() - text_size) / 2.0;
-
-        // Recenter the font to strict glyph bounds
-        if self.font == "Truncate-Heavy" {
-            // TODO: Don't calculate this every frame
-            let glyph_measure: GlyphMeasure =
-                ui.memory_mut(|mem| mem.data.get_temp(Id::null()).unwrap());
-            let char_height = glyph_measure.measure(self.original_text.chars().next().unwrap());
-            offset.y += char_height.y * 2.0 * self.size;
-        }
-
+        let offset = (text_rect.size() - text_size) / 2.0;
         self.paint_at(text_rect.min + offset, color, ui);
 
         text_resp
@@ -237,17 +247,7 @@ impl<'a> TextHelper<'a> {
             ui,
         );
 
-        let mut offset = (button_rect.size() - text_size) / 2.0;
-
-        // Recenter the font to strict glyph bounds
-        if self.font == "Truncate-Heavy" {
-            // TODO: Don't calculate this every frame
-            let glyph_measure: GlyphMeasure =
-                ui.memory_mut(|mem| mem.data.get_temp(Id::null()).unwrap());
-            let char_height = glyph_measure.measure(self.original_text.chars().next().unwrap());
-            offset.y += char_height.y * 2.0 * self.size;
-        }
-
+        let offset = (button_rect.size() - text_size) / 2.0;
         self.paint_at(button_rect.min + offset, text_color, ui);
 
         button_resp

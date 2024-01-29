@@ -14,10 +14,15 @@ thiserror = "1.0"
 serde = { version = "1", features = ["derive"] }
 time = { version = "0.3", features = ["serde"] }
 instant = "0.1"
+xxhash-rust = { version = "0.8.5", features = ["xxh3"] }
+chksum-hash-sha2 = { version = "0.0.0", default-features = false, features = [
+    "256",
+] }
+noise = "0.8"
 
 [dev-dependencies]
 insta = { version = "1.29.0", features = ["yaml"] }
-criterion = "0.3"
+criterion = { version = "0.3", features = ["html_reports"] }
 
 [profile.dev]
 opt-level = 3

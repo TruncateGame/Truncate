@@ -33,6 +33,7 @@ jobs:
           -a truncate-citadel \
           --build-arg TR_COMMIT="$(git rev-parse HEAD)" \
           --build-arg TR_MSG="$(git log -1 --pretty=%B | head -n 1 | sed "s/\"/'/g")" \
+          --build-arg TR_ENV="production" \
           --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -43,6 +44,7 @@ jobs:
           -a truncate-client \
           --build-arg TR_COMMIT="$(git rev-parse HEAD)" \
           --build-arg TR_MSG="$(git log -1 --pretty=%B | head -n 1 | sed "s/\"/'/g")" \
+          --build-arg TR_ENV="production" \
           --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

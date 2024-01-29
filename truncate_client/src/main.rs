@@ -1,10 +1,12 @@
 mod app_inner;
 mod app_outer;
-mod debug;
 mod lil_bits;
 mod native_comms;
 mod regions;
 mod utils;
+
+// Enable the debug module to expose frame/performance timings
+// mod debug;
 
 use eframe::egui;
 use futures::channel::{mpsc, oneshot};
@@ -36,7 +38,7 @@ fn main() {
     ));
 
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(500.0, 1000.0)),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1000.0, 1000.0]),
         ..Default::default()
     };
     eframe::run_native(

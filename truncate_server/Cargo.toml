@@ -18,8 +18,24 @@ futures-util = { version = "0.3", default-features = false, features = [
 parking_lot = { version = "0.12.1", features = ["deadlock_detection"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+thiserror = "1"
 rusqlite = "0.29"
 rand = "0.8.5"
 truncate_core = { path = "../truncate_core" }
 reqwest = { version = "0.11", features = ["json"] }
 jwt-simple = "0.10"
+hex = "0.4"
+instant = "0.1"
+dotenvy = "0.15.7"
+uuid = { version = "1.7.0", features = ["v4", "serde"] }
+sqlx = { version = "0.7", features = [
+    "postgres",
+    "migrate",
+    "uuid",
+    "json",
+    "runtime-tokio",
+    "tls-rustls",
+] }
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3

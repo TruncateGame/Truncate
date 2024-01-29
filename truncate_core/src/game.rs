@@ -1,13 +1,14 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use time::Duration;
+use xxhash_rust::xxh3;
 
 use crate::bag::TileBag;
 use crate::board::{Coordinate, Square};
 use crate::error::GamePlayError;
 use crate::judge::{Outcome, WordDict};
 use crate::reporting::{self, BoardChange, BoardChangeAction, BoardChangeDetail, TimeChange};
-use crate::rules::{self, GameRules, OvertimeRule, Timing};
+use crate::rules::{self, GameRules, OvertimeRule};
 
 use super::board::Board;
 use super::judge::Judge;
@@ -31,6 +32,8 @@ pub struct Game {
     pub bag: TileBag,
     pub judge: Judge,
     pub battle_count: u32,
+    pub turn_count: u32,
+    pub player_turn_count: Vec<u32>,
     pub recent_changes: Vec<Change>,
     pub started_at: Option<u64>,
     pub next_player: usize,
@@ -46,14 +49,18 @@ fn now() -> u64 {
 }
 
 impl Game {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize, tile_seed: Option<u64>) -> Self {
         let rules = GameRules::default();
+        let mut board = Board::new(width, height);
+        board.grow();
         Self {
             players: Vec::with_capacity(2),
-            board: Board::new(width, height),
-            bag: TileBag::new(&rules.tile_distribution),
+            board,
+            bag: TileBag::new(&rules.tile_distribution, tile_seed),
             judge: Judge::default(),
             battle_count: 0,
+            turn_count: 0,
+            player_turn_count: Vec::with_capacity(2),
             recent_changes: vec![],
             started_at: None,
             next_player: 0,
@@ -79,6 +86,7 @@ impl Game {
             time_allowance,
             GAME_COLORS[self.players.len()],
         ));
+        self.player_turn_count.push(0);
     }
 
     pub fn get_player(&self, player: usize) -> Option<&Player> {
@@ -89,7 +97,7 @@ impl Game {
     pub fn start(&mut self) {
         self.started_at = Some(now());
         // TODO: Lookup player by `index` field rather than vec position
-        self.players[self.next_player].turn_starts_at = Some(now());
+        self.players[self.next_player].turn_starts_no_later_than = Some(now());
     }
 
     pub fn any_player_is_overtime(&self) -> Option<usize> {
@@ -97,17 +105,12 @@ impl Game {
 
         for (player_number, player) in self.players.iter().enumerate() {
             let Some(mut time_remaining) = player.time_remaining else {
-                println!("Player {player_number} has not started a turn yet");
                 continue;
             };
-            println!("⏰ Player {player_number} has {time_remaining} game time left");
-            if let Some(turn_starts) = player.turn_starts_at {
+            if let Some(turn_starts) = player.turn_starts_no_later_than {
                 let elapsed_time = now().saturating_sub(turn_starts);
-                println!("⏰ Player {player_number} is mid-turn, and has used {elapsed_time}");
                 time_remaining -= Duration::seconds(elapsed_time as i64);
             }
-            println!("⏰ Player {player_number} has {time_remaining} total time left");
-            println!("Current most overtime: {most_overtime_player:?}");
 
             if !time_remaining.is_positive() {
                 match most_overtime_player {
@@ -123,7 +126,7 @@ impl Game {
         most_overtime_player.map(|(_, player_number)| player_number)
     }
 
-    pub fn calculate_game_over(&mut self) {
+    pub fn calculate_game_over(&mut self, current_player: Option<usize>) {
         let overtime_rule = match &self.rules.timing {
             rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
             _ => None,
@@ -138,6 +141,25 @@ impl Game {
                 _ => {}
             }
         }
+
+        // If any opponents were blocked out by this turn, they lose
+        for (player_index, _player) in self.players.iter().enumerate().filter(|(i, _)| {
+            if let Some(p) = current_player {
+                *i != p
+            } else {
+                true
+            }
+        }) {
+            if self.board.playable_positions(player_index).is_empty() {
+                self.board.defeat_player(player_index);
+                self.winner = Some((player_index + 1) % 2);
+            }
+        }
+    }
+
+    pub fn resign_player(&mut self, resigning_player: usize) {
+        self.board.defeat_player(resigning_player);
+        self.winner = Some((resigning_player + 1) % 2);
     }
 
     pub fn play_turn(
@@ -145,45 +167,58 @@ impl Game {
         next_move: Move,
         attacker_dictionary: Option<&WordDict>,
         defender_dictionary: Option<&WordDict>,
+        cached_word_judgements: Option<&mut HashMap<String, bool, xxh3::Xxh3Builder>>,
     ) -> Result<Option<usize>, String> {
         if self.winner.is_some() {
             return Err("Game is already over".into());
-        }
-
-        self.calculate_game_over();
-        if self.winner.is_some() {
-            return Ok(self.winner);
         }
 
         let player = match next_move {
             Move::Place { player, .. } => player,
             Move::Swap { player, .. } => player,
         };
+
+        self.calculate_game_over(Some(player));
+        if self.winner.is_some() {
+            return Ok(self.winner);
+        }
+
         if player != self.next_player {
             return Err("Only the next player can play".into());
         }
 
-        let turn_duration = now().checked_sub(
+        let turn_duration = now().saturating_sub(
             self.players[player]
-                .turn_starts_at
+                .turn_starts_no_later_than
                 .expect("Player played without the time running"),
         );
-        let Some(turn_duration) = turn_duration else {
-            return Err("Player's turn has not yet started".into());
+
+        self.recent_changes = match self.make_move(
+            next_move,
+            attacker_dictionary,
+            defender_dictionary,
+            cached_word_judgements,
+        ) {
+            Ok(changes) => changes,
+            Err(msg) => {
+                println!("{}", msg);
+                return Err(format!("{msg}")); // TODO: propogate error post polonius
+            }
         };
 
-        self.recent_changes =
-            match self.make_move(next_move, attacker_dictionary, defender_dictionary) {
-                Ok(changes) => changes,
-                Err(msg) => {
-                    println!("{}", msg);
-                    return Err(format!("{msg}")); // TODO: propogate error post polonius
-                }
-            };
+        self.turn_count += 1;
+        self.player_turn_count[player] += 1;
 
+        // Check for winning via defeated towns
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
             return Ok(Some(winner));
+        }
+
+        // Check for de-facto winning by blocking all moves
+        self.calculate_game_over(Some(player));
+        if self.winner.is_some() {
+            return Ok(self.winner);
         }
 
         self.next_player = (self.next_player + 1) % self.players.len();
@@ -227,16 +262,17 @@ impl Game {
             };
         }
 
-        self.players[player].turn_starts_at = None;
+        self.players[player].turn_starts_no_later_than = None;
 
         if self
             .recent_changes
             .iter()
             .any(|c| matches!(c, Change::Battle(_)))
         {
-            self.players[self.next_player].turn_starts_at = Some(now() + self.rules.battle_delay);
+            self.players[self.next_player].turn_starts_no_later_than =
+                Some(now() + self.rules.battle_delay);
         } else {
-            self.players[self.next_player].turn_starts_at = Some(now());
+            self.players[self.next_player].turn_starts_no_later_than = Some(now());
         }
 
         Ok(None)
@@ -247,6 +283,7 @@ impl Game {
         game_move: Move,
         attacker_dictionary: Option<&WordDict>,
         defender_dictionary: Option<&WordDict>,
+        cached_word_judgements: Option<&mut HashMap<String, bool, xxh3::Xxh3Builder>>,
     ) -> Result<Vec<Change>, GamePlayError> {
         let mut changes = vec![];
 
@@ -254,8 +291,14 @@ impl Game {
             Move::Place {
                 player,
                 tile,
-                position,
+                position: player_reported_position,
             } => {
+                let position = self.board.map_player_coord_to_game(
+                    player,
+                    player_reported_position,
+                    &self.rules.visibility,
+                );
+
                 if let Square::Occupied(..) = self.board.get(position)? {
                     return Err(GamePlayError::OccupiedPlace);
                 }
@@ -280,6 +323,7 @@ impl Game {
                     position,
                     attacker_dictionary,
                     defender_dictionary,
+                    cached_word_judgements,
                     &mut changes,
                 );
 
@@ -289,8 +333,21 @@ impl Game {
             }
             Move::Swap {
                 player: player_index,
-                positions,
+                positions: player_reported_positions,
             } => {
+                let positions = [
+                    self.board.map_player_coord_to_game(
+                        player_index,
+                        player_reported_positions[0],
+                        &self.rules.visibility,
+                    ),
+                    self.board.map_player_coord_to_game(
+                        player_index,
+                        player_reported_positions[1],
+                        &self.rules.visibility,
+                    ),
+                ];
+
                 let player = &mut self.players[player_index];
                 let swap_rules = match &self.rules.swapping {
                     rules::Swapping::Contiguous(rules) => Some(rules),
@@ -370,6 +427,7 @@ impl Game {
         position: Coordinate,
         attacker_dictionary: Option<&WordDict>,
         defender_dictionary: Option<&WordDict>,
+        cached_word_judgements: Option<&mut HashMap<String, bool, xxh3::Xxh3Builder>>,
         changes: &mut Vec<Change>,
     ) {
         let (attackers, defenders) = self.board.collect_combanants(player, position);
@@ -389,6 +447,7 @@ impl Game {
             &self.rules.win_condition,
             attacker_dictionary,
             defender_dictionary,
+            cached_word_judgements,
         ) {
             battle.battle_number = Some(self.battle_count);
             self.battle_count += 1;
@@ -538,6 +597,7 @@ impl Game {
                 .filter_to_player(player_index, &self.rules.visibility, &self.winner);
         let visible_changes = reporting::filter_to_player(
             &self.recent_changes,
+            &self.board,
             &visible_board,
             player_index,
             &self.rules.visibility,

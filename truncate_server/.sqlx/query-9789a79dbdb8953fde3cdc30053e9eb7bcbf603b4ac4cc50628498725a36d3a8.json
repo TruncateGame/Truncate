@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO daily_puzzle_results (player_id, daily_puzzle, human_player) VALUES ($1, $2, $3) RETURNING result_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "result_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9789a79dbdb8953fde3cdc30053e9eb7bcbf603b4ac4cc50628498725a36d3a8"
+}
