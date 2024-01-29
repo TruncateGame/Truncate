@@ -2,14 +2,14 @@ notes:
   0:
     rerolls: 0
     best_player: 1
-    verification: 2dd62b74eb91b5b948e21d227ef338d2819fd7f74530760e744215a44ab80b0e
+    verification: 230999d897fce22c6521e3f5370e1408c2547c7b5eb3be17e06ac1aa700b348d
   1:
     rerolls: 0
     best_player: 0
     verification: 4bf7d2f631d8f64bcdb4fd5b4beb0cc143b707313797091f40c00f071caa46e4
   2:
     rerolls: 0
-    best_player: 0
+    best_player: 1
     verification: 3495fe14adbd5924c710c311668e681dc2d3427071488fc4fd53b6f6aa6a7464
   3:
     rerolls: 0
@@ -22,7 +22,7 @@ notes:
   5:
     rerolls: 0
     best_player: 1
-    verification: d8e94f161745fd92e13d98b660b57358764df2886abca61171346283beefad3a
+    verification: 16b34d40d51b935c42fa93e7244a17f760b024ca0ccd1f4112aa482f5ea56584
   6:
     rerolls: 0
     best_player: 1
@@ -33,24 +33,24 @@ notes:
     verification: ba2deffa69e7c6b0ca617e9f544d48503608d5f3637fc0bd8b11305658627664
   8:
     rerolls: 0
-    best_player: 0
-    verification: 807f120c35a79c0619fba3ad504d95e114a5c2c46bde79fa90de724925f85d1f
+    best_player: 1
+    verification: e91329348ead31d78fc0f08b4bb750e24705ca087cac32f8758f0b70f1c14cd7
   9:
-    rerolls: 0
+    rerolls: 2
     best_player: 0
-    verification: 42d5e5e890291d9d87cdfcb8ab76d3bc6092fdc0f0221716b8dd4f0fd0f12f65
+    verification: 81cd5410f64af0265f8895dfa51210a446f2a45d5c38a0180bb2fae8b8f8b30c
   10:
     rerolls: 0
     best_player: 0
-    verification: d86cdb1690d406d19e601f66a79b4418194dc6332ad5810ae40a83dc04c83eac
+    verification: a86e5396f4cbe9ae0a8b1cea1cc2bd7057f90289fb8bbe83f7c0d09f8c88c005
   11:
-    rerolls: 0
+    rerolls: 3
     best_player: 1
-    verification: f1e30378c980acba64824f2e1f4e14f5b5732f9bceb93a9047febfe9ab52b3d3
+    verification: b168e448ea140c03c355d547794bff841a698e822b29197baa00ba5cac3d8a3f
   12:
     rerolls: 0
     best_player: 0
-    verification: f2c9ca7e0458c2941269b3b73333ed07dae50f749132455cf9c5512538cce493
+    verification: ef73ff32a89cfad84ffffa31ea1093db68420f7f0dde456f030d0bd5e88a4e7b
   13:
     rerolls: 0
     best_player: 0
@@ -58,55 +58,55 @@ notes:
   14:
     rerolls: 0
     best_player: 0
-    verification: e2a4d91a0daad7fb3b17a895f43d7f54d5a40d2cbbeb2011c7c2a37b82bb0794
+    verification: c017b464a429b091a2ebe5d00d1e310b7bd7348d96d034c7f686e8ce1d3d495a
   15:
-    rerolls: 0
-    best_player: 0
-    verification: 4a0dfa3f4597ba2bc448a4f031212113e3a91e070683905d1962bff64695e833
+    rerolls: 3
+    best_player: 1
+    verification: 1ecee1319737d87b711d2e60fbd334e68e8f795fca0bb70449b859bc0e0703d4
   16:
     rerolls: 0
-    best_player: 1
-    verification: cc7d8924aa97e208b33699990cc8c3da32be73b7a69305f1a39d65a05d0c08f7
+    best_player: 0
+    verification: 0ed9e10879ab0a24e3f9171a5e591003e5945049b6e97cda8bc256647403d51d
   17:
     rerolls: 0
-    best_player: 0
-    verification: 84a55ae1206ac1135ca489480ce7f50576844ba8ddd0cd43d2c2a421277b2e33
+    best_player: 1
+    verification: 97ecee516b74502db49ffe3ac94c13b4695bc4ae6a1fdd94a51751d29177c025
   18:
     rerolls: 0
-    best_player: 1
-    verification: e3e958b29894119fcb585de6062458dee7bc8f2952e45c4b0df28b6d075fad38
+    best_player: 0
+    verification: 286ac4bdbbe3c8399878d5be5d5b14e86f105ae1846ebc09094bfcbe4da64407
   19:
     rerolls: 0
     best_player: 1
-    verification: b956f1e391e31a99f28f11aa017e0203c9f18f225f51c5ae422ea1e552c7ff72
+    verification: 9bc8a9daa293f658b9feb640e5cebb40df25a6a917756cc4cc9444ea8e88bc45
   20:
-    rerolls: 1
-    best_player: 1
-    verification: 4b1bac7019912ef20ac10dac03bc4315d593583153ab91c7a755ea4fbf54f439
-  21:
     rerolls: 0
-    best_player: 1
-    verification: dc6d1fced75d9b36e2c1f5a74d2986140a6d12d096a1ed060471e13340c4c81c
+    best_player: 0
+    verification: 8efd1d53e0b0a272bba40fe0450794aa3b4f7e89f5edc1684cd3b34099b33544
+  21:
+    rerolls: 2
+    best_player: 0
+    verification: 221d57f8ff5870b006f0fbd83843aa4e07800e23fc58f9a30f38098f1e1c149a
   22:
     rerolls: 0
-    best_player: 1
+    best_player: 0
     verification: c12b50c94f96eefa181a0eb3c658bd74871b7f6d2aaa901baedc3b95b846a603
   23:
     rerolls: 0
-    best_player: 0
-    verification: 64572c1aa83130218701d82cfb375ffe36cc43280ba24e710b769ad342f3cae1
+    best_player: 1
+    verification: d85ca1263de3fb9a0c60e4a3c7a39219a2f80c8c2e329be93c377b70d7e2c45c
   24:
     rerolls: 0
     best_player: 0
-    verification: 4d55d3aa835b916775353f0c68affa78a29f38678ba131d21ac9c72bed4b1252
+    verification: e658fb5f86cd5e094ea52571954d2e4a036637270ca8d58b3b59aea374244ee8
   25:
-    rerolls: 2
-    best_player: 0
-    verification: d6983eb4a6fbffe97afb2af1418b5e2a2d9b5ec211e17f5f09e2bc8596aee6d4
+    rerolls: 1
+    best_player: 1
+    verification: a8ad2f305019dd5cfd21488d2f13cae9bd56f4c1c982cbcc24b77aae8a7b39ef
   26:
     rerolls: 0
-    best_player: 1
-    verification: d0e64aac283c4f6c1052938ed6b27e1427de8a728abc6e91b4fa08e7ea980e3a
+    best_player: 0
+    verification: bde69cdc93eed66db3167dbcafadb3c5781a96ea303e15402d7e64701c41bc94
   27:
     rerolls: 0
     best_player: 0
@@ -114,312 +114,88 @@ notes:
   28:
     rerolls: 0
     best_player: 1
-    verification: df36b5a1fa9612360d2b2663d2b4adcb791e916a8cee896ed74bbf6216f98824
+    verification: a39d20d23900c307508df223af203430ce0f656c10db3049231c520df9b38861
   29:
-    rerolls: 0
+    rerolls: 2
     best_player: 1
-    verification: 4b94f8aa2659538c434a0883ed1b002f5f4fb73d425c16ffdc4d1292b378e0be
+    verification: b3defba0df8ba3e4a0d1257007fd129aa80f63c1cf78d63d48d73cfd124cc3b5
   30:
     rerolls: 0
     best_player: 1
-    verification: 235046cc2257de9ba785bca631ce627c49f497f3c9f7ead93da8f26d3a296526
+    verification: de4302e28f28eac3d600a527ddc556cfb762c82bc8bd2f977d95f6a3be77857c
   31:
     rerolls: 0
-    best_player: 1
-    verification: 410586076eb5f4ba765862bd3e8ce94fdad14cef75a5589ce854db23466aa74b
-  32:
-    rerolls: 0
     best_player: 0
-    verification: cb210079229df39defeb4f2f271f5405aa14b079d588c9a7f75a51e565ea9867
+    verification: 0288ae1d3fd12a709d2ff7ea2675526bee78fb810e4c608cb17aa551d88e1b3e
+  32:
+    rerolls: 1
+    best_player: 0
+    verification: 1f32419e14b26dea9304ede3922fe65d96396c90913b50bae71f841468f19eaa
   33:
     rerolls: 0
     best_player: 1
     verification: e90f82c58bf7d0e70670bf6f835aeddd30d9f7d101cdc4e1dd94dccc7845339c
   34:
-    rerolls: 0
-    best_player: 0
-    verification: cd12c5b74ef54efa2b345d34247f5a01bd8dad5e378e85a88132bfa6dce2a564
-  35:
-    rerolls: 0
-    best_player: 0
-    verification: 3281e0496619ce10b52de9c48431fca32ad85cea01a442bd80d3657a376ea750
-  36:
     rerolls: 1
     best_player: 0
-    verification: 3d7dd24f438698de94a248832babc430e4e180f9dcc613981ec9010b0b85e427
+    verification: a50591715be23fc1de4a48befb39d1cbf6bc2fb8b073f7192b3ec36e9a4f7e7b
+  35:
+    rerolls: 1
+    best_player: 1
+    verification: 3c357dbdae40f9f0a3a90f7115e5212926695e90474fa55bc9df0a4a7cf47a1c
+  36:
+    rerolls: 0
+    best_player: 0
+    verification: d40e706eb0465b37df73b835e8b9d526ddb8c17f1d3e8e335e403a136dca4e94
   37:
     rerolls: 0
     best_player: 1
-    verification: cf1ddd44c3fb327b8ae668350ca92b370da8e8801c070ff0d96adb36787db49f
+    verification: 1691ef609c58572dbbb23badcb5f2bf39eda1f644f443e18afbcc29b353ef40a
   38:
-    rerolls: 0
+    rerolls: 5
     best_player: 1
-    verification: dea0999f8568353e7368ad9182b9b316d00062c0e2858755bfc4594228789161
+    verification: 88484929318455c318d7c2ab0547220d726aab2332fa49ba94649ef9a4fcf193
   39:
     rerolls: 1
-    best_player: 0
-    verification: 57b2c3f07fd9f20660b3eb3e73937c0be70580a433af604b582abc0d31e75b7a
+    best_player: 1
+    verification: 8d21649a39baa4e48dae8dffd879d9eccbb6115346d402f3ae273d52a33938f2
   40:
     rerolls: 0
-    best_player: 0
-    verification: fded5480f4390b2fc2b4e3a34c22c1891f9d55249eba0ae464c997d3ee84be22
+    best_player: 1
+    verification: fb2abaff286f7364ee823a1627ecccdf3ca04b814428f7ace142ec7384264b34
   41:
     rerolls: 0
     best_player: 0
-    verification: 52e9d43d0aa5704c5a5f1f94236a39249883659c90c4dec5eff1df80db6565df
+    verification: 0800a3b3f3dc99fa409745edec46df3e7455c396206ace84a58e79b24c63ca2c
   42:
-    rerolls: 1
-    best_player: 1
-    verification: aed4afbde9b5619e3ed91149887670e740068a6a7ad5b93dbc5914e46d126056
+    rerolls: 3
+    best_player: 0
+    verification: dde7f137e28c468616523aad7ec2b9bfb8a84d0762955d15df6daf93c3b7497d
   43:
     rerolls: 0
     best_player: 0
-    verification: 782cc8161efac3e8ce6f1eba60d4cb97dd24d74e17863aa7811c2aa43a8703e6
+    verification: 236da30e47609b6622bf1ef2f20b23c882796b9f4f5b1facd0fcd3636e88a2e6
   44:
     rerolls: 0
-    best_player: 1
-    verification: d89f1f452177a9fc53f0575eabc3d0a5c72b78c6ca78af48547b781052da2c45
+    best_player: 0
+    verification: ea3d5777b94ac7041520509875e9958c8bd9a0b36ff9767771f99659c628aeb1
   45:
-    rerolls: 1
-    best_player: 1
-    verification: 60ebb0f40a3d7fe94e33aacde13fc93ac5153858e23f1848aac47de2ace2ab1b
+    rerolls: 0
+    best_player: 0
+    verification: 360d3189d07da4048d83d25a497d7ce01889dad1d62556904833706af45605a2
   46:
     rerolls: 0
     best_player: 0
     verification: 9e63bc5812325dc025db30e9bc8ad10d39db57002ce8f643eafc8f981ab2f31b
   47:
     rerolls: 0
-    best_player: 0
-    verification: d3ee43a9cc3f708f57263a16986e8776a32a74b4bcd1e2a9a231cedcd20c6baa
+    best_player: 1
+    verification: 4188045be0c95e8b8002f539cc5db791b9cdf973f6a8e8fccf1042b6ac4a3e9d
   48:
-    rerolls: 1
-    best_player: 0
-    verification: d390beecf209a55e0fb8579eef5fbbfcaeb17dc75e8c3c525eb1d40d0f21a076
+    rerolls: 2
+    best_player: 1
+    verification: 112914c6b4463ae4f8b2b5dc7afec4dab3883c8f8b273b905af63d423d729dc8
   49:
-    rerolls: 0
-    best_player: 1
-    verification: 68c8c67cd8bb1b39b57d5d16f651af0b730cfb0a9c592faf1e782f16232b6b8f
-  50:
-    rerolls: 0
-    best_player: 0
-    verification: 8303b406045dc506ee9cc0238d029f2e9ca463c39332f26e12b96b910a8c6789
-  51:
     rerolls: 1
     best_player: 1
-    verification: c788dcb69d044138ba415298a7595796d576c7da612f86b431f6e72fa63c6e32
-  52:
-    rerolls: 0
-    best_player: 1
-    verification: b24f640c99661eed139b36011cc9a12cb226c028c966c77ab8225a587e27c7f6
-  53:
-    rerolls: 0
-    best_player: 0
-    verification: 75be119fb98d7bf8a70def1dddc20b921446566f9d53a85093b17e873f88aa8a
-  54:
-    rerolls: 0
-    best_player: 1
-    verification: d250a76c2a3f4a5e0ae71439be9c1c83e00882411e46a3c65d281bd3451bdbcb
-  55:
-    rerolls: 1
-    best_player: 0
-    verification: ad7ed6291b6efec82dde19be3258988549831c485df7848db385d9d41b0d6750
-  56:
-    rerolls: 0
-    best_player: 1
-    verification: 444b540c6a881499dff9de473118561692aeddd58eb733f5eef0926026559770
-  57:
-    rerolls: 0
-    best_player: 1
-    verification: a16fd0fbba67aeb6f28f987a5439e76b2f4899e77e3cd7daa74f670591db015a
-  58:
-    rerolls: 0
-    best_player: 0
-    verification: 8c717eac7847c70ba35f36a5432a49b89665a0ad9c619a3ecbcd44ac8748f805
-  59:
-    rerolls: 0
-    best_player: 1
-    verification: 6c368e578e613895c61bf893df86645ff1900b04d3e8ac5a99a7b53d1d818b87
-  60:
-    rerolls: 0
-    best_player: 0
-    verification: 0069f3914ec6a7d050ebab0f0750bc59076d60246a07908039a3e9c4e8d46640
-  61:
-    rerolls: 0
-    best_player: 0
-    verification: 3262a9296079481b519067260c0e49c8da60cbf07e81d6f143f7a76931cbe76f
-  62:
-    rerolls: 0
-    best_player: 0
-    verification: 6854d556434bceb8fde9d126cc45dfbb474fc8d89888454d2fb3682528cc6f05
-  63:
-    rerolls: 0
-    best_player: 1
-    verification: 97e2fd9d07ff496e4efef5f48e0b6a7b2c8e6ba5415e2626dd4424fc9ff2ba30
-  64:
-    rerolls: 0
-    best_player: 1
-    verification: 529616b14d05ea250788657452d2352286116aa9f310e1599a307c6e43153fbb
-  65:
-    rerolls: 0
-    best_player: 0
-    verification: f31c86887838104a75406157efb0407992e5296f5bbbdfbc611c7739ec9fc017
-  66:
-    rerolls: 1
-    best_player: 0
-    verification: 0218c130e81e9f4e93ae39d1e406f289a05485ac8425c7f7b8669401c106aa31
-  67:
-    rerolls: 1
-    best_player: 1
-    verification: 891949060d40c62c9b3ea8d7ec2485b7332ab3af3fece53c60f9283777222fb9
-  68:
-    rerolls: 0
-    best_player: 0
-    verification: 00726a07731b8b5194f0d3f905d590267248438b9eb8a76f5ee9e0ef295431f4
-  69:
-    rerolls: 0
-    best_player: 1
-    verification: 5caa9a4c162c17f5cb9648699d25d7aa86f652f5dbd8a90db203ee872d497aa4
-  70:
-    rerolls: 0
-    best_player: 0
-    verification: 4c68b8c697cc0a47a8fc49fd72a8eda652f8a0ae28795d4032a1911d7a4bce0c
-  71:
-    rerolls: 1
-    best_player: 0
-    verification: ad6712d90e076ab7056f9bbc1896a026b11d87fa9b9cd3dc2030368f465d7959
-  72:
-    rerolls: 0
-    best_player: 1
-    verification: a46aec03e51322295c2065c94035bb49eb6ce284d026992ea82c687ef77a6b36
-  73:
-    rerolls: 0
-    best_player: 0
-    verification: d691e298c544fb45e9332bc54e0c57537ad8ff53c1449e38a9866aaac40fe5a8
-  74:
-    rerolls: 1
-    best_player: 1
-    verification: a626a998ac62e8c345dab856d45beecca39058696d75b99a7a9dfa9f765b580b
-  75:
-    rerolls: 0
-    best_player: 1
-    verification: f2b80618622d1a67b54e718e6bacc695a54b3282af848a2f5ddc6d837d2409c9
-  76:
-    rerolls: 0
-    best_player: 1
-    verification: 97c425bf21093ca68d6f69fe1883f78ec226edf368f2ef39a0bc89f8400ee792
-  77:
-    rerolls: 2
-    best_player: 0
-    verification: 489e2f29fa6470ce016878ab86078eaa2eaf00d639da2f509ba816ac48cb351b
-  78:
-    rerolls: 2
-    best_player: 1
-    verification: 4504ec00eb66221bc6b58552d1a1857dcdf1fbb4507631f2b9ffd173d17b051a
-  79:
-    rerolls: 1
-    best_player: 1
-    verification: 4b1f02c7f89cd6cfcf6ea204e1ac91b1c67fc60b97a65b76681614810ded8cfc
-  80:
-    rerolls: 1
-    best_player: 1
-    verification: b05ba3fb3fbfd29fcdf7c7cd1f3326dfc72d9da2d0d76b63b5592ec8acb27ec5
-  81:
-    rerolls: 0
-    best_player: 1
-    verification: 778e8d54e1b61255184f6b9833eaf784027840e396bf9cb1a3496d3109746edf
-  82:
-    rerolls: 0
-    best_player: 0
-    verification: 2ceee018d3e66e0f9d445c48e167425cce948e5109412bb8925b394f4dee4bfc
-  83:
-    rerolls: 0
-    best_player: 1
-    verification: ac406149f0523bb706008dc3a185c33a9788817693fed3c743bd9488c9b66cfe
-  84:
-    rerolls: 0
-    best_player: 1
-    verification: ac794c3e4a838fb0a1678af859342304bef9f9a50e39782156cc12fc0a08fdc2
-  85:
-    rerolls: 0
-    best_player: 1
-    verification: 94c8b197f581ecfb8a96dd3a8fd3689524cb676cd85c2c29096a1b4b11045107
-  86:
-    rerolls: 0
-    best_player: 0
-    verification: 9ea9922cd3e5409ad43372ad8725a3c66fbd319d874a520329f053537ea9b543
-  87:
-    rerolls: 0
-    best_player: 1
-    verification: 5897ef6263896e2547188d4e7a470a110a548114b9691991a62ddabbad40fcce
-  88:
-    rerolls: 0
-    best_player: 0
-    verification: fd9e1711ce72e8f9ea48ff0d4983a19cdd08da654dc47ed4fe3d806f0bb48a80
-  89:
-    rerolls: 2
-    best_player: 0
-    verification: 558ff6121de5088f13f5ca4257b214a392197bee158cd8e653e8952663fcc429
-  90:
-    rerolls: 0
-    best_player: 0
-    verification: b3103d44f44fe4b80c975deca66674fc8d4916c6898a0b3f14e495c98839bb30
-  91:
-    rerolls: 0
-    best_player: 1
-    verification: 0cff0ca6f8ec9f3dd746f0fb17be149c7fa806d7f06307117b02b6b96c6b17e1
-  92:
-    rerolls: 1
-    best_player: 0
-    verification: 44fa6a7ca9cf9915ecfdee1bd51c57079029aca5d9d6b60e41005f0223c82ca8
-  93:
-    rerolls: 0
-    best_player: 1
-    verification: 05556103c25d76dcdf9f808f7928559b9ed63e9cea5bc45c41c7cd1047be7dc0
-  94:
-    rerolls: 0
-    best_player: 0
-    verification: 7e434e1a4013117dea24cc75f34c15bebb3f8afb36e8363b89e6ab01f8db8568
-  95:
-    rerolls: 0
-    best_player: 1
-    verification: 087bd8583b9f24e58adc90fa64d74e0e6fd894ddfae7a8ee1e619791b14723ca
-  96:
-    rerolls: 1
-    best_player: 1
-    verification: 6a9e858d6fd340c3d6020497bcf7387b64d20102e3c2274e2d319ef1c0093466
-  97:
-    rerolls: 0
-    best_player: 0
-    verification: d880f86c7397730120385fb8f5278086bc90b97c2b0555526c872533b27b988a
-  98:
-    rerolls: 0
-    best_player: 0
-    verification: 9ca466c906aa953d87c624665eaf5a511aaa819c42eef51bc1875db8009aeccb
-  99:
-    rerolls: 1
-    best_player: 0
-    verification: 705f03237e6ae53bae670d573478ebe906da79d297b83a01bbebd4fd686846d2
-  100:
-    rerolls: 0
-    best_player: 1
-    verification: 1431335a150de7f1a2923e2cb6776d7f3ed10f5437588fa0df1277c0a7f02eb9
-  101:
-    rerolls: 0
-    best_player: 1
-    verification: bff7ed5aadc79cbf6b6217fa0498ddf76ec4f9d3b7d2f91b7fedf250d466d382
-  102:
-    rerolls: 0
-    best_player: 0
-    verification: fe54ce19c6287106205c22b20b52470f6c98ce94125ce4b1e79f11d86c6639a7
-  103:
-    rerolls: 2
-    best_player: 1
-    verification: 2c81e2e25dfad569d8fc7d96116f24e15f5c6bcd5fba2283d4348664fd7bc15e
-  104:
-    rerolls: 0
-    best_player: 0
-    verification: 01853953bc26530337246db870a676008ee5d9a05a52e059b071265c54c8ac40
-  105:
-    rerolls: 1
-    best_player: 0
-    verification: 40e46e3891c256b8bafc7b7af896061f26c4b2ad1db608a1fd6809756f7655fd
+    verification: 1506fc91ba5abead2fc953ecc2f7843dd51d1d6b4a8e8df46db35750d496e9af

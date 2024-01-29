@@ -145,6 +145,8 @@ fn evaluate_seed(mut seed: BoardSeed, log: bool) -> (u32, SeedNote) {
     let mut seed_result = None;
     let core_seed = seed.seed;
 
+    println!("-----> Starting on seed {core_seed}");
+
     while seed_result.is_none() {
         seed_result = evaluate_single_seed(seed.clone(), log);
         if seed_result.is_none() {
