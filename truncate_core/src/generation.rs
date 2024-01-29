@@ -687,8 +687,11 @@ impl BoardGenerator for Board {
         let mut town_pairs = player_zero_candidates
             .into_iter()
             .zip(player_one_candidates.into_iter());
-        let maximum_town_goal = (town_pairs.len() as f64 * maximum_town_density) as u32;
-        let town_goal = town_seed.rand_range(1..maximum_town_goal);
+        if town_pairs.len() == 0 {
+            return Err(());
+        }
+        let maximum_town_goal = ((town_pairs.len() as f64 * maximum_town_density) as u32).max(1);
+        let town_goal = town_seed.rand_range(0..maximum_town_goal) + 1;
 
         for _ in 0..town_goal {
             let Some((town_zero, town_one)) = town_pairs.next() else {
