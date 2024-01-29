@@ -2,20 +2,21 @@ use epaint::{
     emath::{Align, Align2},
     hex_color, vec2, Color32, Stroke, TextureHandle, Vec2,
 };
+
 use instant::Duration;
 use truncate_core::{
     board::Board,
-    generation::{BoardParams, BoardSeed},
+    generation::BoardSeed,
     messages::{LobbyPlayerMessage, PlayerMessage, RoomCode},
 };
 
-use eframe::egui::{self, Frame, Layout, Margin, Order, RichText, ScrollArea, Sense};
+use eframe::egui::{self, Layout, Order, RichText, ScrollArea};
 
 use crate::{
     lil_bits::EditorUI,
     utils::{
+        depot::{AestheticDepot, TimingDepot},
         mapper::MappedBoard,
-        tex::{render_tex_quads, Tex, TexQuad},
         text::TextHelper,
         Diaphanize, Lighten, Theme,
     },
@@ -36,43 +37,59 @@ pub struct Lobby {
     pub room_code: RoomCode,
     pub players: Vec<LobbyPlayerMessage>,
     pub player_index: u64,
-    pub player_colors: Vec<Color32>,
     pub mapped_board: MappedBoard,
-    pub map_texture: TextureHandle,
     pub editing_mode: BoardEditingMode,
     pub copied_code: bool,
+    pub aesthetics: AestheticDepot,
+    pub timing: TimingDepot,
 }
 
 impl Lobby {
     pub fn new(
+        ctx: &egui::Context,
         room_code: RoomCode,
         players: Vec<LobbyPlayerMessage>,
         player_index: u64,
         board: Board,
         map_texture: TextureHandle,
-        current_time: Duration,
     ) -> Self {
         let player_colors: Vec<_> = players
             .iter()
             .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
             .collect();
 
+        let aesthetics = AestheticDepot {
+            theme: Theme::default(),
+            qs_tick: 0,
+            map_texture,
+            player_colors,
+            destruction_tick: 0.0,
+            destruction_duration: 0.0,
+        };
+
         Self {
             room_code,
             board_seed: None,
-            mapped_board: MappedBoard::new(&board, map_texture.clone(), false, &player_colors),
+            mapped_board: MappedBoard::new(ctx, &aesthetics, &board, 1),
             players,
             player_index,
-            player_colors,
-            map_texture,
             board,
             editing_mode: BoardEditingMode::None,
             copied_code: false,
+            aesthetics,
+            timing: TimingDepot::default(),
         }
     }
 
-    pub fn update_board(&mut self, board: Board) {
-        self.mapped_board.remap(&board, &self.player_colors, 0);
+    pub fn update_board(&mut self, board: Board, ui: &mut egui::Ui) {
+        self.mapped_board.remap_texture(
+            &ui.ctx(),
+            &self.aesthetics,
+            &self.timing,
+            None,
+            None,
+            &board,
+        );
         self.board = board;
     }
 
@@ -89,7 +106,7 @@ impl Lobby {
         let outer_sidebar_area = ui.max_rect();
         let inner_sidebar_area = outer_sidebar_area.shrink(sidebar_padding);
 
-        let resp = area.show(ui.ctx(), |ui| {
+        area.show(ui.ctx(), |ui| {
             ui.painter()
                 .rect_filled(outer_sidebar_area, 0.0, hex_color!("#111111aa"));
 
@@ -111,9 +128,9 @@ impl Lobby {
                         let text = TextHelper::heavy("COPY GAME LINK", 14.0, None, ui);
                         if text
                             .full_button(
-                                theme.selection.lighten().lighten(),
+                                theme.button_primary,
                                 theme.text,
-                                &self.map_texture,
+                                &self.aesthetics.map_texture,
                                 ui,
                             )
                             .clicked()
@@ -134,14 +151,19 @@ impl Lobby {
                     }
 
                     let start_button_color = if self.players.len() > 1 {
-                        theme.selection.lighten().lighten()
+                        theme.button_primary
                     } else {
                         theme.text.lighten().lighten()
                     };
 
                     let text = TextHelper::heavy("START GAME", 14.0, None, ui);
                     if text
-                        .full_button(start_button_color, theme.text, &self.map_texture, ui)
+                        .full_button(
+                            start_button_color,
+                            theme.text,
+                            &self.aesthetics.map_texture,
+                            ui,
+                        )
                         .clicked()
                     {
                         msg = Some(PlayerMessage::StartGame);
@@ -208,7 +230,7 @@ impl Lobby {
                         .button(
                             Color32::WHITE.diaphanize(),
                             theme.text,
-                            &self.map_texture,
+                            &self.aesthetics.map_texture,
                             ui,
                         )
                         .clicked()
@@ -238,12 +260,19 @@ impl Lobby {
                 &mut self.board,
                 &mut self.mapped_board,
                 &mut self.editing_mode,
-                &self.player_colors,
+                &self.aesthetics.player_colors,
             )
-            .render(true, &mut lobby_ui, theme, &self.map_texture)
+            .render(true, &mut lobby_ui, theme, &self.aesthetics.map_texture)
             {
                 msg = Some(board_update);
-                self.mapped_board.remap(&self.board, &self.player_colors, 0);
+                self.mapped_board.remap_texture(
+                    &ui.ctx(),
+                    &self.aesthetics,
+                    &self.timing,
+                    None,
+                    None,
+                    &self.board,
+                );
             }
         }
 

@@ -1,14 +1,11 @@
-use std::{collections::HashMap, fmt::format};
-
-use eframe::egui::{self, DragValue, Frame, Grid, Layout, RichText, ScrollArea, Sense, Window};
+use eframe::egui::{self, DragValue, Frame, Layout, RichText, Sense};
 use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
-    board::{Board, Square},
+    board::Board,
     game::{Game, GAME_COLORS},
-    generation::{BoardParams, BoardSeed},
-    judge::{WordData, WordDict},
-    messages::{GameStateMessage, PlayerMessage},
+    generation::BoardSeed,
+    messages::{DailyStats, GameStateMessage, PlayerMessage},
     moves::Move,
     npc::scoring::BoardWeights,
     reporting::{Change, HandChange, WordMeaning},
@@ -16,24 +13,23 @@ use truncate_core::{
 
 use crate::{
     app_outer::Backchannel,
-    lil_bits::{DailySplashUI, HandUI},
+    lil_bits::{
+        result_modal::{ResultModalAction, ResultModalDaily, ResultModalVariant},
+        HandUI, ResultModalUI,
+    },
     utils::{
-        daily::{
-            persist_game_move, persist_game_retry, persist_game_win, persist_stats, DailyStats,
-        },
-        game_evals::{best_move, get_main_dict, remember, WORDNIK},
+        game_evals::{best_move, get_main_dict, remember},
         text::TextHelper,
         Lighten, Theme,
     },
 };
 
-use super::active_game::{ActiveGame, HeaderType};
+use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
+#[derive(Clone)]
 pub struct SinglePlayerState {
     pub game: Game,
-    daily: bool,
     human_starts: bool,
-    original_board: Board,
     pub active_game: ActiveGame,
     next_response_at: Option<Duration>,
     winner: Option<usize>,
@@ -44,11 +40,14 @@ pub struct SinglePlayerState {
     weights: BoardWeights,
     waiting_on_backchannel: Option<String>,
     pub header: HeaderType,
-    splash: Option<DailySplashUI>,
+    pub daily_stats: Option<DailyStats>,
+    splash: Option<ResultModalUI>,
+    pub move_sequence: Vec<Move>,
 }
 
 impl SinglePlayerState {
     pub fn new(
+        ctx: &egui::Context,
         map_texture: TextureHandle,
         theme: Theme,
         mut board: Board,
@@ -76,26 +75,27 @@ impl SinglePlayerState {
 
         game.start();
 
-        let daily = seed.as_ref().is_some_and(|s| s.day.is_some());
+        let (filtered_board, _) = game.filter_game_to_player(if human_starts { 0 } else { 1 });
+
         let mut active_game = ActiveGame::new(
+            ctx,
             "SINGLE_PLAYER".into(),
             seed,
             game.players.iter().map(Into::into).collect(),
             if human_starts { 0 } else { 1 },
             0,
-            game.board.clone(),
+            filtered_board.clone(),
             game.players[if human_starts { 0 } else { 1 }].hand.clone(),
             map_texture.clone(),
             theme.clone(),
+            GameLocation::Local,
         );
-        active_game.ctx.header_visible = header.clone();
+        active_game.depot.ui_state.game_header = header.clone();
 
         Self {
             game,
-            daily,
             human_starts,
             active_game,
-            original_board: board,
             next_response_at: None,
             winner: None,
             map_texture,
@@ -105,14 +105,15 @@ impl SinglePlayerState {
             weights: BoardWeights::default(),
             waiting_on_backchannel: None,
             header,
+            daily_stats: None,
             splash: None,
+            move_sequence: vec![],
         }
     }
 
-    pub fn reset(&mut self, current_time: Duration) {
-        if let Some(seed) = &self.active_game.ctx.board_seed {
+    pub fn reset(&mut self, current_time: Duration, ctx: &egui::Context) {
+        if let Some(seed) = &self.active_game.depot.board_info.board_seed {
             if seed.day.is_some() {
-                persist_game_retry(seed);
                 match &mut self.header {
                     HeaderType::Summary {
                         attempt: Some(attempt),
@@ -122,17 +123,17 @@ impl SinglePlayerState {
                     }
                     _ => {}
                 };
-                return self.reset_to(seed.clone(), self.human_starts);
+                return self.reset_to(seed.clone(), self.human_starts, ctx);
             }
         }
 
         let next_seed = (current_time.as_micros() % 243985691) as u32;
         let next_board_seed = BoardSeed::new(next_seed);
 
-        self.reset_to(next_board_seed, !self.human_starts);
+        self.reset_to(next_board_seed, !self.human_starts, ctx);
     }
 
-    pub fn reset_to(&mut self, seed: BoardSeed, human_starts: bool) {
+    pub fn reset_to(&mut self, seed: BoardSeed, human_starts: bool, ctx: &egui::Context) {
         let mut game = Game::new(9, 9, Some(seed.seed as u64));
         self.human_starts = human_starts;
         if self.human_starts {
@@ -149,13 +150,16 @@ impl SinglePlayerState {
             game.players[1].color = GAME_COLORS[0];
         }
 
-        let mut rand_board = truncate_core::generation::generate_board(seed.clone());
+        let mut rand_board = truncate_core::generation::generate_board(seed.clone())
+            .expect("Standard seeds should always generate a board")
+            .board;
         rand_board.cache_special_squares();
 
         game.board = rand_board;
         game.start();
 
         let mut active_game = ActiveGame::new(
+            ctx,
             "SINGLE_PLAYER".into(),
             Some(seed),
             game.players.iter().map(Into::into).collect(),
@@ -167,14 +171,16 @@ impl SinglePlayerState {
                 .clone(),
             self.map_texture.clone(),
             self.theme.clone(),
+            GameLocation::Local,
         );
-        active_game.ctx.header_visible = self.header.clone();
+        active_game.depot.ui_state.game_header = self.header.clone();
 
         self.game = game;
         self.active_game = active_game;
         self.turns = 0;
         self.next_response_at = None;
         self.winner = None;
+        self.move_sequence = vec![];
     }
 
     /// If the server sent through some new word definitions,
@@ -209,7 +215,7 @@ impl SinglePlayerState {
         backchannel: &Backchannel,
     ) -> Result<Vec<String>, ()> {
         let human_player = if self.human_starts { 0 } else { 1 };
-        let npc_player = if self.human_starts { 1 } else { 0 };
+
         self.turns += 1;
         let dict_lock = get_main_dict();
         let dict = dict_lock.as_ref().unwrap();
@@ -219,11 +225,6 @@ impl SinglePlayerState {
         match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
             Ok(winner) => {
                 self.winner = winner;
-                if winner == Some(human_player) {
-                    if let Some(seed) = &self.active_game.ctx.board_seed {
-                        persist_game_win(seed);
-                    }
-                }
 
                 let changes: Vec<_> = self
                     .game
@@ -277,9 +278,9 @@ impl SinglePlayerState {
                     }
                 }
 
-                let ctx = &self.active_game.ctx;
+                let room_code = self.active_game.depot.gameplay.room_code.clone();
                 let state_message = GameStateMessage {
-                    room_code: ctx.room_code.clone(),
+                    room_code,
                     players: self.game.players.iter().map(Into::into).collect(),
                     player_number: human_player as u64,
                     next_player_number: self.game.next_player as u64,
@@ -292,7 +293,7 @@ impl SinglePlayerState {
                 return Ok(battle_words);
             }
             Err(msg) => {
-                self.active_game.ctx.error_msg = Some(msg);
+                self.active_game.depot.gameplay.error_msg = Some(msg);
                 return Err(());
             }
         }
@@ -304,8 +305,9 @@ impl SinglePlayerState {
         theme: &Theme,
         current_time: Duration,
         backchannel: &Backchannel,
-    ) -> Option<PlayerMessage> {
-        let mut msg_to_server = None;
+        logged_in_as: &Option<String>,
+    ) -> Vec<PlayerMessage> {
+        let mut msgs_to_server = vec![];
         let human_player = if self.human_starts { 0 } else { 1 };
         let npc_player = if self.human_starts { 1 } else { 0 };
 
@@ -329,7 +331,7 @@ impl SinglePlayerState {
             };
             if text
                 .centered_button(
-                    theme.selection.lighten().lighten(),
+                    theme.button_primary,
                     theme.text,
                     &self.map_texture,
                     &mut banner_ui,
@@ -368,11 +370,15 @@ impl SinglePlayerState {
                         })
                         .next();
 
-                    self.active_game.ctx.highlight_tiles = added_tiles.cloned();
+                    self.active_game.depot.interactions.highlight_tiles = added_tiles.cloned();
                     HandUI::new(&mut self.game.players[npc_player].hand)
                         .interactive(false)
-                        .render(&mut self.active_game.ctx, ui);
-                    self.active_game.ctx.highlight_tiles = None;
+                        .render(
+                            ui,
+                            &mut self.active_game.depot,
+                            &mut self.active_game.mapped_hand,
+                        );
+                    self.active_game.depot.interactions.highlight_tiles = None;
 
                     ui.add_space(28.0);
 
@@ -464,62 +470,144 @@ impl SinglePlayerState {
                     ui.style_mut().text_styles = prev_text_styles;
                 });
             });
-            return None;
+            return msgs_to_server;
         }
 
-        let (mut rect, _) = ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
+        let (rect, _) = ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
         let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
         // Standard game helper
         let mut next_msg = self
             .active_game
-            .render(
-                &mut ui,
-                theme,
-                self.winner,
-                current_time,
-                Some(backchannel),
-                Some(&self.game),
-            )
+            .render(&mut ui, current_time, Some(&self.game))
             .map(|msg| (human_player, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
-            self.reset(current_time);
-            return msg_to_server;
+            self.reset(current_time, ui.ctx());
+            return msgs_to_server;
+        } else if matches!(next_msg, Some((_, PlayerMessage::Resign))) {
+            match self.active_game.location {
+                GameLocation::Local => {
+                    self.splash = Some(ResultModalUI::new_resigning(
+                        &mut ui,
+                        "Resign and try again?".to_string(),
+                    ))
+                }
+                GameLocation::Online => {
+                    self.splash = Some(ResultModalUI::new_resigning(
+                        &mut ui,
+                        "Resign this game?".to_string(),
+                    ))
+                }
+            }
+        }
+
+        if let Some(splash) = &mut self.splash {
+            let splash_msg = splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
+
+            match splash_msg {
+                Some(ResultModalAction::NewPuzzle) => {
+                    self.splash = None;
+                    self.reset(current_time, ui.ctx());
+                }
+                Some(ResultModalAction::TryAgain) => {
+                    self.splash = None;
+
+                    if let Some(seed) = &self.active_game.depot.board_info.board_seed {
+                        self.reset_to(seed.clone(), self.human_starts, ui.ctx());
+                    } else {
+                        self.reset(current_time, ui.ctx());
+                    }
+                }
+                Some(ResultModalAction::Dismiss) => {
+                    self.splash = None;
+                }
+                Some(ResultModalAction::Resign) => {
+                    self.splash = None;
+                    self.game.resign_player(human_player);
+                    self.winner = Some(npc_player);
+                }
+                None => {}
+            }
         }
 
         if self.winner.is_some() {
-            let splash = self.splash.get_or_insert_with(|| {
-                DailySplashUI::new(&mut ui, &self.game, &mut self.active_game.ctx, current_time)
-            });
-            let splash_msg = splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
+            let is_daily_puzzle = self
+                .active_game
+                .depot
+                .board_info
+                .board_seed
+                .as_ref()
+                .is_some_and(|s| s.day.is_some());
 
-            if matches!(splash_msg, Some(PlayerMessage::Rematch)) {
-                self.splash = None;
-                self.reset(current_time);
+            if is_daily_puzzle {
+                if let Some(token) = logged_in_as {
+                    if self.splash.is_none() {
+                        msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
+                    }
+                }
+
+                // Refresh our stats UI if we receive updated stats from the server
+                if let Some(mut stats) = self.daily_stats.take() {
+                    stats.hydrate_missing_days();
+
+                    let matches = match &self.splash {
+                        Some(ResultModalUI {
+                            contents:
+                                ResultModalVariant::Daily(ResultModalDaily {
+                                    stats: existing_stats,
+                                    ..
+                                }),
+                            ..
+                        }) => *existing_stats == stats,
+                        _ => false,
+                    };
+
+                    if !matches {
+                        self.splash = Some(ResultModalUI::new_daily(
+                            &mut ui,
+                            &self.game,
+                            &mut self.active_game.depot,
+                            stats,
+                        ));
+                    }
+                }
+            } else {
+                if self.splash.is_none() {
+                    self.splash = Some(ResultModalUI::new_unique(
+                        &mut ui,
+                        &self.game,
+                        &mut self.active_game.depot,
+                        matches!(
+                            self.winner,
+                            Some(p) if  p == human_player
+                        ),
+                    ));
+                }
             }
-            return msg_to_server;
+            return msgs_to_server;
         }
 
         if let Some(next_response_at) = self.next_response_at {
-            if next_response_at > self.active_game.ctx.current_time {
-                return msg_to_server;
+            if next_response_at > self.active_game.depot.timing.current_time {
+                return msgs_to_server;
             }
         }
         self.next_response_at = None;
 
         if self.game.next_player == npc_player {
-            if let Some(turn_starts_at) = self
+            if let Some(turn_starts_no_later_than) = self
                 .game
                 .get_player(self.game.next_player)
                 .unwrap()
-                .turn_starts_at
+                .turn_starts_no_later_than
             {
                 if backchannel.is_open() {
                     if let Some(pending_msg) = &self.waiting_on_backchannel {
                         // Do nothing if a message is pending but our turn hasn't yet started,
                         // we'll fetch the turn once we're allowed to play.
-                        if turn_starts_at <= current_time.as_secs() {
+                        // It is allowed to play here, but waiting lets battle animations play out.
+                        if turn_starts_no_later_than <= current_time.as_secs() {
                             let msg_response =
                                 backchannel.send_msg(crate::app_outer::BackchannelMsg::QueryFor {
                                     id: pending_msg.clone(),
@@ -532,12 +620,13 @@ impl SinglePlayerState {
                             }
                         }
                     } else {
+                        let (filtered_board, _) = self.game.filter_game_to_player(npc_player);
                         let pending_msg =
                             backchannel.send_msg(crate::app_outer::BackchannelMsg::EvalGame {
-                                board: self.game.board.clone(),
+                                board: filtered_board,
                                 rules: self.game.rules.clone(),
                                 players: self.game.players.clone(),
-                                next_player: self.game.next_player,
+                                next_player: npc_player,
                                 weights: self.weights,
                             });
                         self.waiting_on_backchannel = pending_msg;
@@ -545,8 +634,12 @@ impl SinglePlayerState {
                 } else {
                     // If we have no backchannel available to evaluate moves through,
                     // just evaluate the move on this thread and live with blocking.
-                    if turn_starts_at <= current_time.as_secs() {
-                        let best = best_move(&self.game, &self.weights);
+                    let (filtered_board, _) = self.game.filter_game_to_player(npc_player);
+                    let mut evaluation_game = self.game.clone();
+                    evaluation_game.board = filtered_board;
+
+                    if turn_starts_no_later_than <= current_time.as_secs() {
+                        let best = best_move(&evaluation_game, &self.weights);
                         next_msg = Some((npc_player, best));
                     }
                 }
@@ -568,26 +661,32 @@ impl SinglePlayerState {
 
         if let Some(next_move) = next_move {
             if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel) {
-                if let Some(seed) = &self.active_game.ctx.board_seed {
+                self.move_sequence.push(next_move.clone());
+
+                if let Some(seed) = &self.active_game.depot.board_info.board_seed {
                     if seed.day.is_some() {
-                        persist_game_move(seed, next_move);
-                        let attempt = match self.header {
-                            HeaderType::Summary { attempt, .. } => attempt,
-                            _ => None,
+                        if let Some(token) = logged_in_as {
+                            msgs_to_server.push(PlayerMessage::PersistPuzzleMoves {
+                                player_token: token.clone(),
+                                day: seed.seed,
+                                human_player: human_player as u32,
+                                moves: self.move_sequence.clone(),
+                                won: self.winner == Some(human_player),
+                            });
+                            msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
                         }
-                        .unwrap_or_default();
-                        persist_stats(seed, &self.game, human_player, attempt);
                     }
                 }
                 let delay = if battle_words.is_empty() { 200 } else { 1200 };
 
                 if !battle_words.is_empty() {
-                    msg_to_server = Some(PlayerMessage::RequestDefinitions(battle_words));
+                    msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
                 }
 
                 self.next_response_at = Some(
                     self.active_game
-                        .ctx
+                        .depot
+                        .timing
                         .current_time
                         .saturating_add(Duration::from_millis(delay)),
                 );
@@ -596,6 +695,6 @@ impl SinglePlayerState {
             }
         }
 
-        msg_to_server
+        msgs_to_server
     }
 }

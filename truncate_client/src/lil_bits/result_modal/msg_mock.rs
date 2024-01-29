@@ -1,11 +1,10 @@
 use eframe::egui::{self, RichText, Sense};
 use epaint::{hex_color, vec2, Color32, TextureHandle, Vec2};
-use truncate_core::game::Game;
+use truncate_core::{game::Game, messages::DailyStats};
 
 use crate::{
     app_outer::Backchannel,
-    regions::active_game::GameCtx,
-    utils::{daily::DailyStats, text::TextHelper, Lighten, Theme},
+    utils::{depot::TruncateDepot, macros::tr_log, text::TextHelper, Lighten, Theme},
 };
 
 /*
@@ -16,18 +15,20 @@ TODOs for the message mock:
 
  */
 
+#[derive(Clone)]
 pub struct ShareMessageMock {
+    is_daily: bool,
     share_text: String,
     share_copied: bool,
 }
 
 impl ShareMessageMock {
-    pub fn new(game: &Game, ctx: &GameCtx, stats: &DailyStats) -> Self {
+    pub fn new_daily(game: &Game, depot: &TruncateDepot, stats: &DailyStats) -> Self {
         let share_text = game.board.emojify(
-            ctx.player_number as usize,
-            Some(ctx.player_number as usize),
+            depot.gameplay.player_number as usize,
+            game.winner,
             Some(game),
-            ctx.board_seed.clone(),
+            depot.board_info.board_seed.clone(),
             stats
                 .days
                 .last_key_value()
@@ -36,6 +37,30 @@ impl ShareMessageMock {
         );
 
         Self {
+            is_daily: true,
+            share_text,
+            share_copied: false,
+        }
+    }
+
+    pub fn new_unique(game: &Game, depot: &TruncateDepot) -> Self {
+        tr_log!({
+            format!(
+                "We are player {:?} and the winner was player {:?}",
+                depot.gameplay.player_number, game.winner
+            )
+        });
+        let share_text = game.board.emojify(
+            depot.gameplay.player_number as usize,
+            game.winner,
+            Some(game),
+            depot.board_info.board_seed.clone(),
+            None,
+            format!("https://truncate.town/#"),
+        );
+
+        Self {
+            is_daily: false,
             share_text,
             share_copied: false,
         }
@@ -49,11 +74,16 @@ impl ShareMessageMock {
         backchannel: Option<&Backchannel>,
     ) {
         let line_count = self.share_text.lines().count();
+        let target_height = if self.is_daily {
+            (line_count * 16).min(230) as f32
+        } else {
+            300.0
+        };
 
         let (mut message_bounds, _) = ui.allocate_exact_size(
             // This height is just a rough guess to look right.
             // The board emoji will fill the space, so it doesn't have to be perfect.
-            vec2(ui.available_width(), (line_count * 16).min(230) as f32),
+            vec2(ui.available_width(), target_height),
             Sense::hover(),
         );
 
@@ -91,6 +121,8 @@ impl ShareMessageMock {
                                 '🟦' => hex_color!("#4F55E2"), // TODO: Pull from theming palette
                                 '🟩' => hex_color!("#6DAF6B"),
                                 '🟨' => hex_color!("#D7AE1D"),
+                                '🟫' => hex_color!("#A7856F"),
+                                '🟪' => hex_color!("#D27CFF"),
                                 _ => Color32::LIGHT_RED,
                             };
                             let (emoji_rect, _) =
@@ -111,12 +143,7 @@ impl ShareMessageMock {
             "SHARE"
         };
         let text = TextHelper::heavy(msg, 12.0, None, ui);
-        let share_button = text.centered_button(
-            theme.selection.lighten().lighten(),
-            theme.text,
-            map_texture,
-            ui,
-        );
+        let share_button = text.centered_button(theme.button_primary, theme.text, map_texture, ui);
         // Extra events to get this message through the backchannel early,
         // as our frontend relies on attaching the copy to a browser event
         // on mouseup/touchend.

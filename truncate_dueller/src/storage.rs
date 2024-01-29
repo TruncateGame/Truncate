@@ -10,7 +10,7 @@ fn note_file() -> PathBuf {
 pub struct SeedNote {
     pub rerolls: usize,
     pub best_player: usize,
-    pub verification: u64,
+    pub verification: String,
 }
 
 #[derive(Default, Serialize, Deserialize)]

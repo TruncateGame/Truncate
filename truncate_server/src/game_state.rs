@@ -176,6 +176,28 @@ impl GameManager {
         messages
     }
 
+    pub fn resign(&mut self, player: SocketAddr) -> Vec<(&Player, GameMessage)> {
+        if let Some(player_index) = self.get_player_index(player) {
+            self.core_game.resign_player(player_index);
+            let mut messages = Vec::with_capacity(self.players.len());
+
+            if let Some(winner) = self.core_game.winner {
+                for (player_index, player) in self.players.iter().enumerate() {
+                    let mut end_game_msg = self.game_msg(player_index, None);
+                    end_game_msg.changes = vec![];
+                    messages.push((
+                        player,
+                        GameMessage::GameEnd(self.game_msg(player_index, None), winner as u64),
+                    ));
+                }
+            }
+
+            messages
+        } else {
+            todo!("Handle missing player");
+        }
+    }
+
     pub fn play(
         &mut self,
         player: SocketAddr,

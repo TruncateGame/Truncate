@@ -32,8 +32,6 @@ steps:
       This tutorial will help you understand the basics of the game.
 
   - message: |-
-      <game lore>
-
       To win Truncate, you must place a valid word that touches your opponent's town.
 
   - message: |-
@@ -255,7 +253,7 @@ steps:
       Thankfully, you can use your turn to swap any two tiles on the board.
 
   - description: |-
-      To do this, you click one tile to select it, then click the other.
+      To do this, drag one tile onto another, or select one and click another to swap.
 
       In this case, we can swap 'R' for 'F'. 'FAIL' will become 'RAIL' and 'FIRE' will become 'RIFE'.
     you: "2,4 -> 4,4"

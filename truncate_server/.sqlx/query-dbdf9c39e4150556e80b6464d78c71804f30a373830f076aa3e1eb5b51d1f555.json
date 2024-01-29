@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT attempt_id, sequence_of_moves, attempt_number, won FROM daily_puzzle_attempts WHERE result_id = $1 ORDER BY attempt_number DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "attempt_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sequence_of_moves",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "attempt_number",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "won",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "dbdf9c39e4150556e80b6464d78c71804f30a373830f076aa3e1eb5b51d1f555"
+}

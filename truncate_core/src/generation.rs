@@ -1,40 +1,39 @@
 use std::{
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    collections::{BinaryHeap, HashSet, VecDeque},
     hash::Hash,
+    ops::Div,
 };
 
 use noise::{NoiseFn, Simplex};
 use oorandom::Rand32;
 
 use crate::{
-    board::{self, Board, Coordinate, Square},
+    board::{Board, BoardDistances, Coordinate, Square},
     game::Game,
 };
 
 #[derive(Debug, Clone)]
 pub struct BoardParams {
-    pub bounding_width: usize,
-    pub bounding_height: usize,
-    pub maximum_land_width: Option<usize>,
-    pub maximum_land_height: Option<usize>,
-    pub water_level: f64,
-    pub town_density: f64,
-    pub jitter: f64,
-    pub town_jitter: f64,
+    pub land_dimensions: [usize; 2],
+    pub dispersion: [f64; 2],
+    pub isolation: f64,
+    pub island_influence: f64,
+    pub maximum_town_density: f64,
+    pub maximum_town_distance: f64,
+    pub minimum_choke: usize,
 }
 
 // Do not modify any numbered generations.
 // Add a new generation number with new parameters.
 // Updating an existing generation will break puzzle URLs.
 const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
-    bounding_width: 16,
-    bounding_height: 18,
-    maximum_land_width: Some(10),
-    maximum_land_height: Some(14),
-    water_level: 0.5,
-    town_density: 0.37,
-    jitter: 0.5,
-    town_jitter: 0.5,
+    land_dimensions: [10, 10],
+    dispersion: [5.0, 5.0],
+    isolation: 2.0,
+    maximum_town_density: 0.2,
+    maximum_town_distance: 0.15,
+    island_influence: 0.0,
+    minimum_choke: 3,
 }];
 
 impl BoardParams {
@@ -52,6 +51,12 @@ impl BoardParams {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PreviousBoardResize {
+    Enlarged,
+    Shrunk,
+}
+
 #[derive(Debug, Clone)]
 pub struct BoardSeed {
     pub generation: u32,
@@ -59,6 +64,10 @@ pub struct BoardSeed {
     pub day: Option<u32>,
     pub params: BoardParams,
     pub current_iteration: usize,
+    pub width_resize_state: Option<PreviousBoardResize>,
+    pub height_resize_state: Option<PreviousBoardResize>,
+    pub water_level: f64,
+    pub max_attempts: usize,
 }
 
 impl BoardSeed {
@@ -70,6 +79,10 @@ impl BoardSeed {
             day: None,
             params,
             current_iteration: 0,
+            width_resize_state: None,
+            height_resize_state: None,
+            water_level: 0.5,
+            max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
         }
     }
 
@@ -81,6 +94,39 @@ impl BoardSeed {
             day: None,
             params,
             current_iteration: 0,
+            width_resize_state: None,
+            height_resize_state: None,
+            water_level: 0.5,
+            max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
+        }
+    }
+
+    pub fn new_random(seed: u32) -> Self {
+        let mut rng = Rand32::new(seed as u64);
+
+        let disper = ((rng.rand_float() * 7.0) + 4.0) as f64;
+
+        Self {
+            generation: 9999,
+            seed,
+            day: None,
+            params: BoardParams {
+                land_dimensions: [
+                    rng.rand_range(10..39) as usize,
+                    rng.rand_range(10..39) as usize,
+                ],
+                dispersion: [disper, disper],
+                isolation: (rng.rand_float() * 2.0 + 1.0) as f64,
+                island_influence: (rng.rand_float() * 0.7) as f64,
+                maximum_town_density: (rng.rand_float() * 0.6 + 0.1) as f64,
+                maximum_town_distance: (rng.rand_float() * 0.2 + 0.1) as f64,
+                minimum_choke: 4,
+            },
+            current_iteration: 0,
+            width_resize_state: None,
+            height_resize_state: None,
+            water_level: 0.5,
+            max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
         }
     }
 
@@ -116,51 +162,74 @@ impl BoardSeed {
     }
 }
 
-pub fn generate_board(mut board_seed: BoardSeed) -> Board {
+#[derive(Debug)]
+pub struct BoardGenerationResult {
+    pub board: Board,
+    pub iterations: usize,
+}
+
+pub fn generate_board(
+    mut board_seed: BoardSeed,
+) -> Result<BoardGenerationResult, BoardGenerationResult> {
     let BoardSeed {
         generation: _,
         seed,
         day: _,
         current_iteration,
+        width_resize_state,
+        height_resize_state,
+        water_level,
+        max_attempts,
         params:
             BoardParams {
-                bounding_width,
-                bounding_height,
-                maximum_land_width,
-                maximum_land_height,
-                water_level,
-                town_density,
-                jitter,
-                town_jitter,
+                land_dimensions: ideal_land_dimensions,
+                dispersion,
+                isolation,
+                maximum_town_density,
+                maximum_town_distance,
+                island_influence: jitter,
+                minimum_choke,
             },
     } = board_seed;
 
-    if current_iteration > 10000 {
-        panic!("Wow that's deep");
-    }
+    let retry_with = |mut board_seed: BoardSeed, failed_board: Board| {
+        board_seed.internal_reroll();
+        if current_iteration > max_attempts {
+            eprintln!("Could not resolve a playable board within {max_attempts} tries");
+            return Err(BoardGenerationResult {
+                board: failed_board,
+                iterations: max_attempts,
+            });
+        } else {
+            return generate_board(board_seed);
+        }
+    };
 
     let simplex = Simplex::new(seed);
 
     let mut board = Board::new(3, 3);
-    board.squares =
-        vec![vec![crate::board::Square::Water; bounding_width + 2]; bounding_height + 2];
+    let canvas_size = [
+        (ideal_land_dimensions[0] as f64 * isolation) as usize,
+        (ideal_land_dimensions[1] as f64 * isolation) as usize,
+    ];
+    // Expand the canvas when creating board squares to avoid setting anything in the outermost ring
+    board.squares = vec![vec![crate::board::Square::Water; canvas_size[0] + 2]; canvas_size[1] + 2];
 
-    for i in 1..=bounding_width {
-        for j in 1..=bounding_height {
-            let ni = i as f64 / (bounding_width + 1) as f64; // normalized coordinates
-            let nj = j as f64 / (bounding_height + 1) as f64;
+    for i in 1..=canvas_size[0] {
+        for j in 1..=canvas_size[1] {
+            let ni = i as f64 / (canvas_size[0] + 1) as f64; // normalized coordinates
+            let nj = j as f64 / (canvas_size[1] + 1) as f64;
             let x = ni - 0.5; // centering the coordinates
             let y = nj - 0.5;
+
             let distance_to_center = (x * x + y * y).sqrt();
 
-            // Simple radial gradient
-            let gradient = 1.0 - distance_to_center * 2.0;
-
             // Get Simplex noise value
-            let noise_value = (simplex.get([80.0 * ni, 80.0 * nj, 0.0]) + 1.0) / 2.0;
+            let noise_value =
+                (simplex.get([ni * dispersion[0], nj * dispersion[1], 0.0]) + 1.0) / 2.0;
 
             // Combine noise and gradient
-            let value = (noise_value * jitter) + (noise_value * gradient);
+            let value = noise_value - (distance_to_center * jitter);
 
             if value > water_level {
                 board
@@ -171,59 +240,116 @@ pub fn generate_board(mut board_seed: BoardSeed) -> Board {
     }
 
     if board.trim_nubs().is_err() {
-        board_seed.params.water_level *= 0.5;
-        return generate_board(board_seed);
+        return retry_with(board_seed, board);
     }
 
     // Remove extraneous water
     board.trim();
-    if let Some(maximum_land_width) = maximum_land_width {
-        if board.width() > maximum_land_width + 2 {
-            board_seed.params.water_level *= 1.05;
-            return generate_board(board_seed);
-        }
-    }
-    if let Some(maximum_land_height) = maximum_land_height {
-        if board.height() > maximum_land_height + 2 {
-            board_seed.params.water_level *= 1.05;
-            return generate_board(board_seed);
-        }
-    }
 
-    if board.drop_docks(seed).is_err() {
-        board_seed.internal_reroll();
+    let mut width_diff = board.width() as isize - (ideal_land_dimensions[0] + 2) as isize;
+
+    // Raise or lower water slightly to try and hit the target island width
+    if width_diff.is_negative() {
+        // Avoid oscillating around the target — once we have shrunk we won't enlarge via water again
+        if width_resize_state != Some(PreviousBoardResize::Shrunk) {
+            board_seed.water_level -= 0.01;
+            board_seed.width_resize_state = Some(PreviousBoardResize::Enlarged);
+            return generate_board(board_seed);
+        } else {
+            let mut rng = Rand32::new(seed as u64);
+            while width_diff < 0 {
+                // Pick a random column to duplicate
+                let col = rng.rand_range(1..(board.squares[0].len() as u32 - 1)) as usize;
+
+                for row in board.squares.iter_mut() {
+                    row.insert(col, row[col]);
+                }
+
+                width_diff += 1;
+            }
+        }
+    } else if width_diff.is_positive() {
+        board_seed.water_level += 0.005;
+        board_seed.width_resize_state = Some(PreviousBoardResize::Shrunk);
         return generate_board(board_seed);
     }
 
-    if board
-        .generate_towns(seed, town_density, town_jitter)
-        .is_err()
-    {
-        board_seed.internal_reroll();
-        return generate_board(board_seed);
+    let mut height_diff = board.height() as isize - (ideal_land_dimensions[1] + 2) as isize;
+
+    if height_diff != 0 {
+        let mut rng = Rand32::new(seed as u64);
+        while height_diff != 0 && board.squares.len() > 2 {
+            // Pick a random row to duplicate or delete
+            let row = rng.rand_range(1..(board.squares.len() as u32 - 2)) as usize;
+
+            if height_diff.is_negative() {
+                board.squares.insert(row, board.squares[row].clone());
+                height_diff += 1;
+            } else {
+                let removed = board.squares.remove(row);
+                // Overlay this row on a neighbor to avoid cutting the island
+                for (i, sq) in removed.into_iter().enumerate() {
+                    if sq == Square::Land {
+                        board.squares[row][i] = Square::Land;
+                    }
+                }
+                height_diff -= 1;
+            }
+        }
+    }
+
+    if board.drop_island_docks(seed).is_err() {
+        return retry_with(board_seed, board);
+    }
+
+    if board.expand_choke_points(minimum_choke, false).is_err() {
+        return retry_with(board_seed, board);
+    }
+
+    // Recalculate the shortest path, as expanding the choke points
+    // may have created new paths altogether
+    let Some(shortest_attack_path) = board.shortest_path_between(&board.docks[0], &board.docks[1])
+    else {
+        return retry_with(board_seed, board);
     };
 
-    if board.ensure_paths().is_err() {
-        board_seed.internal_reroll();
-        return generate_board(board_seed);
-    }
+    if board
+        .generate_towns(
+            seed,
+            &shortest_attack_path,
+            maximum_town_density,
+            maximum_town_distance,
+        )
+        .is_err()
+    {
+        return retry_with(board_seed, board);
+    };
 
     println!(
         "Generated a board in {} step(s)",
         board_seed.current_iteration
     );
 
-    board
+    Ok(BoardGenerationResult {
+        board,
+        iterations: current_iteration,
+    })
 }
 
 trait BoardGenerator {
     fn trim_nubs(&mut self) -> Result<(), ()>;
 
-    fn drop_docks(&mut self, seed: u32) -> Result<(), ()>;
+    fn expand_choke_points(&mut self, minimum_choke: usize, debug: bool) -> Result<(), ()>;
 
-    fn generate_towns(&mut self, seed: u32, town_density: f64, town_jitter: f64) -> Result<(), ()>;
+    fn drop_island_docks(&mut self, seed: u32) -> Result<(), ()>;
 
-    fn ensure_paths(&mut self) -> Result<(), ()>;
+    fn generate_towns(
+        &mut self,
+        seed: u32,
+        main_road: &Vec<Coordinate>,
+        maximum_town_density: f64,
+        maximum_town_distance: f64,
+    ) -> Result<(), ()>;
 }
 
 impl BoardGenerator for Board {
@@ -289,12 +415,113 @@ impl BoardGenerator for Board {
         Ok(())
     }
 
-    fn drop_docks(&mut self, seed: u32) -> Result<(), ()> {
+    fn expand_choke_points(&mut self, minimum_choke: usize, debug: bool) -> Result<(), ()> {
+        let Some(shortest_attack_path) = self.shortest_path_between(&self.docks[0], &self.docks[1])
+        else {
+            return Err(());
+        };
+
+        let measurements = shortest_attack_path
+            .iter()
+            .enumerate()
+            .filter_map(|(i, pt)| {
+                // Avoid processing the tiles closest to each players dock
+                if i < minimum_choke || i >= shortest_attack_path.len() - minimum_choke {
+                    return None;
+                }
+
+                let choke_distance = pt
+                    .neighbors_8()
+                    .iter()
+                    .map(|n| self.distance_to_closest_obstruction(&n, &shortest_attack_path))
+                    .max()
+                    .unwrap();
+
+                Some((*pt, choke_distance))
+            })
+            .collect::<Vec<_>>();
+
+        for (pt, choke_distance) in &measurements {
+            let buffer = minimum_choke / 2 + 1; // How far our points must be from the edges of the world
+
+            let buffered_pt = Coordinate {
+                x: if pt.x.checked_sub(buffer).is_none() {
+                    buffer
+                } else if (pt.x + buffer) >= self.width() {
+                    self.width() - buffer - 1
+                } else {
+                    pt.x
+                },
+                y: if pt.y.checked_sub(buffer).is_none() {
+                    buffer
+                } else if (pt.y + buffer) >= self.height() {
+                    self.height() - buffer - 1
+                } else {
+                    pt.y
+                },
+            };
+
+            let mid = (minimum_choke / 2) as isize;
+            if *choke_distance < minimum_choke {
+                for x in (-mid)..(minimum_choke as isize - mid) {
+                    for y in (-mid)..(minimum_choke as isize - mid) {
+                        let c = Coordinate {
+                            x: buffered_pt.x.saturating_add_signed(x),
+                            y: buffered_pt.y.saturating_add_signed(y),
+                        };
+
+                        if c.x == 0
+                            || c.y == 0
+                            || c.x >= self.width() - 1
+                            || c.y >= self.height() - 1
+                        {
+                            // Don't touch the outer rim of the board.
+                            continue;
+                        }
+
+                        match self.get(c) {
+                            Ok(Square::Land | Square::Dock(_)) => {}
+                            Err(_) => {}
+                            Ok(_) => {
+                                if debug {
+                                    _ = self.set_square(
+                                        c,
+                                        Square::Town {
+                                            player: 0,
+                                            defeated: false,
+                                        },
+                                    );
+                                } else {
+                                    _ = self.set_square(c, Square::Land);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if debug {
+            for (pt, dist) in measurements {
+                let char = if dist < 10 {
+                    dist.to_string().chars().next().unwrap()
+                } else {
+                    '+'
+                };
+                _ = self.set_square(pt, Square::Occupied(0, char));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn drop_island_docks(&mut self, seed: u32) -> Result<(), ()> {
         let mut rng = Rand32::new(seed as u64);
         let mut visited: HashSet<Coordinate> = HashSet::from([Coordinate { x: 0, y: 0 }]);
-        let mut coastal_land: HashSet<Coordinate> = HashSet::new();
-        let mut pts = VecDeque::from(vec![Coordinate { x: 0, y: 0 }]);
+        let mut coastal_water: HashSet<Coordinate> = HashSet::new();
 
+        // Islands require docks on the coasts, so we DFS from the edges.
+        let mut pts = VecDeque::from(vec![Coordinate { x: 0, y: 0 }]);
         while !pts.is_empty() {
             let pt = pts.pop_front().unwrap();
             for neighbor in pt
@@ -310,21 +537,29 @@ impl BoardGenerator for Board {
                     }
                     Ok(Square::Land) => {
                         visited.insert(*neighbor);
-                        coastal_land.insert(pt);
+                        coastal_water.insert(pt);
                     }
                     _ => {}
                 }
             }
         }
 
-        assert_eq!(coastal_land.is_empty(), false);
+        assert_eq!(coastal_water.is_empty(), false);
 
-        let center_point = Coordinate {
+        let mut center_point = Coordinate {
             x: self.width() / 2,
             y: self.height() / 2,
         };
-        if self.get(center_point) != Ok(Square::Land) {
-            return Err(());
+        while self.get(center_point) != Ok(Square::Land) {
+            if self.get(center_point).is_err() {
+                return Err(());
+            }
+            let neighbors = center_point.neighbors_8();
+            center_point = neighbors
+                .iter()
+                .find(|p| self.get(**p) == Ok(Square::Land))
+                .unwrap_or_else(|| &neighbors[0])
+                .clone();
         }
 
         #[derive(Debug, Clone, PartialEq, Eq)]
@@ -358,11 +593,14 @@ impl BoardGenerator for Board {
                     distance: d,
                 })
             })
-            .filter(|DistanceToCoord { coord, .. }| coastal_land.contains(coord))
+            .filter(|DistanceToCoord { coord, .. }| coastal_water.contains(coord))
             .collect::<BinaryHeap<_>>();
 
+        // How far away from the extremeties are we allowed to land?
+        let distance_pool = self.width().max(self.height()).div(2) as u32;
+
         let mut pt = distances.pop();
-        for _ in 0..rng.rand_range(0..6) {
+        for _ in 0..rng.rand_range(0..distance_pool) {
             pt = distances.pop().or(pt);
         }
         let Some(DistanceToCoord {
@@ -375,7 +613,7 @@ impl BoardGenerator for Board {
         self.set_square(dock_zero, Square::Dock(0))
             .expect("Board position should be settable");
 
-        let mut antipodes: BinaryHeap<_> = coastal_land
+        let mut antipodes: BinaryHeap<_> = coastal_water
             .iter()
             .map(|l| DistanceToCoord {
                 coord: l.clone(),
@@ -384,7 +622,7 @@ impl BoardGenerator for Board {
             .collect();
 
         let mut pt = antipodes.pop();
-        for _ in 0..rng.rand_range(0..6) {
+        for _ in 0..rng.rand_range(0..distance_pool) {
             pt = antipodes.pop().or(pt);
         }
         let Some(DistanceToCoord {
@@ -402,127 +640,81 @@ impl BoardGenerator for Board {
         Ok(())
     }
 
-    fn generate_towns(&mut self, seed: u32, town_density: f64, town_jitter: f64) -> Result<(), ()> {
+    fn generate_towns(
+        &mut self,
+        seed: u32,
+        main_road: &Vec<Coordinate>,
+        maximum_town_density: f64,
+        maximum_town_distance: f64,
+    ) -> Result<(), ()> {
         let docks = &self.docks;
-        let Ok(Square::Dock(player_zero)) = self.get(docks[0]) else {
+        let Some(Ok(Square::Dock(player_zero))) = docks.get(0).map(|d| self.get(*d)) else {
             return Err(());
         };
-        let Ok(Square::Dock(player_one)) = self.get(docks[1]) else {
+        let Some(Ok(Square::Dock(player_one))) = docks.get(1).map(|d| self.get(*d)) else {
             return Err(());
         };
 
-        let max_defense_imbalance_ratio = 0.4;
-        let candidates = self
-            .squares
-            .iter()
-            .enumerate()
-            .flat_map(|(y, row)| {
-                row.iter().enumerate().flat_map(move |(x, sq)| {
-                    if matches!(sq, Square::Land) {
-                        Some(Coordinate { x, y })
+        let mut town_seed = Rand32::new(seed as u64);
+
+        let town_distance = ((main_road.len() as f64) * maximum_town_distance) as usize;
+
+        let player_zero_dists = self.flood_fill(&docks[0]);
+        let player_one_dists = self.flood_fill(&docks[1]);
+
+        let mut candidates = |dists: BoardDistances| {
+            let mut candies: Vec<_> = dists
+                .iter_direct()
+                .filter_map(|(coord, distance)| {
+                    let is_land = matches!(self.get(coord), Ok(Square::Land));
+                    let is_near_dock = distance <= town_distance;
+                    let is_on_critical_path = main_road.contains(&coord);
+
+                    if is_land && is_near_dock && !is_on_critical_path {
+                        Some(coord)
                     } else {
                         None
                     }
                 })
-            })
-            .filter_map(|coord| {
-                let distance_zero = coord.distance_to(&docks[0]);
-                let distance_one = coord.distance_to(&docks[1]);
+                .collect();
+            candies.sort_by_cached_key(|_| town_seed.rand_u32());
+            candies
+        };
 
-                if (distance_zero as f32 / distance_one as f32) < max_defense_imbalance_ratio {
-                    Some((player_zero, coord))
-                } else if (distance_one as f32 / distance_zero as f32) < max_defense_imbalance_ratio
-                {
-                    Some((player_one, coord))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+        let player_zero_candidates = candidates(player_zero_dists);
+        let player_one_candidates = candidates(player_one_dists);
 
-        let mut town_seed = Rand32::new(seed as u64);
-        let simplex = Simplex::new(town_seed.rand_u32());
+        let mut town_pairs = player_zero_candidates
+            .into_iter()
+            .zip(player_one_candidates.into_iter());
+        if town_pairs.len() == 0 {
+            return Err(());
+        }
+        let maximum_town_goal = ((town_pairs.len() as f64 * maximum_town_density) as u32).max(1);
+        let town_goal = town_seed.rand_range(0..maximum_town_goal) + 1;
 
-        for (player, coord) in candidates {
-            let Coordinate { x, y } = coord;
-            let rel_i = x as f64 / (self.width() - 1) as f64; // normalized coordinates
-            let rel_j = y as f64 / (self.height() - 1) as f64;
-            let centered_x = rel_i - 0.5; // centering the coordinates
-            let centered_y = rel_j - 0.5;
-            let distance_to_center = (centered_x * centered_x + centered_y * centered_y).sqrt();
+        for _ in 0..town_goal {
+            let Some((town_zero, town_one)) = town_pairs.next() else {
+                break;
+            };
 
-            // Simple inverse radial gradient
-            let gradient = distance_to_center * 2.0;
-
-            // Get Simplex noise value
-            let noise_value = (simplex.get([80.0 * rel_i, 80.0 * rel_j, 0.0]) + 1.0) / 2.0;
-
-            // Combine noise and gradient
-            let value = (noise_value * town_jitter) + (noise_value * gradient);
-
-            if value > (1.0 - town_density) {
-                self.set_square(
-                    coord,
-                    crate::board::Square::Town {
-                        player,
-                        defeated: false,
-                    },
-                )
-                .expect("Board position should be settable");
-            }
+            _ = self.set_square(
+                town_zero,
+                Square::Town {
+                    player: player_zero,
+                    defeated: false,
+                },
+            );
+            _ = self.set_square(
+                town_one,
+                Square::Town {
+                    player: player_one,
+                    defeated: false,
+                },
+            );
         }
 
-        'recheck_towns: loop {
-            self.cache_special_squares();
-
-            let dock_zero_dists = self.flood_fill(&self.docks[0]);
-            let dock_one_dists = self.flood_fill(&self.docks[1]);
-
-            let positions = self.towns.iter().flat_map(|town| {
-                let Ok(Square::Town { player, .. }) = self.get(*town) else {
-                    panic!("Town position is invalid");
-                };
-                town.neighbors_4()
-                    .into_iter()
-                    .filter_map(|coord| {
-                        if matches!(self.get(coord), Ok(Square::Land)) {
-                            Some((town, coord, player))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            });
-
-            for (town, attackable_land, defending_player) in positions {
-                let (attacker_distances, defender_distances) = match defending_player {
-                    0 => (&dock_one_dists, &dock_zero_dists),
-                    1 => (&dock_zero_dists, &dock_one_dists),
-                    _ => unimplemented!(),
-                };
-
-                let Some(attack_distance) =
-                    attacker_distances.attackable_distance(&attackable_land)
-                else {
-                    continue;
-                };
-                let Some(defense_distance) =
-                    defender_distances.attackable_distance(&attackable_land)
-                else {
-                    self.set_square(*town, Square::Land).unwrap();
-                    continue 'recheck_towns;
-                };
-
-                let ratio = defense_distance as f32 / attack_distance as f32;
-                if ratio > max_defense_imbalance_ratio {
-                    self.set_square(*town, Square::Land).unwrap();
-                    continue 'recheck_towns;
-                }
-            }
-
-            break 'recheck_towns;
-        }
-
+        self.cache_special_squares();
         let check_player_has_town = |p: usize| {
             self.towns.iter().any(
                 |coord| matches!(self.get(*coord), Ok(Square::Town { player, .. }) if player == p),
@@ -535,39 +727,17 @@ impl BoardGenerator for Board {
             Err(())
         }
     }
+}
 
-    fn ensure_paths(&mut self) -> Result<(), ()> {
-        let dock_zero_dists = self.flood_fill(&self.docks[0]);
+pub fn get_game_verification(game: &Game) -> String {
+    let mut digest = chksum_hash_sha2::sha2_256::default();
 
-        if dock_zero_dists
-            .attackable_distance(&self.docks[1])
-            .is_none()
-        {
-            return Err(());
-        }
-
-        Ok(())
+    digest.update(game.board.to_string());
+    for player in &game.players {
+        digest.update(player.hand.0.iter().collect::<String>());
     }
-}
 
-#[derive(Hash)]
-struct BoardVerification {
-    board: String,
-    hands: Vec<String>,
-}
-
-pub fn get_game_verification(game: &Game) -> u64 {
-    let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-    let verification = BoardVerification {
-        board: game.board.to_string(),
-        hands: game
-            .players
-            .iter()
-            .map(|p| p.hand.0.iter().collect::<String>())
-            .collect(),
-    };
-    verification.hash(&mut hasher);
-    hasher.digest()
+    digest.digest().to_hex_lowercase()
 }
 
 #[cfg(test)]
@@ -578,10 +748,12 @@ mod tests {
     fn reroll_test() {
         let mut seed = BoardSeed::new(12345);
         let bare_seed_1 = seed.seed;
-        let board_one = generate_board(seed.clone());
+        let board_one = generate_board(seed.clone())
+            .expect("Board can be resolved")
+            .board;
         seed.external_reroll();
         let bare_seed_2 = seed.seed;
-        let board_two = generate_board(seed);
+        let board_two = generate_board(seed).expect("Board can be resolved").board;
 
         insta::assert_snapshot!(format!(
             "Board 1 from {bare_seed_1}:\n{board_one}\n\nrerolled to {bare_seed_2}:\n{board_two}"

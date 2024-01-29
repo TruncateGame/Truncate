@@ -18,7 +18,8 @@ pub enum WinCondition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Visibility {
     Standard,
-    FogOfWar,
+    TileFog,
+    LandFog,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

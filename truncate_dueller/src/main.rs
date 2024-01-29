@@ -17,16 +17,6 @@ use crate::dicts::{ensure_dicts, RESTRICTED_DICT, TOTAL_DICT};
 mod dicts;
 mod storage;
 
-fn get_today() -> u32 {
-    let current_time = instant::SystemTime::now()
-        .duration_since(instant::SystemTime::UNIX_EPOCH)
-        .expect("Please don't play Truncate earlier than 1970");
-
-    let seconds_offset = chrono::Local::now().offset().fix().local_minus_utc();
-    let local_seconds = current_time.as_secs() as i32 + seconds_offset;
-    (local_seconds / (60 * 60 * 24)) as u32
-}
-
 fn best_move(game: &Game, weights: &BoardWeights, dicts: &Dicts) -> PlayerMessage {
     ensure_dicts();
 
@@ -134,7 +124,9 @@ fn evaluate_single_seed(seed: BoardSeed, log: bool) -> Option<SeedNote> {
 }
 
 fn get_game_for_seed(seed: BoardSeed) -> Game {
-    let mut board = generate_board(seed.clone());
+    let mut board = generate_board(seed.clone())
+        .expect("Generation should be possible from this seed")
+        .board;
     board.cache_special_squares();
 
     let mut game = Game::new(9, 9, Some(seed.seed as u64));
@@ -152,6 +144,8 @@ fn evaluate_seed(mut seed: BoardSeed, log: bool) -> (u32, SeedNote) {
     let mut rerolls = 0;
     let mut seed_result = None;
     let core_seed = seed.seed;
+
+    println!("-----> Starting on seed {core_seed}");
 
     while seed_result.is_none() {
         seed_result = evaluate_single_seed(seed.clone(), log);
@@ -203,7 +197,7 @@ fn main() {
         return;
     };
 
-    let mut starting_day = get_today();
+    let mut starting_day = 0;
     while current_notes.notes.contains_key(&starting_day) {
         starting_day += 1;
     }
