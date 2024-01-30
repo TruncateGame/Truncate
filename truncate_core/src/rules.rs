@@ -20,6 +20,7 @@ pub enum Visibility {
     Standard,
     TileFog,
     LandFog,
+    OnlyHouseFog,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,15 +109,18 @@ impl Default for GameRules {
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
             },
-            visibility: Visibility::Standard,
-            truncation: Truncation::Root,
-            timing: Timing::None,
+            visibility: Visibility::OnlyHouseFog,
+            truncation: Truncation::None,
+            timing: Timing::PerPlayer {
+                time_allowance: 60 * 20,
+                overtime_rule: OvertimeRule::Elimination,
+            },
             hand_size: 7,
             tile_distribution: TileDistribution::Standard,
             tile_bag_behaviour: TileBagBehaviour::Standard,
             battle_rules: BattleRules { length_delta: 2 },
             swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
-            battle_delay: 2,
+            battle_delay: 1,
         }
     }
 }

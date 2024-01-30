@@ -947,6 +947,7 @@ impl Board {
 
     pub fn fog_of_war(&self, player_index: usize, visibility: &rules::Visibility) -> Self {
         let mut visible_coords: HashSet<Coordinate> = HashSet::new();
+        let mut all_towns: HashSet<Coordinate> = HashSet::new();
 
         let rows = self.height();
         let cols = self.width();
@@ -955,6 +956,9 @@ impl Board {
         for (coord, square) in
             squares.map(|(x, y)| (Coordinate { x, y }, self.get(Coordinate { x, y })))
         {
+            if matches!(square, Ok(Square::Town { .. })) {
+                all_towns.insert(coord);
+            }
             match square {
                 Ok(Square::Occupied(player, _))
                 | Ok(Square::Dock(player))
@@ -1018,6 +1022,17 @@ impl Board {
                     }
                 }
             }
+            rules::Visibility::OnlyHouseFog => {
+                for (x, y) in squares {
+                    let c = Coordinate { x, y };
+                    if all_towns.contains(&c) {
+                        continue;
+                    }
+                    if !visible_coords.contains(&c) {
+                        _ = new_board.set_square(c, Square::Fog);
+                    }
+                }
+            }
         }
 
         new_board
@@ -1037,7 +1052,9 @@ impl Board {
                 // In these modes, the player knows the full coordinate space, so no remapping is required.
                 return player_coordinate;
             }
-            rules::Visibility::LandFog => self.fog_of_war(player_index, visibility),
+            rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
+                self.fog_of_war(player_index, visibility)
+            }
         };
 
         let redundant_player = foggy_board.redundant_edges();
@@ -1062,7 +1079,9 @@ impl Board {
                 // In these modes, the player knows the full coordinate space, so no remapping is required.
                 return Some(game_coordinate);
             }
-            rules::Visibility::LandFog => self.fog_of_war(player_index, visibility),
+            rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
+                self.fog_of_war(player_index, visibility)
+            }
         };
 
         let redundant_player = foggy_board.redundant_edges();
@@ -1097,7 +1116,9 @@ impl Board {
 
         match visibility {
             rules::Visibility::Standard => self.clone(),
-            rules::Visibility::TileFog | rules::Visibility::LandFog => {
+            rules::Visibility::TileFog
+            | rules::Visibility::LandFog
+            | rules::Visibility::OnlyHouseFog => {
                 let mut foggy = self.fog_of_war(player_index, visibility);
                 // Remove extraneous water, so the client doesn't know the dimensions of the play area
                 foggy.trim();

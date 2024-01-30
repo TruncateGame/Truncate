@@ -1,9 +1,11 @@
+use std::default;
+
 use eframe::egui::{self, DragValue, Layout, RichText, Sense};
 use epaint::{emath::Align, vec2, Color32, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     game::Game,
-    generation::{self, generate_board, BoardGenerationResult, BoardParams, BoardSeed},
+    generation::{self, generate_board, BoardGenerationResult, BoardParams, BoardSeed, BoardType},
 };
 
 use crate::utils::{Lighten, Theme};
@@ -17,11 +19,13 @@ pub struct GeneratorState {
     width: usize,
     height: usize,
     dispersion: f64,
-    isolation: f64,
     maximum_town_density: f64,
     maximum_town_distance: f64,
     island_influence: f64,
     minimum_choke: usize,
+    board_type: BoardType,
+    ideal_dock_radius: f64,
+    ideal_dock_separation: f64,
     generation_result: Option<Result<BoardGenerationResult, BoardGenerationResult>>,
 }
 
@@ -47,7 +51,7 @@ impl GeneratorState {
         active_game.depot.ui_state.sidebar_hidden = true;
         active_game.depot.interactions.view_only = true;
 
-        let (_, default) = BoardParams::latest();
+        let default = BoardParams::wild();
 
         Self {
             active_game,
@@ -56,11 +60,13 @@ impl GeneratorState {
             width: default.land_dimensions[0],
             height: default.land_dimensions[1],
             dispersion: default.dispersion[0],
-            isolation: default.isolation,
             maximum_town_density: default.maximum_town_density,
             maximum_town_distance: default.maximum_town_distance,
             island_influence: default.island_influence,
             minimum_choke: default.minimum_choke,
+            board_type: default.board_type,
+            ideal_dock_radius: default.ideal_dock_radius,
+            ideal_dock_separation: default.ideal_dock_separation,
             generation_result: None,
         }
     }
@@ -125,17 +131,6 @@ impl GeneratorState {
                 }
                 ui.end_row();
 
-                ui.label(RichText::new("Isolation").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.isolation)
-                        .clamp_range(1.0..=10.0)
-                        .speed(0.01),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
-
                 ui.label(RichText::new("Town Density").color(Color32::WHITE));
                 let r = ui.add(
                     DragValue::new(&mut self.maximum_town_density)
@@ -179,6 +174,38 @@ impl GeneratorState {
                     changed = true;
                 }
                 ui.end_row();
+
+                ui.label(RichText::new("Board Type").color(Color32::WHITE));
+                if ui.button(format!("{:?}", self.board_type)).clicked() {
+                    self.board_type = match self.board_type {
+                        BoardType::Island => BoardType::Continental,
+                        BoardType::Continental => BoardType::Island,
+                    };
+                    changed = true;
+                }
+                ui.end_row();
+
+                ui.label(RichText::new("Ideal Dock Radius").color(Color32::WHITE));
+                let r = ui.add(
+                    DragValue::new(&mut self.ideal_dock_radius)
+                        .clamp_range(0.0..=1.0)
+                        .speed(0.005),
+                );
+                if r.changed() {
+                    changed = true;
+                }
+                ui.end_row();
+
+                ui.label(RichText::new("Ideal Dock Separation").color(Color32::WHITE));
+                let r = ui.add(
+                    DragValue::new(&mut self.ideal_dock_separation)
+                        .clamp_range(0.0..=1.0)
+                        .speed(0.005),
+                );
+                if r.changed() {
+                    changed = true;
+                }
+                ui.end_row();
             });
 
         if self.infinite {
@@ -200,11 +227,13 @@ impl GeneratorState {
                 params: BoardParams {
                     land_dimensions: [self.width, self.height],
                     dispersion: [self.dispersion, self.dispersion],
-                    isolation: self.isolation,
                     maximum_town_density: self.maximum_town_density,
                     maximum_town_distance: self.maximum_town_distance,
                     island_influence: self.island_influence,
                     minimum_choke: self.minimum_choke,
+                    board_type: self.board_type,
+                    ideal_dock_radius: self.ideal_dock_radius,
+                    ideal_dock_separation: self.ideal_dock_separation,
                 },
             }));
         }

@@ -153,6 +153,7 @@ impl MappedBoard {
             paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
             paint(tex.structures.id(), Color32::WHITE);
             paint(tex.pieces.id(), Color32::WHITE);
+            paint(tex.fog.id(), Color32::BLACK);
         }
     }
 

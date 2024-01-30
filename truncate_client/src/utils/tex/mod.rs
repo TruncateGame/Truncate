@@ -587,7 +587,7 @@ impl Tex {
         }
 
         if matches!(layer_type, FGTexType::Fog) {
-            return TexLayers::default().with_fog([tiles::DEBUG; 4]);
+            return TexLayers::default().with_fog([tiles::BASE_WATER; 4]);
         }
 
         let grasses = match wind_at_coord {

@@ -4,6 +4,7 @@ use std::{net::SocketAddr, sync::Arc};
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
+    generation::{BoardParams, BoardType},
     messages::{GameMessage, GameStateMessage, LobbyPlayerMessage},
     moves::Move,
     reporting::Change,
@@ -157,6 +158,24 @@ impl GameManager {
 
     pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
         // TODO: Check correct # of players
+
+        let rand_board =
+            truncate_core::generation::generate_board(truncate_core::generation::BoardSeed {
+                generation: 9999,
+                seed: (instant::SystemTime::now()
+                    .duration_since(instant::SystemTime::UNIX_EPOCH)
+                    .expect("Please don't play Truncate earlier than 1970")
+                    .as_micros()
+                    % 287520520) as u32,
+                day: None,
+                params: BoardParams::wild(),
+                current_iteration: 0,
+                width_resize_state: None,
+                height_resize_state: None,
+                water_level: 0.5,
+                max_attempts: 10000,
+            });
+        self.core_game.board = rand_board.expect("Board can be resolved").board;
 
         // Trim off all edges and add one back for our land edges to show in the gui
         self.core_game.board.trim();
