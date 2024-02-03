@@ -7,5 +7,6 @@ pub mod mapper;
 pub mod tex;
 pub mod text;
 pub mod theming;
+pub mod timing;
 
 pub use theming::{Darken, Diaphanize, Lighten, Theme};

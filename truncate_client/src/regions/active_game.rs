@@ -25,6 +25,7 @@ use crate::{
         mapper::{MappedBoard, MappedTiles},
         tex::{render_tex_quad, render_tex_quads, tiles},
         text::TextHelper,
+        timing::get_qs_tick,
         Lighten, Theme,
     },
 };
@@ -812,7 +813,7 @@ impl ActiveGame {
         game_ref: Option<&truncate_core::game::Game>,
     ) -> Option<PlayerMessage> {
         self.depot.timing.current_time = current_time;
-        let cur_tick = current_time.as_secs() * 4 + current_time.subsec_millis() as u64 / 250;
+        let cur_tick = get_qs_tick(current_time);
         if cur_tick > self.depot.aesthetics.qs_tick {
             self.depot.aesthetics.qs_tick = cur_tick;
         }
