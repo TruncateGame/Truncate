@@ -15,7 +15,7 @@ use truncate_core::{
 };
 use xxhash_rust::xxh3;
 
-pub static TESTING_DICT: &str = include_str!("../../word_freqs/final_wordlist.txt");
+pub static TESTING_DICT: &str = include_str!("../../dict_builder/final_wordlist.txt");
 
 /// Build an (expensive) word dictionary using the real game data.
 fn dict() -> WordDict {

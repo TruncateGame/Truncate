@@ -589,7 +589,7 @@ mod tests {
 
     use crate::{bag::TileBag, board::Board, judge::WordData, player::Player};
 
-    pub static TESTING_DICT: &str = include_str!("../../../word_freqs/final_wordlist.txt");
+    pub static TESTING_DICT: &str = include_str!("../../../dict_builder/final_wordlist.txt");
 
     /// Build an (expensive) word dictionary using the real game data.
     fn dict() -> WordDict {
@@ -955,8 +955,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1573 possible leaves
-                  - 481 after pruning
+                  - 1608 possible leaves
+                  - 425 after pruning
                   - Move: Place E at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
@@ -996,8 +996,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1618 possible leaves
-                  - 529 after pruning
+                  - 1615 possible leaves
+                  - 410 after pruning
                   - Move: Place E at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
@@ -1038,7 +1038,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1608 possible leaves
-                  - 375 after pruning
+                  - 368 after pruning
                   - Move: Place E at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
@@ -1078,17 +1078,17 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1623 possible leaves
-                  - 454 after pruning
-                  - Move: Place T at (3, 6)
+                  - 1611 possible leaves
+                  - 420 after pruning
+                  - Move: Place T at (1, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 D0 A0 __ __ __
                 __ __ __ __ __
                 T1 E1 E1 __ __
-                __ __ A1 __ __
-                R1 I1 T1 T1 __
+                __ T1 A1 __ __
+                R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -1119,17 +1119,17 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1640 possible leaves
-                  - 483 after pruning
-                  - Move: Place S at (2, 3)
+                  - 1670 possible leaves
+                  - 447 after pruning
+                  - Move: Place E at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
+                __ T0 O0 __ __
+                D0 A0 Q0 __ __
                 __ __ __ __ __
-                __ __ __ __ __
-                __ __ S1 __ __
                 Q1 E1 E1 __ __
                 __ __ A1 __ __
-                R1 I1 T1 __ __
+                R1 I1 T1 E1 __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -1163,9 +1163,9 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 13605 possible leaves
-                  - 2767 after pruning
-                  - Move: Place A at (3, 9)
+                  - 12880 possible leaves
+                  - 568 after pruning
+                  - Move: Place A at (6, 9)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -1176,7 +1176,7 @@ mod tests {
                 __ __ __ B0 __ __ __
                 __ __ I1 __ __ __ __
                 __ __ D1 A1 T1 E1 S1
-                __ __ E1 A1 __ __ __
+                __ __ E1 __ __ __ A1
                 ~~ ~~ |1 ~~ ~~ ~~ ~~
                 "###);
             });
@@ -1211,8 +1211,8 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 6130 possible leaves
-                  - 873 after pruning
-                  - Move: Place U at (4, 7)
+                  - 730 after pruning
+                  - Move: Place U at (6, 7)
 
                 ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
                 ~~ #0 #0 #0 #0 E0 #0 #0 #0 #0 ~~
@@ -1221,7 +1221,7 @@ mod tests {
                 ~~ __ __ __ __ __ __ __ __ __ ~~
                 ~~ __ __ __ __ __ __ __ __ __ ~~
                 ~~ __ __ __ __ __ __ __ __ __ ~~
-                ~~ __ __ __ U1 N1 __ __ __ __ ~~
+                ~~ __ __ __ __ N1 U1 __ __ __ ~~
                 ~~ __ __ __ __ E1 __ __ __ __ ~~
                 ~~ #1 #1 #1 #1 E1 #1 #1 #1 #1 ~~
                 ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~

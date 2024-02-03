@@ -16,3 +16,4 @@ unsummed_wordlist.txt
 unmarked_wordlist.txt
 objectionable.json
 .env
+dict_builder/support_data
