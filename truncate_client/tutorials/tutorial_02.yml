@@ -1,0 +1,74 @@
+name: "Tutorial 01: Sacrifices"
+board: |-
+  ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+  ~~ ~~ #0 E0 E0 ~~ ~~ ~~ ~~ ~~ ~~
+  ~~ ~~ J0 E0 T0 ~~ ~~ __ __ ~~ ~~
+  ~~ A0 H0 __ A0 ~~ F1 __ __ ~~ ~~
+  ~~ G0 E0 A0 R0 ~~ L1 __ __ __ ~~
+  ~~ ~~ ~~ __ __ __ A1 ~~ __ ~~ ~~
+  ~~ ~~ ~~ I1 F1 __ R1 ~~ __ ~~ ~~
+  ~~ ~~ ~~ __ I1 R1 E1 ~~ ~~ ~~ ~~
+  ~~ |1 X1 Q1 G1 __ __ __ __ ~~ ~~
+  ~~ __ #1 #1 ~~ __ __ __ __ ~~ ~~
+  ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+player_hand: TSQLMAE
+computer_hand: P
+
+dict:
+  IF: TODO
+  PI: TODO
+  GEAR: TODO
+  IRATE: TODO
+
+steps:
+
+  - message: |-
+      Congratulations on mastering the basics of Truncate!
+      
+      The advanced tutorial will cover more complex situations and strategies.
+
+  - message: |-
+      You'll notice that the board has an uneven shape, this is typical of a Truncate puzzle.
+
+      We're still playing as the blue player, who started at the bottom of the board.
+
+  - message: |-
+      On small irregular boards it's easy to run out of space.
+
+      Anywhere we play we'll either lose letters or make a vulnerable invalid word.
+
+  - description: |-
+      To play for time and minimise the damage, we can sacrifice our A.
+
+      At the same time we can get rid of a useless Q from our hand.
+
+    you: "Q -> 3,5"
+    gets: "E"
+
+  - description: |-
+      Unfortunately we didn't get a new letter that can extend RATE.
+
+      Let's see if our opponent takes advantage of the space we gave them.
+    computer: "P -> 3,5"
+    gets: "I"
+
+  - description: |-
+      Luckily, we can just play GEAR in the same spot it was in before.
+    you: "A -> 3,4"
+    gets: "I"
+
+  - description: |-
+      We just got an I, which means we can play IRATE.
+
+      Let's see what the opponent does.
+    computer: "I -> 3,6"
+    gets: "I"
+
+  - description: |-
+      The computer wasn't able to defend fig.
+
+      So now we can play IRATE and beat them back.
+
+    you: "Q -> 3,5"
+    gets: "E"

@@ -1,0 +1,129 @@
+name: "Tutorial 01: Multiple Attackers"
+board: |-
+  ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+  ~~ ~~ ~~ ~~ I0 O0 N0 ~~ ~~ H0 A0 ~~
+  ~~ ~~ ~~ Q1 __ R0 I0 P0 __ Y0 #0 ~~
+  ~~ __ O1 U1 R1 ~~ ~~ A0 T0 F0 L0 |0
+  ~~ __ T1 I1 E1 R1 ~~ P0 ~~ __ I0 ~~
+  ~~ __ __ T1 __ E1 R1 ~~ ~~ __ A0 ~~
+  ~~ __ __ __ __ __ A1 F1 A1 R1 __ ~~
+  ~~ __ __ __ __ __ L1 __ __ __ __ ~~
+  ~~ __ __ __ #1 __ Z1 __ __ __ __ ~~
+  ~~ __ __ __ ~~ ~~ |1 __ __ __ __ ~~
+  ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+player_hand: GFRAFGG
+computer_hand: I
+
+dict:
+  GRIP: TODO
+
+steps:
+
+  - message: |-
+      Here's another jammed up position where we'll have to sacrifice.
+      
+      Note that even though our dock and town aren't on our back line we're still blue and playing in the same direction as usual.
+
+  - message: |-
+      Again, we have to sacrifice something, and we have two options.
+
+      Either we weaken the space around AIL near our town, or we sacrifice everything along the back line.
+
+  - description: |-
+      In this case, we should sacrifice our back line. This opponent will struggle to take the territory, and as you'll see, clearing out ION in particular will make attacks easier in the future.
+
+      Let's get rid of one of our G tiles.
+
+    you: "G -> 4,2"
+    gets: "T"
+  
+  - message: |-
+      Notice that we played GRIP which is a valid word, and it's longer than one of their words RE, so why didn't we win?
+
+      We lost because we also played IG which is an invalid word. In Truncate, all attacking words must be valid, or the attack fails.
+
+  - description: |-
+      In this case, having ION at the bottom of our board was a major disadvantage, as it weakened our potential attacks.
+
+      Let's see if our opponent can take advantage of the newly open space.
+    computer: "I -> 4,2"
+    gets: "E"
+
+  - description: |-
+      QI is a valid word (which is a useful one to remember), but it's hard to extend.
+
+      Let's play RAP to take up some of that space.
+
+    you: "R -> 7,2"
+    gets: "A"
+
+  # player_hand: TFAAFGG
+
+  # ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+  # ~~ ~~ ~~ ~~ __ __ __ ~~ ~~ H0 A0 ~~
+  # ~~ ~~ ~~ Q1 I1 __ __ R0 __ Y0 #0 ~~
+  # ~~ __ O1 U1 R1 ~~ ~~ A0 T0 F0 L0 |0
+  # ~~ __ T1 I1 E1 R1 ~~ P0 ~~ __ I0 ~~
+  # ~~ __ __ T1 __ E1 R1 ~~ ~~ __ A0 ~~
+  # ~~ __ __ __ __ __ A1 F1 A1 R1 __ ~~
+  # ~~ __ __ __ __ __ L1 __ __ __ __ ~~
+  # ~~ __ __ __ #1 __ Z1 __ __ __ __ ~~
+  # ~~ __ __ __ ~~ ~~ |1 __ __ __ __ ~~
+  # ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+  - description: |-
+      Let's see if they try to extend QI.
+    computer: "D" -> 4,1"
+    gets: "T"
+
+  - description: |-
+      Looks like they can't extend QI, which gives us plenty of space to play with.
+
+      Notice, we now have the letters in our hand to play ASTRAY.
+    you: "A" -> 8,2"
+    gets: "H"
+
+  - description: |-
+      They'll probably try to build a 3 letter word to stop TRAY.
+    computer: "I" -> 5,1"
+    gets: "R"
+
+  - description: |-
+      But we're going to get there faster.
+    you: "T" -> 6,2"
+    gets: "I"
+
+  - description: |-
+      Now they can't possibly defend from stray.
+    computer: "R" -> 5,1"
+    gets: "A"
+
+  - description: |-
+      They've lengthened DIRE to DIRER so that it won't be entirely destroyed.
+
+      Let's attack with STRAY
+    you: "S" -> 5,2"
+    gets: "I"
+
+  # ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+  # ~~ ~~ ~~ ~~ __ __ __ ~~ ~~ H0 A0 ~~
+  # ~~ ~~ ~~ __ __ S0 T0 R0 A0 Y0 #0 ~~
+  # ~~ __ O1 U1 R1 ~~ ~~ A0 T0 F0 L0 |0
+  # ~~ __ T1 I1 E1 R1 ~~ P0 ~~ __ I0 ~~
+  # ~~ __ __ T1 R1 E1 R1 ~~ ~~ __ A0 ~~
+  # ~~ __ __ __ __ __ A1 F1 A1 R1 __ ~~
+  # ~~ __ __ __ __ __ L1 __ __ __ __ ~~
+  # ~~ __ __ __ #1 __ Z1 __ __ __ __ ~~
+  # ~~ __ __ __ ~~ ~~ |1 __ __ __ __ ~~
+  # ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+  - description: |-
+      There's very little the computer can do on this side of the board this turn, as everything will be lost regardless.
+    computer: "R" -> 8,8"
+    gets: "A"
+
+  - description: |-
+      Now we can finally play ASTRAY, which was impossible before we cleared out our board.
+    you: "A" -> 4,2"
+    gets: "Y"
