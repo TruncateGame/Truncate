@@ -105,8 +105,10 @@ impl<'a> HandUI<'a> {
             self.hand.len(),
             1,
             0.5..1.3,
-            (2, 0),
+            (0, 0),
         );
+
+        depot.ui_state.hand_height_last_frame = theme.grid_size;
 
         let old_theme = aesthetics.theme.clone();
         aesthetics.theme = theme;

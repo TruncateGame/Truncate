@@ -8,7 +8,7 @@ const fn t(tile: usize) -> Tex {
     Tex { tile, tint: None }
 }
 
-pub const MAX_TILE: usize = 213;
+pub const MAX_TILE: usize = 221;
 pub const NONE: Tex = t(0);
 pub const DEBUG: Tex = t(1);
 pub const BASE_GRASS: Tex = t(2);
@@ -202,26 +202,34 @@ pub const RESIGN_BUTTON_NW: Tex = t(189);
 pub const RESIGN_BUTTON_NE: Tex = t(190);
 pub const RESIGN_BUTTON_SW: Tex = t(191);
 pub const RESIGN_BUTTON_SE: Tex = t(192);
-pub const COLLAPSE_BUTTON_NW: Tex = t(193);
-pub const COLLAPSE_BUTTON_NE: Tex = t(194);
-pub const COLLAPSE_BUTTON_SW: Tex = t(195);
-pub const COLLAPSE_BUTTON_SE: Tex = t(196);
-pub const TOWN_BUTTON_NW: Tex = t(197);
-pub const TOWN_BUTTON_NE: Tex = t(198);
-pub const TOWN_BUTTON_SW: Tex = t(199);
-pub const TOWN_BUTTON_SE: Tex = t(200);
-pub const TOWN_BUTTON_ROOF_NW: Tex = t(201);
-pub const TOWN_BUTTON_ROOF_NE: Tex = t(202);
-pub const DOCK_BUTTON_NW: Tex = t(203);
-pub const DOCK_BUTTON_NE: Tex = t(204);
-pub const DOCK_BUTTON_SW: Tex = t(205);
-pub const DOCK_BUTTON_SE: Tex = t(206);
-pub const DOCK_BUTTON_SAIL_NW: Tex = t(207);
-pub const DOCK_BUTTON_SAIL_NE: Tex = t(208);
-pub const TERRAIN_BUTTON_NW: Tex = t(209);
-pub const TERRAIN_BUTTON_NE: Tex = t(210);
-pub const TERRAIN_BUTTON_SW: Tex = t(211);
-pub const TERRAIN_BUTTON_SE: Tex = t(212);
+pub const TRI_EAST_BUTTON_NW: Tex = t(193);
+pub const TRI_EAST_BUTTON_NE: Tex = t(194);
+pub const TRI_EAST_BUTTON_SW: Tex = t(195);
+pub const TRI_EAST_BUTTON_SE: Tex = t(196);
+pub const TRI_NORTH_BUTTON_NW: Tex = t(197);
+pub const TRI_NORTH_BUTTON_NE: Tex = t(198);
+pub const TRI_NORTH_BUTTON_SW: Tex = t(199);
+pub const TRI_NORTH_BUTTON_SE: Tex = t(200);
+pub const TRI_SOUTH_BUTTON_NW: Tex = t(201);
+pub const TRI_SOUTH_BUTTON_NE: Tex = t(202);
+pub const TRI_SOUTH_BUTTON_SW: Tex = t(203);
+pub const TRI_SOUTH_BUTTON_SE: Tex = t(204);
+pub const TOWN_BUTTON_NW: Tex = t(205);
+pub const TOWN_BUTTON_NE: Tex = t(206);
+pub const TOWN_BUTTON_SW: Tex = t(207);
+pub const TOWN_BUTTON_SE: Tex = t(208);
+pub const TOWN_BUTTON_ROOF_NW: Tex = t(209);
+pub const TOWN_BUTTON_ROOF_NE: Tex = t(210);
+pub const DOCK_BUTTON_NW: Tex = t(211);
+pub const DOCK_BUTTON_NE: Tex = t(212);
+pub const DOCK_BUTTON_SW: Tex = t(213);
+pub const DOCK_BUTTON_SE: Tex = t(214);
+pub const DOCK_BUTTON_SAIL_NW: Tex = t(215);
+pub const DOCK_BUTTON_SAIL_NE: Tex = t(216);
+pub const TERRAIN_BUTTON_NW: Tex = t(217);
+pub const TERRAIN_BUTTON_NE: Tex = t(218);
+pub const TERRAIN_BUTTON_SW: Tex = t(219);
+pub const TERRAIN_BUTTON_SE: Tex = t(220);
 
 pub mod quad {
     use super::*;
@@ -271,7 +279,9 @@ pub mod quad {
     pub const BUTTON_NOTIFICATION: TexQuad = [NONE, NONE, BUTTON_NOTIFICATION_SE, NONE];
     pub const BARE_CLOSE_BUTTON: TexQuad = [BARE_CLOSE_BUTTON_NW, BARE_CLOSE_BUTTON_NE, BARE_CLOSE_BUTTON_SE, BARE_CLOSE_BUTTON_SW];
     pub const RESIGN_BUTTON: TexQuad = [RESIGN_BUTTON_NW, RESIGN_BUTTON_NE, RESIGN_BUTTON_SE, RESIGN_BUTTON_SW];
-    pub const COLLAPSE_BUTTON: TexQuad = [COLLAPSE_BUTTON_NW, COLLAPSE_BUTTON_NE, COLLAPSE_BUTTON_SE, COLLAPSE_BUTTON_SW];
+    pub const TRI_EAST_BUTTON: TexQuad = [TRI_EAST_BUTTON_NW, TRI_EAST_BUTTON_NE, TRI_EAST_BUTTON_SE, TRI_EAST_BUTTON_SW];
+    pub const TRI_NORTH_BUTTON: TexQuad = [TRI_NORTH_BUTTON_NW, TRI_NORTH_BUTTON_NE, TRI_NORTH_BUTTON_SE, TRI_NORTH_BUTTON_SW];
+    pub const TRI_SOUTH_BUTTON: TexQuad = [TRI_SOUTH_BUTTON_NW, TRI_SOUTH_BUTTON_NE, TRI_SOUTH_BUTTON_SE, TRI_SOUTH_BUTTON_SW];
     pub const TOWN_BUTTON: TexQuad = [TOWN_BUTTON_NW, TOWN_BUTTON_NE, TOWN_BUTTON_SE, TOWN_BUTTON_SW];
     pub const TOWN_BUTTON_ROOF: TexQuad = [TOWN_BUTTON_ROOF_NW, TOWN_BUTTON_ROOF_NE, NONE, NONE];
     pub const DOCK_BUTTON: TexQuad = [DOCK_BUTTON_NW, DOCK_BUTTON_NE, DOCK_BUTTON_SE, DOCK_BUTTON_SW];

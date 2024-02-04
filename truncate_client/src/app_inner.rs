@@ -175,7 +175,15 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
             GameMessage::SupplyDefinitions(definitions) => {
                 match &mut outer.game_status {
                     GameStatus::SinglePlayer(game) => {
-                        game.hydrate_meanings(definitions);
+                        game.hydrate_meanings(definitions.clone());
+                        if let Some(dict_ui) = &mut game.active_game.dictionary_ui {
+                            dict_ui.load_definitions(definitions);
+                        }
+                    }
+                    GameStatus::Active(active_game) => {
+                        if let Some(dict_ui) = &mut active_game.dictionary_ui {
+                            dict_ui.load_definitions(definitions);
+                        }
                     }
                     _ => { /* Soft unreachable */ }
                 }
