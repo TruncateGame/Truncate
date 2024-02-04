@@ -500,6 +500,8 @@ impl SinglePlayerState {
                     ))
                 }
             }
+        } else if let Some((_, PlayerMessage::RequestDefinitions(words))) = &next_msg {
+            msgs_to_server.push(PlayerMessage::RequestDefinitions(words.clone()));
         }
 
         if let Some(splash) = &mut self.splash {

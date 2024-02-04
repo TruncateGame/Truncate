@@ -13,4 +13,6 @@ pub enum TruncateServerError {
     InvalidToken,
     #[error("this daily puzzle has already been won")]
     PuzzleComplete,
+    #[error("something about this request was malformed")]
+    BadRequest,
 }

@@ -248,6 +248,7 @@ pub async fn load_stats(
 
     struct PuzzleStatsRecord {
         daily_puzzle: i32,
+        attempt_ids: Option<Vec<Uuid>>,
         move_counts: Option<Vec<i32>>,
         wins: Option<Vec<bool>>,
     }
@@ -256,6 +257,7 @@ pub async fn load_stats(
         PuzzleStatsRecord,
         "SELECT
             dpr.daily_puzzle, 
+            ARRAY_AGG(dpa.attempt_id ORDER BY dpa.attempt_number) AS attempt_ids,
             ARRAY_AGG(dpa.move_count ORDER BY dpa.attempt_number) AS move_counts,
             ARRAY_AGG(dpa.won ORDER BY dpa.attempt_number) AS wins
         FROM 
@@ -278,7 +280,9 @@ pub async fn load_stats(
             .unwrap_or_default()
             .into_iter()
             .zip(day.wins.unwrap_or_default().into_iter())
-            .map(|(moves, won)| DailyAttempt {
+            .zip(day.attempt_ids.unwrap_or_default().into_iter())
+            .map(|((moves, won), id)| DailyAttempt {
+                id: id.to_string(),
                 moves: moves.try_into().unwrap_or_default(),
                 won,
             })
@@ -293,4 +297,53 @@ pub async fn load_stats(
     Ok(DailyStats {
         days: BTreeMap::from_iter(day_iter),
     })
+}
+
+/// Returns an attempt given its ID
+pub async fn load_exact_attempt(
+    server_state: &ServerState,
+    id: Uuid,
+) -> Result<Option<DailyStateMessage>, TruncateServerError> {
+    let Some(pool) = &server_state.truncate_db else {
+        return Err(TruncateServerError::DatabaseOffline);
+    };
+
+    struct LoadedAttemptRecord {
+        attempt_number: i32,
+        sequence_of_moves: String,
+        daily_puzzle: i32,
+    }
+
+    let record = sqlx::query_as!(
+        LoadedAttemptRecord,
+        "SELECT 
+            dpa.sequence_of_moves,
+            dpa.attempt_number,
+            dpr.daily_puzzle
+        FROM
+            daily_puzzle_attempts dpa
+        JOIN 
+            daily_puzzle_results dpr ON dpr.result_id = dpa.result_id
+        WHERE
+            attempt_id = $1",
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    let Some(attempt_record) = record else {
+        return Ok(None);
+    };
+
+    let Ok(current_moves) = moves::packing::unpack_moves(&attempt_record.sequence_of_moves, 2)
+    else {
+        // If move parsing fails, move on as if there was no attempt.
+        return Ok(None);
+    };
+
+    Ok(Some(DailyStateMessage {
+        puzzle_day: attempt_record.daily_puzzle.try_into().unwrap_or_default(),
+        attempt: attempt_record.attempt_number.try_into().unwrap_or_default(),
+        current_moves,
+    }))
 }

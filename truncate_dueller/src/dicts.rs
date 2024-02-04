@@ -2,7 +2,7 @@ use std::sync::{Mutex, MutexGuard};
 
 use truncate_core::judge::{WordData, WordDict};
 
-pub static WORDNIK: &str = include_str!("../../word_freqs/final_wordlist.txt");
+pub static TRUNCATE_DICT: &str = include_str!("../../dict_builder/final_wordlist.txt");
 
 pub struct Dicts {
     pub total: WordDict,
@@ -40,7 +40,7 @@ pub fn ensure_dicts() {
     if total_dict.is_none() {
         let mut valid_words = std::collections::HashMap::new();
         let mut restricted_words = std::collections::HashMap::new();
-        let lines = WORDNIK.lines();
+        let lines = TRUNCATE_DICT.lines();
 
         for line in lines {
             let mut chunks = line.split(' ');

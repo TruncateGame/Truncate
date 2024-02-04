@@ -3,7 +3,8 @@ use epaint::{vec2, Color32};
 use instant::Duration;
 use truncate_core::{
     board::Board,
-    generation::{generate_board, BoardSeed},
+    game::{self, GAME_COLORS},
+    generation::{self, generate_board, BoardSeed},
     messages::RoomCode,
     messages::{LobbyPlayerMessage, TruncateToken},
 };
@@ -15,11 +16,12 @@ use crate::{
         active_game::{GameLocation, HeaderType},
         generator::GeneratorState,
         lobby::Lobby,
+        replayer::ReplayerState,
         single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
     utils::{
-        daily::{get_daily_puzzle, get_puzzle_day},
+        daily::{get_playable_daily_puzzle, get_puzzle_day, get_raw_daily_puzzle},
         macros::tr_log,
         text::TextHelper,
         Lighten,
@@ -41,6 +43,9 @@ pub enum GameStatus {
     PendingStart(Lobby),
     Active(ActiveGame),
     Concluded(ActiveGame, u64),
+    PendingReplay,
+    Replay(ReplayerState),
+    HardError(Vec<String>),
 }
 
 pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Duration) {
@@ -175,7 +180,15 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
             GameMessage::SupplyDefinitions(definitions) => {
                 match &mut outer.game_status {
                     GameStatus::SinglePlayer(game) => {
-                        game.hydrate_meanings(definitions);
+                        game.hydrate_meanings(definitions.clone());
+                        if let Some(dict_ui) = &mut game.active_game.dictionary_ui {
+                            dict_ui.load_definitions(definitions);
+                        }
+                    }
+                    GameStatus::Active(active_game) => {
+                        if let Some(dict_ui) = &mut active_game.dictionary_ui {
+                            dict_ui.load_definitions(definitions);
+                        }
                     }
                     _ => { /* Soft unreachable */ }
                 }
@@ -193,7 +206,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                 outer.logged_in_as = Some(player_token);
             }
             GameMessage::ResumeDailyPuzzle(puzzle_state) => {
-                let mut puzzle_game = get_daily_puzzle(
+                let mut puzzle_game = get_playable_daily_puzzle(
                     ui.ctx(),
                     puzzle_state.puzzle_day,
                     &outer.map_texture,
@@ -233,6 +246,41 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                 }
                 _ => {}
             },
+            GameMessage::LoadDailyReplay(puzzle_state) => {
+                let (seed, info) = get_raw_daily_puzzle(puzzle_state.puzzle_day);
+                let human_starts = info.as_ref().map(|(h, _)| *h).unwrap_or(true);
+
+                let mut game = game::Game::new(9, 9, Some(seed.seed as u64));
+                if human_starts {
+                    game.add_player("You".into());
+                    game.add_player("Computer".into());
+
+                    game.players[0].color = GAME_COLORS[0];
+                    game.players[1].color = GAME_COLORS[1];
+                } else {
+                    game.add_player("Computer".into());
+                    game.add_player("You".into());
+
+                    game.players[0].color = GAME_COLORS[1];
+                    game.players[1].color = GAME_COLORS[0];
+                }
+
+                let mut board = generation::generate_board(seed.clone())
+                    .expect("Common seeds should always generate a board")
+                    .board;
+                board.cache_special_squares();
+                game.board = board.clone();
+
+                let replayer = ReplayerState::new(
+                    ui.ctx(),
+                    outer.map_texture.clone(),
+                    outer.theme.clone(),
+                    game,
+                    puzzle_state.current_moves,
+                    if human_starts { 0 } else { 1 },
+                );
+                outer.game_status = GameStatus::Replay(replayer);
+            }
         }
     }
 }
@@ -299,7 +347,8 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     new_game_status = Some(GameStatus::PendingJoin("...".into()));
                 }
                 _ => {
-                    panic!("Tried to rejoin a game but no token found in localStorage");
+                    new_game_status =
+                        Some(GameStatus::HardError(vec!["Could not rejoin".to_string()]));
                 }
             }
         } else if launched_room == "TUTORIAL_01" {
@@ -367,29 +416,42 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 .map(|p| p.parse::<usize>().unwrap_or(0))
                 .unwrap_or(0);
 
-            let (Some(Ok(generation)), Some(Ok(seed))) = (generation, seed) else {
-                panic!("Bad URL provided for puzzle");
-            };
-
-            let board_seed = BoardSeed::new_with_generation(generation, seed);
-            let board = generate_board(board_seed.clone())
-                .expect("Common seeds can be reasonably expected to produce a board")
-                .board;
-            let header = HeaderType::Summary {
-                title: format!("Random Truncate Puzzle"),
-                sentinel: '•',
-                attempt: None,
-            };
-            let puzzle_game = SinglePlayerState::new(
-                ui.ctx(),
-                outer.map_texture.clone(),
-                outer.theme.clone(),
-                board,
-                Some(board_seed),
-                player == 0,
-                header,
-            );
-            new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+            if let (Some(Ok(generation)), Some(Ok(seed))) = (generation, seed) {
+                let board_seed = BoardSeed::new_with_generation(generation, seed);
+                let board = generate_board(board_seed.clone())
+                    .expect("Common seeds can be reasonably expected to produce a board")
+                    .board;
+                let header = HeaderType::Summary {
+                    title: format!("Random Truncate Puzzle"),
+                    sentinel: '•',
+                    attempt: None,
+                };
+                let puzzle_game = SinglePlayerState::new(
+                    ui.ctx(),
+                    outer.map_texture.clone(),
+                    outer.theme.clone(),
+                    board,
+                    Some(board_seed),
+                    player == 0,
+                    header,
+                );
+                new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+            } else {
+                new_game_status = Some(GameStatus::HardError(vec![
+                    "Sorry, that puzzle URL".to_string(),
+                    "doesn't look right!".to_string(),
+                ]));
+            }
+        } else if launched_room.starts_with("REPLAY:") {
+            if let Some(id) = launched_room.split(':').skip(1).next() {
+                send(PlayerMessage::LoadReplay(id.to_string()));
+                new_game_status = Some(GameStatus::PendingReplay);
+            } else {
+                new_game_status = Some(GameStatus::HardError(vec![
+                    "Sorry, that replay URL".to_string(),
+                    "doesn't look right!".to_string(),
+                ]));
+            }
         } else if launched_room == "DEBUG_BEHEMOTH" {
             let behemoth_board = Board::from_string(include_str!("../tutorials/test_board.txt"));
             let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
@@ -621,6 +683,46 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
         GameStatus::Concluded(game, _winner) => {
             if let Some(PlayerMessage::Rematch) = game.render(ui, current_time, None) {
                 send(PlayerMessage::Rematch);
+            }
+        }
+        GameStatus::PendingReplay => {
+            let splash = SplashUI::new(if let Some(error) = &outer.error {
+                vec![error.clone()]
+            } else {
+                vec!["LOADING REPLAY".to_string()]
+            })
+            .animated(outer.error.is_none())
+            .with_button("cancel", "CANCEL".to_string(), outer.theme.button_primary);
+
+            let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
+
+            if resp.clicked == Some("cancel") {
+                // TODO: Neatly kick back to the wrapper page without a reload
+                #[cfg(target_arch = "wasm32")]
+                {
+                    _ = web_sys::window().unwrap().location().set_hash("");
+                    _ = web_sys::window().unwrap().location().reload();
+                }
+            }
+        }
+        GameStatus::Replay(replay) => {
+            replay.render(ui, &outer.theme, current_time, &outer.backchannel);
+        }
+        GameStatus::HardError(msg) => {
+            let splash = SplashUI::new(msg.clone()).with_button(
+                "reload",
+                "RELOAD".to_string(),
+                outer.theme.button_primary,
+            );
+
+            let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
+            if matches!(resp.clicked, Some("reload")) {
+                // TODO: Neatly kick back to the wrapper page without a reload
+                #[cfg(target_arch = "wasm32")]
+                {
+                    _ = web_sys::window().unwrap().location().set_hash("");
+                    _ = web_sys::window().unwrap().location().reload();
+                }
             }
         }
     }

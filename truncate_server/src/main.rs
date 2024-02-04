@@ -8,6 +8,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
+use uuid::Uuid;
 
 use definitions::WordDB;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
@@ -597,6 +598,19 @@ async fn handle_player_msg(
                         }),
                     )
                     .unwrap();
+            }
+        }
+        LoadReplay(id) => {
+            let Ok(uuid) = Uuid::parse_str(&id) else {
+                return player_err("Invalid Replay ID".into());
+            };
+
+            if let Ok(Some(puzzle)) = daily::load_exact_attempt(&server_state, uuid).await {
+                server_state
+                    .send_to_player(&player_addr, GameMessage::LoadDailyReplay(puzzle))
+                    .unwrap();
+            } else {
+                return player_err("Replay does not exist".into());
             }
         }
         PersistPuzzleMoves {

@@ -5,8 +5,6 @@ web_client/src/static/truncate_client.js
 kaikki*
 node_modules
 word_definitions/package-lock.json
-word_freqs/package-lock.json
-word_freqs/en_word_freqs.txt
 truncate_client/img/package-lock.json
 _site
 # ungzipped word definition db
@@ -16,3 +14,7 @@ unsummed_wordlist.txt
 unmarked_wordlist.txt
 objectionable.json
 .env
+dict_builder/support_data/generated_scowl_wordlists
+dict_builder/support_data/en_word_freqs.txt
+dict_builder/support_data/objectionable.json
+dict_builder/support_data/wordnik_wordlist.txt

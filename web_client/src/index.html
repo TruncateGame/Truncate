@@ -242,6 +242,8 @@
 
         #about_truncate button {
             border: solid 2px !important;
+            max-width: 500px;
+            width: 90%;
         }
 
         .game_credit {
@@ -593,6 +595,13 @@
                 }
             }
             menu = new Menu(document.querySelector("#menu_region"));
+
+            document.querySelector("#about_control").addEventListener("click", () => {
+                let modal = document.querySelector("#about_truncate");
+                if (modal) {
+                    modal.open = true;
+                }
+            });
 
             let room_code = window.location.hash.substring(1);
             if (room_code) {
