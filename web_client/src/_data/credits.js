@@ -72,6 +72,14 @@ module.exports = function () {
     ],
     data_assets: [
       {
+        "name": "SCOWL Wordlist",
+        "url": "https://github.com/en-wl/wordlist",
+        "author": "Kevin Atkinson",
+        "author_url": "http://www.kevina.org/",
+        "license": "MIT-like",
+        "license_url": "https://github.com/en-wl/wordlist/blob/master/scowl/Copyright"
+      },
+      {
         "name": "Wordnik Wordlist",
         "url": "https://github.com/wordnik/wordlist",
         "author": "Wordnik",

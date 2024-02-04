@@ -7,7 +7,7 @@ use truncate_core::{
     npc::scoring::BoardWeights,
 };
 
-pub static WORDNIK: &str = include_str!("../../../word_freqs/final_wordlist.txt");
+pub static TRUNCATE_DICT: &str = include_str!("../../../dict_builder/final_wordlist.txt");
 
 static TOTAL_DICT: Mutex<Option<WordDict>> = Mutex::new(None);
 static NPC_KNOWN_DICT: Mutex<Option<WordDict>> = Mutex::new(None);
@@ -22,7 +22,7 @@ fn ensure_dicts() {
         let mut valid_words = std::collections::HashMap::new();
         let mut npc_known_words = std::collections::HashMap::new();
         let mut player_known_words = std::collections::HashMap::new();
-        let lines = WORDNIK.lines();
+        let lines = TRUNCATE_DICT.lines();
 
         for line in lines {
             let mut chunks = line.split(' ');
