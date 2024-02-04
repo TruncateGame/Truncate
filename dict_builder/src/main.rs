@@ -15,9 +15,6 @@ use rayon::iter::{
 /// This appears to be the best threashold to optimize for valid wordplay while exluding short, "invalid" words.
 const MAX_SCOWL_SIZE: usize = 70;
 
-/// Words that are good for Truncate, or generally accepted, that would otherwise be filtered out by our rules.
-const EXPLICIT_ADDITIONS: [&'static str; 1] = ["qi"];
-
 type SourceSize = usize;
 
 /// Primary determiner for which lists do and do not qualify for inclusion in Truncate's validity dictionary.
@@ -143,6 +140,15 @@ fn load_wordnik_set() -> BTreeSet<String> {
     BTreeSet::from_iter(io::BufReader::new(wordnik_file).lines().flatten())
 }
 
+fn load_additions() -> BTreeSet<String> {
+    println!("Loading additional data from file");
+    let additions =
+        File::open(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("support_data/additions.txt"))
+            .expect("support_data/additions.txt file should exist");
+
+    BTreeSet::from_iter(io::BufReader::new(additions).lines().flatten())
+}
+
 fn load_objectionable() -> Vec<String> {
     let input =
         fs::read(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("support_data/objectionable.json"))
@@ -197,7 +203,7 @@ fn main() {
     let mut final_wordlist: BTreeSet<_> =
         wordnik_word_list.intersection(&scowl_word_list).collect();
 
-    let additions = EXPLICIT_ADDITIONS.map(|s| s.to_string());
+    let additions = load_additions();
     final_wordlist.extend(additions.iter());
 
     println!("{} words in the total set.", final_wordlist.len());

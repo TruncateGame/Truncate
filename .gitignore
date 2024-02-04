@@ -16,4 +16,7 @@ unsummed_wordlist.txt
 unmarked_wordlist.txt
 objectionable.json
 .env
-dict_builder/support_data
+dict_builder/support_data/generated_scowl_wordlists
+dict_builder/support_data/en_word_freqs.txt
+dict_builder/support_data/objectionable.json
+dict_builder/support_data/wordnik_wordlist.txt
