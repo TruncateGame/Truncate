@@ -185,7 +185,7 @@ impl ResultModalUI {
 
         let ideal_modal_width = 370.0;
         let ideal_modal_height = match self.contents {
-            ResultModalVariant::Daily(_) => 570.0,
+            ResultModalVariant::Daily(_) => 620.0,
             ResultModalVariant::Unique(_) => 570.0,
             ResultModalVariant::Resigning(_) => 300.0,
         };

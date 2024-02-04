@@ -42,6 +42,7 @@ pub enum PlayerMessage {
         won: bool,
     },
     RequestStats(TruncateToken),
+    LoadReplay(String),
 }
 
 impl fmt::Display for PlayerMessage {
@@ -85,6 +86,7 @@ impl fmt::Display for PlayerMessage {
                 write!(f, "Persist {} move(s) for day {day:?}", moves.len())
             }
             PlayerMessage::RequestStats(_token) => write!(f, "Requesting daily puzzle stats!"),
+            PlayerMessage::LoadReplay(id) => write!(f, "Requesting the replay for {id}!"),
         }
     }
 }
@@ -171,6 +173,7 @@ impl fmt::Display for DailyStateMessage {
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct DailyAttempt {
+    pub id: String,
     pub moves: u32,
     pub won: bool,
 }
@@ -221,6 +224,7 @@ pub enum GameMessage {
     LoggedInAs(TruncateToken),
     ResumeDailyPuzzle(DailyStateMessage),
     DailyStats(DailyStats),
+    LoadDailyReplay(DailyStateMessage),
 }
 
 impl fmt::Display for GameMessage {
@@ -266,6 +270,7 @@ impl fmt::Display for GameMessage {
             }
             GameMessage::ResumeDailyPuzzle(puzzle) => write!(f, "Starting puzzle:\n{}", puzzle),
             GameMessage::DailyStats(stats) => write!(f, "Stats for {} days", stats.days.len()),
+            GameMessage::LoadDailyReplay(puzzle) => write!(f, "Loading puzzle replay:\n{}", puzzle),
         }
     }
 }

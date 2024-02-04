@@ -20,6 +20,8 @@ pub struct ShareMessageMock {
     is_daily: bool,
     share_text: String,
     share_copied: bool,
+    replay_link: Option<String>,
+    replay_copied: bool,
 }
 
 impl ShareMessageMock {
@@ -36,10 +38,18 @@ impl ShareMessageMock {
             format!("https://truncate.town/#"),
         );
 
+        let this_attempt = stats
+            .days
+            .last_key_value()
+            .map(|(_, v)| v.attempts.last().map(|a| a.id.clone()))
+            .flatten();
+
         Self {
             is_daily: true,
             share_text,
             share_copied: false,
+            replay_link: this_attempt.map(|a| format!("https://truncate.town/#REPLAY:{a}")),
+            replay_copied: false,
         }
     }
 
@@ -63,6 +73,8 @@ impl ShareMessageMock {
             is_daily: false,
             share_text,
             share_copied: false,
+            replay_link: None,
+            replay_copied: false,
         }
     }
 
@@ -140,7 +152,7 @@ impl ShareMessageMock {
         let msg = if self.share_copied {
             "COPIED TEXT!"
         } else {
-            "SHARE"
+            "COPY SUMMARY"
         };
         let text = TextHelper::heavy(msg, 12.0, None, ui);
         let share_button = text.centered_button(theme.button_primary, theme.text, map_texture, ui);
@@ -166,6 +178,38 @@ impl ShareMessageMock {
             }
 
             self.share_copied = true;
+        }
+
+        if let Some(replay_link) = &self.replay_link {
+            let msg = if self.replay_copied {
+                "COPIED TEXT!"
+            } else {
+                "COPY LINK TO REPLAY"
+            };
+            let text = TextHelper::heavy(msg, 12.0, None, ui);
+            let replay_button =
+                text.centered_button(theme.button_secondary, theme.text, map_texture, ui);
+            // Extra events to get this message through the backchannel early,
+            // as our frontend relies on attaching the copy to a browser event
+            // on mouseup/touchend.
+            if replay_button.clicked()
+                || replay_button.drag_started()
+                || replay_button.is_pointer_button_down_on()
+            {
+                if let Some(backchannel) = backchannel {
+                    if backchannel.is_open() {
+                        backchannel.send_msg(crate::app_outer::BackchannelMsg::Copy {
+                            text: replay_link.clone(),
+                        });
+                    } else {
+                        ui.ctx().output_mut(|o| o.copied_text = replay_link.clone());
+                    }
+                } else {
+                    ui.ctx().output_mut(|o| o.copied_text = replay_link.clone());
+                }
+
+                self.replay_copied = true;
+            }
         }
     }
 }
