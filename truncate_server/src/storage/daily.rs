@@ -248,6 +248,7 @@ pub async fn load_stats(
 
     struct PuzzleStatsRecord {
         daily_puzzle: i32,
+        attempt_ids: Option<Vec<Uuid>>,
         move_counts: Option<Vec<i32>>,
         wins: Option<Vec<bool>>,
     }
@@ -256,6 +257,7 @@ pub async fn load_stats(
         PuzzleStatsRecord,
         "SELECT
             dpr.daily_puzzle, 
+            ARRAY_AGG(dpa.attempt_id ORDER BY dpa.attempt_number) AS attempt_ids,
             ARRAY_AGG(dpa.move_count ORDER BY dpa.attempt_number) AS move_counts,
             ARRAY_AGG(dpa.won ORDER BY dpa.attempt_number) AS wins
         FROM 
@@ -278,7 +280,9 @@ pub async fn load_stats(
             .unwrap_or_default()
             .into_iter()
             .zip(day.wins.unwrap_or_default().into_iter())
-            .map(|(moves, won)| DailyAttempt {
+            .zip(day.attempt_ids.unwrap_or_default().into_iter())
+            .map(|((moves, won), id)| DailyAttempt {
+                id: id.to_string(),
                 moves: moves.try_into().unwrap_or_default(),
                 won,
             })

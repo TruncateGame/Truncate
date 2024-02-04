@@ -13,6 +13,7 @@ use crate::{
         depot::{AestheticDepot, GameplayDepot, TimingDepot},
         game_evals::get_main_dict,
         mapper::MappedBoard,
+        text::TextHelper,
         timing::get_qs_tick,
         Theme,
     },
@@ -37,6 +38,7 @@ impl PlaybackSpeed {
 
 #[derive(Clone)]
 pub struct ReplayerState {
+    as_player: usize,
     base_game: Game,
     game: Game,
     map_texture: TextureHandle,
@@ -91,6 +93,7 @@ impl ReplayerState {
         game.start();
 
         Self {
+            as_player,
             base_game: game.clone(),
             game,
             map_texture,
@@ -185,6 +188,23 @@ impl ReplayerState {
             self.play_next_turn(current_time, now);
         }
 
+        ui.add_space(20.0);
+
+        let text = TextHelper::heavy("RESTART REPLAY", 12.0, None, ui);
+        if text
+            .centered_button(theme.button_primary, theme.text, &self.map_texture, ui)
+            .clicked()
+        {
+            *self = Self::new(
+                ui.ctx(),
+                self.map_texture.clone(),
+                theme.clone(),
+                self.base_game.clone(),
+                self.move_sequence.clone(),
+                self.as_player,
+            );
+        }
+
         self.mapped_board.remap_texture(
             ui.ctx(),
             &self.aesthetics,
@@ -194,7 +214,7 @@ impl ReplayerState {
             &self.game.board,
         );
 
-        let mut board_space = ui.available_rect_before_wrap();
+        let mut board_space = ui.available_rect_before_wrap().shrink(10.0);
         let height_from_width = self.game.board.height() as f32 / self.game.board.width() as f32;
         let target_height = board_space.width() * height_from_width;
 

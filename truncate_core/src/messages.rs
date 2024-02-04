@@ -173,6 +173,7 @@ impl fmt::Display for DailyStateMessage {
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct DailyAttempt {
+    pub id: String,
     pub moves: u32,
     pub won: bool,
 }
