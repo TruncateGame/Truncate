@@ -29,7 +29,7 @@ impl Default for BoardWeights {
             self_attack: 2.0,
             direct_defence: 1.0,
             direct_attack: 1.0,
-            word_validity: 6.0,
+            word_validity: 3.0,
             word_length: 1.0,
             word_extensibility: 1.0,
         }
