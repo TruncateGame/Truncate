@@ -168,70 +168,48 @@ impl ActiveGame {
                     let item_spacing = 10.0;
                     let button_size = 48.0;
 
-                    ui.add_space(item_spacing);
-                    let (mut sidebar_button_rect, sidebar_button_resp) =
-                        ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
-                    if sidebar_button_resp.hovered() {
-                        sidebar_button_rect = sidebar_button_rect.translate(vec2(0.0, -2.0));
-                        ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-                    }
-
-                    if !self.depot.ui_state.sidebar_toggled {
-                        if self.depot.ui_state.unread_sidebar {
-                            render_tex_quads(
-                                &[tiles::quad::INFO_BUTTON, tiles::quad::BUTTON_NOTIFICATION],
-                                sidebar_button_rect,
-                                &self.depot.aesthetics.map_texture,
-                                ui,
-                            );
-                        } else {
-                            render_tex_quad(
-                                tiles::quad::INFO_BUTTON,
-                                sidebar_button_rect,
-                                &self.depot.aesthetics.map_texture,
-                                ui,
-                            );
-                        }
-                    } else {
-                        render_tex_quad(
-                            tiles::quad::COLLAPSE_BUTTON,
-                            sidebar_button_rect,
-                            &self.depot.aesthetics.map_texture,
-                            ui,
-                        );
-                    }
-
-                    if sidebar_button_resp.clicked() {
-                        self.depot.ui_state.sidebar_toggled = !self.depot.ui_state.sidebar_toggled;
-                        self.depot.ui_state.unread_sidebar = false;
-                    }
-
-                    // TODO: Resigning is largely implented for multiplayer games as well, but we need to:
-                    // - Resolve why the update isn't being sent from the server
-                    // - Show the confirmation modal inside active_game (we only show it in single player)
-                    //   otherwise this button is an immediate resign.
-                    if matches!(self.location, GameLocation::Local) {
+                    if !self.depot.ui_state.is_mobile {
                         ui.add_space(item_spacing);
-                        let (mut resign_button_rect, resign_button_resp) =
+                        let (mut sidebar_button_rect, sidebar_button_resp) =
                             ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
-                        if resign_button_resp.hovered() {
-                            resign_button_rect = resign_button_rect.translate(vec2(0.0, -2.0));
+                        if sidebar_button_resp.hovered() {
+                            sidebar_button_rect = sidebar_button_rect.translate(vec2(0.0, -2.0));
                             ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
                         }
 
-                        render_tex_quad(
-                            tiles::quad::RESIGN_BUTTON,
-                            resign_button_rect,
-                            &self.depot.aesthetics.map_texture,
-                            ui,
-                        );
-
-                        if resign_button_resp.clicked() {
-                            msg = Some(PlayerMessage::Resign);
+                        if !self.depot.ui_state.sidebar_toggled {
+                            if self.depot.ui_state.unread_sidebar {
+                                render_tex_quads(
+                                    &[tiles::quad::INFO_BUTTON, tiles::quad::BUTTON_NOTIFICATION],
+                                    sidebar_button_rect,
+                                    &self.depot.aesthetics.map_texture,
+                                    ui,
+                                );
+                            } else {
+                                render_tex_quad(
+                                    tiles::quad::INFO_BUTTON,
+                                    sidebar_button_rect,
+                                    &self.depot.aesthetics.map_texture,
+                                    ui,
+                                );
+                            }
+                        } else {
+                            render_tex_quad(
+                                tiles::quad::TRI_EAST_BUTTON,
+                                sidebar_button_rect,
+                                &self.depot.aesthetics.map_texture,
+                                ui,
+                            );
                         }
-                    }
 
-                    ui.add_space(item_spacing);
+                        if sidebar_button_resp.clicked() {
+                            self.depot.ui_state.sidebar_toggled =
+                                !self.depot.ui_state.sidebar_toggled;
+                            self.depot.ui_state.unread_sidebar = false;
+                        }
+
+                        ui.add_space(item_spacing);
+                    }
 
                     let remaining_width = ui.available_width();
                     let total_width = 700.0_f32.min(remaining_width);
@@ -496,15 +474,65 @@ impl ActiveGame {
                         }
                     }
 
-                    let (hand_alloc, _) =
-                        ui.allocate_at_least(vec2(ui.available_width(), 50.0), Sense::hover());
-                    let mut hand_ui = ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
-                    let active =
-                        self.depot.gameplay.player_number == self.depot.gameplay.next_player_number;
-                    HandUI::new(&mut self.hand).active(active).render(
-                        &mut hand_ui,
-                        &mut self.depot,
-                        &mut self.mapped_hand,
+                    let button_size = 50.0;
+                    let item_spacing = 10.0;
+
+                    ui.allocate_ui_with_layout(
+                        vec2(ui.available_width(), 50.0),
+                        Layout::right_to_left(Align::TOP),
+                        |ui| {
+                            ui.add_space(item_spacing);
+
+                            let (mut button_rect, _) =
+                                ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
+
+                            let shrink = button_size - self.depot.ui_state.hand_height_last_frame;
+                            button_rect.set_left(button_rect.left() + shrink);
+                            button_rect.set_bottom(button_rect.bottom() - shrink);
+
+                            let button_resp = ui.interact(
+                                button_rect,
+                                ui.id().with("action button"),
+                                Sense::click(),
+                            );
+
+                            if button_resp.hovered() {
+                                button_rect = button_rect.translate(vec2(0.0, -2.0));
+                                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                            }
+
+                            render_tex_quad(
+                                if self.depot.ui_state.actions_menu_open {
+                                    tiles::quad::TRI_SOUTH_BUTTON
+                                } else {
+                                    tiles::quad::TRI_NORTH_BUTTON
+                                },
+                                button_rect,
+                                &self.depot.aesthetics.map_texture,
+                                ui,
+                            );
+
+                            if button_resp.clicked() {
+                                self.depot.ui_state.actions_menu_open =
+                                    !self.depot.ui_state.actions_menu_open;
+                            }
+
+                            ui.add_space(item_spacing);
+
+                            let (hand_alloc, _) = ui.allocate_at_least(
+                                vec2(ui.available_width() - item_spacing, 50.0),
+                                Sense::hover(),
+                            );
+                            let mut hand_ui =
+                                ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
+                            let active = self.depot.gameplay.player_number
+                                == self.depot.gameplay.next_player_number;
+                            HandUI::new(&mut self.hand).active(active).render(
+                                &mut hand_ui,
+                                &mut self.depot,
+                                &mut self.mapped_hand,
+                            );
+                        },
                     );
 
                     ui.add_space(10.0);
@@ -515,6 +543,113 @@ impl ActiveGame {
         self.depot.regions.hand_total_rect = Some(resp.response.rect);
 
         (Some(resp.response.rect), msg)
+    }
+
+    pub fn render_actions_menu(
+        &mut self,
+        ui: &mut egui::Ui,
+        was_open_last_frame: bool,
+    ) -> Option<PlayerMessage> {
+        let mut msg = None;
+
+        let actions_area = ui.available_rect_before_wrap();
+        let area = egui::Area::new(egui::Id::new("actions_layer"))
+            .movable(false)
+            .order(Order::Foreground)
+            .anchor(
+                Align2::LEFT_TOP,
+                vec2(actions_area.left(), actions_area.top()),
+            );
+
+        let actions_alloc = ui.max_rect();
+        let inner_actions_area = actions_alloc.shrink2(vec2(10.0, 5.0));
+        let menu_spacing = 10.0;
+
+        area.show(ui.ctx(), |ui| {
+            ui.painter().clone().rect_filled(
+                actions_alloc,
+                0.0,
+                self.depot.aesthetics.theme.water.gamma_multiply(0.3),
+            );
+
+            // Avoid closing the menu _immediately_ on the frame it was opened.
+            if was_open_last_frame {
+                let interaction = ui.interact(
+                    actions_alloc,
+                    ui.id().with("actions background"),
+                    Sense::click(),
+                );
+                // Close the menu if they do something like click back on the board or the hand.
+                // clicked_elsewhere() checks against the coordinates of the input region,
+                // so the comparison below only leaves clicks within the bounds of our area,
+                // but not on the area background itself (i.e. on something within)
+                if interaction.clicked()
+                    || interaction.clicked_elsewhere()
+                    || ui.memory(|m| m.is_anything_being_dragged())
+                {
+                    self.depot.ui_state.actions_menu_open = false;
+                }
+            }
+
+            ui.allocate_ui_at_rect(inner_actions_area, |ui| {
+                ui.expand_to_include_rect(inner_actions_area);
+                ui.with_layout(Layout::bottom_up(Align::RIGHT), |ui| {
+                    if self.depot.ui_state.is_mobile {
+                        let text = TextHelper::heavy("VIEW BATTLES", 14.0, None, ui);
+                        if text
+                            .button(
+                                self.depot.aesthetics.theme.button_secondary,
+                                self.depot.aesthetics.theme.text,
+                                &self.depot.aesthetics.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            self.depot.ui_state.sidebar_toggled = true;
+                            self.depot.ui_state.actions_menu_open = false;
+                        }
+                        ui.add_space(menu_spacing);
+                    }
+
+                    let text = TextHelper::heavy("OPEN DICTIONARY", 14.0, None, ui);
+                    if text
+                        .button(
+                            self.depot.aesthetics.theme.button_secondary,
+                            self.depot.aesthetics.theme.text,
+                            &self.depot.aesthetics.map_texture,
+                            ui,
+                        )
+                        .clicked()
+                    {
+                        // shrug
+                    }
+                    ui.add_space(menu_spacing);
+
+                    // TODO: Resigning is largely implented for multiplayer games as well, but we need to:
+                    // - Resolve why the update isn't being sent from the server
+                    // - Show the confirmation modal inside active_game (we only show it in single player)
+                    //   otherwise this button is an immediate resign.
+                    if matches!(self.location, GameLocation::Local) {
+                        let text = TextHelper::heavy("RESIGN", 14.0, None, ui);
+                        if text
+                            .button(
+                                self.depot.aesthetics.theme.button_primary,
+                                self.depot.aesthetics.theme.text,
+                                &self.depot.aesthetics.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            msg = Some(PlayerMessage::Resign);
+                            self.depot.ui_state.actions_menu_open = false;
+                        }
+                        ui.add_space(menu_spacing);
+                    }
+                });
+            });
+        });
+
+        msg
     }
 
     pub fn render_sidebar(&mut self, ui: &mut egui::Ui) -> Option<PlayerMessage> {
@@ -568,19 +703,6 @@ impl ActiveGame {
                 }
 
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
-                    // let text = TextHelper::heavy("RESIGN", 12.0, None, ui);
-                    // if text
-                    //     .full_button(
-                    //         Color32::RED.diaphanize(),
-                    //         theme.text,
-                    //         &self.ctx.map_texture,
-                    //         ui,
-                    //     )
-                    //     .clicked()
-                    // {
-                    //     // TODO
-                    // }
-
                     ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
                         ScrollArea::new([false, true]).show(ui, |ui| {
                             // Small hack to fill the scroll area
@@ -643,6 +765,7 @@ impl ActiveGame {
 
         let mut game_space = ui.available_rect_before_wrap();
         let mut sidebar_space = game_space.clone();
+        let actions_menu_open_last_frame = self.depot.ui_state.actions_menu_open;
 
         if !self.depot.ui_state.sidebar_hidden
             && ui.available_size().x >= self.depot.aesthetics.theme.mobile_breakpoint
@@ -680,6 +803,12 @@ impl ActiveGame {
         }
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
+        let actions_player_message = if self.depot.ui_state.actions_menu_open {
+            self.render_actions_menu(&mut game_space_ui, actions_menu_open_last_frame)
+        } else {
+            None
+        };
+
         let player_message = BoardUI::new(&self.board)
             .interactive(!self.depot.interactions.view_only)
             .render(
@@ -690,6 +819,7 @@ impl ActiveGame {
                 &mut self.mapped_overlay,
                 &mut self.depot,
             )
+            .or(actions_player_message)
             .or(control_player_message)
             .or(timer_player_message)
             .or(sidebar_player_message);

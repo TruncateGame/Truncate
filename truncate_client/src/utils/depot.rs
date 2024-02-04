@@ -52,6 +52,8 @@ pub struct UIStateDepot {
     pub is_mobile: bool,
     pub is_touch: bool,
     pub game_header: HeaderType,
+    pub actions_menu_open: bool,
+    pub hand_height_last_frame: f32,
 }
 
 #[derive(Clone)]
