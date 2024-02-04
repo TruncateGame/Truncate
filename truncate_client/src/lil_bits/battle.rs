@@ -16,11 +16,15 @@ use crate::utils::{
 
 pub struct BattleUI<'a> {
     battle: &'a BattleReport,
+    show_headline: bool,
 }
 
 impl<'a> BattleUI<'a> {
-    pub fn new(battle: &'a BattleReport) -> Self {
-        Self { battle }
+    pub fn new(battle: &'a BattleReport, show_headline: bool) -> Self {
+        Self {
+            battle,
+            show_headline,
+        }
     }
 }
 
@@ -250,55 +254,72 @@ impl<'a> BattleUI<'a> {
 
         let mut battle_rect = Rect::NOTHING;
 
-        ui.allocate_ui_with_layout(
-            vec2(ui.available_size_before_wrap().x, 0.0),
-            Layout::left_to_right(Align::Center).with_main_wrap(true),
-            |ui| {
-                let words =
-                    self.get_galleys(&self.battle.attackers, render_transparent, ui, &aesthetics);
-                battle_rect = battle_rect.union(self.paint_galleys(words, ui, false).rect);
-            },
-        );
-        ui.add_space(5.0);
-
-        let (msg, _) = match self.battle.outcome {
-            truncate_core::judge::Outcome::AttackerWins(_) => {
-                ("won an attack against", aesthetics.theme.word_valid)
+        if self.show_headline {
+            if !self.battle.attackers.is_empty() {
+                ui.allocate_ui_with_layout(
+                    vec2(ui.available_size_before_wrap().x, 0.0),
+                    Layout::left_to_right(Align::Center).with_main_wrap(true),
+                    |ui| {
+                        let words = self.get_galleys(
+                            &self.battle.attackers,
+                            render_transparent,
+                            ui,
+                            &aesthetics,
+                        );
+                        battle_rect = battle_rect.union(self.paint_galleys(words, ui, false).rect);
+                    },
+                );
+                ui.add_space(5.0);
             }
-            truncate_core::judge::Outcome::DefenderWins => {
-                ("failed an attack against", aesthetics.theme.word_invalid)
+
+            if !self.battle.attackers.is_empty() && !self.battle.defenders.is_empty() {
+                let (msg, _) = match self.battle.outcome {
+                    truncate_core::judge::Outcome::AttackerWins(_) => {
+                        ("won an attack against", aesthetics.theme.word_valid)
+                    }
+                    truncate_core::judge::Outcome::DefenderWins => {
+                        ("failed an attack against", aesthetics.theme.word_invalid)
+                    }
+                };
+
+                let galley = ui.painter().layout_no_wrap(
+                    msg.to_string(),
+                    FontId::new(
+                        aesthetics.theme.letter_size * 0.3,
+                        egui::FontFamily::Name("Truncate-Heavy".into()),
+                    ),
+                    if render_transparent {
+                        Color32::TRANSPARENT
+                    } else {
+                        aesthetics.theme.text
+                    },
+                );
+                battle_rect = battle_rect.union(self.paint_galleys(vec![galley], ui, false).rect);
+                ui.add_space(5.0);
             }
-        };
-        let galley = ui.painter().layout_no_wrap(
-            msg.to_string(),
-            FontId::new(
-                aesthetics.theme.letter_size * 0.3,
-                egui::FontFamily::Name("Truncate-Heavy".into()),
-            ),
-            if render_transparent {
-                Color32::TRANSPARENT
-            } else {
-                aesthetics.theme.text
-            },
-        );
-        battle_rect = battle_rect.union(self.paint_galleys(vec![galley], ui, false).rect);
-        ui.add_space(5.0);
 
-        ui.allocate_ui_with_layout(
-            vec2(ui.available_size_before_wrap().x, 0.0),
-            Layout::left_to_right(Align::Center).with_main_wrap(true),
-            |ui| {
-                let words =
-                    self.get_galleys(&self.battle.defenders, render_transparent, ui, &aesthetics);
-                battle_rect = battle_rect.union(self.paint_galleys(words, ui, false).rect);
-            },
-        );
+            if !self.battle.defenders.is_empty() {
+                ui.allocate_ui_with_layout(
+                    vec2(ui.available_size_before_wrap().x, 0.0),
+                    Layout::left_to_right(Align::Center).with_main_wrap(true),
+                    |ui| {
+                        let words = self.get_galleys(
+                            &self.battle.defenders,
+                            render_transparent,
+                            ui,
+                            &aesthetics,
+                        );
+                        battle_rect = battle_rect.union(self.paint_galleys(words, ui, false).rect);
+                    },
+                );
+            }
 
-        if !active {
-            return battle_rect;
+            if !active {
+                return battle_rect;
+            }
+
+            ui.add_space(8.0);
         }
-
-        ui.add_space(8.0);
 
         let definition_space = ui.horizontal(|ui| {
             ui.add_space(12.0);
@@ -323,7 +344,11 @@ impl<'a> BattleUI<'a> {
 
                     match (word.valid, &word.meanings) {
                         (Some(true), Some(meanings)) if !meanings.is_empty() => TextHelper::light(
-                            &format!("{}: {}", meanings[0].pos, meanings[0].defs[0]),
+                            &if meanings[0].pos.is_empty() {
+                                format!("{}", meanings[0].defs[0])
+                            } else {
+                                format!("{}: {}", meanings[0].pos, meanings[0].defs[0])
+                            },
                             24.0,
                             Some(ui.available_width()),
                             ui,
