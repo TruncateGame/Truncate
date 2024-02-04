@@ -10,6 +10,7 @@ bam
 bio
 bot
 bro
+cor
 cos
 cum
 dag
