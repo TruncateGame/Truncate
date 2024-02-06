@@ -670,7 +670,7 @@ impl SinglePlayerState {
                         if let Some(token) = logged_in_as {
                             msgs_to_server.push(PlayerMessage::PersistPuzzleMoves {
                                 player_token: token.clone(),
-                                day: seed.seed,
+                                day: seed.day.unwrap(),
                                 human_player: human_player as u32,
                                 moves: self.move_sequence.clone(),
                                 won: self.winner == Some(human_player),
