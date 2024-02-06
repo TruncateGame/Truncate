@@ -112,7 +112,7 @@ impl Default for GameRules {
             visibility: Visibility::OnlyHouseFog,
             truncation: Truncation::None,
             timing: Timing::PerPlayer {
-                time_allowance: 60 * 20,
+                time_allowance: 60 * 40,
                 overtime_rule: OvertimeRule::Elimination,
             },
             hand_size: 7,

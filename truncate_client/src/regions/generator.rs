@@ -101,7 +101,7 @@ impl GeneratorState {
                 ui.label(RichText::new("Width").color(Color32::WHITE));
                 let r = ui.add(
                     DragValue::new(&mut self.width)
-                        .clamp_range(4..=100)
+                        .clamp_range(4..=1000)
                         .speed(0.05),
                 );
                 if r.changed() {
@@ -112,7 +112,7 @@ impl GeneratorState {
                 ui.label(RichText::new("Height").color(Color32::WHITE));
                 let r = ui.add(
                     DragValue::new(&mut self.height)
-                        .clamp_range(4..=100)
+                        .clamp_range(4..=1000)
                         .speed(0.05),
                 );
                 if r.changed() {
