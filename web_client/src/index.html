@@ -10,10 +10,6 @@
         href="data:image/svg+xml,%3Csvg width='318' height='320' viewBox='0 0 318 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 300H268V290H278V280H288V260H298V240H288V260H278V270H258V280H60V270H40V260H30V240H20V260H30V280H40V290H50V300Z' fill='%23ADADAD'/%3E%3Cpath d='M60 20V30H40V40H30V60H20V240H30V260H40V270H60V280H258V270H278V260H288V240H298V60H288V40H278V30H258V20H60Z' fill='white'/%3E%3Cpath d='M135.75 230.75V91.25H89.25V68H228.75V91.25H182.25V230.75H135.75Z' fill='black'/%3E%3C/svg%3E%0A" />
     <title>Truncate</title>
 
-    <!-- Fathom - beautiful, simple website analytics -->
-    <script src="https://cdn.usefathom.com/script.js" data-site="{{ env.analytics_id }}" defer></script>
-    <!-- / Fathom -->
-
     <style>
         :root {
             --water: #50a7e8;
@@ -308,25 +304,6 @@
     <script>
         (function () {
             let menu;
-            let past_events = [];
-            let event = (ev) => {
-                if (typeof fathom === "undefined") {
-                    past_events.push(ev);
-                    send_past_events();
-                } else {
-                    fathom?.trackEvent?.(ev);
-                }
-            }
-            let send_past_events = () => {
-                if (typeof fathom === "undefined") {
-                    setTimeout(send_past_events, 50);
-                } else {
-                    for (const past_ev of past_events) {
-                        fathom?.trackEvent?.(past_ev);
-                    }
-                    past_events = [];
-                }
-            }
             let remaining_day = () => {
                 let el = document.querySelector(".REMAINING_TIME");
                 if (el) {
@@ -443,7 +420,6 @@
                     let has_played_tut = localStorage.getItem("tutorial_played");
 
                     if (existing_game_token) {
-                        event('prompted to rejoin');
 
                         let row = document.createElement("div");
                         row.classList.add("row");
@@ -451,7 +427,6 @@
                         let button = document.createElement("button");
                         button.innerHTML = `Rejoin Game`;
                         button.addEventListener("click", () => {
-                            event('rejoining a game');
                             truncate_runner.rejoin_game();
                         });
                         row.appendChild(button);
@@ -460,7 +435,6 @@
                         close.classList.add("thin");
                         close.innerHTML = `x`;
                         close.addEventListener("click", () => {
-                            event('dismissing rejoin');
                             window.localStorage.removeItem("truncate_active_token");
                             this.rootStage();
                         });
@@ -471,30 +445,25 @@
 
                     if (!has_played_tut) {
                         this.button("Tutorial", () => {
-                            event('started tutorial');
                             localStorage.setItem("tutorial_played", "true");
                             truncate_runner.join_game('TUTORIAL_01');
                         }, "special");
                     }
 
                     this.button("<span class='remaining_time'>__:__:__ remaining</span><span>Daily Puzzle</span>", () => {
-                        event('started daily puzzle');
                         truncate_runner.join_game('DAILY_PUZZLE');
                     }, has_played_tut ? "special" : "");
                     remaining_day();
 
                     this.button("Single Player", () => {
-                        event('investigating single player');
                         this.singleStage();
                     });
 
                     this.button("Multi Player", () => {
-                        event('investigating multi player');
                         this.multiStage();
                     });
 
                     this.button("Learn To Play", () => {
-                        event('investigating learn section');
                         this.learnStage();
                     });
                 }
@@ -503,7 +472,6 @@
                     this.reset();
 
                     this.button("Tutorial", () => {
-                        event('started tutorial');
                         localStorage.setItem("tutorial_played", "true");
                         truncate_runner.join_game('TUTORIAL_01');
                     });
@@ -520,12 +488,10 @@
                     this.reset();
 
                     this.button("Random Puzzle", () => {
-                        event('started random puzzle');
                         truncate_runner.join_game("RANDOM_PUZZLE");
                     });
 
                     this.button("Classic", () => {
-                        event('started single player');
                         truncate_runner.join_game("SINGLE_PLAYER");
                     });
 
@@ -556,7 +522,6 @@
                             }, 500);
                             return;
                         }
-                        event('joined multiplayer game via input');
 
                         truncate_runner.join_game(room);
                     });
@@ -569,7 +534,6 @@
                     this.add(row);
 
                     this.button("Create Game", () => {
-                        event('started multiplayer game');
                         truncate_runner.create_game();
                     });
 
@@ -591,7 +555,6 @@
                     p.innerText = "An error occurred loading Truncate";
                     this.add(p);
 
-                    event('truncate loading error');
                 }
             }
             menu = new Menu(document.querySelector("#menu_region"));
@@ -605,7 +568,6 @@
 
             let room_code = window.location.hash.substring(1);
             if (room_code) {
-                event('joined multiplayer game via url');
                 truncate_runner.join_game(room_code);
             }
 
@@ -1027,7 +989,6 @@
 
                 function on_wasm_loaded() {
                     console.debug("Loaded Truncate webassembly");
-                    window?.fathom?.trackGoal?.("{{ env.analytics_events.LOADED_TRUNCATE }}", 0);
                     const default_server = window.location.host.includes("outpost") ? "wss://coup.truncate.town" : "wss://citadel.truncate.town";
                     const local_server = window.location.host.includes("localhost") ? "ws://0.0.0.0:8080" : null;
                     const server = new URLSearchParams(window.location.search).get("server") ?? local_server ?? default_server;
@@ -1057,7 +1018,6 @@
 
                 function on_wasm_error(error) {
                     console.error("Failed to start: " + error);
-                    window?.fathom?.trackGoal?.("{{ env.analytics_events.ERRORED_TRUNCATE }}", 0);
                     truncate_runner.error(error);
                 }
             })();
