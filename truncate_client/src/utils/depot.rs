@@ -102,6 +102,11 @@ pub struct AestheticDepot {
     pub destruction_duration: f32,
 }
 
+#[derive(Clone, Default)]
+pub struct AudioDepot {
+    pub muted: bool,
+}
+
 #[derive(Clone)]
 pub struct TruncateDepot {
     pub interactions: InteractionDepot,
@@ -111,4 +116,5 @@ pub struct TruncateDepot {
     pub timing: TimingDepot,
     pub gameplay: GameplayDepot,
     pub aesthetics: AestheticDepot,
+    pub audio: AudioDepot,
 }
