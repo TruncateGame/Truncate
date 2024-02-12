@@ -33,6 +33,7 @@ impl GeneratorState {
             ctx,
             "TARGET".into(),
             None,
+            None,
             game.players.iter().map(Into::into).collect(),
             0,
             0,

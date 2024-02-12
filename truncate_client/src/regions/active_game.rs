@@ -4,6 +4,7 @@ use truncate_core::{
     board::{Board, Coordinate},
     generation::BoardSeed,
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
+    npc::scoring::{NPCParams, NPCPersonality},
     player::Hand,
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, TimeChange},
 };
@@ -70,6 +71,7 @@ impl ActiveGame {
         ctx: &egui::Context,
         room_code: RoomCode,
         game_seed: Option<BoardSeed>,
+        npc: Option<NPCPersonality>,
         players: Vec<GamePlayerMessage>,
         player_number: u64,
         next_player_number: u64,
@@ -101,6 +103,7 @@ impl ActiveGame {
                 winner: None,
                 changes: Vec::new(),
                 last_battle_origin: None,
+                npc,
             },
             aesthetics: AestheticDepot {
                 theme,

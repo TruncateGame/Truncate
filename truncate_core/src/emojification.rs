@@ -2,6 +2,7 @@ use crate::{
     board::{Board, Square},
     game::Game,
     generation::BoardSeed,
+    npc::scoring::{NPCParams, NPCPersonality},
 };
 
 pub const SQ_BLUE: &str = "🟦";
@@ -24,6 +25,7 @@ impl Board {
         won: Option<usize>,
         game: Option<&Game>,
         seed: Option<BoardSeed>,
+        npc: Option<NPCPersonality>,
         attempts: Option<usize>,
         url_prefix: String,
     ) -> String {
@@ -110,10 +112,13 @@ impl Board {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let url = if let Some(seed) = seed.clone() {
+        let url = if let (Some(seed), Some(npc)) = (seed.clone(), npc.clone()) {
             format!(
-                "Play Puzzle: {url_prefix}PUZZLE:{}:{}:{}\n",
-                seed.generation, seed.seed, player
+                "Play Puzzle: {url_prefix}PUZZLE:{}:{}:{}:{}\n",
+                seed.generation,
+                npc.name.to_ascii_uppercase(),
+                seed.seed,
+                player
             )
         } else {
             "".to_string()

@@ -10,6 +10,7 @@ use truncate_core::{
     game::Game,
     generation::{generate_board, get_game_verification, BoardSeed},
     moves::Move,
+    npc::scoring::{NPCParams, NPCPersonality},
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail},
 };
 
@@ -93,6 +94,7 @@ pub fn get_playable_daily_puzzle(
         Some(board_seed.clone()),
         human_starts,
         HeaderType::None, // Replaced soon with HeaderType::Summary
+        NPCPersonality::opal(),
     );
 
     if let Some((_, notes)) = info {
