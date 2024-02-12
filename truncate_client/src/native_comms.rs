@@ -15,12 +15,9 @@ pub async fn connect(
 ) {
     let mut context: Option<Context> = None;
 
-    println!("Connecting to {connect_addr}");
-
     let (ws_stream, _) = connect_async(connect_addr)
         .await
         .expect("Failed to connect");
-    println!("WebSocket handshake has been successfully completed");
 
     if let Ok(ctx) = rx_context.await {
         context = Some(ctx);
@@ -36,8 +33,6 @@ pub async fn connect(
 
             if matches!(parsed_msg, GameMessage::Ping) {
                 _ = tx_player.clone().send(PlayerMessage::Ping).await;
-            } else {
-                println!("Received {parsed_msg}");
             }
 
             tx_game
@@ -53,12 +48,7 @@ pub async fn connect(
 
     let player_messages = {
         rx_player
-            .map(|msg| {
-                if !matches!(msg, PlayerMessage::Ping) {
-                    println!("Sending {msg}");
-                }
-                Ok(Message::Text(serde_json::to_string(&msg).unwrap()))
-            })
+            .map(|msg| Ok(Message::Text(serde_json::to_string(&msg).unwrap())))
             .forward(outgoing)
     };
 

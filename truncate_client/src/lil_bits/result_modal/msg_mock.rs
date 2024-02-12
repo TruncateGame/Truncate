@@ -54,12 +54,6 @@ impl ShareMessageMock {
     }
 
     pub fn new_unique(game: &Game, depot: &TruncateDepot) -> Self {
-        tr_log!({
-            format!(
-                "We are player {:?} and the winner was player {:?}",
-                depot.gameplay.player_number, game.winner
-            )
-        });
         let share_text = game.board.emojify(
             depot.gameplay.player_number as usize,
             game.winner,

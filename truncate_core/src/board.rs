@@ -283,8 +283,9 @@ impl Board {
                 Ok(Square::Town { .. }) => self.towns.push(coord),
                 Ok(Square::Dock(_)) => self.docks.push(coord),
                 Err(e) => {
-                    eprintln!("{e}");
-                    unreachable!("Iterating over the board should not return invalid positions")
+                    unreachable!(
+                        "Iterating over the board should not return invalid positions: {e}"
+                    )
                 }
             }
         }

@@ -187,7 +187,6 @@ impl GeneratorState {
             changed = true;
         }
         if changed {
-            println!("Generating {}", self.seed);
             self.generation_result = Some(generate_board(BoardSeed {
                 generation: 999999,
                 seed: self.seed,

@@ -195,7 +195,6 @@ pub fn generate_board(
     let retry_with = |mut board_seed: BoardSeed, failed_board: Board| {
         board_seed.internal_reroll();
         if current_iteration > max_attempts {
-            eprintln!("Could not resolve a playable board within {max_attempts} tries");
             return Err(BoardGenerationResult {
                 board: failed_board,
                 iterations: max_attempts,
@@ -324,11 +323,6 @@ pub fn generate_board(
     {
         return retry_with(board_seed, board);
     };
-
-    println!(
-        "Generated a board in {} step(s)",
-        board_seed.current_iteration
-    );
 
     Ok(BoardGenerationResult {
         board,
