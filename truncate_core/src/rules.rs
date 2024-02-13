@@ -118,7 +118,7 @@ impl Default for GameRules {
             hand_size: 7,
             tile_distribution: TileDistribution::Standard,
             tile_bag_behaviour: TileBagBehaviour::Standard,
-            battle_rules: BattleRules { length_delta: 2 },
+            battle_rules: BattleRules { length_delta: 1 },
             swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
             battle_delay: 1,
         }
