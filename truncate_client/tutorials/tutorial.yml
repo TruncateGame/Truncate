@@ -1,0 +1,144 @@
+# - Basics
+#   - Players take turns to place a tile
+#   - You play as blue
+#   - You can place a tile beside your dock, or beside one of your tiles
+#   - Tiles are placed beside your dock or your existing tiles (*)
+#   - To win, touch an opponent's town with a valid word (*)
+#   - Tiles don't always have to form valid words (*)
+#   - Your words are read left to right and top to bottom, and your opponent's words are the opposite (*)
+#   - Instead of playing a tile from your hand, you can swap two tiles on the board (*)
+# - Battles
+#   - When two players' tiles touch there is a battle
+#   - Valid words always beat invalid words (*)
+#   - The only words involved in the battle are words with touching letters (*)
+#   - Long words generally beat shorter words, but attackers must be 2 longer than defenders to win (*)
+#   - Tiles disconnected with the dock are truncated (there must be a connection from every tile to the dock, or else it is removed) (*)
+#   - If there are multiple defenders, the attacker only has to beat the weakest defender (strong defenders aren't removed, but the touching tile is removed so that the players' words remain disconnected) (*)
+#   - If there are multiple attackers, all attackers must be valid (*)
+#   - If there are multiple attackers, only the longest must defeat the weakest defender (*)
+
+scenarios:
+  - name: "Basic Play"
+    board: |-
+      ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
+      ~~ ~~ __ #0 __ #0 #0 __ ~~
+      ~~ __ __ __ __ __ __ __ ~~
+      ~~ ~~ ~~ __ __ __ __ __ ~~
+      ~~ ~~ __ __ __ __ ~~ __ ~~
+      ~~ __ __ __ __ ~~ ~~ __ ~~
+      ~~ __ __ __ __ ~~ ~~ __ ~~
+      ~~ __ #1 __ __ __ ~~ ~~ ~~
+      ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+    player_hand: ALIFIRM
+    computer_hand: D
+
+    steps:
+      - message: |-
+          Welcome to Truncate!
+
+          This tutorial covers the rules of the game.
+
+      - rule: Players take turns to place a tile
+        message: |-
+          In Truncate, players take turns to place a tile on the board
+
+      - rule: You play as blue
+        message: |-
+          In this game you are playing as blue. You will generally play as blue unless you're facing a human opponent.
+
+          You can tell which colour you're playing by the colour of the tiles in your hand.
+
+      - rule: You place tiles beside your dock, or beside one of your tiles
+        description: |-
+          You start the game by placing tiles beside your dock.
+
+          Your dock is at the bottom left of the board. Try playing an 'L' there.
+        you: "L -> 1,1"
+        gets: "E"
+
+      - description: |-
+          Now it's your opponent's turn.
+
+          Click Next to see their first move.
+        computer: "D -> 4,7"
+        gets: "R"
+
+      - description: |-
+          Once you've placed a tile, you can place tiles beside your dock or your existing tiles.
+
+          Try playing an 'I' beside the 'L' you just played.
+        you: "L -> 1,2"
+        gets: "E"
+
+  - name: "Win Condition"
+    board: |-
+      ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+      ~~ ~~ __ __ ~~ __ __ __ ~~
+      |0 __ __ __ __ __ __ #1 ~~
+      ~~ __ R1 O1 W1 I1 N1 G1 |1
+      ~~ #0 __ __ __ __ __ __ ~~
+      ~~ __ __ ~~ __ __ __ __ ~~
+      ~~ ~~ ~~ ~~ __ __ __ __ ~~
+      ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~
+      ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+    player_hand: GSUYIFZ
+    computer_hand: D
+
+    steps:
+      - rule: To win, touch an opponent's town with a valid word
+        message: |-
+          To win Truncate, you must touch your opponent's town with a valid word.
+
+          Notice that your dock is on the right hand side on this boad, and your opponent's town and dock are on the left.
+
+      - description: |-
+          Place 'G' beside your opponent's town to form the word 'GROWING' and win the game.
+        you: "G -> 1,5"
+        gets: "E"
+
+  - name: "Word Validity"
+    board: |-
+      ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+      ~~ A1 #1 ~~ __ __ __ __ ~~
+      ~~ X1 __ ~~ __ __ __ __ ~~
+      ~~ Q1 __ ~~ __ __ __ __ ~~
+      ~~ T1 Y1 U1 Z1 __ __ __ ~~
+      ~~ ~~ ~~ ~~ Y0 O0 U0 __ |0
+      ~~ ~~ ~~ ~~ ~~ __ __ #0 ~~
+      ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+    player_hand: RTUYIL
+    computer_hand: D
+
+    steps:
+      - rule: "Tiles don't always have to form valid words"
+        description: |-
+          To win, the word touching your opponent's town has to be valid, but the rest of your words don't.
+
+          You will win if you play 'R' to form 'YOUR', even though you have invalid words like 'AXQT' on your board.
+        you: "G -> 7,2"
+        gets: "E"
+
+  - name: "Word Direction"
+    board: |-
+      ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+      ~~ ~~ ~~ __ S0 D0 R0 O0 W0 |0
+      ~~ ~~ __ __ __ __ I0 __ __ ~~
+      ~~ __ __ __ W1 __ E0 __ #0 ~~
+      ~~ __ __ __ O1 __ H0 __ __ ~~
+      |1 Y1 O1 U1 R1 __ T0 __ __ ~~
+      ~~ #1 __ __ D1 __ __ ~~ ~~ ~~
+      ~~ ~~ __ __ S1 __ ~~ ~~ ~~ ~~
+      ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+    player_hand: RTUYIL
+    computer_hand: D
+
+    steps:
+      - rule: "Your words are read left to right and top to bottom, and your opponent's words are the opposite "
+        message: |-
+          
+
+
