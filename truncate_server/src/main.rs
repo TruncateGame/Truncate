@@ -583,19 +583,24 @@ async fn handle_player_msg(
                 return player_err("Invalid Token".into());
             };
 
-            if let Ok(Some(puzzle)) = daily::load_attempt(&server_state, authed, day as i32).await {
+            if let Ok(Some((puzzle, best))) =
+                daily::load_attempt(&server_state, authed, day as i32).await
+            {
                 server_state
-                    .send_to_player(&player_addr, GameMessage::ResumeDailyPuzzle(puzzle))
+                    .send_to_player(&player_addr, GameMessage::ResumeDailyPuzzle(puzzle, best))
                     .unwrap();
             } else {
                 server_state
                     .send_to_player(
                         &player_addr,
-                        GameMessage::ResumeDailyPuzzle(DailyStateMessage {
-                            puzzle_day: day,
-                            attempt: 0,
-                            current_moves: vec![],
-                        }),
+                        GameMessage::ResumeDailyPuzzle(
+                            DailyStateMessage {
+                                puzzle_day: day,
+                                attempt: 0,
+                                current_moves: vec![],
+                            },
+                            None,
+                        ),
                     )
                     .unwrap();
             }

@@ -41,6 +41,7 @@ pub struct SinglePlayerState {
     waiting_on_backchannel: Option<String>,
     pub header: HeaderType,
     pub daily_stats: Option<DailyStats>,
+    pub best_game: Option<Game>,
     splash: Option<ResultModalUI>,
     pub move_sequence: Vec<Move>,
 }
@@ -106,6 +107,7 @@ impl SinglePlayerState {
             waiting_on_backchannel: None,
             header,
             daily_stats: None,
+            best_game: None,
             splash: None,
             move_sequence: vec![],
         }
@@ -549,6 +551,17 @@ impl SinglePlayerState {
                     }
                 }
 
+                if self.winner == Some(human_player) {
+                    if self.best_game.is_none()
+                        || self
+                            .best_game
+                            .as_ref()
+                            .is_some_and(|best| best.turn_count > self.game.turn_count)
+                    {
+                        self.best_game = Some(self.game.clone());
+                    }
+                }
+
                 // Refresh our stats UI if we receive updated stats from the server
                 if let Some(mut stats) = self.daily_stats.take() {
                     stats.hydrate_missing_days();
@@ -571,6 +584,7 @@ impl SinglePlayerState {
                             &self.game,
                             &mut self.active_game.depot,
                             stats,
+                            self.best_game.as_ref(),
                         ));
                     }
                 }

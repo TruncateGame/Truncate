@@ -65,6 +65,7 @@ impl ResultModalUI {
         game: &Game,
         depot: &mut TruncateDepot,
         stats: DailyStats,
+        best_game: Option<&Game>,
     ) -> Self {
         let streak_length = stats
             .days
@@ -94,7 +95,7 @@ impl ResultModalUI {
         ResultModalUI::seed_animations(ui);
 
         let graph = DailySplashGraph::new(ui, &stats, depot.timing.current_time);
-        let daily_actions = DailyActions::new(game, &depot, &stats);
+        let daily_actions = DailyActions::new(best_game.unwrap_or(game), &depot, &stats);
 
         Self {
             contents: ResultModalVariant::Daily(ResultModalDaily {

@@ -11,9 +11,8 @@ use truncate_core::{
 
 use crate::{
     lil_bits::SplashUI,
-    regions::active_game::ActiveGame,
     regions::{
-        active_game::{GameLocation, HeaderType},
+        active_game::{ActiveGame, GameLocation, HeaderType},
         generator::GeneratorState,
         lobby::Lobby,
         replayer::ReplayerState,
@@ -22,6 +21,7 @@ use crate::{
     },
     utils::{
         daily::{get_playable_daily_puzzle, get_puzzle_day, get_raw_daily_puzzle},
+        game_evals::get_main_dict,
         macros::tr_log,
         text::TextHelper,
         Lighten,
@@ -205,28 +205,46 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
 
                 outer.logged_in_as = Some(player_token);
             }
-            GameMessage::ResumeDailyPuzzle(puzzle_state) => {
+            GameMessage::ResumeDailyPuzzle(latest_puzzle_state, best_puzzle) => {
                 let mut puzzle_game = get_playable_daily_puzzle(
                     ui.ctx(),
-                    puzzle_state.puzzle_day,
+                    latest_puzzle_state.puzzle_day,
                     &outer.map_texture,
                     &outer.theme,
                     &outer.backchannel,
                 );
 
+                if let Some(best_puzzle) = best_puzzle {
+                    let mut best_game = puzzle_game.game.clone();
+                    best_game.rules.battle_delay = 0;
+                    let dict_lock = get_main_dict();
+                    let dict = dict_lock.as_ref().unwrap();
+
+                    for next_move in best_puzzle.current_moves.into_iter() {
+                        if best_game
+                            .play_turn(next_move, Some(dict), Some(dict), None)
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+
+                    puzzle_game.best_game = Some(best_game);
+                }
+
                 let unplayed_puzzle = puzzle_game.clone();
 
                 match &mut puzzle_game.header {
                     HeaderType::Summary { attempt, .. } => {
-                        *attempt = Some(puzzle_state.attempt as usize)
+                        *attempt = Some(latest_puzzle_state.attempt as usize)
                     }
                     _ => {}
                 }
-                puzzle_game.move_sequence = puzzle_state.current_moves.clone();
+                puzzle_game.move_sequence = latest_puzzle_state.current_moves.clone();
 
                 let delay = puzzle_game.game.rules.battle_delay;
                 puzzle_game.game.rules.battle_delay = 0;
-                for next_move in puzzle_state.current_moves.into_iter() {
+                for next_move in latest_puzzle_state.current_moves.into_iter() {
                     if puzzle_game
                         .handle_move(next_move, &outer.backchannel)
                         .is_err()
