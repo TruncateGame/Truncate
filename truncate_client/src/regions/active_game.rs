@@ -273,22 +273,10 @@ impl ActiveGame {
                             );
                             let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
-                            let attempt_str = match attempt {
-                                Some(attempt) => {
-                                    format!(
-                                        "{} attempt{}  {}  ",
-                                        attempt + 1,
-                                        if *attempt == 0 { "" } else { "s" },
-                                        sentinel
-                                    )
-                                }
-                                _ => "".to_string(),
-                            };
-
                             let active_player = self.depot.gameplay.player_number;
                             let summary = if let Some(game) = game_ref {
                                 format!(
-                                    "{attempt_str}{} move{}",
+                                    "{} move{}",
                                     game.player_turn_count[active_player as usize],
                                     if game.player_turn_count[active_player as usize] == 1 {
                                         ""

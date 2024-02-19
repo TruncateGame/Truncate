@@ -192,11 +192,6 @@ pub async fn persist_moves(
         get_or_create_latest_attempt(server_state, player.clone(), daily_puzzle, human_player)
             .await?;
 
-    // We don't allow continued play after winning an attempt on that day's puzzle
-    if attempt.won {
-        return Err(TruncateServerError::PuzzleComplete);
-    }
-
     let packed_moves = pack_moves(&moves, 2);
 
     if !packed_moves.starts_with(&attempt.sequence_of_moves) {

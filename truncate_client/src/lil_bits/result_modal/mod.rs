@@ -1,4 +1,4 @@
-use epaint::{emath::Align2, vec2, Color32, TextureHandle};
+use epaint::{emath::Align2, vec2, Color32, Rect, Shadow, TextureHandle};
 use instant::Duration;
 use interpolation::Ease;
 use truncate_core::{
@@ -6,6 +6,7 @@ use truncate_core::{
     messages::{DailyStats, PlayerMessage},
 };
 
+mod daily_actions;
 mod graph;
 mod msg_mock;
 
@@ -16,7 +17,7 @@ use crate::{
     utils::{daily, depot::TruncateDepot, macros::tr_log, text::TextHelper, Lighten, Theme},
 };
 
-use self::{graph::DailySplashGraph, msg_mock::ShareMessageMock};
+use self::{daily_actions::DailyActions, graph::DailySplashGraph, msg_mock::ShareMessageMock};
 
 /*
 
@@ -30,7 +31,7 @@ TODOs for the daily splash screen:
 pub struct ResultModalDaily {
     pub stats: DailyStats,
     graph: DailySplashGraph,
-    msg_mock: ShareMessageMock,
+    daily_actions: DailyActions,
     streak_length: usize,
     win_rate: f32,
 }
@@ -71,7 +72,7 @@ impl ResultModalUI {
             .rev()
             .enumerate()
             .find_map(|(streak_length, day)| {
-                if day.attempts.last().map(|a| a.won) == Some(true) {
+                if day.attempts.iter().any(|a| a.won) {
                     None
                 } else {
                     Some(streak_length)
@@ -82,23 +83,26 @@ impl ResultModalUI {
         let win_count = stats
             .days
             .values()
-            .filter(|day| day.attempts.last().map(|a| a.won) == Some(true))
+            .filter(|day| day.attempts.iter().any(|a| a.won))
             .count();
-
-        let game_count: usize = stats.days.values().map(|day| day.attempts.len()).sum();
+        let attempted_day_count = stats
+            .days
+            .values()
+            .filter(|day| !day.attempts.is_empty())
+            .count();
 
         ResultModalUI::seed_animations(ui);
 
         let graph = DailySplashGraph::new(ui, &stats, depot.timing.current_time);
-        let msg_mock = ShareMessageMock::new_daily(game, &depot, &stats);
+        let daily_actions = DailyActions::new(game, &depot, &stats);
 
         Self {
             contents: ResultModalVariant::Daily(ResultModalDaily {
                 stats,
                 graph,
-                msg_mock,
+                daily_actions,
                 streak_length,
-                win_rate: win_count as f32 / game_count as f32,
+                win_rate: win_count as f32 / attempted_day_count as f32,
             }),
         }
     }
@@ -184,11 +188,7 @@ impl ResultModalUI {
             .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
 
         let ideal_modal_width = 370.0;
-        let ideal_modal_height = match self.contents {
-            ResultModalVariant::Daily(_) => 620.0,
-            ResultModalVariant::Unique(_) => 570.0,
-            ResultModalVariant::Resigning(_) => 300.0,
-        };
+        let ideal_modal_height = 620.0;
 
         area.show(ui.ctx(), |ui| {
             let screen_dimension = ui.max_rect();
@@ -223,14 +223,14 @@ impl ResultModalUI {
             let offset = (1.0 - modal_pos) * 40.0;
             modal_dimension = modal_dimension.translate(vec2(0.0, offset)); // Animate the modal in vertically
 
-            ui.painter().rect_filled(modal_dimension, 0.0, bg);
+            ui.painter().rect_filled(modal_dimension, 4.0, bg);
 
             // Wait for the modal position to be close before showing the contents
             if modal_pos < 0.7 {
                 return;
             }
 
-            let modal_inner_dimension = modal_dimension.shrink(30.0);
+            let modal_inner_dimension = modal_dimension.shrink(10.0);
             ui.allocate_ui_at_rect(modal_inner_dimension, |mut ui| {
                 // TODO: Add close button (reference game sidebar on mobile)
 
@@ -240,40 +240,86 @@ impl ResultModalUI {
 
                 ui.spacing_mut().item_spacing = vec2(0.0, 10.0);
 
-                ui.add_space(10.0);
+                let (heading_rect, _) = ui.allocate_exact_size(
+                    vec2(ui.available_width(), ui.available_height() / 7.0),
+                    Sense::hover(),
+                );
 
                 match &mut self.contents {
                     ResultModalVariant::Daily(daily) => {
                         let streak_string = format!("{} day streak", daily.streak_length);
                         let streak_text = TextHelper::heavy(&streak_string, 14.0, None, &mut ui);
-                        streak_text.paint(Color32::WHITE, ui, true);
 
-                        ui.add_space(4.0);
+                        let padding = streak_text.mesh_size().y / 2.0;
+
+                        streak_text.paint_within(
+                            heading_rect
+                                .translate(vec2(0.0, -(heading_rect.height() / 2.0 + padding))),
+                            Align2::CENTER_BOTTOM,
+                            Color32::WHITE,
+                            ui,
+                        );
 
                         let wr_string = format!("{}% win rate", (daily.win_rate * 100.0) as usize);
                         let wr_text = TextHelper::heavy(&wr_string, 12.0, None, &mut ui);
-                        wr_text.paint(Color32::WHITE, ui, true);
+
+                        wr_text.paint_within(
+                            heading_rect
+                                .translate(vec2(0.0, heading_rect.height() / 2.0 + padding)),
+                            Align2::CENTER_TOP,
+                            Color32::WHITE,
+                            ui,
+                        );
                     }
                     ResultModalVariant::Unique(u) => {
                         if u.won {
                             let summary_string = "Great job!".to_string();
                             let summary_text =
                                 TextHelper::heavy(&summary_string, 14.0, None, &mut ui);
-                            summary_text.paint(Color32::WHITE, ui, true);
+
+                            summary_text.paint_within(
+                                heading_rect,
+                                Align2::CENTER_CENTER,
+                                Color32::WHITE,
+                                ui,
+                            );
                         } else {
                             let summary_string = "No worries,".to_string();
                             let summary_text =
                                 TextHelper::heavy(&summary_string, 14.0, None, &mut ui);
-                            summary_text.paint(Color32::WHITE, ui, true);
+
+                            let padding = summary_text.mesh_size().y / 2.0;
+
+                            summary_text.paint_within(
+                                heading_rect
+                                    .translate(vec2(0.0, -(heading_rect.height() / 2.0 + padding))),
+                                Align2::CENTER_BOTTOM,
+                                Color32::WHITE,
+                                ui,
+                            );
+
                             let summary_string = "have another go!".to_string();
                             let summary_text =
                                 TextHelper::heavy(&summary_string, 14.0, None, &mut ui);
-                            summary_text.paint(Color32::WHITE, ui, true);
+
+                            summary_text.paint_within(
+                                heading_rect
+                                    .translate(vec2(0.0, heading_rect.height() / 2.0 + padding)),
+                                Align2::CENTER_TOP,
+                                Color32::WHITE,
+                                ui,
+                            );
                         }
                     }
                     ResultModalVariant::Resigning(r) => {
                         let summary_text = TextHelper::heavy(&r.msg, 14.0, None, &mut ui);
-                        summary_text.paint(Color32::WHITE, ui, true);
+
+                        summary_text.paint_within(
+                            heading_rect,
+                            Align2::CENTER_CENTER,
+                            Color32::WHITE,
+                            ui,
+                        );
                     }
                 }
 
@@ -285,76 +331,25 @@ impl ResultModalUI {
                 let modal_remainder = ui.available_rect_before_wrap();
 
                 if let ResultModalVariant::Daily(daily) = &mut self.contents {
-                    ui.add_space(16.0);
-                    daily.graph.render(ui);
+                    let (graph_rect, _) = ui.allocate_exact_size(
+                        vec2(ui.available_width(), ui.available_height() / 5.0),
+                        Sense::hover(),
+                    );
+                    daily.graph.render(ui, graph_rect.shrink2(vec2(10.0, 0.0)));
                 }
-
-                ui.add_space(20.0);
 
                 match &mut self.contents {
                     ResultModalVariant::Daily(daily) => {
-                        let won_today = daily
-                            .stats
-                            .days
-                            .values()
-                            .last()
-                            .cloned()
-                            .unwrap_or_default()
-                            .attempts
-                            .last()
-                            .is_some_and(|a| a.won);
-
-                        let won_yesterday = daily
-                            .stats
-                            .days
-                            .values()
-                            .nth_back(1)
-                            .cloned()
-                            .unwrap_or_default()
-                            .attempts
-                            .last()
-                            .is_some_and(|a| a.won);
-
-                        if won_today {
-                            daily.msg_mock.render(ui, theme, map_texture, backchannel);
-                        } else {
-                            ui.add_space(20.0);
-
-                            let mut textrow = |string: String| {
-                                let row = TextHelper::heavy(
-                                    &string,
-                                    14.0,
-                                    Some(ui.available_width()),
-                                    &mut ui,
-                                );
-                                row.paint(Color32::WHITE, ui, true);
-                            };
-
-                            if won_yesterday {
-                                textrow("Try again".into());
-                                textrow("to maintain".into());
-                                textrow("your streak!".into());
-                            } else {
-                                textrow("No worries,".into());
-                                textrow("have another go!".into());
-                            }
-
-                            ui.add_space(16.0);
-
-                            let text = TextHelper::heavy("TRY AGAIN", 12.0, None, ui);
-                            let try_again_button = text.centered_button(
-                                theme.button_primary,
-                                theme.text,
-                                map_texture,
-                                ui,
-                            );
-                            if try_again_button.clicked() {
-                                msg = Some(ResultModalAction::TryAgain);
-                            }
+                        if let Some(action) =
+                            daily
+                                .daily_actions
+                                .render(ui, theme, map_texture, backchannel)
+                        {
+                            msg = Some(action);
                         }
                     }
                     ResultModalVariant::Unique(unique) => {
-                        unique.msg_mock.render(ui, theme, map_texture, backchannel);
+                        unique.msg_mock.render(ui, theme, map_texture);
 
                         ui.add_space(20.0);
                         let text = TextHelper::heavy("TRY AGAIN", 12.0, None, ui);

@@ -51,7 +51,15 @@ pub enum BackchannelMsg {
     },
     Copy {
         text: String,
+        share: ShareType,
     },
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum ShareType {
+    None,
+    Text,
+    Url,
 }
 
 impl Backchannel {
