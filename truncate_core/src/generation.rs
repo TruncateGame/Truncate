@@ -65,12 +65,12 @@ impl BoardParams {
             land_dimensions: [100, 100],
             dispersion: [13.51, 13.51],
             island_influence: 0.23,
-            maximum_town_density: 1.0,
+            maximum_town_density: 0.2,
             maximum_town_distance: 0.1,
             minimum_choke: 3,
             board_type: BoardType::Continental,
             ideal_dock_radius: 0.1,
-            ideal_dock_separation: 0.7,
+            ideal_dock_separation: 0.3,
         }
     }
 }
