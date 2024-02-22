@@ -1,0 +1,218 @@
+rules:
+  - category: Basics
+    scenarios:
+    - name: "Place tiles by your dock or your own tiles" # Implicitly covers that players take turns and you play as blue
+      board: |-
+        ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
+        ~~ ~~ __ #0 __ #0 #0 __ ~~
+        ~~ __ __ __ __ __ __ __ ~~
+        ~~ ~~ ~~ __ __ __ __ __ ~~
+        ~~ ~~ __ __ __ __ ~~ __ ~~
+        ~~ __ __ __ __ ~~ ~~ __ ~~
+        ~~ __ __ __ __ ~~ ~~ __ ~~
+        ~~ __ #1 __ __ __ ~~ ~~ ~~
+        ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: ALIFIRM
+      computer_hand: D
+
+      steps:
+        - message: |-
+            Welcome to Truncate!
+
+            This tutorial covers the rules of the game.
+
+          message: |-
+            In Truncate, players take turns to place a tile on the board
+
+          message: |-
+            In this game you are playing as blue. You will generally play as blue unless you're facing a human opponent.
+
+            You can tell which colour you're playing by the colour of the tiles in your hand.
+
+          description: |-
+            You start the game by placing tiles beside your dock.
+
+            Your dock is at the bottom left of the board. Try playing an 'L' there.
+          you: "L -> 1,1"
+          gets: "E"
+
+        - description: |-
+            Now it's your opponent's turn.
+
+            Click Next to see their first move.
+          computer: "D -> 4,7"
+          gets: "R"
+
+        - description: |-
+            Once you've placed a tile, you can place tiles beside your dock or your existing tiles.
+
+            Try playing an 'I' beside the 'L' you just played.
+          you: "L -> 1,2"
+          gets: "E"
+
+    - name: "To win, touch an opponent's town with a valid word"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ __ __ ~~ __ __ __ ~~
+        |0 __ __ __ __ __ __ #1 ~~
+        ~~ __ R1 O1 W1 I1 N1 G1 |1
+        ~~ #0 __ __ __ __ __ __ ~~
+        ~~ __ __ ~~ __ __ __ __ ~~
+        ~~ ~~ ~~ ~~ __ __ __ __ ~~
+        ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: GSUYIFZ
+      computer_hand: D
+
+      steps:
+          message: |-
+            To win Truncate, you must touch your opponent's town with a valid word.
+
+            Notice that your dock is on the right hand side on this boad, and your opponent's town and dock are on the left.
+
+        - description: |-
+            Place 'G' beside your opponent's town to form the word 'GROWING' and win the game.
+          you: "G -> 1,5"
+          gets: "E"
+
+    - name: "Tiles don't always have to form valid words"
+      board: |-
+        ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ A1 #1 ~~ __ __ __ __ ~~
+        ~~ X1 __ ~~ __ __ __ __ ~~
+        ~~ Q1 __ ~~ __ __ __ __ ~~
+        ~~ T1 Y1 U1 Z1 __ __ __ ~~
+        ~~ ~~ ~~ ~~ Y0 O0 U0 __ |0
+        ~~ ~~ ~~ ~~ ~~ __ __ #0 ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: RTUYIL
+      computer_hand: D
+
+      steps:
+          description: |-
+            To win, the word touching your opponent's town has to be valid, but the rest of your words don't.
+
+            You will win if you play 'R' to form 'YOUR', even though you have invalid words like 'AXQT' on your board.
+          you: "G -> 7,2"
+          gets: "E"
+
+    - name: "Your words are read left to right and top to bottom, and your opponent's words are the opposite"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ __ S0 D0 R0 O0 W0 |0
+        ~~ ~~ __ __ __ __ I0 __ __ ~~
+        ~~ __ __ __ W1 __ E0 __ #0 ~~
+        ~~ __ __ __ O1 __ H0 __ __ ~~
+        |1 Y1 O1 U1 R1 __ T0 __ __ ~~
+        ~~ #1 __ __ D1 __ __ ~~ ~~ ~~
+        ~~ ~~ __ __ S1 __ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: RTUYIL
+      computer_hand: D
+
+      steps:
+          message: |-
+            Your words on this board spell "YOUR WORDS" and your opponent's words spell "THEIR WORDS."
+
+            Your words are written left to right and top to bottom as normal, but notice that your opponent's words are reversed as though they were situated on the opposite side of the island. Reading their words can take some getting used to.
+
+    - name: "You can swap two tiles on the board"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ #1 __ __ __ __ ~~ ~~
+        |1 V1 A1 L1 D1 I1 __ __ __ ~~
+        ~~ __ __ __ __ __ __ __ __ ~~
+        ~~ ~~ __ __ __ __ __ ~~ ~~ ~~
+        ~~ ~~ __ __ __ __ __ ~~ #0 ~~
+        ~~ ~~ __ __ __ __ __ __ __ |0
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: KFAGUMI
+      computer_hand: D
+
+      steps:
+          description: |-
+            Instead of playing a tile from your hand, you can swap two tiles on the board.
+
+            Try turning "VALDI" into "VALID" by swapping the "D" and "I." Note, you can't swap between the board and your hand.
+          you: "4,5 -> 5,4"
+          gets: "_"
+
+  - category: Battles
+    scenarios:
+    - name: "Valid words beat invalid words"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~
+        ~~ __ __ __ __ __ I0 __ __ ~~
+        ~~ ~~ __ __ __ __ D0 __ #0 ~~
+        ~~ ~~ ~~ __ __ __ L0 __ __ ~~
+        ~~ ~~ ~~ __ __ __ A0 __ __ ~~
+        ~~ __ __ __ __ __ V0 __ __ ~~
+        ~~ __ __ __ __ __ I0 __ __ ~~
+        ~~ __ P1 O1 P1 __ N0 __ __ ~~
+        ~~ ~~ I1 __ __ __ __ __ __ ~~
+        ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: UMSIKQU
+      computer_hand: D
+
+      steps:
+          message: |-
+            When your tiles and the opponent's tiles touch there is a battle.
+
+            The battle is between the words that are touching, and valid words beat invalid words.
+          
+          description: |-
+            Try playing "POPS" which will defeat the opponent's word "NIVALDI" because it's invalid.
+          you: "S -> 5,2"
+          gets: "E"
+
+    - name: "Battles only involve touching words"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        |0 G0 I0 R0 ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ __ __ U0 __ ~~ ~~ __ __ ~~
+        ~~ ~~ __ O0 __ __ __ __ __ ~~
+        ~~ ~~ __ T0 F0 __ __ __ ~~ ~~
+        ~~ ~~ __ __ __ __ __ __ __ ~~
+        ~~ __ Z1 X1 O1 U1 __ X1 __ ~~
+        ~~ ~~ __ __ __ Z1 Q1 X1 ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~
+
+      player_hand: YTIGHUI
+      computer_hand: D
+
+      steps:
+          message: |-
+            The only words involved in the battle are those that are actually touching an opponent's words.
+
+            This means our board can consist of largely invalid words, yet we can still win battles.
+          
+          description: |-
+            Try playing "TO" against the opponent's "TF".
+            
+            Even though your board is mostly invalid, the only words involved in the battle are "TO" and "TF", so you'll win.
+          you: "T -> 4,3"
+          gets: "E"
+            
+    - name: "Long words beat short words"
+
+    - name: "The defender has a length bonus"
+    
+    - name: "The shortest defender is used"
+      # (strong defenders aren't removed, but the touching tile is removed so that the players' words remain disconnected)
+    
+    - name: "The longest attacker is used"
+  
+    - name: "All attackers must be valid"
+
+    - name: "Tiles disconnected from the dock are truncated"
+      # there must be a connection from every tile to the dock, or else it is removed
+    
+
+
+
