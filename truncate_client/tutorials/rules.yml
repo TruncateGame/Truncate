@@ -22,15 +22,15 @@ rules:
 
             This tutorial covers the rules of the game.
 
-          message: |-
+        - message: |-
             In Truncate, players take turns to place a tile on the board
 
-          message: |-
+        - message: |-
             In this game you are playing as blue. You will generally play as blue unless you're facing a human opponent.
 
             You can tell which colour you're playing by the colour of the tiles in your hand.
 
-          description: |-
+        - description: |-
             You start the game by placing tiles beside your dock.
 
             Your dock is at the bottom left of the board. Try playing an 'L' there.
@@ -67,7 +67,7 @@ rules:
       computer_hand: D
 
       steps:
-          message: |-
+        - message: |-
             To win Truncate, you must touch your opponent's town with a valid word.
 
             Notice that your dock is on the right hand side on this boad, and your opponent's town and dock are on the left.
@@ -92,7 +92,7 @@ rules:
       computer_hand: D
 
       steps:
-          description: |-
+        - description: |-
             To win, the word touching your opponent's town has to be valid, but the rest of your words don't.
 
             You will win if you play 'R' to form 'YOUR', even though you have invalid words like 'AXQT' on your board.
@@ -115,7 +115,7 @@ rules:
       computer_hand: D
 
       steps:
-          message: |-
+        - message: |-
             Your words on this board spell "YOUR WORDS" and your opponent's words spell "THEIR WORDS."
 
             Your words are written left to right and top to bottom as normal, but notice that your opponent's words are reversed as though they were situated on the opposite side of the island. Reading their words can take some getting used to.
@@ -135,7 +135,7 @@ rules:
       computer_hand: D
 
       steps:
-          description: |-
+        - description: |-
             Instead of playing a tile from your hand, you can swap two tiles on the board.
 
             Try turning "VALDI" into "VALID" by swapping the "D" and "I." Note, you can't swap between the board and your hand.
@@ -161,12 +161,12 @@ rules:
       computer_hand: D
 
       steps:
-          message: |-
+        - message: |-
             When your tiles and the opponent's tiles touch there is a battle.
 
             The battle is between the words that are touching, and valid words beat invalid words.
           
-          description: |-
+        - description: |-
             Try playing "POPS" which will defeat the opponent's word "NIVALDI" because it's invalid.
           you: "S -> 5,2"
           gets: "E"
@@ -200,11 +200,115 @@ rules:
           gets: "E"
             
     - name: "Long words beat short words"
+      board: |-
+        ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ Y0 #0 __ ~~ ~~ __ ~~ ~~ ~~
+        ~~ N0 __ __ ~~ __ __ __ ~~ ~~
+        ~~ U0 __ __ ~~ __ __ __ __ ~~
+        ~~ P0 __ __ __ __ __ __ __ ~~
+        ~~ __ N1 O1 R1 M1 O1 U1 S1 ~~
+        ~~ __ __ __ __ __ __ __ __ ~~
+        ~~ ~~ ~~ ~~ __ __ __ __ #1 ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~
+
+      player_hand: ETHRYUF
+      computer_hand: D
+
+      steps:
+        - description: |-
+            Long words beat short words in a battle. "ENORMOUS" is significantly longer than "PUNY" and would win in a battle.
+
+            Try playing an "E" to defeat the opponent's word.
+          you: "E -> 1,3"
+          gets: "F"
 
     - name: "The defender has a length bonus"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ __ ~~ ~~ __ S0 A0 |0
+        ~~ __ ~~ S1 H1 O1 R1 __ P0 #0 ~~
+        ~~ __ ~~ A1 __ __ __ __ A0 __ ~~
+        ~~ __ __ I1 __ __ __ __ C0 __ ~~
+        ~~ __ __ L1 O1 N1 G1 E1 __ __ ~~
+        ~~ ~~ __ __ N1 __ __ __ ~~ __ ~~
+        ~~ ~~ ~~ __ E1 __ #1 ~~ ~~ __ ~~
+        ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: TYUIGII
+      computer_hand: H
+
+      steps:
+        - message: |-
+            In Truncate, there is a defender's advantage of 2.
+
+            If the defending and attacking words are both valid, the attacking word must be 2 longer than the defending word to win.
+        - description: |-
+            Let's demonstrate a failed attack by playing "SHORT" into "CAPS."
+
+            "SHORT" is longer, but only by one, and since it's the attacker, it will lose.
+          you: "E -> 7,6"
+          gets: "R"
+        - description: |-
+            Notice that when an attack fails, the attacker is destroyed.
+
+            Thankfully, we just picked up an "R" and will be able to play "LONGER" next turn.
+          computer: "H -> 7,7"
+          gets: "H"
+        - description: |-
+            Try playing "LONGER." Since it is 2 letters longer than "CAPS" it will win.
     
-    - name: "The shortest defender is used"
-      # (strong defenders aren't removed, but the touching tile is removed so that the players' words remain disconnected)
+    - name: "The weakest defender is used"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ __ #0 R0 U0 F0 __ ~~ __ ~~
+        ~~ __ __ __ I0 __ L0 I0 A0 __ ~~
+        ~~ __ __ __ A0 __ A0 __ X0 __ ~~
+        ~~ __ __ I0 P0 __ C0 __ Q0 __ ~~
+        ~~ __ __ __ __ __ __ R1 __ __ ~~
+        ~~ ~~ __ __ R1 A1 G1 A1 __ __ ~~
+        ~~ ~~ ~~ __ A1 __ __ __ __ __ ~~
+        ~~ ~~ ~~ __ P1 __ ~~ ~~ #1 __~~
+        ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: PLTGHYY
+      computer_hand: R
+
+      steps:
+        - message: |-
+            Often multiple defenders will be involved in a battle.
+
+            In Truncate, the weakest defender determines the outcome of the battle.
+        - desciprtion: |-
+            This means that even if you have a strong word, it can be undermined by a weaker one.
+
+            For example, we can play "TRAP" against "PAIR" which normally wouldn't win due to the defenders advantage, but since "PI" is also involved we will win.
+          you: "T -> 4,4"
+          gets: "E"
+        - message: |-
+            Notice that "PI" was beaten and removed, but since it is shorter than "TRAP" but "PAIR" remains.
+
+            Even though we won the battle, we don't destroy the words that are strong than our attacker.
+        - description: |-
+            However, since the "P" in "PAIR" was also the "P" in "PI", the "P" was destroyed which shortens "PAIR" to "AIR".
+
+            Let's see what our oponent does.
+          computer: "R -> 4,8"
+          gets: "O"
+        - message: |-
+            Now we can attack our opponent's invalid word "QXA".
+
+            We could play "RE" (the musical note) but we would be better off playing "ERA" and attacking "CALF" at the same time.
+        - description: |-
+            Since the weakest defender determines the battle, we will win, and we will actually damage "CALF" at the same time.
+
+            Try playing "ERA".
+          you: "E -> 7,5"
+          gets: "A"
+          # TODO: consinder moving out to separate rule?
+        - message: |-
+            Notice that the "C" in "CALF" was destroyed as well. This is for a different reason to why the opponent lost the "P" in "PAIR".
+
+            The "C" was destroyed because after a winning attack, all defending letters touching the new tile are destroyed to keep the players' words disconnected.
     
     - name: "The longest attacker is used"
   
