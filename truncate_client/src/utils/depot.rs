@@ -4,6 +4,7 @@ use truncate_core::{
     board::{Coordinate, Square},
     generation::BoardSeed,
     messages::RoomCode,
+    npc::scoring::{NPCParams, NPCPersonality},
     reporting::Change,
 };
 
@@ -90,6 +91,7 @@ pub struct GameplayDepot {
     pub winner: Option<usize>,
     pub changes: Vec<Change>,
     pub last_battle_origin: Option<Coordinate>,
+    pub npc: Option<NPCPersonality>,
 }
 
 #[derive(Clone)]

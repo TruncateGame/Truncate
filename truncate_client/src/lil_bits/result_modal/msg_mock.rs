@@ -32,6 +32,7 @@ impl ShareMessageMock {
             game.winner,
             Some(game),
             depot.board_info.board_seed.clone(),
+            depot.gameplay.npc.clone(),
             stats
                 .days
                 .last_key_value()
@@ -67,6 +68,7 @@ impl ShareMessageMock {
             game.winner,
             Some(game),
             depot.board_info.board_seed.clone(),
+            depot.gameplay.npc.clone(),
             None,
             format!("https://truncate.town/#"),
         );

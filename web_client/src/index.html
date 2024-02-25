@@ -487,11 +487,15 @@
                 singleStage() {
                     this.reset();
 
-                    this.button("Random Puzzle", () => {
+                    this.button("Easy Puzzle", () => {
+                        truncate_runner.join_game("RANDOM_EASY_PUZZLE");
+                    });
+
+                    this.button("Regular Puzzle", () => {
                         truncate_runner.join_game("RANDOM_PUZZLE");
                     });
 
-                    this.button("Classic", () => {
+                    this.button("Classic Board", () => {
                         truncate_runner.join_game("SINGLE_PLAYER");
                     });
 

@@ -4,7 +4,7 @@ use truncate_core::{
     game::Game,
     judge::{WordData, WordDict},
     messages::PlayerMessage,
-    npc::scoring::BoardWeights,
+    npc::scoring::NPCParams,
 };
 
 pub static TRUNCATE_DICT: &str = include_str!("../../../dict_builder/final_wordlist.txt");
@@ -84,7 +84,7 @@ pub fn get_main_dict() -> MutexGuard<'static, Option<WordDict>> {
     TOTAL_DICT.lock().unwrap()
 }
 
-pub fn best_move(game: &Game, weights: &BoardWeights) -> PlayerMessage {
+pub fn client_best_move(game: &Game, npc_params: &NPCParams) -> PlayerMessage {
     ensure_dicts();
 
     let npc_known_dict = NPC_KNOWN_DICT.lock().unwrap();
@@ -96,17 +96,16 @@ pub fn best_move(game: &Game, weights: &BoardWeights) -> PlayerMessage {
         .as_millis();
 
     let mut arb = truncate_core::npc::Arborist::pruning();
-    arb.capped(15000);
-    let search_depth = 12;
+    arb.capped(npc_params.evaluation_cap);
 
     let (best_move, _score) = truncate_core::game::Game::best_move(
         game,
         npc_known_dict.as_ref(),
         player_known_dict.as_ref(),
-        search_depth,
+        npc_params.max_depth,
         Some(&mut arb),
         true,
-        weights,
+        npc_params,
     );
 
     let end = instant::SystemTime::now()
