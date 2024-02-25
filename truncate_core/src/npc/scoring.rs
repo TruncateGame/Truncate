@@ -74,10 +74,32 @@ impl NPCPersonality {
             },
         }
     }
+
+    pub fn mellite() -> Self {
+        Self {
+            name: "mellite".to_string(),
+            params: NPCParams {
+                evaluation_cap: 5000,
+                max_depth: 2,
+                raced_defense: 0.5,
+                raced_attack: 0.5,
+                self_defense: 0.5,
+                self_attack: 0.5,
+                direct_defence: 0.0,
+                direct_attack: 0.0,
+                word_validity: 1.0,
+                word_length: 1.0,
+                word_extensibility: 1.0,
+                ..NPCParams::default()
+            },
+        }
+    }
+
     pub fn from_id(id: impl AsRef<str>) -> Option<Self> {
         match id.as_ref() {
             "opal" => Some(Self::opal()),
             "jet" => Some(Self::jet()),
+            "mellite" => Some(Self::mellite()),
             _ => None,
         }
     }

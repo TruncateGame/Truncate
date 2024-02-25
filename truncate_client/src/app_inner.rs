@@ -424,7 +424,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 Some(board_seed),
                 true,
                 header,
-                NPCPersonality::opal(),
+                NPCPersonality::jet(),
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room == "RANDOM_EASY_PUZZLE" {
@@ -446,7 +446,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 Some(board_seed),
                 true,
                 header,
-                NPCPersonality::jet(),
+                NPCPersonality::mellite(),
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room.starts_with("PUZZLE:") {
@@ -465,7 +465,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     .next()
                     .map(|p| NPCPersonality::from_id(p.to_ascii_lowercase()))
             } else {
-                Some(Some(NPCPersonality::opal()))
+                Some(Some(NPCPersonality::jet()))
             };
             let seed = parts.next().map(str::parse::<u32>);
             let player = parts
@@ -646,7 +646,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                             editor_state.board_seed.clone(),
                             true,
                             HeaderType::Timers,
-                            NPCPersonality::opal(),
+                            NPCPersonality::jet(),
                         );
                         new_game_status = Some(GameStatus::SinglePlayer(single_player_game));
                     }

@@ -94,7 +94,7 @@ pub fn get_playable_daily_puzzle(
         Some(board_seed.clone()),
         human_starts,
         HeaderType::None, // Replaced soon with HeaderType::Summary
-        NPCPersonality::opal(),
+        NPCPersonality::jet(),
     );
 
     if let Some((_, notes)) = info {
