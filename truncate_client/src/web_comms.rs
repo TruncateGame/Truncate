@@ -12,11 +12,10 @@ use ws_stream_wasm::{WsMessage, WsMeta, WsStream};
 async fn websocket_connect(connect_addr: &String) -> Result<WsStream, ()> {
     console::log_1(&format!("Connecting to {connect_addr}").into());
 
-    let Ok((_ws, wsio)) = WsMeta::connect(connect_addr, None)
-        .await else {
-            console::log_1(&"Failed to connect. . . .".into());
-            return Err(());
-        };
+    let Ok((_ws, wsio)) = WsMeta::connect(connect_addr, None).await else {
+        console::log_1(&"Failed to connect. . . .".into());
+        return Err(());
+    };
 
     console::log_1(&"Connected".into());
 
@@ -38,10 +37,6 @@ pub async fn connect(
     let most_recent_token: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
 
     let mut outgoing_msg_stream = rx_player.map(|msg| {
-        if !matches!(msg, PlayerMessage::Ping) {
-            console::log_1(&format!("Sending {msg}").into());
-        }
-
         // Store a token that we're interacting with, in case we need to
         // recreate the connection.
         if let PlayerMessage::RejoinGame(token) = &msg {
@@ -52,19 +47,15 @@ pub async fn connect(
     });
 
     loop {
-        console::log_1(&"Starting loop".into());
         let Ok(wsio) = websocket_connect(&connect_addr).await else {
             console::log_1(&"Failed, waiting 2000ms".into());
             gloo_timers::future::TimeoutFuture::new(2000).await;
-            console::log_1(&"Ended wait, starting again".into());
             continue;
         };
-        console::log_1(&"In the good bit now".into());
 
         let (mut outgoing, incoming) = wsio.split();
 
         if let Some(token) = most_recent_token.lock().unwrap().clone() {
-            console::log_1(&"Attempting to reconnect to a game".into());
             let reconnection_msg = PlayerMessage::RejoinGame(token);
             let encoded_reconnection_msg =
                 WsMessage::Text(serde_json::to_string(&reconnection_msg).unwrap());
@@ -84,8 +75,6 @@ pub async fn connect(
 
                 if matches!(parsed_msg, GameMessage::Ping) {
                     _ = tx_player.clone().send(PlayerMessage::Ping).await;
-                } else {
-                    console::log_1(&format!("Received {parsed_msg}").into());
                 }
 
                 // Store a token that we're interacting with, in case we need to

@@ -104,7 +104,7 @@ pub fn client_best_move(game: &Game, npc_params: &NPCParams) -> PlayerMessage {
         player_known_dict.as_ref(),
         npc_params.max_depth,
         Some(&mut arb),
-        true,
+        false,
         npc_params,
     );
 
@@ -112,12 +112,6 @@ pub fn client_best_move(game: &Game, npc_params: &NPCParams) -> PlayerMessage {
         .duration_since(instant::SystemTime::UNIX_EPOCH)
         .expect("Please don't play Truncate before 1970")
         .as_millis();
-
-    println!("Looked at {} leaves in {}ms", arb.assessed(), end - start);
-    #[cfg(target_arch = "wasm32")]
-    web_sys::console::log_1(
-        &format!("Looked at {} leaves in {}ms", arb.assessed(), end - start).into(),
-    );
 
     best_move
 }

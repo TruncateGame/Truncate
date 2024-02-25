@@ -143,7 +143,6 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                     outer.theme.clone(),
                     GameLocation::Online,
                 ));
-                println!("Starting a game")
             }
             GameMessage::GameUpdate(state_message) => match &mut outer.game_status {
                 GameStatus::Active(game) => {

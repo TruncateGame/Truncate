@@ -70,7 +70,6 @@ impl ServerState {
 
     fn get_game_by_player(&self, addr: &SocketAddr) -> Option<Arc<Mutex<GameManager>>> {
         let assignments = self.assignments.lock();
-        println!("Getting game for {addr}");
         let game_id = assignments.get(addr)?;
         println!("{addr} is assigned to game {game_id}");
         self.games.lock().get(game_id).map(Arc::clone)
@@ -107,9 +106,6 @@ async fn handle_player_msg(
 ) -> Result<(), tungstenite::Error> {
     let mut parsed_msg: PlayerMessage =
         serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
-    if !matches!(parsed_msg, PlayerMessage::Ping) {
-        println!("Received a message from {player_addr}: {}", parsed_msg);
-    }
 
     use PlayerMessage::*;
     // If player is joining a room that they have a token for,
@@ -664,12 +660,9 @@ async fn handle_player_msg(
 }
 
 async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, addr: SocketAddr) {
-    println!("Incoming TCP connection from: {}", addr);
-
     let ws_stream = tokio_tungstenite::accept_async(raw_stream)
         .await
         .expect("Error during the websocket handshake occurred");
-    println!("WebSocket connection established: {}", addr);
 
     let (player_tx, player_rx) = mpsc::unbounded_channel();
     server_state.track_peer(&addr, player_tx);
@@ -684,11 +677,6 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
     let messages_to_player = {
         UnboundedReceiverStream::new(player_rx)
             .map(|msg| {
-                if !matches!(msg, GameMessage::Ping) {
-                    println!("Sending message: {msg}");
-                }
-
-                println!("Checking the game message");
                 match &msg {
                     GameMessage::GameUpdate(GameStateMessage {
                         room_code,
@@ -702,10 +690,8 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
                         next_player_number,
                         ..
                     }) => {
-                        println!("The message is a game update");
                         let next_player = &players[*next_player_number as usize];
                         if let Some(time_remaining) = next_player.time_remaining {
-                            println!("Some player has {time_remaining} time left");
                             tokio::spawn(check_game_over(
                                 room_code.clone(),
                                 time_remaining.whole_milliseconds(),
@@ -724,32 +710,22 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
     pin_mut!(handle_player_msg, messages_to_player);
     future::select(handle_player_msg, messages_to_player).await;
 
-    println!("{} disconnected", &addr);
     let mut peer_map = server_state.peers.lock();
     peer_map.remove(&addr);
 }
 
 async fn check_game_over(game_id: String, check_in_ms: i128, server_state: ServerState) {
-    println!("[GAME CHECKER] Queueing an end game check in {check_in_ms}ms");
     if check_in_ms.is_negative() {
         return;
     }
-    println!("[GAME CHECKER] Sleeping. . .");
     tokio::time::sleep(Duration::from_millis(check_in_ms as u64 + 10).into()).await;
-    println!("[GAME CHECKER] Awaking after {check_in_ms}");
 
     let mut game_map = server_state.games.lock();
     let Some(existing_game) = game_map.get_mut(&game_id) else {
-        println!("[GAME CHECKER] Game not found for {game_id}, exiting");
         return;
     };
-    println!("[GAME CHECKER] Game found for {game_id}");
     let mut game_manager = existing_game.lock();
     game_manager.core_game.calculate_game_over(None);
-    println!(
-        "[GAME CHECKER] Checked game, winner is: {:?}",
-        game_manager.core_game.winner
-    );
 
     if let Some(winner) = game_manager.core_game.winner {
         for (player_index, player) in game_manager.players.iter().enumerate() {
@@ -777,7 +753,6 @@ async fn ping_peers(server_state: ServerState) {
             match peer_tx.send(GameMessage::Ping) {
                 Ok(()) => {}
                 Err(_) => {
-                    println!("Failed to ping {}", peer_key);
                     bad_peers.push(peer_key.clone());
                 }
             }
