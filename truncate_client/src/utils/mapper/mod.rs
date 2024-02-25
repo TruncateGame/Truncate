@@ -79,6 +79,7 @@ impl ResolvedTextureLayers {
 struct MapState {
     prev_board: Board,
     prev_tick: u64,
+    prev_winner: Option<usize>,
     prev_selected: Option<(Coordinate, Square)>,
     prev_tile_hover: Option<(Coordinate, Square)>,
     prev_dragging: Option<(Coordinate, Square)>,
@@ -499,8 +500,20 @@ impl MappedBoard {
                     color = Some(aesthetics.theme.ring_selected_hovered);
                 }
 
+                let mut variant = MappedTileVariant::Healthy;
+                if let Some(GameplayDepot {
+                    winner: Some(winner),
+                    ..
+                }) = gameplay
+                {
+                    if winner != player {
+                        color = None;
+                        variant = MappedTileVariant::Gone;
+                    }
+                }
+
                 let tile_layers = Tex::board_game_tile(
-                    MappedTileVariant::Healthy,
+                    variant,
                     render_as_swap.unwrap_or(*character),
                     orient(*player),
                     color,
@@ -703,6 +716,7 @@ impl MappedBoard {
             .map(|i| i.hovered_unoccupied_square_on_board.clone())
             .flatten();
         let generic_repaint_tick = self.generic_repaint_tick;
+        let winner = gameplay.map(|g| g.winner).flatten();
 
         if let Some(memory) = self.state_memory.as_mut() {
             let board_eq = memory.prev_board == *board;
@@ -712,6 +726,7 @@ impl MappedBoard {
             let occupied_hover_eq = memory.prev_occupied_hover == occupied_hover;
             let square_hover_eq = memory.prev_square_hover == square_hover;
             let generic_tick_eq = memory.generic_tick == generic_repaint_tick;
+            let winner_eq = memory.prev_winner == winner;
             if memory.prev_tick != aesthetics.qs_tick {
                 tick_eq = false;
             }
@@ -724,6 +739,7 @@ impl MappedBoard {
                 && occupied_hover_eq
                 && square_hover_eq
                 && generic_tick_eq
+                && winner_eq
             {
                 return;
             }
@@ -752,6 +768,9 @@ impl MappedBoard {
             if !generic_tick_eq {
                 memory.generic_tick = generic_repaint_tick;
             }
+            if !winner_eq {
+                memory.prev_winner = winner;
+            }
         } else {
             self.state_memory = Some(MapState {
                 prev_board: board.clone(),
@@ -763,6 +782,7 @@ impl MappedBoard {
                 prev_square_hover: square_hover,
                 prev_changes: vec![],
                 generic_tick: 0,
+                prev_winner: winner,
             });
             tick_eq = false;
         }

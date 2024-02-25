@@ -1,3 +1,4 @@
+use instant::Duration;
 use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
@@ -5,7 +6,7 @@ use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
     generation::{BoardParams, BoardType},
-    messages::{GameMessage, GameStateMessage, LobbyPlayerMessage},
+    messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
     moves::Move,
     reporting::Change,
 };
@@ -147,16 +148,22 @@ impl GameManager {
 
         GameStateMessage {
             room_code: self.game_id.clone(),
-            players: self.core_game.players.iter().map(Into::into).collect(),
+            players: self
+                .core_game
+                .players
+                .iter()
+                .map(|p| GamePlayerMessage::new(p, &self.core_game))
+                .collect(),
             player_number: player_index as u64,
-            next_player_number: self.core_game.next() as u64,
+            next_player_number: self.core_game.next().map(|n| n as u64),
             board,
             hand,
             changes,
+            game_ends_at: self.core_game.game_ends_at,
         }
     }
 
-    pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
+    pub fn start(&mut self) -> Vec<(Player, GameMessage)> {
         // TODO: Check correct # of players
 
         let rand_board =
@@ -187,7 +194,7 @@ impl GameManager {
         // For cases where players reconnect and game.hands[0] is players[1] etc
         for (player_index, player) in self.players.iter().enumerate() {
             messages.push((
-                player,
+                player.clone(),
                 GameMessage::StartedGame(self.game_msg(player_index, None)),
             ));
         }

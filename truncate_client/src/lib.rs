@@ -149,7 +149,7 @@ pub fn backchannel(msg: String) -> String {
             game.rules = rules;
             game.player_turn_count = vec![0; players.len()];
             game.players = players;
-            game.next_player = next_player;
+            game.next_player = Some(next_player);
 
             game.players[next_player].turn_starts_no_later_than = Some(
                 instant::SystemTime::now()

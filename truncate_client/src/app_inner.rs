@@ -110,6 +110,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                 board,
                 hand,
                 changes: _,
+                game_ends_at,
             }) => {
                 // If we're already in a game, treat this as a game update
                 // (the websocket probably dropped and reconnected)
@@ -123,6 +124,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                             board,
                             hand,
                             changes: vec![], // TODO: Try get latest changes on reconnect without dupes
+                            game_ends_at,
                         };
                         game.apply_new_state(update);
                         continue;
@@ -141,6 +143,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                     outer.map_texture.clone(),
                     outer.theme.clone(),
                     GameLocation::Online,
+                    game_ends_at,
                 ));
                 println!("Starting a game")
             }
@@ -161,6 +164,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                 match &mut outer.game_status {
                     GameStatus::Active(game) => {
                         game.apply_new_state(state_message);
+                        game.depot.gameplay.winner = Some(winner as usize);
                         outer.game_status = GameStatus::Concluded(game.clone(), winner);
                     }
                     _ => {}

@@ -9,10 +9,17 @@ pub enum TownDefense {
     BeatenWithDefenseStrength(usize),
 }
 
+/// Conditions which, when hit, end the game and mark a winner
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WinCondition {
     Destination { town_defense: TownDefense }, // TODO: Implement
     Elimination,                               // TODO: Implement
+}
+
+/// Metrics to used to assign a winner when no condition was hit
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WinMetric {
+    TownProximity,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,8 +56,8 @@ pub enum Timing {
         time_allowance: usize,
     },
     Periodic {
-        // TODO: Implement
         turn_delay: usize,
+        total_time_allowance: usize,
     },
     None, // TODO: Implement
 }
@@ -92,6 +99,7 @@ pub enum SwapPenalty {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameRules {
     pub win_condition: WinCondition,
+    pub win_metric: WinMetric,
     pub visibility: Visibility,
     pub truncation: Truncation,
     pub timing: Timing,
@@ -109,11 +117,12 @@ impl Default for GameRules {
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
             },
-            visibility: Visibility::OnlyHouseFog,
+            win_metric: WinMetric::TownProximity,
+            visibility: Visibility::Standard,
             truncation: Truncation::None,
-            timing: Timing::PerPlayer {
-                time_allowance: 60 * 40,
-                overtime_rule: OvertimeRule::Elimination,
+            timing: Timing::Periodic {
+                turn_delay: 5,
+                total_time_allowance: 60,
             },
             hand_size: 7,
             tile_distribution: TileDistribution::Standard,

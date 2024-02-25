@@ -409,6 +409,23 @@ async fn handle_player_msg(
                     let Some(socket) = player.socket else {
                         continue;
                     };
+
+                    let room_code = game_manager.game_id.clone();
+
+                    match &game_manager.core_game.rules.timing {
+                        truncate_core::rules::Timing::Periodic {
+                            total_time_allowance,
+                            ..
+                        } => {
+                            tokio::spawn(check_game_over(
+                                room_code,
+                                (*total_time_allowance + 1) as i128 * 1000,
+                                server_state.clone(),
+                            ));
+                        }
+                        _ => {}
+                    };
+
                     server_state.send_to_player(&socket, message).unwrap();
                 }
             } else {
@@ -698,14 +715,16 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
                         ..
                     }) => {
                         println!("The message is a game update");
-                        let next_player = &players[*next_player_number as usize];
-                        if let Some(time_remaining) = next_player.time_remaining {
-                            println!("Some player has {time_remaining} time left");
-                            tokio::spawn(check_game_over(
-                                room_code.clone(),
-                                time_remaining.whole_milliseconds(),
-                                server_state.clone(),
-                            ));
+                        if let Some(next_player) = next_player_number {
+                            let next_player = &players[*next_player as usize];
+                            if let Some(time_remaining) = next_player.time_remaining {
+                                println!("Some player has {time_remaining} time left");
+                                tokio::spawn(check_game_over(
+                                    room_code.clone(),
+                                    time_remaining.whole_milliseconds(),
+                                    server_state.clone(),
+                                ));
+                            }
                         }
                     }
                     _ => {}

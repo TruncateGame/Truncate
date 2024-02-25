@@ -247,8 +247,17 @@ impl<'a> TimerUI<'a> {
             }
         }
 
+        let text = if let Some(ends_at) = self.depot.timing.game_ends_at {
+            let now = self.depot.timing.current_time.as_secs();
+            let remaining = ends_at.saturating_sub(now);
+            let remaining_label = TimerUI::human_time(remaining as i64, false);
+            format!("{} : {}", remaining_label, &self.player.name)
+        } else {
+            self.player.name.clone()
+        };
+
         // Render the player name
-        let text = TextHelper::heavy(&self.player.name, font_z, None, ui);
+        let text = TextHelper::heavy(&text, font_z, None, ui);
         let name_size = text.size();
         if self.right_align {
             let mut pos = bar.right_bottom() + vec2(0.0, 10.0);

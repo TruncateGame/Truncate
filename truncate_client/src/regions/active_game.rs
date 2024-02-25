@@ -72,12 +72,13 @@ impl ActiveGame {
         game_seed: Option<BoardSeed>,
         players: Vec<GamePlayerMessage>,
         player_number: u64,
-        next_player_number: u64,
+        next_player_number: Option<u64>,
         board: Board,
         hand: Hand,
         map_texture: TextureHandle,
         theme: Theme,
         location: GameLocation,
+        game_ends_at: Option<u64>,
     ) -> Self {
         let player_colors = players
             .iter()
@@ -92,7 +93,10 @@ impl ActiveGame {
                 board_seed: game_seed,
                 ..BoardDepot::default()
             },
-            timing: TimingDepot::default(),
+            timing: TimingDepot {
+                game_ends_at,
+                ..TimingDepot::default()
+            },
             gameplay: GameplayDepot {
                 room_code,
                 player_number,
@@ -235,8 +239,12 @@ impl ActiveGame {
                                 TimerUI::new(player, &self.depot, &self.time_changes)
                                     .friend(true)
                                     .active(
-                                        player.index
-                                            == self.depot.gameplay.next_player_number as usize,
+                                        self.depot.gameplay.next_player_number.is_none()
+                                            || self
+                                                .depot
+                                                .gameplay
+                                                .next_player_number
+                                                .is_some_and(|n| n == player.index as u64),
                                     )
                                     .render(Some(timer_width), false, ui);
                             }
@@ -251,8 +259,12 @@ impl ActiveGame {
                                 TimerUI::new(opponent, &self.depot, &self.time_changes)
                                     .friend(false)
                                     .active(
-                                        opponent.index
-                                            == self.depot.gameplay.next_player_number as usize,
+                                        self.depot.gameplay.next_player_number.is_none()
+                                            || self
+                                                .depot
+                                                .gameplay
+                                                .next_player_number
+                                                .is_some_and(|n| n == opponent.index as u64),
                                     )
                                     .right_align()
                                     .render(Some(timer_width), false, ui);
@@ -529,9 +541,15 @@ impl ActiveGame {
                             );
                             let mut hand_ui =
                                 ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
-                            let active = self.depot.gameplay.player_number
-                                == self.depot.gameplay.next_player_number;
-                            HandUI::new(&mut self.hand).active(active).render(
+
+                            let active_hand = self.depot.gameplay.next_player_number.is_none()
+                                || self
+                                    .depot
+                                    .gameplay
+                                    .next_player_number
+                                    .is_some_and(|n| n == self.depot.gameplay.player_number);
+
+                            HandUI::new(&mut self.hand).active(active_hand).render(
                                 &mut hand_ui,
                                 &mut self.depot,
                                 &mut self.mapped_hand,
@@ -906,6 +924,7 @@ impl ActiveGame {
             board,
             hand: _,
             changes,
+            game_ends_at,
         } = state_message;
 
         // assert_eq!(self.room_code, room_code);
@@ -929,13 +948,9 @@ impl ActiveGame {
         }
 
         self.depot.gameplay.next_player_number = next_player_number;
-        if let Some(GamePlayerMessage {
-            turn_starts_no_later_than: Some(time),
-            ..
-        }) = self.players.get(next_player_number as usize)
-        {
-            self.depot.timing.last_turn_change = self.depot.timing.current_time;
-        }
+
+        self.depot.timing.last_turn_change = self.depot.timing.current_time;
+        self.depot.timing.game_ends_at = game_ends_at;
 
         self.depot.gameplay.changes = changes.clone();
 
@@ -953,12 +968,9 @@ impl ActiveGame {
             _ => None,
         }) {
             for removed in &hand_change.removed {
-                self.hand.remove(
-                    self.hand
-                        .iter()
-                        .position(|t| t == removed)
-                        .expect("Player doesn't have tile being removed"),
-                );
+                if let Some(pos) = self.hand.iter().position(|t| t == removed) {
+                    self.hand.remove(pos);
+                }
             }
             let reduced_length = self.hand.len();
             self.hand.0.extend(&hand_change.added);

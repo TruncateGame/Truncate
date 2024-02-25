@@ -36,7 +36,8 @@ pub struct Game {
     pub player_turn_count: Vec<u32>,
     pub recent_changes: Vec<Change>,
     pub started_at: Option<u64>,
-    pub next_player: usize,
+    pub game_ends_at: Option<u64>,
+    pub next_player: Option<usize>,
     pub winner: Option<usize>,
 }
 
@@ -53,6 +54,12 @@ impl Game {
         let rules = GameRules::default();
         let mut board = Board::new(width, height);
         board.grow();
+
+        let next_player = match &rules.timing {
+            rules::Timing::Periodic { .. } => None,
+            _ => Some(0),
+        };
+
         Self {
             players: Vec::with_capacity(2),
             board,
@@ -63,7 +70,8 @@ impl Game {
             player_turn_count: Vec::with_capacity(2),
             recent_changes: vec![],
             started_at: None,
-            next_player: 0,
+            game_ends_at: None,
+            next_player,
             winner: None,
             rules,
         }
@@ -76,6 +84,7 @@ impl Game {
                 overtime_rule: _,
             } => Some(Duration::new(time_allowance as i64, 0)),
             rules::Timing::None => None,
+            rules::Timing::Periodic { .. } => None,
             _ => unimplemented!(),
         };
         self.players.push(Player::new(
@@ -95,9 +104,25 @@ impl Game {
     }
 
     pub fn start(&mut self) {
-        self.started_at = Some(now());
-        // TODO: Lookup player by `index` field rather than vec position
-        self.players[self.next_player].turn_starts_no_later_than = Some(now());
+        let now = now();
+        self.started_at = Some(now);
+
+        match self.rules.timing {
+            rules::Timing::PerPlayer { .. } | rules::Timing::None => {
+                self.players[self.next_player.unwrap()].turn_starts_no_later_than = Some(now);
+                self.players[self.next_player.unwrap()].turn_starts_no_sooner_than = Some(now);
+            }
+            rules::Timing::Periodic {
+                total_time_allowance,
+                ..
+            } => self.players.iter_mut().for_each(|p| {
+                p.turn_starts_no_later_than = Some(now);
+                p.turn_starts_no_sooner_than = Some(now);
+
+                self.game_ends_at = Some(now + total_time_allowance as u64);
+            }),
+            _ => unimplemented!(),
+        }
     }
 
     pub fn any_player_is_overtime(&self) -> Option<usize> {
@@ -126,6 +151,27 @@ impl Game {
         most_overtime_player.map(|(_, player_number)| player_number)
     }
 
+    pub fn game_is_overtime(&self) -> bool {
+        let Some(started_at) = self.started_at else {
+            return false;
+        };
+
+        match &self.rules.timing {
+            rules::Timing::Periodic {
+                total_time_allowance,
+                ..
+            } => {
+                let elapsed = now() - started_at;
+                if elapsed as usize > *total_time_allowance {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+
+        false
+    }
+
     pub fn calculate_game_over(&mut self, current_player: Option<usize>) {
         let overtime_rule = match &self.rules.timing {
             rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
@@ -139,6 +185,58 @@ impl Game {
                     self.winner = Some((overtime_player + 1) % 2);
                 }
                 _ => {}
+            }
+        }
+
+        if self.game_is_overtime() {
+            match &self.rules.win_metric {
+                rules::WinMetric::TownProximity => {
+                    let mut scores: Vec<_> = (0..self.players.len())
+                        .map(|p| self.board.proximity_to_enemy_town(p))
+                        .collect();
+
+                    let mut remaining_players: Vec<_> = (0..self.players.len()).collect();
+
+                    // This handles any number of players, returning the player
+                    // with the best proximity to some other player
+                    while scores.iter().any(|s| !s.is_empty()) {
+                        let next_prox: Vec<_> = scores
+                            .iter_mut()
+                            .map(|scores| scores.pop().unwrap_or(usize::MAX))
+                            .collect();
+
+                        let best_score = next_prox.iter().min().unwrap();
+
+                        // Players are even at this level
+                        if next_prox.iter().max().unwrap() == best_score {
+                            continue;
+                        }
+
+                        for (player, score) in next_prox.iter().enumerate() {
+                            if remaining_players.len() > 1 && score > best_score {
+                                // As soon as this player isn't the best at a given distance,
+                                // remove them from the contender pool
+                                remaining_players.retain(|p| *p != player);
+                            }
+                        }
+
+                        if remaining_players.len() <= 1 {
+                            break;
+                        }
+                    }
+
+                    let winner = if remaining_players.len() == 1 {
+                        remaining_players.pop().unwrap()
+                    } else {
+                        0 // TODO: We need a draw mechanism
+                    };
+
+                    println!("{winner} wins on proximity!");
+                    (0..self.players.len())
+                        .filter(|p| *p != winner)
+                        .for_each(|p| self.board.defeat_player(p));
+                    self.winner = Some(winner);
+                }
             }
         }
 
@@ -183,15 +281,22 @@ impl Game {
             return Ok(self.winner);
         }
 
-        if player != self.next_player {
-            return Err("Only the next player can play".into());
+        match &self.rules.timing {
+            rules::Timing::Periodic { .. } => { /* All players can play */ }
+            _ => {
+                if player != self.next_player.unwrap() {
+                    return Err("Only the next player can play".into());
+                }
+            }
         }
 
-        let turn_duration = now().saturating_sub(
-            self.players[player]
-                .turn_starts_no_later_than
-                .expect("Player played without the time running"),
-        );
+        if let Some(turn_start) = self.players[player].turn_starts_no_sooner_than {
+            if turn_start > now() {
+                return Err("Player's turn has not yet started".into());
+            }
+        } else {
+            return Err("Player's turn has not yet started".into());
+        }
 
         self.recent_changes = match self.make_move(
             next_move,
@@ -221,10 +326,19 @@ impl Game {
             return Ok(self.winner);
         }
 
-        self.next_player = (self.next_player + 1) % self.players.len();
+        if let Some(next_player) = self.next_player.as_mut() {
+            *next_player = (*next_player + 1) % self.players.len();
+        }
 
         let this_player = &mut self.players[player];
         if let Some(time_remaining) = &mut this_player.time_remaining {
+            let turn_duration = now().saturating_sub(
+                this_player
+                    .turn_starts_no_later_than
+                    .or(this_player.turn_starts_no_sooner_than)
+                    .expect("Player played without the time running"),
+            );
+
             *time_remaining -= Duration::seconds(turn_duration as i64);
 
             let overtime_rule = match &self.rules.timing {
@@ -262,17 +376,30 @@ impl Game {
             };
         }
 
-        self.players[player].turn_starts_no_later_than = None;
+        match &self.rules.timing {
+            rules::Timing::Periodic { turn_delay, .. } => {
+                self.players[player].turn_starts_no_later_than = Some(now() + *turn_delay as u64);
+                self.players[player].turn_starts_no_sooner_than = Some(now() + *turn_delay as u64);
+            }
+            _ => {
+                self.players[player].turn_starts_no_later_than = None;
+                self.players[player].turn_starts_no_sooner_than = None;
 
-        if self
-            .recent_changes
-            .iter()
-            .any(|c| matches!(c, Change::Battle(_)))
-        {
-            self.players[self.next_player].turn_starts_no_later_than =
-                Some(now() + self.rules.battle_delay);
-        } else {
-            self.players[self.next_player].turn_starts_no_later_than = Some(now());
+                if self
+                    .recent_changes
+                    .iter()
+                    .any(|c| matches!(c, Change::Battle(_)))
+                {
+                    self.players[self.next_player.unwrap()].turn_starts_no_sooner_than =
+                        Some(now());
+                    self.players[self.next_player.unwrap()].turn_starts_no_later_than =
+                        Some(now() + self.rules.battle_delay);
+                } else {
+                    self.players[self.next_player.unwrap()].turn_starts_no_sooner_than =
+                        Some(now());
+                    self.players[self.next_player.unwrap()].turn_starts_no_later_than = Some(now());
+                }
+            }
         }
 
         Ok(None)
@@ -587,7 +714,7 @@ impl Game {
         }
     }
 
-    pub fn next(&self) -> usize {
+    pub fn next(&self) -> Option<usize> {
         self.next_player
     }
 

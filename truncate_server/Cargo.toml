@@ -10,6 +10,7 @@ tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 tokio-tungstenite = "0.18"
 tungstenite = { version = "0.18", default-features = false }
+time = { version = "0.3", features = ["serde"] }
 futures-channel = "0.3"
 futures-util = { version = "0.3", default-features = false, features = [
     "sink",

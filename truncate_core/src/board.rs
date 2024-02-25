@@ -697,6 +697,57 @@ impl Board {
         self.flood_fill(&outermost_attacker)
     }
 
+    pub fn flood_fill_from_towns(&self, player_index: usize) -> BoardDistances {
+        let mut distances = BoardDistances::new(self);
+
+        let starting_pos = self
+            .towns
+            .iter()
+            .find(|t| matches!(self.get(**t), Ok(Square::Town { player, .. }) if player == player_index))
+            .expect("Given player should have a town");
+
+        distances.set_direct(starting_pos, 0);
+        let initial_neighbors = self.neighbouring_squares(*starting_pos);
+        let mut direct_pts: VecDeque<_> = initial_neighbors.iter().map(|n| (n.0, 0)).collect();
+
+        while !direct_pts.is_empty() {
+            let (pt, dist) = direct_pts.pop_front().unwrap();
+
+            match distances.direct_distance_mut(&pt) {
+                Some(Some(visited_dist)) => {
+                    if *visited_dist > dist {
+                        // We have now found a better path to this point, so we will reprocess it
+                        *visited_dist = dist;
+                    } else {
+                        // We have previously found a better (or equal) path to this point, move to the next
+                        continue;
+                    }
+                }
+                _ => {
+                    distances.set_direct(&pt, dist);
+                }
+            }
+
+            match self.get(pt) {
+                Ok(Square::Water) => continue,
+                Ok(Square::Town { player, .. }) if player == player_index => {
+                    let neighbors = self.neighbouring_squares(pt);
+
+                    // We found another one of our towns — search its neighbors with a new starting distance
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, 0)));
+                    distances.set_direct(&pt, 0);
+                }
+                Ok(_) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                _ => continue,
+            }
+        }
+
+        distances
+    }
+
     /// Find the shortest land path between any two points on a board.
     /// Does NOT take into account tiles defended by either player,
     /// so isn't strictly correct once gameplay has begun.
@@ -787,6 +838,28 @@ impl Board {
 
         // Unlikely, but catches if the entire board is clear land with no water
         return last_processed_distance;
+    }
+
+    pub fn proximity_to_enemy_town(&self, player_index: usize) -> Vec<usize> {
+        let distances = self.flood_fill_from_towns((player_index + 1) % 2);
+
+        let rows = self.height();
+        let cols = self.width();
+        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
+
+        let mut proximities: Vec<_> = squares
+            .flat_map(|(x, y)| {
+                let c = Coordinate { x, y };
+                if matches!(self.get(c), Ok(Square::Occupied(p, _)) if p == player_index) {
+                    distances.direct_distance(&c)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        proximities.sort_by_cached_key(|p| (*p as isize) * -1);
+
+        proximities
     }
 
     pub fn get_shape(&self) -> Vec<u64> {
@@ -1907,6 +1980,59 @@ pub mod tests {
         );
         // Which is also the best we could do anyway
         assert_eq!(dists.direct_distance(&Coordinate { x: 7, y: 6 }), Some(6));
+    }
+
+    #[test]
+    fn flood_fill_towns() {
+        let board = Board::from_string(
+            r###"
+            ~~ ~~ |0 ~~ ~~
+            __ #0 R0 __ __
+            __ __ A0 __ #0
+            __ G1 __ __ __
+            B1 A1 #1 __ __
+            __ T1 N1 X1 __
+            ~~ ~~ |1 ~~ ~~
+            "###,
+        );
+
+        let zero_dists = board.flood_fill_from_towns(0);
+        let one_dists = board.flood_fill_from_towns(1);
+
+        let zd = |x: usize, y: usize| zero_dists.direct_distance(&Coordinate { x, y });
+        let od = |x: usize, y: usize| one_dists.direct_distance(&Coordinate { x, y });
+
+        assert_eq!(zd(0, 1), Some(0));
+        assert_eq!(zd(0, 2), Some(1));
+        assert_eq!(zd(4, 1), Some(0));
+        assert_eq!(zd(4, 5), Some(2));
+        assert_eq!(zd(3, 5), Some(3));
+        assert_eq!(zd(2, 5), Some(4));
+        assert_eq!(zd(1, 5), Some(3));
+
+        assert_eq!(od(0, 1), Some(4));
+        assert_eq!(od(2, 3), Some(0));
+    }
+
+    #[test]
+    fn proximity_scores() {
+        let board = Board::from_string(
+            r###"
+            ~~ ~~ |0 ~~ ~~
+            __ #0 R0 __ __
+            __ __ A0 __ #0
+            __ G1 __ __ __
+            B1 A1 #1 __ __
+            __ T1 N1 X1 __
+            ~~ ~~ |1 ~~ ~~
+            "###,
+        );
+
+        let zero_prox = board.proximity_to_enemy_town(0);
+        let one_prox = board.proximity_to_enemy_town(1);
+
+        assert_eq!(zero_prox, vec![2, 1]);
+        assert_eq!(one_prox, vec![4, 3, 3, 3, 2, 1]);
     }
 
     #[test]

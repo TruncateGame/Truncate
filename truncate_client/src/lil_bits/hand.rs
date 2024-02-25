@@ -66,7 +66,7 @@ impl<'a> HandUI<'a> {
                     let hovered = matches!(hovered, Some((p, _)) if p == i);
                     let selected = matches!(selected, Some((p, _)) if p == i);
 
-                    let color = if gameplay.next_player_number == gameplay.player_number {
+                    let color = if self.active {
                         aesthetics.player_colors[gameplay.player_number as usize]
                     } else {
                         aesthetics.theme.faded

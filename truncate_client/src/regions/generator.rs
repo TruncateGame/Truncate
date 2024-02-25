@@ -6,6 +6,7 @@ use instant::Duration;
 use truncate_core::{
     game::Game,
     generation::{self, generate_board, BoardGenerationResult, BoardParams, BoardSeed, BoardType},
+    messages::GamePlayerMessage,
 };
 
 use crate::utils::{Lighten, Theme};
@@ -37,14 +38,18 @@ impl GeneratorState {
             ctx,
             "TARGET".into(),
             None,
-            game.players.iter().map(Into::into).collect(),
+            game.players
+                .iter()
+                .map(|p| GamePlayerMessage::new(p, &game))
+                .collect(),
             0,
-            0,
+            Some(0),
             game.board.clone(),
             game.players[0].hand.clone(),
             map_texture.clone(),
             theme.clone(),
             GameLocation::Local,
+            None,
         );
         active_game.depot.ui_state.game_header = HeaderType::None;
         active_game.depot.ui_state.hand_hidden = true;

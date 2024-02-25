@@ -86,7 +86,9 @@ impl Game {
         log: bool,
         weights: &BoardWeights,
     ) -> (PlayerMessage, BoardScore) {
-        let evaluation_player = game.next_player;
+        let evaluation_player = game
+            .next_player
+            .expect("Minimax only works in non-periodic playmodes");
 
         let mut internal_arborist = Arborist::pruning();
         let mut caches = Caches::new();
@@ -190,18 +192,20 @@ impl Game {
                 }
                 let mut next_turn = game.clone();
 
-                let (attacker_dict, defender_dict) = if game.next_player == for_player {
+                let next_player = game.next_player.unwrap();
+
+                let (attacker_dict, defender_dict) = if next_player == for_player {
                     (self_dictionary, opponent_dictionary)
                 } else {
                     (opponent_dictionary, self_dictionary)
                 };
 
-                let is_players_turn = game.next_player == for_player;
+                let is_players_turn = next_player == for_player;
 
                 next_turn
                     .play_turn(
                         Move::Place {
-                            player: game.next_player,
+                            player: next_player,
                             tile,
                             position,
                         },
@@ -240,7 +244,7 @@ impl Game {
                 Some(score)
             };
 
-        if game.next_player == for_player {
+        if game.next_player.unwrap() == for_player {
             let mut max_score = BoardScore::neg_inf();
             let mut relevant_move = None;
 
@@ -298,7 +302,7 @@ impl Game {
     fn possible_moves(&self) -> Vec<(Coordinate, char)> {
         let mut playable_tiles: Vec<_> = self
             .players
-            .get(self.next_player)
+            .get(self.next_player.unwrap())
             .unwrap()
             .hand
             .iter()
@@ -309,7 +313,7 @@ impl Game {
 
         playable_tiles.sort();
 
-        let playable_squares = self.board.playable_positions(self.next_player);
+        let playable_squares = self.board.playable_positions(self.next_player.unwrap());
 
         let mut coords: Vec<_> = playable_squares
             .into_iter()
@@ -318,7 +322,7 @@ impl Game {
 
         // TODO: Build move heuristic to deterministically sort these moves by quality
         coords.sort_by(|a, b| {
-            if self.next_player == 0 {
+            if self.next_player.unwrap() == 0 {
                 a.0.cmp(&b.0)
             } else {
                 b.0.cmp(&a.0)
@@ -622,12 +626,12 @@ mod tests {
     fn enact_move(game: &mut Game, msg: PlayerMessage, dict: &WordDict) {
         let Some(next_move) = (match msg {
             PlayerMessage::Place(position, tile) => Some(Move::Place {
-                player: game.next_player,
+                player: game.next_player.unwrap(),
                 tile,
                 position,
             }),
             PlayerMessage::Swap(from, to) => Some(Move::Swap {
-                player: game.next_player,
+                player: game.next_player.unwrap(),
                 positions: [from, to],
             }),
             _ => None,
@@ -654,7 +658,7 @@ mod tests {
             bag,
             players,
             player_turn_count: vec![0, 0],
-            next_player,
+            next_player: Some(next_player),
             ..Game::new(3, 1, None)
         };
         game.players[next_player].hand = Hand(hand.chars().collect());

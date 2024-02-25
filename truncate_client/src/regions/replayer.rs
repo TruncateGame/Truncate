@@ -83,7 +83,7 @@ impl ReplayerState {
         let gameplay = GameplayDepot {
             room_code: "REPLAY".into(),
             player_number: as_player as u64,
-            next_player_number: game.next_player as u64,
+            next_player_number: game.next_player.map(|p| p as u64),
             error_msg: None,
             winner: None,
             changes: vec![],
@@ -124,7 +124,7 @@ impl ReplayerState {
 
         self.timing.last_turn_change = current_time;
 
-        self.gameplay.next_player_number = self.game.next_player as u64;
+        self.gameplay.next_player_number = self.game.next_player.map(|p| p as u64);
         self.gameplay.changes = self.game.recent_changes.clone();
 
         let battle_occurred = self
