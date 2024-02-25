@@ -36,7 +36,7 @@ pub struct DailySplashGraph {
 
 impl DailySplashGraph {
     pub fn new(ui: &mut egui::Ui, stats: &DailyStats, current_time: Duration) -> Self {
-        let days_played = stats.days.len().max(10);
+        let days_played = stats.days.len().clamp(10, 1000);
         let max_total_moves = stats
             .days
             .values()
@@ -57,6 +57,9 @@ impl DailySplashGraph {
             .rev()
             .enumerate()
             .for_each(|(col, day)| {
+                if days_played == col {
+                    return;
+                }
                 // We draw from the right since we might have made the canvas
                 // larger than the amount of days we have.
                 let day_pixel_index = days_played - col - 1;
