@@ -10,7 +10,7 @@ mod daily_actions;
 mod graph;
 mod msg_mock;
 
-use eframe::egui::{self, Id, Order, Sense};
+use eframe::egui::{self, Align, Id, Layout, Order, Sense};
 
 use crate::{
     app_outer::Backchannel,
@@ -40,6 +40,7 @@ pub struct ResultModalDaily {
 pub struct ResultModalUnique {
     won: bool,
     msg_mock: ShareMessageMock,
+    share_copied: bool,
 }
 
 #[derive(Clone)]
@@ -120,6 +121,7 @@ impl ResultModalUI {
             contents: ResultModalVariant::Unique(ResultModalUnique {
                 won,
                 msg_mock: ShareMessageMock::new_unique(game, &depot),
+                share_copied: false,
             }),
         }
     }
@@ -350,23 +352,77 @@ impl ResultModalUI {
                         }
                     }
                     ResultModalVariant::Unique(unique) => {
-                        unique.msg_mock.render(ui, theme, map_texture);
+                        ui.allocate_ui_with_layout(
+                            ui.available_size(),
+                            Layout::bottom_up(Align::LEFT),
+                            |ui| {
+                                ui.add_space(ui.available_height() * 0.05);
+                                let text = TextHelper::heavy("NEW PUZZLE", 12.0, None, ui);
+                                let new_puzzle_button = text.centered_button(
+                                    theme.button_primary,
+                                    theme.text,
+                                    map_texture,
+                                    ui,
+                                );
+                                if new_puzzle_button.clicked() {
+                                    msg = Some(ResultModalAction::NewPuzzle);
+                                }
 
-                        ui.add_space(20.0);
-                        let text = TextHelper::heavy("TRY AGAIN", 12.0, None, ui);
-                        let try_again_button =
-                            text.centered_button(theme.button_primary, theme.text, map_texture, ui);
-                        if try_again_button.clicked() {
-                            msg = Some(ResultModalAction::TryAgain);
-                        }
+                                ui.add_space(ui.available_height() * 0.05);
+                                let text = TextHelper::heavy("TRY AGAIN", 12.0, None, ui);
+                                let try_again_button = text.centered_button(
+                                    theme.button_primary,
+                                    theme.text,
+                                    map_texture,
+                                    ui,
+                                );
+                                if try_again_button.clicked() {
+                                    msg = Some(ResultModalAction::TryAgain);
+                                }
 
-                        ui.add_space(10.0);
-                        let text = TextHelper::heavy("NEW PUZZLE", 12.0, None, ui);
-                        let new_puzzle_button =
-                            text.centered_button(theme.button_primary, theme.text, map_texture, ui);
-                        if new_puzzle_button.clicked() {
-                            msg = Some(ResultModalAction::NewPuzzle);
-                        }
+                                ui.add_space(ui.available_height() * 0.05);
+                                let button_text = if unique.share_copied {
+                                    "COPIED TEXT!"
+                                } else {
+                                    "SHARE PUZZLE"
+                                };
+                                let text = TextHelper::heavy(button_text, 12.0, None, ui);
+                                let share_button = text.centered_button(
+                                    theme.button_primary,
+                                    theme.text,
+                                    map_texture,
+                                    ui,
+                                );
+                                // Extra events to get this message through the backchannel early,
+                                // as our frontend relies on attaching the copy to a browser event
+                                // on mouseup/touchend.
+                                if share_button.clicked()
+                                    || share_button.drag_started()
+                                    || share_button.is_pointer_button_down_on()
+                                {
+                                    let share_text = unique.msg_mock.share_text.clone();
+                                    if let Some(backchannel) = backchannel {
+                                        if backchannel.is_open() {
+                                            backchannel.send_msg(
+                                                crate::app_outer::BackchannelMsg::Copy {
+                                                    text: share_text,
+                                                    share: crate::app_outer::ShareType::Text,
+                                                },
+                                            );
+                                        } else {
+                                            ui.ctx().output_mut(|o| o.copied_text = share_text);
+                                        }
+                                    } else {
+                                        ui.ctx().output_mut(|o| o.copied_text = share_text);
+                                    }
+
+                                    unique.share_copied = true;
+                                }
+
+                                ui.add_space(ui.available_height() * 0.05);
+                                unique.msg_mock.render(ui, theme, map_texture);
+                            },
+                        );
                     }
                     ResultModalVariant::Resigning(_r) => {
                         ui.add_space(20.0);

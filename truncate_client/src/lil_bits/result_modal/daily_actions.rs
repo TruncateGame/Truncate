@@ -89,7 +89,45 @@ impl DailyActions {
 
                 ui.add_space(ui.available_height() * 0.05);
 
-                let text = TextHelper::heavy("SHARE BEST SCORE", 12.0, None, ui);
+                if let Some(replay_link) = &self.replay_link {
+                    let button_text = if self.replay_copied {
+                        "COPIED LINK!"
+                    } else {
+                        "SHARE REPLAY"
+                    };
+                    let text = TextHelper::heavy(button_text, 12.0, None, ui);
+                    let share_button =
+                        text.centered_button(theme.button_primary, theme.text, map_texture, ui);
+
+                    if share_button.clicked()
+                        || share_button.drag_started()
+                        || share_button.is_pointer_button_down_on()
+                    {
+                        if let Some(backchannel) = backchannel {
+                            if backchannel.is_open() {
+                                backchannel.send_msg(crate::app_outer::BackchannelMsg::Copy {
+                                    text: replay_link.clone(),
+                                    share: ShareType::Url,
+                                });
+                            } else {
+                                ui.ctx().output_mut(|o| o.copied_text = replay_link.clone());
+                            }
+                        } else {
+                            ui.ctx().output_mut(|o| o.copied_text = replay_link.clone());
+                        }
+
+                        self.replay_copied = true;
+                    }
+
+                    ui.add_space(ui.available_height() * 0.01);
+                }
+
+                let button_text = if self.share_copied {
+                    "COPIED TEXT!"
+                } else {
+                    "SHARE BEST SCORE"
+                };
+                let text = TextHelper::heavy(button_text, 12.0, None, ui);
                 let share_button =
                     text.centered_button(theme.button_primary, theme.text, map_texture, ui);
 
@@ -111,6 +149,8 @@ impl DailyActions {
                         ui.ctx()
                             .output_mut(|o| o.copied_text = self.msg_mock.share_text.clone());
                     }
+
+                    self.share_copied = true;
                 }
 
                 self.msg_mock.render(ui, theme, map_texture);
