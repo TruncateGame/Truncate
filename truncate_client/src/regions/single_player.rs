@@ -565,7 +565,7 @@ impl SinglePlayerState {
                         }
                     }
                 }
-                let delay = if battle_words.is_empty() { 200 } else { 1200 };
+                let delay = if battle_words.is_empty() { 650 } else { 2000 };
 
                 if !battle_words.is_empty() {
                     msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
