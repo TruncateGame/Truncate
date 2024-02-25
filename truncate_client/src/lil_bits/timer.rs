@@ -169,6 +169,8 @@ impl<'a> TimerUI<'a> {
         ui.painter()
             .rect_filled(bar, timer_rounding, timer_color.diaphanize());
 
+        let full_bar = bar.clone();
+
         if let (Some(time_remaining), Some(allotted_time)) =
             (self.player.time_remaining, self.player.allotted_time)
         {
@@ -252,6 +254,8 @@ impl<'a> TimerUI<'a> {
             let remaining = ends_at.saturating_sub(now);
             let remaining_label = TimerUI::human_time(remaining as i64, false);
             format!("{} : {}", remaining_label, &self.player.name)
+        } else if let Some(turns_remaining) = self.depot.gameplay.remaining_turns {
+            format!("{} : {}", turns_remaining, &self.player.name)
         } else {
             self.player.name.clone()
         };
@@ -273,9 +277,9 @@ impl<'a> TimerUI<'a> {
 
         // Render the remaining time
         if self.right_align {
-            text.paint_at(bar.left_bottom() + vec2(0.0, 10.0), timer_color, ui);
+            text.paint_at(full_bar.left_bottom() + vec2(0.0, 10.0), timer_color, ui);
         } else {
-            let mut pos = bar.right_bottom() + vec2(0.0, 10.0);
+            let mut pos = full_bar.right_bottom() + vec2(0.0, 10.0);
             pos.x -= time_size.x;
             text.paint_at(pos, timer_color, ui);
         }

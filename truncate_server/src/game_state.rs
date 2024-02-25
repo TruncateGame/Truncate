@@ -146,6 +146,12 @@ impl GameManager {
             .hand
             .clone();
 
+        let remaining_turns = self
+            .core_game
+            .rules
+            .max_turns
+            .map(|max| max.saturating_sub(self.core_game.turn_count as u64));
+
         GameStateMessage {
             room_code: self.game_id.clone(),
             players: self
@@ -160,6 +166,7 @@ impl GameManager {
             hand,
             changes,
             game_ends_at: self.core_game.game_ends_at,
+            remaining_turns,
         }
     }
 

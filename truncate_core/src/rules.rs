@@ -109,6 +109,7 @@ pub struct GameRules {
     pub battle_rules: BattleRules,
     pub swapping: Swapping,
     pub battle_delay: u64,
+    pub max_turns: Option<u64>,
 }
 
 impl Default for GameRules {
@@ -118,11 +119,11 @@ impl Default for GameRules {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
             },
             win_metric: WinMetric::TownProximity,
-            visibility: Visibility::Standard,
+            visibility: Visibility::OnlyHouseFog,
             truncation: Truncation::None,
-            timing: Timing::Periodic {
-                turn_delay: 5,
-                total_time_allowance: 60,
+            timing: Timing::PerPlayer {
+                time_allowance: 40 * 60,
+                overtime_rule: OvertimeRule::Bomb { period: 30 },
             },
             hand_size: 7,
             tile_distribution: TileDistribution::Standard,
@@ -130,6 +131,7 @@ impl Default for GameRules {
             battle_rules: BattleRules { length_delta: 1 },
             swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
             battle_delay: 1,
+            max_turns: Some(700),
         }
     }
 }

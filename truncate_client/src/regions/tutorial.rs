@@ -174,6 +174,7 @@ impl TutorialState {
             theme,
             GameLocation::Local,
             None,
+            None,
         );
         active_game.depot.ui_state.game_header = HeaderType::None;
 
@@ -543,6 +544,7 @@ impl TutorialState {
                         hand: self.game.players[0].hand.clone(),
                         changes,
                         game_ends_at: None,
+                        remaining_turns: None,
                     };
                     self.active_game.apply_new_state(state_message);
                     self.stage += 1;

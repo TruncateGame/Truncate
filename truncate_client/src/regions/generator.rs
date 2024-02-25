@@ -50,6 +50,7 @@ impl GeneratorState {
             theme.clone(),
             GameLocation::Local,
             None,
+            None,
         );
         active_game.depot.ui_state.game_header = HeaderType::None;
         active_game.depot.ui_state.hand_hidden = true;

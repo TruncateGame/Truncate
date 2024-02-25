@@ -93,6 +93,7 @@ impl SinglePlayerState {
             theme.clone(),
             GameLocation::Local,
             None,
+            None,
         );
         active_game.depot.ui_state.game_header = header.clone();
 
@@ -179,6 +180,7 @@ impl SinglePlayerState {
             self.map_texture.clone(),
             self.theme.clone(),
             GameLocation::Local,
+            None,
             None,
         );
         active_game.depot.ui_state.game_header = self.header.clone();
@@ -301,6 +303,7 @@ impl SinglePlayerState {
                     hand: self.game.players[human_player].hand.clone(),
                     changes,
                     game_ends_at: None,
+                    remaining_turns: None,
                 };
                 self.active_game.apply_new_state(state_message);
 

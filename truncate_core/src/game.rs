@@ -169,6 +169,12 @@ impl Game {
             _ => {}
         }
 
+        if let Some(max) = &self.rules.max_turns {
+            if self.turn_count as u64 >= *max {
+                return true;
+            }
+        }
+
         false
     }
 
@@ -204,6 +210,8 @@ impl Game {
                             .iter_mut()
                             .map(|scores| scores.pop().unwrap_or(usize::MAX))
                             .collect();
+
+                        println!("Calculating game end promixities: {:?}", next_prox);
 
                         let best_score = next_prox.iter().min().unwrap();
 

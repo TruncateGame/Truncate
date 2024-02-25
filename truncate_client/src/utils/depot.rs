@@ -91,6 +91,7 @@ pub struct GameplayDepot {
     pub winner: Option<usize>,
     pub changes: Vec<Change>,
     pub last_battle_origin: Option<Coordinate>,
+    pub remaining_turns: Option<u64>,
 }
 
 #[derive(Clone)]

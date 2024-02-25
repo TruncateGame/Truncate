@@ -79,6 +79,7 @@ impl ActiveGame {
         theme: Theme,
         location: GameLocation,
         game_ends_at: Option<u64>,
+        remaining_turns: Option<u64>,
     ) -> Self {
         let player_colors = players
             .iter()
@@ -105,6 +106,7 @@ impl ActiveGame {
                 winner: None,
                 changes: Vec::new(),
                 last_battle_origin: None,
+                remaining_turns,
             },
             aesthetics: AestheticDepot {
                 theme,
@@ -925,6 +927,7 @@ impl ActiveGame {
             hand: _,
             changes,
             game_ends_at,
+            remaining_turns,
         } = state_message;
 
         // assert_eq!(self.room_code, room_code);
@@ -951,6 +954,7 @@ impl ActiveGame {
 
         self.depot.timing.last_turn_change = self.depot.timing.current_time;
         self.depot.timing.game_ends_at = game_ends_at;
+        self.depot.gameplay.remaining_turns = remaining_turns;
 
         self.depot.gameplay.changes = changes.clone();
 

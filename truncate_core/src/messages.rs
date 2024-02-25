@@ -132,6 +132,7 @@ pub struct GameStateMessage {
     pub hand: Hand,
     pub changes: Vec<Change>,
     pub game_ends_at: Option<u64>,
+    pub remaining_turns: Option<u64>,
 }
 
 impl fmt::Display for GameStateMessage {

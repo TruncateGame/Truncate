@@ -88,6 +88,7 @@ impl ReplayerState {
             winner: None,
             changes: vec![],
             last_battle_origin: None,
+            remaining_turns: None,
         };
 
         game.start();
