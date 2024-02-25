@@ -105,12 +105,6 @@ impl NPCPersonality {
     }
 }
 
-impl Default for NPCPersonality {
-    fn default() -> Self {
-        Self::opal()
-    }
-}
-
 #[derive(Clone, Default, PartialEq)]
 pub struct BoardScore {
     infinity: bool,

@@ -774,7 +774,7 @@ mod tests {
                 word_quality: WordQualityScores {
                     word_length: 0.4,
                     word_validity: 1.0,
-                    word_extensibility: 0.4652857,
+                    word_extensibility: 0.4700235,
                 },
                 raced_defense: 0.0,
                 raced_attack: 1.0,
@@ -791,7 +791,7 @@ mod tests {
                 word_quality: WordQualityScores {
                     word_length: 0.4,
                     word_validity: 1.0,
-                    word_extensibility: 0.53270304,
+                    word_extensibility: 0.5438283,
                 },
                 raced_defense: 0.0,
                 raced_attack: 1.0,
@@ -949,8 +949,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1608 possible leaves
-                  - 417 after pruning
+                  - 1592 possible leaves
+                  - 435 after pruning
                   - Move: Place E at (1, 6)
 
                 ~~ ~~ |0 ~~ ~~
@@ -990,7 +990,7 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1615 possible leaves
+                  - 1618 possible leaves
                   - 388 after pruning
                   - Move: Place E at (1, 6)
 
@@ -1073,7 +1073,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1611 possible leaves
-                  - 445 after pruning
+                  - 474 after pruning
                   - Move: Place T at (1, 5)
 
                 ~~ ~~ |0 ~~ ~~
@@ -1113,8 +1113,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1670 possible leaves
-                  - 447 after pruning
+                  - 1656 possible leaves
+                  - 448 after pruning
                   - Move: Place E at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
@@ -1157,8 +1157,8 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 13589 possible leaves
-                  - 1646 after pruning
+                  - 13594 possible leaves
+                  - 1658 after pruning
                   - Move: Place S at (3, 9)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
@@ -1205,7 +1205,7 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 6130 possible leaves
-                  - 795 after pruning
+                  - 802 after pruning
                   - Move: Place E at (4, 7)
 
                 ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
