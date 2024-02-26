@@ -18,7 +18,7 @@ use epaint::TextureHandle;
 use truncate_core::{
     board::Board,
     messages::{GameMessage, PlayerMessage},
-    npc::scoring::BoardWeights,
+    npc::scoring::NPCParams,
     player::Player,
     rules::GameRules,
 };
@@ -39,7 +39,7 @@ pub enum BackchannelMsg {
         rules: GameRules,
         players: Vec<Player>,
         next_player: usize,
-        weights: BoardWeights,
+        npc_params: NPCParams,
     },
     /// Checks if any answer has been posted for a given message
     QueryFor {
@@ -51,7 +51,15 @@ pub enum BackchannelMsg {
     },
     Copy {
         text: String,
+        share: ShareType,
     },
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum ShareType {
+    None,
+    Text,
+    Url,
 }
 
 impl Backchannel {

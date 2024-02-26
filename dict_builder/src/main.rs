@@ -141,12 +141,38 @@ fn load_wordnik_set() -> BTreeSet<String> {
 }
 
 fn load_additions() -> BTreeSet<String> {
-    println!("Loading additional data from file");
-    let additions =
-        File::open(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("support_data/additions.txt"))
-            .expect("support_data/additions.txt file should exist");
+    println!("Loading additional data from files");
 
-    BTreeSet::from_iter(io::BufReader::new(additions).lines().flatten())
+    let files = [
+        "support_data/tranche_1_add.txt",
+        "support_data/tranche_2_add.txt",
+        "support_data/tranche_3_add.txt",
+    ]
+    .map(|f| {
+        File::open(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(f))
+            .expect("add files should exist")
+    });
+
+    BTreeSet::from_iter(
+        files
+            .iter()
+            .flat_map(|f| io::BufReader::new(f).lines().flatten()),
+    )
+}
+
+fn load_removals() -> BTreeSet<String> {
+    println!("Loading removal data from files");
+
+    let files = ["support_data/tranche_3_del.txt"].map(|f| {
+        File::open(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(f))
+            .expect("del files should exist")
+    });
+
+    BTreeSet::from_iter(
+        files
+            .iter()
+            .flat_map(|f| io::BufReader::new(f).lines().flatten()),
+    )
 }
 
 fn load_objectionable() -> Vec<String> {
@@ -205,6 +231,11 @@ fn main() {
 
     let additions = load_additions();
     final_wordlist.extend(additions.iter());
+
+    let removals = load_removals();
+    for removal in removals {
+        final_wordlist.remove(&removal);
+    }
 
     println!("{} words in the total set.", final_wordlist.len());
     println!("Calculating word substring counts");

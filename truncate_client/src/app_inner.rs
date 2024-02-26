@@ -5,15 +5,14 @@ use truncate_core::{
     board::Board,
     game::{self, GAME_COLORS},
     generation::{self, generate_board, BoardSeed},
-    messages::RoomCode,
-    messages::{LobbyPlayerMessage, TruncateToken},
+    messages::{LobbyPlayerMessage, RoomCode, TruncateToken},
+    npc::scoring::{NPCParams, NPCPersonality},
 };
 
 use crate::{
     lil_bits::SplashUI,
-    regions::active_game::ActiveGame,
     regions::{
-        active_game::{GameLocation, HeaderType},
+        active_game::{ActiveGame, GameLocation, HeaderType},
         generator::GeneratorState,
         lobby::Lobby,
         replayer::ReplayerState,
@@ -22,6 +21,7 @@ use crate::{
     },
     utils::{
         daily::{get_playable_daily_puzzle, get_puzzle_day, get_raw_daily_puzzle},
+        game_evals::get_main_dict,
         macros::tr_log,
         text::TextHelper,
         Lighten,
@@ -133,6 +133,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                     ui.ctx(),
                     room_code.to_uppercase(),
                     None,
+                    None,
                     players,
                     player_number,
                     next_player_number,
@@ -142,7 +143,6 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                     outer.theme.clone(),
                     GameLocation::Online,
                 ));
-                println!("Starting a game")
             }
             GameMessage::GameUpdate(state_message) => match &mut outer.game_status {
                 GameStatus::Active(game) => {
@@ -205,28 +205,46 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
 
                 outer.logged_in_as = Some(player_token);
             }
-            GameMessage::ResumeDailyPuzzle(puzzle_state) => {
+            GameMessage::ResumeDailyPuzzle(latest_puzzle_state, best_puzzle) => {
                 let mut puzzle_game = get_playable_daily_puzzle(
                     ui.ctx(),
-                    puzzle_state.puzzle_day,
+                    latest_puzzle_state.puzzle_day,
                     &outer.map_texture,
                     &outer.theme,
                     &outer.backchannel,
                 );
 
+                if let Some(best_puzzle) = best_puzzle {
+                    let mut best_game = puzzle_game.game.clone();
+                    best_game.rules.battle_delay = 0;
+                    let dict_lock = get_main_dict();
+                    let dict = dict_lock.as_ref().unwrap();
+
+                    for next_move in best_puzzle.current_moves.into_iter() {
+                        if best_game
+                            .play_turn(next_move, Some(dict), Some(dict), None)
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+
+                    puzzle_game.best_game = Some(best_game);
+                }
+
                 let unplayed_puzzle = puzzle_game.clone();
 
                 match &mut puzzle_game.header {
                     HeaderType::Summary { attempt, .. } => {
-                        *attempt = Some(puzzle_state.attempt as usize)
+                        *attempt = Some(latest_puzzle_state.attempt as usize)
                     }
                     _ => {}
                 }
-                puzzle_game.move_sequence = puzzle_state.current_moves.clone();
+                puzzle_game.move_sequence = latest_puzzle_state.current_moves.clone();
 
                 let delay = puzzle_game.game.rules.battle_delay;
                 puzzle_game.game.rules.battle_delay = 0;
-                for next_move in puzzle_state.current_moves.into_iter() {
+                for next_move in latest_puzzle_state.current_moves.into_iter() {
                     if puzzle_game
                         .handle_move(next_move, &outer.backchannel)
                         .is_err()
@@ -393,7 +411,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 .expect("Common seeds can be reasonably expected to produce a board")
                 .board;
             let header = HeaderType::Summary {
-                title: format!("Random Puzzle"),
+                title: format!("Regular Puzzle"),
                 sentinel: '•',
                 attempt: None,
             };
@@ -405,24 +423,64 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 Some(board_seed),
                 true,
                 header,
+                NPCPersonality::jet(),
+            );
+            new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+        } else if launched_room == "RANDOM_EASY_PUZZLE" {
+            let seed = (current_time.as_micros() % 243985691) as u32;
+            let board_seed = BoardSeed::new(seed);
+            let board = generate_board(board_seed.clone())
+                .expect("Common seeds can be reasonably expected to produce a board")
+                .board;
+            let header = HeaderType::Summary {
+                title: format!("Easy Puzzle"),
+                sentinel: '•',
+                attempt: None,
+            };
+            let puzzle_game = SinglePlayerState::new(
+                ui.ctx(),
+                outer.map_texture.clone(),
+                outer.theme.clone(),
+                board,
+                Some(board_seed),
+                true,
+                header,
+                NPCPersonality::mellite(),
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
         } else if launched_room.starts_with("PUZZLE:") {
+            let url_segments = launched_room.chars().filter(|c| *c == ':').count();
+            let has_board_generation = url_segments >= 3;
+            let has_npc_id = url_segments >= 4;
+
             let mut parts = launched_room.split(':').skip(1);
-            let generation = parts.next().map(str::parse::<u32>);
+            let board_generation = if has_board_generation {
+                parts.next().map(str::parse::<u32>)
+            } else {
+                Some(Ok(0))
+            };
+            let npc = if has_npc_id {
+                parts
+                    .next()
+                    .map(|p| NPCPersonality::from_id(p.to_ascii_lowercase()))
+            } else {
+                Some(Some(NPCPersonality::jet()))
+            };
             let seed = parts.next().map(str::parse::<u32>);
             let player = parts
                 .next()
                 .map(|p| p.parse::<usize>().unwrap_or(0))
                 .unwrap_or(0);
 
-            if let (Some(Ok(generation)), Some(Ok(seed))) = (generation, seed) {
-                let board_seed = BoardSeed::new_with_generation(generation, seed);
+            if let (Some(Ok(board_generation)), Some(Some(npc)), Some(Ok(seed))) =
+                (board_generation, npc, seed)
+            {
+                let board_seed = BoardSeed::new_with_generation(board_generation, seed);
                 let board = generate_board(board_seed.clone())
                     .expect("Common seeds can be reasonably expected to produce a board")
                     .board;
                 let header = HeaderType::Summary {
-                    title: format!("Random Truncate Puzzle"),
+                    title: format!("Truncate Puzzle"),
                     sentinel: '•',
                     attempt: None,
                 };
@@ -434,6 +492,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     Some(board_seed),
                     player == 0,
                     header,
+                    npc,
                 );
                 new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
             } else {
@@ -463,6 +522,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 Some(seed_for_hand_tiles),
                 true,
                 HeaderType::Timers,
+                NPCPersonality::jet(),
             );
             new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
             outer.log_frames = true;
@@ -538,6 +598,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     Some(seed_for_hand_tiles),
                     true,
                     HeaderType::Timers,
+                    NPCPersonality::jet(),
                 );
                 new_game_status = Some(GameStatus::SinglePlayer(behemoth_game));
                 outer.log_frames = true;
@@ -584,6 +645,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                             editor_state.board_seed.clone(),
                             true,
                             HeaderType::Timers,
+                            NPCPersonality::jet(),
                         );
                         new_game_status = Some(GameStatus::SinglePlayer(single_player_game));
                     }

@@ -9,7 +9,7 @@ use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
     judge::{Judge, WordData, WordDict},
-    npc::{scoring::BoardWeights, Caches},
+    npc::{scoring::NPCParams, Caches},
     player::{Hand, Player},
     rules,
 };
@@ -88,15 +88,7 @@ pub fn npc_benches(c: &mut Criterion) {
     let dict = dict();
 
     c.bench_function("total_board_eval", |b| {
-        b.iter(|| {
-            game.static_eval(
-                Some(&dict),
-                1,
-                1,
-                &mut Caches::new(),
-                &BoardWeights::default(),
-            )
-        })
+        b.iter(|| game.static_eval(Some(&dict), 1, 1, &mut Caches::new(), &NPCParams::default()))
     });
 
     c.bench_function("quality_eval", |b| {
@@ -123,7 +115,7 @@ pub fn npc_benches(c: &mut Criterion) {
                 4,
                 None,
                 false,
-                &BoardWeights::default(),
+                &NPCParams::default(),
             )
         })
     });
@@ -137,7 +129,7 @@ pub fn npc_benches(c: &mut Criterion) {
                 6,
                 None,
                 false,
-                &BoardWeights::default(),
+                &NPCParams::default(),
             )
         })
     });
@@ -165,7 +157,7 @@ pub fn npc_benches(c: &mut Criterion) {
                 10,
                 None,
                 false,
-                &BoardWeights::default(),
+                &NPCParams::default(),
             )
         })
     });
@@ -193,7 +185,7 @@ pub fn npc_benches(c: &mut Criterion) {
                 3,
                 None,
                 false,
-                &BoardWeights::default(),
+                &NPCParams::default(),
             )
         })
     });

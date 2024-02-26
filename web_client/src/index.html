@@ -487,11 +487,15 @@
                 singleStage() {
                     this.reset();
 
-                    this.button("Random Puzzle", () => {
+                    this.button("Easy Puzzle", () => {
+                        truncate_runner.join_game("RANDOM_EASY_PUZZLE");
+                    });
+
+                    this.button("Regular Puzzle", () => {
                         truncate_runner.join_game("RANDOM_PUZZLE");
                     });
 
-                    this.button("Classic", () => {
+                    this.button("Classic Board", () => {
                         truncate_runner.join_game("SINGLE_PLAYER");
                     });
 
@@ -956,12 +960,25 @@
                 let pending_copy = null;
                 const handleInteractionEnd = (e) => {
                     if (!pending_copy) return;
-                    return navigator?.clipboard?.writeText?.(pending_copy).then(function () {
-                        console.log(`Text copied to clipboard`);
-                    }).catch(function (error) {
+                    let text = pending_copy?.text;
+
+                    let clip = navigator?.clipboard?.writeText?.(text).catch(function (error) {
                         console.error('Could not copy text to clipboard: ', error);
                     });
+
+                    if (pending_copy?.share === "Text") {
+                        try {
+                            navigator.share({ title: "Truncate Town", text });
+                        } catch { }
+                    } else if (pending_copy?.share === "Url") {
+                        try {
+                            navigator.share({ title: "Truncate Town", url: text });
+                        } catch { }
+                    }
+
                     pending_copy = null;
+
+                    return clip;
                 }
                 const truncate_canvas = document.querySelector("#truncate_canvas");
                 truncate_canvas.addEventListener('mouseup', handleInteractionEnd);
@@ -978,7 +995,8 @@
                         }
                         return null;
                     } else if (parsed_msg.type === "Copy") {
-                        pending_copy = parsed_msg.content.text;
+                        pending_copy = parsed_msg.content;
+                        return;
                     }
 
                     const msg_id = pending_msgs.length.toString();

@@ -28,7 +28,7 @@ pub async fn load_attempt(
     server_state: &ServerState,
     player: AuthedTruncateToken,
     daily_puzzle: i32,
-) -> Result<Option<DailyStateMessage>, TruncateServerError> {
+) -> Result<Option<(DailyStateMessage, Option<DailyStateMessage>)>, TruncateServerError> {
     let Some(daily_puzzle_record) = get_day_record(server_state, player, daily_puzzle).await?
     else {
         return Ok(None);
@@ -40,17 +40,35 @@ pub async fn load_attempt(
         return Ok(None);
     };
 
+    let best_record = get_best_attempt_for_day(server_state, daily_puzzle_record.result_id)
+        .await?
+        .map(|a| {
+            let Ok(best) = moves::packing::unpack_moves(&a.sequence_of_moves, 2) else {
+                // If move parsing fails, move on as if there was no attempt.
+                return None;
+            };
+            Some(DailyStateMessage {
+                puzzle_day: daily_puzzle.try_into().unwrap_or_default(),
+                attempt: a.attempt_number.try_into().unwrap_or_default(),
+                current_moves: best,
+            })
+        })
+        .flatten();
+
     let Ok(current_moves) = moves::packing::unpack_moves(&attempt_record.sequence_of_moves, 2)
     else {
         // If move parsing fails, move on as if there was no attempt.
         return Ok(None);
     };
 
-    Ok(Some(DailyStateMessage {
-        puzzle_day: daily_puzzle.try_into().unwrap_or_default(),
-        attempt: attempt_record.attempt_number.try_into().unwrap_or_default(),
-        current_moves,
-    }))
+    Ok(Some((
+        DailyStateMessage {
+            puzzle_day: daily_puzzle.try_into().unwrap_or_default(),
+            attempt: attempt_record.attempt_number.try_into().unwrap_or_default(),
+            current_moves,
+        },
+        best_record,
+    )))
 }
 
 pub async fn get_or_create_latest_attempt(
@@ -146,6 +164,24 @@ async fn get_latest_attempt_for_day(
     .map_err(Into::into)
 }
 
+async fn get_best_attempt_for_day(
+    server_state: &ServerState,
+    result_id: Uuid,
+) -> Result<Option<AttemptRecord>, TruncateServerError> {
+    let Some(pool) = &server_state.truncate_db else {
+        return Err(TruncateServerError::DatabaseOffline);
+    };
+
+    sqlx::query_as!(
+        AttemptRecord,
+        "SELECT attempt_id, sequence_of_moves, attempt_number, won FROM daily_puzzle_attempts WHERE result_id = $1 AND won = true ORDER BY move_count ASC LIMIT 1",
+        result_id
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(Into::into)
+}
+
 async fn create_new_attempt(
     server_state: &ServerState,
     result_id: Uuid,
@@ -191,11 +227,6 @@ pub async fn persist_moves(
     let (_, mut attempt) =
         get_or_create_latest_attempt(server_state, player.clone(), daily_puzzle, human_player)
             .await?;
-
-    // We don't allow continued play after winning an attempt on that day's puzzle
-    if attempt.won {
-        return Err(TruncateServerError::PuzzleComplete);
-    }
 
     let packed_moves = pack_moves(&moves, 2);
 

@@ -7,7 +7,7 @@ use truncate_core::{
     generation::BoardSeed,
     messages::{DailyStats, GameStateMessage, PlayerMessage},
     moves::Move,
-    npc::scoring::BoardWeights,
+    npc::scoring::{NPCParams, NPCPersonality},
     reporting::{Change, HandChange, WordMeaning},
 };
 
@@ -18,7 +18,7 @@ use crate::{
         HandUI, ResultModalUI,
     },
     utils::{
-        game_evals::{best_move, get_main_dict, remember},
+        game_evals::{client_best_move, get_main_dict, remember},
         text::TextHelper,
         Lighten, Theme,
     },
@@ -37,10 +37,11 @@ pub struct SinglePlayerState {
     theme: Theme,
     turns: usize,
     debugging_npc: bool,
-    weights: BoardWeights,
+    npc: NPCPersonality,
     waiting_on_backchannel: Option<String>,
     pub header: HeaderType,
     pub daily_stats: Option<DailyStats>,
+    pub best_game: Option<Game>,
     splash: Option<ResultModalUI>,
     pub move_sequence: Vec<Move>,
 }
@@ -54,6 +55,7 @@ impl SinglePlayerState {
         seed: Option<BoardSeed>,
         human_starts: bool,
         header: HeaderType,
+        npc: NPCPersonality,
     ) -> Self {
         let mut game = Game::new(9, 9, seed.clone().map(|s| s.seed as u64));
         if human_starts {
@@ -81,6 +83,7 @@ impl SinglePlayerState {
             ctx,
             "SINGLE_PLAYER".into(),
             seed,
+            Some(npc.clone()),
             game.players.iter().map(Into::into).collect(),
             if human_starts { 0 } else { 1 },
             0,
@@ -102,10 +105,11 @@ impl SinglePlayerState {
             theme,
             turns: 0,
             debugging_npc: false,
-            weights: BoardWeights::default(),
+            npc,
             waiting_on_backchannel: None,
             header,
             daily_stats: None,
+            best_game: None,
             splash: None,
             move_sequence: vec![],
         }
@@ -162,6 +166,7 @@ impl SinglePlayerState {
             ctx,
             "SINGLE_PLAYER".into(),
             Some(seed),
+            Some(self.npc.clone()),
             game.players.iter().map(Into::into).collect(),
             if self.human_starts { 0 } else { 1 },
             0,
@@ -342,137 +347,6 @@ impl SinglePlayerState {
             }
         }
 
-        if self.debugging_npc {
-            Frame::none().inner_margin(8.0).show(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    TextHelper::heavy("NPC's current hand", 14.0, None, ui).paint(
-                        Color32::WHITE,
-                        ui,
-                        true,
-                    );
-                    TextHelper::heavy("(new tiles highlighted)", 8.0, None, ui).paint(
-                        Color32::WHITE,
-                        ui,
-                        true,
-                    );
-
-                    let added_tiles = self
-                        .game
-                        .recent_changes
-                        .iter()
-                        .filter_map(|change| match change {
-                            Change::Hand(HandChange { player, added, .. })
-                                if *player == npc_player =>
-                            {
-                                Some(added)
-                            }
-                            _ => None,
-                        })
-                        .next();
-
-                    self.active_game.depot.interactions.highlight_tiles = added_tiles.cloned();
-                    HandUI::new(&mut self.game.players[npc_player].hand)
-                        .interactive(false)
-                        .render(
-                            ui,
-                            &mut self.active_game.depot,
-                            &mut self.active_game.mapped_hand,
-                        );
-                    self.active_game.depot.interactions.highlight_tiles = None;
-
-                    ui.add_space(28.0);
-
-                    TextHelper::heavy("Play with weights", 14.0, None, ui).paint(
-                        Color32::WHITE,
-                        ui,
-                        true,
-                    );
-                    ui.add_space(24.0);
-
-                    let BoardWeights {
-                        raced_defense,
-                        raced_attack,
-                        self_defense,
-                        self_attack,
-                        direct_defence,
-                        direct_attack,
-                        word_validity,
-                        word_length,
-                        word_extensibility,
-                    } = &mut self.weights;
-
-                    fn dragger(v: &mut f32) -> DragValue {
-                        DragValue::new(v).clamp_range(0.0..=100.0).speed(0.1)
-                    }
-
-                    let prev_text_styles = ui.style().text_styles.clone();
-                    use egui::{FontFamily, FontId, TextStyle::*};
-                    ui.style_mut().text_styles = [
-                        (Heading, FontId::new(32.0, FontFamily::Proportional)),
-                        (Body, FontId::new(24.0, FontFamily::Proportional)),
-                        (Monospace, FontId::new(24.0, FontFamily::Monospace)),
-                        (Button, FontId::new(24.0, FontFamily::Proportional)),
-                        (Small, FontId::new(16.0, FontFamily::Proportional)),
-                    ]
-                    .into();
-
-                    ui.horizontal(|ui| {
-                        let sp = ui.available_width();
-                        let pad = (sp - 308.0) * 0.5;
-                        ui.add_space(pad);
-                        let r = egui::Grid::new("weightings")
-                            .spacing(Vec2::splat(8.0))
-                            .min_col_width(150.0)
-                            .show(ui, |ui| {
-                                ui.label(RichText::new("Raced defense").color(Color32::WHITE));
-                                ui.add(dragger(raced_defense));
-                                ui.end_row();
-
-                                ui.label(RichText::new("Raced attack").color(Color32::WHITE));
-                                ui.add(dragger(raced_attack));
-                                ui.end_row();
-
-                                ui.label(RichText::new("Self defense").color(Color32::WHITE));
-                                ui.add(dragger(self_defense));
-                                ui.end_row();
-
-                                ui.label(RichText::new("Self attack").color(Color32::WHITE));
-                                ui.add(dragger(self_attack));
-                                ui.end_row();
-
-                                ui.label(RichText::new("Direct defense").color(Color32::WHITE));
-                                ui.add(dragger(direct_defence));
-                                ui.end_row();
-
-                                ui.label(RichText::new("Direct attack").color(Color32::WHITE));
-                                ui.add(dragger(direct_attack));
-                                ui.end_row();
-
-                                ui.label(RichText::new("Word validity").color(Color32::WHITE));
-                                ui.add(dragger(word_validity));
-                                ui.end_row();
-
-                                ui.label(RichText::new("Word length").color(Color32::WHITE));
-                                ui.add(dragger(word_length));
-                                ui.end_row();
-
-                                ui.label(RichText::new("Word extensibility").color(Color32::WHITE));
-                                ui.add(dragger(word_extensibility));
-                                ui.end_row();
-                            });
-                        ui.painter().rect_stroke(
-                            r.response.rect.expand(12.0),
-                            0.0,
-                            Stroke::new(2.0, self.theme.text),
-                        );
-                    });
-
-                    ui.style_mut().text_styles = prev_text_styles;
-                });
-            });
-            return msgs_to_server;
-        }
-
         let (rect, _) = ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
         let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
@@ -505,7 +379,13 @@ impl SinglePlayerState {
         }
 
         if let Some(splash) = &mut self.splash {
-            let splash_msg = splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
+            let splash_msg = splash.render(
+                &mut ui,
+                theme,
+                &self.map_texture,
+                &self.active_game.depot,
+                Some(backchannel),
+            );
 
             match splash_msg {
                 Some(ResultModalAction::NewPuzzle) => {
@@ -549,6 +429,17 @@ impl SinglePlayerState {
                     }
                 }
 
+                if self.winner == Some(human_player) {
+                    if self.best_game.is_none()
+                        || self
+                            .best_game
+                            .as_ref()
+                            .is_some_and(|best| best.turn_count > self.game.turn_count)
+                    {
+                        self.best_game = Some(self.game.clone());
+                    }
+                }
+
                 // Refresh our stats UI if we receive updated stats from the server
                 if let Some(mut stats) = self.daily_stats.take() {
                     stats.hydrate_missing_days();
@@ -571,6 +462,7 @@ impl SinglePlayerState {
                             &self.game,
                             &mut self.active_game.depot,
                             stats,
+                            self.best_game.as_ref(),
                         ));
                     }
                 }
@@ -591,7 +483,9 @@ impl SinglePlayerState {
         }
 
         if let Some(next_response_at) = self.next_response_at {
-            if next_response_at > self.active_game.depot.timing.current_time {
+            if self.game.next_player == npc_player
+                && next_response_at > self.active_game.depot.timing.current_time
+            {
                 return msgs_to_server;
             }
         }
@@ -629,7 +523,7 @@ impl SinglePlayerState {
                                 rules: self.game.rules.clone(),
                                 players: self.game.players.clone(),
                                 next_player: npc_player,
-                                weights: self.weights,
+                                npc_params: self.npc.params,
                             });
                         self.waiting_on_backchannel = pending_msg;
                     }
@@ -641,7 +535,7 @@ impl SinglePlayerState {
                     evaluation_game.board = filtered_board;
 
                     if turn_starts_no_later_than <= current_time.as_secs() {
-                        let best = best_move(&evaluation_game, &self.weights);
+                        let best = client_best_move(&evaluation_game, &self.npc.params);
                         next_msg = Some((npc_player, best));
                     }
                 }
@@ -670,7 +564,7 @@ impl SinglePlayerState {
                         if let Some(token) = logged_in_as {
                             msgs_to_server.push(PlayerMessage::PersistPuzzleMoves {
                                 player_token: token.clone(),
-                                day: seed.seed,
+                                day: seed.day.unwrap(),
                                 human_player: human_player as u32,
                                 moves: self.move_sequence.clone(),
                                 won: self.winner == Some(human_player),
@@ -679,7 +573,7 @@ impl SinglePlayerState {
                         }
                     }
                 }
-                let delay = if battle_words.is_empty() { 200 } else { 1200 };
+                let delay = if battle_words.is_empty() { 650 } else { 2000 };
 
                 if !battle_words.is_empty() {
                     msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
