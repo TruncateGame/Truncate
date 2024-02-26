@@ -8,9 +8,16 @@ use crate::board::Board;
 use super::WordQualityScores;
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum NPCVocab {
+    Medium,
+    Small,
+}
+
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct NPCParams {
     pub pruning: bool,
     pub evaluation_cap: usize,
+    pub vocab: NPCVocab,
     pub max_depth: usize,
     pub raced_defense: f32,
     pub raced_attack: f32,
@@ -39,6 +46,7 @@ impl Default for NPCParams {
             pruning: true,
             evaluation_cap: 1000,
             max_depth: 1,
+            vocab: NPCVocab::Medium,
             raced_defense: 6.0,
             raced_attack: 2.0,
             self_defense: 1.0,
@@ -81,15 +89,7 @@ impl NPCPersonality {
             params: NPCParams {
                 evaluation_cap: 5000,
                 max_depth: 1,
-                raced_defense: 1.0,
-                raced_attack: 1.0,
-                self_defense: 1.0,
-                self_attack: 1.0,
-                direct_defence: 1.0,
-                direct_attack: 1.0,
-                word_validity: 1.0,
-                word_length: 1.0,
-                word_extensibility: 1.0,
+                vocab: NPCVocab::Small,
                 ..NPCParams::default()
             },
         }
