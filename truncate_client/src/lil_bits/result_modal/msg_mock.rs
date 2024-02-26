@@ -33,10 +33,6 @@ impl ShareMessageMock {
             Some(game),
             depot.board_info.board_seed.clone(),
             depot.gameplay.npc.clone(),
-            stats
-                .days
-                .last_key_value()
-                .map(|(_, v)| v.attempts.len() - 1),
             format!("https://truncate.town/#"),
         );
         let emoji_board = game
@@ -63,7 +59,6 @@ impl ShareMessageMock {
             Some(game),
             depot.board_info.board_seed.clone(),
             depot.gameplay.npc.clone(),
-            None,
             format!("https://truncate.town/#"),
         );
         let emoji_board = game

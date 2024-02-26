@@ -26,7 +26,6 @@ impl Board {
         game: Option<&Game>,
         seed: Option<BoardSeed>,
         npc: Option<NPCPersonality>,
-        attempts: Option<usize>,
         url_prefix: String,
     ) -> String {
         let player_won = won == Some(player);
@@ -43,17 +42,9 @@ impl Board {
         } else {
             "".to_string()
         };
-
-        let attempt_str = match attempts {
-            Some(0) => format!(" first try"),
-            Some(n) => format!(" on attempt #{}", n + 1),
-            None => "".to_string(),
-        };
-
         let counts = if let Some(game) = game {
             format!(
-                "{} in {} move{}",
-                attempt_str,
+                " in {} move{}",
                 game.player_turn_count[player],
                 if game.player_turn_count[player] == 1 {
                     ""
@@ -67,15 +58,15 @@ impl Board {
 
         if let Some(day) = seed.map(|s| s.day).flatten() {
             if player_won {
-                format!("Truncate Town Day #{day}\nWon{counts}.\n{board}\n")
+                format!("Truncate Town Day #{day}\nWon{counts}\n{board}\n")
             } else {
-                format!("Truncate Town Day #{day}\nLost{counts}.\n{board}\n")
+                format!("Truncate Town Day #{day}\nLost{counts}\n{board}\n")
             }
         } else {
             if player_won {
-                format!("Truncate Town Random Puzzle\nWon{counts}.\n{url}{board}\n")
+                format!("Truncate Town Puzzle\nWon{counts}\n{url}{board}\n")
             } else {
-                format!("Truncate Town Random Puzzle\nLost{counts}.\n{url}{board}\n")
+                format!("Truncate Town Puzzle\nLost{counts}\n{url}{board}\n")
             }
         }
     }
