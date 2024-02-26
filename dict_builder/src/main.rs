@@ -146,6 +146,7 @@ fn load_additions() -> BTreeSet<String> {
     let files = [
         "support_data/tranche_1_add.txt",
         "support_data/tranche_2_add.txt",
+        "support_data/tranche_3_add.txt",
     ]
     .map(|f| {
         File::open(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(f))
