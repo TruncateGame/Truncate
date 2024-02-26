@@ -477,7 +477,9 @@ impl SinglePlayerState {
         }
 
         if let Some(next_response_at) = self.next_response_at {
-            if next_response_at > self.active_game.depot.timing.current_time {
+            if self.game.next_player == npc_player
+                && next_response_at > self.active_game.depot.timing.current_time
+            {
                 return msgs_to_server;
             }
         }
