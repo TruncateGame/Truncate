@@ -40,7 +40,7 @@ pub struct ResultModalDaily {
 pub struct ResultModalUnique {
     won: bool,
     msg_mock: ShareMessageMock,
-    share_copied: bool,
+    share_copied_at: Option<Duration>,
 }
 
 #[derive(Clone)]
@@ -121,7 +121,7 @@ impl ResultModalUI {
             contents: ResultModalVariant::Unique(ResultModalUnique {
                 won,
                 msg_mock: ShareMessageMock::new_unique(game, &depot),
-                share_copied: false,
+                share_copied_at: None,
             }),
         }
     }
@@ -181,6 +181,7 @@ impl ResultModalUI {
         ui: &mut egui::Ui,
         theme: &Theme,
         map_texture: &TextureHandle,
+        depot: &TruncateDepot,
         backchannel: Option<&Backchannel>,
     ) -> Option<ResultModalAction> {
         let mut msg = None;
@@ -346,12 +347,19 @@ impl ResultModalUI {
                         if let Some(action) =
                             daily
                                 .daily_actions
-                                .render(ui, theme, map_texture, backchannel)
+                                .render(ui, theme, map_texture, depot, backchannel)
                         {
                             msg = Some(action);
                         }
                     }
                     ResultModalVariant::Unique(unique) => {
+                        if unique
+                            .share_copied_at
+                            .is_some_and(|s| depot.timing.current_time - s > Duration::from_secs(2))
+                        {
+                            unique.share_copied_at = None;
+                        }
+
                         ui.allocate_ui_with_layout(
                             ui.available_size(),
                             Layout::bottom_up(Align::LEFT),
@@ -381,7 +389,7 @@ impl ResultModalUI {
                                 }
 
                                 ui.add_space(ui.available_height() * 0.05);
-                                let button_text = if unique.share_copied {
+                                let button_text = if unique.share_copied_at.is_some() {
                                     "COPIED TEXT!"
                                 } else {
                                     "SHARE PUZZLE"
@@ -396,9 +404,10 @@ impl ResultModalUI {
                                 // Extra events to get this message through the backchannel early,
                                 // as our frontend relies on attaching the copy to a browser event
                                 // on mouseup/touchend.
-                                if share_button.clicked()
-                                    || share_button.drag_started()
-                                    || share_button.is_pointer_button_down_on()
+                                if unique.share_copied_at.is_none()
+                                    && (share_button.clicked()
+                                        || share_button.drag_started()
+                                        || share_button.is_pointer_button_down_on())
                                 {
                                     let share_text = unique.msg_mock.share_text.clone();
                                     if let Some(backchannel) = backchannel {
@@ -416,7 +425,7 @@ impl ResultModalUI {
                                         ui.ctx().output_mut(|o| o.copied_text = share_text);
                                     }
 
-                                    unique.share_copied = true;
+                                    unique.share_copied_at = Some(depot.timing.current_time);
                                 }
 
                                 ui.add_space(ui.available_height() * 0.05);

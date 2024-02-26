@@ -1,5 +1,6 @@
 use eframe::egui::{self, Layout, RichText, Sense};
 use epaint::{emath::Align, hex_color, vec2, Color32, TextureHandle, Vec2};
+use instant::Duration;
 use truncate_core::{
     game::Game,
     messages::{DailyStats, PlayerMessage},
@@ -16,8 +17,8 @@ use super::{msg_mock::ShareMessageMock, ResultModalAction};
 pub struct DailyActions {
     msg_mock: ShareMessageMock,
     replay_link: Option<String>,
-    replay_copied: bool,
-    share_copied: bool,
+    replay_copied_at: Option<Duration>,
+    share_copied_at: Option<Duration>,
     won_today: bool,
     won_yesterday: bool,
 }
@@ -47,10 +48,26 @@ impl DailyActions {
         Self {
             msg_mock,
             replay_link: this_attempt.map(|a| format!("https://truncate.town/#REPLAY:{a}")),
-            replay_copied: false,
-            share_copied: false,
+            replay_copied_at: None,
+            share_copied_at: None,
             won_today: win_history(0),
             won_yesterday: win_history(1),
+        }
+    }
+
+    fn reset_buttons(&mut self, depot: &TruncateDepot) {
+        if self
+            .share_copied_at
+            .is_some_and(|s| depot.timing.current_time - s > Duration::from_secs(2))
+        {
+            self.share_copied_at = None;
+        }
+
+        if self
+            .replay_copied_at
+            .is_some_and(|s| depot.timing.current_time - s > Duration::from_secs(2))
+        {
+            self.replay_copied_at = None;
         }
     }
 
@@ -59,9 +76,12 @@ impl DailyActions {
         ui: &mut egui::Ui,
         theme: &Theme,
         map_texture: &TextureHandle,
+        depot: &TruncateDepot,
         backchannel: Option<&Backchannel>,
     ) -> Option<ResultModalAction> {
         let mut msg = None;
+
+        self.reset_buttons(depot);
 
         ui.allocate_ui_with_layout(ui.available_size(), Layout::bottom_up(Align::LEFT), |ui| {
             let mut textrow = |string: String, ui: &mut egui::Ui| {
@@ -89,18 +109,19 @@ impl DailyActions {
             ui.add_space(ui.available_height() * 0.05);
 
             if let Some(replay_link) = &self.replay_link {
-                let button_text = if self.replay_copied {
+                let button_text = if self.replay_copied_at.is_some() {
                     "COPIED LINK!"
                 } else {
                     "SHARE REPLAY"
                 };
                 let text = TextHelper::heavy(button_text, 12.0, None, ui);
-                let share_button =
+                let replay_button =
                     text.centered_button(theme.button_primary, theme.text, map_texture, ui);
 
-                if share_button.clicked()
-                    || share_button.drag_started()
-                    || share_button.is_pointer_button_down_on()
+                if self.replay_copied_at.is_none()
+                    && (replay_button.clicked()
+                        || replay_button.drag_started()
+                        || replay_button.is_pointer_button_down_on())
                 {
                     if let Some(backchannel) = backchannel {
                         if backchannel.is_open() {
@@ -115,13 +136,13 @@ impl DailyActions {
                         ui.ctx().output_mut(|o| o.copied_text = replay_link.clone());
                     }
 
-                    self.replay_copied = true;
+                    self.replay_copied_at = Some(depot.timing.current_time);
                 }
 
                 ui.add_space(ui.available_height() * 0.01);
             }
 
-            let button_text = if self.share_copied {
+            let button_text = if self.share_copied_at.is_some() {
                 "COPIED TEXT!"
             } else {
                 "SHARE BEST SCORE"
@@ -130,9 +151,10 @@ impl DailyActions {
             let share_button =
                 text.centered_button(theme.button_primary, theme.text, map_texture, ui);
 
-            if share_button.clicked()
-                || share_button.drag_started()
-                || share_button.is_pointer_button_down_on()
+            if self.share_copied_at.is_none()
+                && (share_button.clicked()
+                    || share_button.drag_started()
+                    || share_button.is_pointer_button_down_on())
             {
                 if let Some(backchannel) = backchannel {
                     if backchannel.is_open() {
@@ -149,7 +171,7 @@ impl DailyActions {
                         .output_mut(|o| o.copied_text = self.msg_mock.share_text.clone());
                 }
 
-                self.share_copied = true;
+                self.share_copied_at = Some(depot.timing.current_time);
             }
 
             self.msg_mock.render(ui, theme, map_texture);

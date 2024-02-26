@@ -379,7 +379,13 @@ impl SinglePlayerState {
         }
 
         if let Some(splash) = &mut self.splash {
-            let splash_msg = splash.render(&mut ui, theme, &self.map_texture, Some(backchannel));
+            let splash_msg = splash.render(
+                &mut ui,
+                theme,
+                &self.map_texture,
+                &self.active_game.depot,
+                Some(backchannel),
+            );
 
             match splash_msg {
                 Some(ResultModalAction::NewPuzzle) => {
