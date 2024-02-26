@@ -69,7 +69,7 @@ impl GameManager {
                 Ok(())
             }
             None => {
-                println!("Couldn't reconnect player. Nothing stored for player {index}");
+                eprintln!("Couldn't reconnect player. Nothing stored for player {index}");
                 Err(())
             }
         }
@@ -80,7 +80,7 @@ impl GameManager {
             self.core_game.players[player_index].name = name;
             Ok(())
         } else {
-            println!("Couldn't rename player. Nothing stored for player {socket}");
+            eprintln!("Couldn't rename player. Nothing stored for player {socket}");
             Err(())
         }
     }

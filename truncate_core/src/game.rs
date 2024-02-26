@@ -134,7 +134,9 @@ impl Game {
         if matches!(overtime_rule, Some(OvertimeRule::Elimination)) {
             match self.any_player_is_overtime() {
                 Some(overtime_player) => {
-                    println!("{overtime_player} is over time!");
+                    if self.winner.is_none() {
+                        println!("{overtime_player} is over time! Defeating player.");
+                    }
                     self.board.defeat_player(overtime_player);
                     self.winner = Some((overtime_player + 1) % 2);
                 }
@@ -201,7 +203,7 @@ impl Game {
         ) {
             Ok(changes) => changes,
             Err(msg) => {
-                println!("{}", msg);
+                println!("Error in game: {}", msg);
                 return Err(format!("{msg}")); // TODO: propogate error post polonius
             }
         };
@@ -240,9 +242,7 @@ impl Game {
                         // TODO: Make the penalty period an option
                         let total_penalties =
                             1 + (time_remaining.whole_seconds() / -(*period as i64)) as usize; // usize cast as we guaranteed both are negative
-                        println!("Player {player} now has {total_penalties} penalties");
                         apply_penalties = total_penalties - this_player.penalties_incurred;
-                        println!("Player {player} needs {apply_penalties} to be applied");
                         this_player.penalties_incurred = total_penalties;
                     }
 
@@ -252,7 +252,6 @@ impl Game {
                                 continue;
                             }
                             for _ in 0..apply_penalties {
-                                println!("Player {} gets a free tile", other_player.name);
                                 self.recent_changes.push(other_player.add_special_tile('¤'));
                             }
                         }

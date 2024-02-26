@@ -225,12 +225,16 @@ impl<'a> TextHelper<'a> {
 
         let button_tile_size = button_width / (button_texs.len() / 2) as f32;
         let (mut button_rect, button_resp) = if centered {
-            ui.horizontal(|ui| {
-                let centered_offset = (ui.available_width() - button_width) * 0.5;
-                ui.add_space(centered_offset);
-                ui.allocate_exact_size(vec2(button_width, button_tile_size * 2.0), Sense::click())
-            })
-            .inner
+            let (mut rect, row) = ui.allocate_exact_size(
+                vec2(ui.available_width(), button_tile_size * 2.0),
+                Sense::hover(),
+            );
+            let centered_offset = (rect.width() - button_width) * 0.5;
+            rect = rect.shrink2(vec2(centered_offset, 0.0));
+
+            let resp = ui.interact(rect, row.id.with("button"), Sense::click());
+
+            (rect, resp)
         } else {
             ui.allocate_exact_size(vec2(button_width, button_tile_size * 2.0), Sense::click())
         };

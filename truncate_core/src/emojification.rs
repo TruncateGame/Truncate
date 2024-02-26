@@ -2,6 +2,7 @@ use crate::{
     board::{Board, Square},
     game::Game,
     generation::BoardSeed,
+    npc::scoring::{NPCParams, NPCPersonality},
 };
 
 pub const SQ_BLUE: &str = "🟦";
@@ -18,15 +19,59 @@ pub const SQ_WHITE_IN_BLACK: &str = "🔲";
 pub const SQ_ERR: &str = "🆘";
 
 impl Board {
-    pub fn emojify(
+    pub fn share_message(
         &self,
         player: usize,
         won: Option<usize>,
         game: Option<&Game>,
         seed: Option<BoardSeed>,
-        attempts: Option<usize>,
+        npc: Option<NPCPersonality>,
         url_prefix: String,
     ) -> String {
+        let player_won = won == Some(player);
+        let board = self.emojify(player, won);
+
+        let url = if let (Some(seed), Some(npc)) = (seed.clone(), npc.clone()) {
+            format!(
+                "Play Puzzle: {url_prefix}PUZZLE:{}:{}:{}:{}\n",
+                seed.generation,
+                npc.name.to_ascii_uppercase(),
+                seed.seed,
+                player
+            )
+        } else {
+            "".to_string()
+        };
+        let counts = if let Some(game) = game {
+            format!(
+                " in {} move{}",
+                game.player_turn_count[player],
+                if game.player_turn_count[player] == 1 {
+                    ""
+                } else {
+                    "s"
+                },
+            )
+        } else {
+            "".to_string()
+        };
+
+        if let Some(day) = seed.map(|s| s.day).flatten() {
+            if player_won {
+                format!("Truncate Town Day #{day}\nWon{counts}\n{board}\n")
+            } else {
+                format!("Truncate Town Day #{day}\nLost{counts}\n{board}\n")
+            }
+        } else {
+            if player_won {
+                format!("Truncate Town Puzzle\nWon{counts}\n{url}{board}\n")
+            } else {
+                format!("Truncate Town Puzzle\nLost{counts}\n{url}{board}\n")
+            }
+        }
+    }
+
+    pub fn emojify(&self, player: usize, won: Option<usize>) -> String {
         let player_won = won == Some(player);
         let water = SQ_BLUE;
         let land = if player_won { SQ_GREEN } else { SQ_BROWN };
@@ -104,54 +149,9 @@ impl Board {
             trim_grid(&mut grid, D::Right);
         }
 
-        let joined_grid = grid
-            .into_iter()
+        grid.into_iter()
             .map(|row| row.into_iter().collect::<String>())
             .collect::<Vec<_>>()
-            .join("\n");
-
-        let url = if let Some(seed) = seed.clone() {
-            format!(
-                "Play Puzzle: {url_prefix}PUZZLE:{}:{}:{}\n",
-                seed.generation, seed.seed, player
-            )
-        } else {
-            "".to_string()
-        };
-
-        let attempt_str = match attempts {
-            Some(0) => format!(" first try"),
-            Some(n) => format!(" on attempt #{}", n + 1),
-            None => "".to_string(),
-        };
-
-        let counts = if let Some(game) = game {
-            format!(
-                "{} in {} move{}",
-                attempt_str,
-                game.player_turn_count[player],
-                if game.player_turn_count[player] == 1 {
-                    ""
-                } else {
-                    "s"
-                },
-            )
-        } else {
-            "".to_string()
-        };
-
-        if let Some(day) = seed.map(|s| s.day).flatten() {
-            if player_won {
-                format!("Truncate Town Day #{day}\nWon{counts}.\n{joined_grid}\n")
-            } else {
-                format!("Truncate Town Day #{day}\nLost{counts}.\n{joined_grid}\n")
-            }
-        } else {
-            if player_won {
-                format!("Truncate Town Random Puzzle\nWon{counts}.\n{url}{joined_grid}\n")
-            } else {
-                format!("Truncate Town Random Puzzle\nLost{counts}.\n{url}{joined_grid}\n")
-            }
-        }
+            .join("\n")
     }
 }

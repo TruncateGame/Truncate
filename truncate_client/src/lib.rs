@@ -140,10 +140,8 @@ pub fn backchannel(msg: String) -> String {
             rules,
             players,
             next_player,
-            weights,
+            npc_params,
         } => {
-            web_sys::console::log_1(&"Evaluating best move".into());
-
             let mut game = truncate_core::game::Game::new(3, 3, None);
             game.board = board;
             game.rules = rules;
@@ -157,12 +155,11 @@ pub fn backchannel(msg: String) -> String {
                     .expect("Please don't play Truncate before 1970")
                     .as_secs(),
             );
-            let best = utils::game_evals::best_move(&game, &weights);
+            let best = utils::game_evals::client_best_move(&game, &npc_params);
 
             return serde_json::to_string(&best).expect("Resultant move should be serializable");
         }
         BackchannelMsg::Remember { word } => {
-            web_sys::console::log_1(&format!("Worker: Remembering {word}").into());
             utils::game_evals::remember(&word);
             return String::new();
         }

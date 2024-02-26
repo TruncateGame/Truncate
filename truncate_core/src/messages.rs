@@ -222,7 +222,7 @@ pub enum GameMessage {
     GenericError(String),
     SupplyDefinitions(Vec<(String, Option<Vec<WordMeaning>>)>),
     LoggedInAs(TruncateToken),
-    ResumeDailyPuzzle(DailyStateMessage),
+    ResumeDailyPuzzle(DailyStateMessage, Option<DailyStateMessage>), // (latest, best)
     DailyStats(DailyStats),
     LoadDailyReplay(DailyStateMessage),
 }
@@ -268,7 +268,9 @@ impl fmt::Display for GameMessage {
             GameMessage::LoggedInAs(_token) => {
                 write!(f, "Logged in as a player")
             }
-            GameMessage::ResumeDailyPuzzle(puzzle) => write!(f, "Starting puzzle:\n{}", puzzle),
+            GameMessage::ResumeDailyPuzzle(puzzle, _best) => {
+                write!(f, "Starting puzzle:\n{}", puzzle)
+            }
             GameMessage::DailyStats(stats) => write!(f, "Stats for {} days", stats.days.len()),
             GameMessage::LoadDailyReplay(puzzle) => write!(f, "Loading puzzle replay:\n{}", puzzle),
         }

@@ -157,6 +157,7 @@ impl TutorialState {
             ctx,
             "TUTORIAL_01".into(),
             None,
+            None,
             game.players.iter().map(Into::into).collect(),
             0,
             0,
@@ -239,7 +240,6 @@ impl TutorialState {
                 next_move = Some(game_move);
             } else {
                 // TODO: Handle player doing the wrong tutorial thing
-                println!("Expected {msg} to be {:?}", step);
             }
         }
 
@@ -534,7 +534,7 @@ impl TutorialState {
                     self.stage_changed_at = current_time;
                 }
                 Err(msg) => {
-                    println!("Failed to make a move: {msg}");
+                    // TODO: Handle errored moves in tutorial gameplay
                 }
             }
         }

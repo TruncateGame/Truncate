@@ -4,6 +4,7 @@ use truncate_core::{
     board::{Board, Coordinate},
     generation::BoardSeed,
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
+    npc::scoring::{NPCParams, NPCPersonality},
     player::Hand,
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, TimeChange},
 };
@@ -18,8 +19,8 @@ use crate::{
     lil_bits::{BattleUI, BoardUI, DictionaryUI, HandUI, TimerUI},
     utils::{
         depot::{
-            AestheticDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot, TimingDepot,
-            TruncateDepot, UIStateDepot,
+            AestheticDepot, AudioDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot,
+            TimingDepot, TruncateDepot, UIStateDepot,
         },
         macros::tr_log,
         mapper::{MappedBoard, MappedTiles},
@@ -70,6 +71,7 @@ impl ActiveGame {
         ctx: &egui::Context,
         room_code: RoomCode,
         game_seed: Option<BoardSeed>,
+        npc: Option<NPCPersonality>,
         players: Vec<GamePlayerMessage>,
         player_number: u64,
         next_player_number: u64,
@@ -84,7 +86,7 @@ impl ActiveGame {
             .map(|p| Color32::from_rgb(p.color.0, p.color.1, p.color.2))
             .collect::<Vec<_>>();
 
-        let depot = TruncateDepot {
+        let mut depot = TruncateDepot {
             interactions: InteractionDepot::default(),
             regions: RegionDepot::default(),
             ui_state: UIStateDepot::default(),
@@ -101,6 +103,7 @@ impl ActiveGame {
                 winner: None,
                 changes: Vec::new(),
                 last_battle_origin: None,
+                npc,
             },
             aesthetics: AestheticDepot {
                 theme,
@@ -110,7 +113,19 @@ impl ActiveGame {
                 destruction_tick: 0.05,
                 destruction_duration: 0.6,
             },
+            audio: AudioDepot::default(),
         };
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+            depot.audio.muted = local_storage
+                .get_item("truncate_muted")
+                .unwrap()
+                .unwrap_or_default()
+                .parse()
+                .unwrap_or_default();
+        }
 
         Self {
             mapped_board: MappedBoard::new(ctx, &depot.aesthetics, &board, player_number as usize),
@@ -273,22 +288,10 @@ impl ActiveGame {
                             );
                             let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
-                            let attempt_str = match attempt {
-                                Some(attempt) => {
-                                    format!(
-                                        "{} attempt{}  {}  ",
-                                        attempt + 1,
-                                        if *attempt == 0 { "" } else { "s" },
-                                        sentinel
-                                    )
-                                }
-                                _ => "".to_string(),
-                            };
-
                             let active_player = self.depot.gameplay.player_number;
                             let summary = if let Some(game) = game_ref {
                                 format!(
-                                    "{attempt_str}{} move{}",
+                                    "{} move{}",
                                     game.player_turn_count[active_player as usize],
                                     if game.player_turn_count[active_player as usize] == 1 {
                                         ""
@@ -650,6 +653,34 @@ impl ActiveGame {
                         }
                         ui.add_space(menu_spacing);
                     }
+
+                    let text = if self.depot.audio.muted {
+                        TextHelper::heavy("UNMUTE SOUNDS", 14.0, None, ui)
+                    } else {
+                        TextHelper::heavy("MUTE SOUNDS", 14.0, None, ui)
+                    };
+
+                    if text
+                        .button(
+                            self.depot.aesthetics.theme.button_secondary,
+                            self.depot.aesthetics.theme.text,
+                            &self.depot.aesthetics.map_texture,
+                            ui,
+                        )
+                        .clicked()
+                    {
+                        self.depot.audio.muted = !self.depot.audio.muted;
+
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            let local_storage =
+                                web_sys::window().unwrap().local_storage().unwrap().unwrap();
+                            local_storage
+                                .set_item("truncate_muted", &self.depot.audio.muted.to_string())
+                                .unwrap();
+                        }
+                    }
+                    ui.add_space(menu_spacing);
                 });
             });
         });
@@ -914,16 +945,18 @@ impl ActiveGame {
         self.board = board;
 
         #[cfg(target_arch = "wasm32")]
-        // Play the turn sound if the player has changed
-        if self.depot.gameplay.next_player_number != next_player_number {
-            use eframe::wasm_bindgen::JsCast;
+        if !self.depot.audio.muted {
+            // Play the turn sound if the player has changed
+            if self.depot.gameplay.next_player_number != next_player_number {
+                use eframe::wasm_bindgen::JsCast;
 
-            let window = web_sys::window().expect("window should exist in browser");
-            let document = window.document().expect("documnt should exist in window");
-            if let Some(element) = document.query_selector("#tr_move").unwrap() {
-                if let Ok(audio) = element.dyn_into::<web_sys::HtmlAudioElement>() {
-                    // TODO: Rework audio, as this sound often gets filtered out from headphones
-                    _ = audio.play().expect("Audio should be playable");
+                let window = web_sys::window().expect("window should exist in browser");
+                let document = window.document().expect("documnt should exist in window");
+                if let Some(element) = document.query_selector("#tr_move").unwrap() {
+                    if let Ok(audio) = element.dyn_into::<web_sys::HtmlAudioElement>() {
+                        // TODO: Rework audio, as this sound often gets filtered out from headphones
+                        _ = audio.play().expect("Audio should be playable");
+                    }
                 }
             }
         }

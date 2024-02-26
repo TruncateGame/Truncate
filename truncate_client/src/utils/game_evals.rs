@@ -4,24 +4,27 @@ use truncate_core::{
     game::Game,
     judge::{WordData, WordDict},
     messages::PlayerMessage,
-    npc::scoring::BoardWeights,
+    npc::scoring::{NPCParams, NPCVocab},
 };
 
 pub static TRUNCATE_DICT: &str = include_str!("../../../dict_builder/final_wordlist.txt");
 
 static TOTAL_DICT: Mutex<Option<WordDict>> = Mutex::new(None);
-static NPC_KNOWN_DICT: Mutex<Option<WordDict>> = Mutex::new(None);
-static PLAYER_KNOWN_DICT: Mutex<Option<WordDict>> = Mutex::new(None);
+static SMALL_VOCAB_DICT_SAFE: Mutex<Option<WordDict>> = Mutex::new(None);
+static MEDIUM_VOCAB_DICT_SAFE: Mutex<Option<WordDict>> = Mutex::new(None);
+static LARGE_VOCAB_DICT_UNSAFE: Mutex<Option<WordDict>> = Mutex::new(None);
 
 fn ensure_dicts() {
     let mut total_dict = TOTAL_DICT.lock().unwrap();
-    let mut npc_known_dict = NPC_KNOWN_DICT.lock().unwrap();
-    let mut player_known_dict = PLAYER_KNOWN_DICT.lock().unwrap();
+    let mut small_vocab_dict = SMALL_VOCAB_DICT_SAFE.lock().unwrap();
+    let mut medium_vocab_dict = MEDIUM_VOCAB_DICT_SAFE.lock().unwrap();
+    let mut large_vocab_dict = LARGE_VOCAB_DICT_UNSAFE.lock().unwrap();
 
     if total_dict.is_none() {
         let mut valid_words = std::collections::HashMap::new();
-        let mut npc_known_words = std::collections::HashMap::new();
-        let mut player_known_words = std::collections::HashMap::new();
+        let mut small_vocab_words = std::collections::HashMap::new();
+        let mut medium_vocab_words = std::collections::HashMap::new();
+        let mut large_vocab_words = std::collections::HashMap::new();
         let lines = TRUNCATE_DICT.lines();
 
         for line in lines {
@@ -47,8 +50,21 @@ fn ensure_dicts() {
 
             // These are the words the NPC has recall of,
             // and will play during their turn.
+            if rel_freq > 0.985 && !objectionable {
+                small_vocab_words.insert(
+                    word.clone(),
+                    WordData {
+                        extensions,
+                        rel_freq,
+                        objectionable,
+                    },
+                );
+            }
+
+            // These are the words the NPC has recall of,
+            // and will play during their turn.
             if rel_freq > 0.95 && !objectionable {
-                npc_known_words.insert(
+                medium_vocab_words.insert(
                     word.clone(),
                     WordData {
                         extensions,
@@ -61,7 +77,7 @@ fn ensure_dicts() {
             // These are the words the NPC will think it recognizes,
             // and won't challenge if they're on the board.
             if rel_freq > 0.90 {
-                player_known_words.insert(
+                large_vocab_words.insert(
                     word,
                     WordData {
                         extensions,
@@ -73,8 +89,9 @@ fn ensure_dicts() {
         }
 
         _ = total_dict.insert(valid_words);
-        _ = npc_known_dict.insert(npc_known_words);
-        _ = player_known_dict.insert(player_known_words);
+        _ = small_vocab_dict.insert(small_vocab_words);
+        _ = medium_vocab_dict.insert(medium_vocab_words);
+        _ = large_vocab_dict.insert(large_vocab_words);
     }
 }
 
@@ -84,11 +101,14 @@ pub fn get_main_dict() -> MutexGuard<'static, Option<WordDict>> {
     TOTAL_DICT.lock().unwrap()
 }
 
-pub fn best_move(game: &Game, weights: &BoardWeights) -> PlayerMessage {
+pub fn client_best_move(game: &Game, npc_params: &NPCParams) -> PlayerMessage {
     ensure_dicts();
 
-    let npc_known_dict = NPC_KNOWN_DICT.lock().unwrap();
-    let player_known_dict = PLAYER_KNOWN_DICT.lock().unwrap();
+    let npc_known_dict = match npc_params.vocab {
+        NPCVocab::Medium => MEDIUM_VOCAB_DICT_SAFE.lock().unwrap(),
+        NPCVocab::Small => SMALL_VOCAB_DICT_SAFE.lock().unwrap(),
+    };
+    let player_known_dict = LARGE_VOCAB_DICT_UNSAFE.lock().unwrap();
 
     let start = instant::SystemTime::now()
         .duration_since(instant::SystemTime::UNIX_EPOCH)
@@ -96,29 +116,22 @@ pub fn best_move(game: &Game, weights: &BoardWeights) -> PlayerMessage {
         .as_millis();
 
     let mut arb = truncate_core::npc::Arborist::pruning();
-    arb.capped(15000);
-    let search_depth = 12;
+    arb.capped(npc_params.evaluation_cap);
 
     let (best_move, _score) = truncate_core::game::Game::best_move(
         game,
         npc_known_dict.as_ref(),
         player_known_dict.as_ref(),
-        search_depth,
+        npc_params.max_depth,
         Some(&mut arb),
-        true,
-        weights,
+        false,
+        npc_params,
     );
 
     let end = instant::SystemTime::now()
         .duration_since(instant::SystemTime::UNIX_EPOCH)
         .expect("Please don't play Truncate before 1970")
         .as_millis();
-
-    println!("Looked at {} leaves in {}ms", arb.assessed(), end - start);
-    #[cfg(target_arch = "wasm32")]
-    web_sys::console::log_1(
-        &format!("Looked at {} leaves in {}ms", arb.assessed(), end - start).into(),
-    );
 
     best_move
 }
@@ -128,18 +141,23 @@ pub fn remember(word: &String) {
     ensure_dicts();
 
     let total_dict = TOTAL_DICT.lock().unwrap();
-    let mut npc_known_dict = NPC_KNOWN_DICT.lock().unwrap();
-    let mut player_known_dict = PLAYER_KNOWN_DICT.lock().unwrap();
+    let mut small_dict = SMALL_VOCAB_DICT_SAFE.lock().unwrap();
+    let mut medium_dict = MEDIUM_VOCAB_DICT_SAFE.lock().unwrap();
+    let mut large_dict = LARGE_VOCAB_DICT_UNSAFE.lock().unwrap();
 
     if let Some(word_data) = total_dict.as_ref().unwrap().get(word).cloned() {
-        player_known_dict
+        large_dict
             .as_mut()
             .unwrap()
             .insert(word.clone(), word_data.clone());
 
         // We don't want the NPC to learn bad words from the player
         if !word_data.objectionable {
-            npc_known_dict
+            medium_dict
+                .as_mut()
+                .unwrap()
+                .insert(word.clone(), word_data.clone());
+            small_dict
                 .as_mut()
                 .unwrap()
                 .insert(word.clone(), word_data.clone());
