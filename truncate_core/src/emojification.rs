@@ -19,58 +19,6 @@ pub const SQ_WHITE_IN_BLACK: &str = "🔲";
 pub const SQ_ERR: &str = "🆘";
 
 impl Board {
-    pub fn share_message(
-        &self,
-        player: usize,
-        won: Option<usize>,
-        game: Option<&Game>,
-        seed: Option<BoardSeed>,
-        npc: Option<NPCPersonality>,
-        url_prefix: String,
-    ) -> String {
-        let player_won = won == Some(player);
-        let board = self.emojify(player, won);
-
-        let url = if let (Some(seed), Some(npc)) = (seed.clone(), npc.clone()) {
-            format!(
-                "Play Puzzle: {url_prefix}PUZZLE:{}:{}:{}:{}\n",
-                seed.generation,
-                npc.name.to_ascii_uppercase(),
-                seed.seed,
-                player
-            )
-        } else {
-            "".to_string()
-        };
-        let counts = if let Some(game) = game {
-            format!(
-                " in {} move{}",
-                game.player_turn_count[player],
-                if game.player_turn_count[player] == 1 {
-                    ""
-                } else {
-                    "s"
-                },
-            )
-        } else {
-            "".to_string()
-        };
-
-        if let Some(day) = seed.map(|s| s.day).flatten() {
-            if player_won {
-                format!("Truncate Town Day #{day}\nWon{counts}\n{board}\n")
-            } else {
-                format!("Truncate Town Day #{day}\nLost{counts}\n{board}\n")
-            }
-        } else {
-            if player_won {
-                format!("Truncate Town Puzzle\nWon{counts}\n{url}{board}\n")
-            } else {
-                format!("Truncate Town Puzzle\nLost{counts}\n{url}{board}\n")
-            }
-        }
-    }
-
     pub fn emojify(&self, player: usize, won: Option<usize>) -> String {
         let player_won = won == Some(player);
         let water = SQ_BLUE;

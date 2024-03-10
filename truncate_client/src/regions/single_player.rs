@@ -420,9 +420,10 @@ impl SinglePlayerState {
                 .board_info
                 .board_seed
                 .as_ref()
-                .is_some_and(|s| s.day.is_some());
+                .map(|s| s.day)
+                .flatten();
 
-            if is_daily_puzzle {
+            if let Some(puzzle_day) = is_daily_puzzle {
                 if let Some(token) = logged_in_as {
                     if self.splash.is_none() {
                         msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
@@ -460,9 +461,11 @@ impl SinglePlayerState {
                         self.splash = Some(ResultModalUI::new_daily(
                             &mut ui,
                             &self.game,
+                            self.turns as u32,
                             &mut self.active_game.depot,
                             stats,
                             self.best_game.as_ref(),
+                            puzzle_day,
                         ));
                     }
                 }

@@ -4,6 +4,7 @@ use interpolation::Ease;
 use truncate_core::{
     game::Game,
     messages::{DailyStats, PlayerMessage},
+    moves::Move,
 };
 
 mod daily_actions;
@@ -64,9 +65,11 @@ impl ResultModalUI {
     pub fn new_daily(
         ui: &mut egui::Ui,
         game: &Game,
+        player_move_count: u32,
         depot: &mut TruncateDepot,
         stats: DailyStats,
         best_game: Option<&Game>,
+        day: u32,
     ) -> Self {
         let streak_length = stats
             .days
@@ -96,7 +99,13 @@ impl ResultModalUI {
         ResultModalUI::seed_animations(ui);
 
         let graph = DailySplashGraph::new(ui, &stats, depot.timing.current_time);
-        let daily_actions = DailyActions::new(best_game.unwrap_or(game), &depot, &stats);
+        let daily_actions = DailyActions::new(
+            best_game.unwrap_or(game),
+            player_move_count,
+            &depot,
+            &stats,
+            day,
+        );
 
         Self {
             contents: ResultModalVariant::Daily(ResultModalDaily {
