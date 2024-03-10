@@ -1,14 +1,14 @@
-use eframe::egui::{self, Layout, RichText, Sense};
+use eframe::egui::{self, Layout, Sense};
 use epaint::{
     emath::{Align, NumExt},
     hex_color, vec2, Color32, TextureHandle, Vec2,
 };
-use truncate_core::{game::Game, messages::DailyStats};
-
-use crate::{
-    app_outer::Backchannel,
-    utils::{depot::TruncateDepot, macros::tr_log, text::TextHelper, Lighten, Theme},
+use truncate_core::{
+    game::Game,
+    messages::{DailyAttempt, DailyStats},
 };
+
+use crate::utils::{depot::TruncateDepot, Theme};
 
 /*
 
@@ -26,18 +26,21 @@ pub struct ShareMessageMock {
 }
 
 impl ShareMessageMock {
-    pub fn new_daily(game: &Game, depot: &TruncateDepot, stats: &DailyStats) -> Self {
-        let share_text = game.board.share_message(
-            depot.gameplay.player_number as usize,
-            game.winner,
-            Some(game),
-            depot.board_info.board_seed.clone(),
-            depot.gameplay.npc.clone(),
-            format!("https://truncate.town/#"),
-        );
+    pub fn new_daily(
+        day: u32,
+        game: &Game,
+        depot: &TruncateDepot,
+        stats: &DailyStats,
+        first_win: Option<(u32, &DailyAttempt)>,
+        best_win: Option<&DailyAttempt>,
+        latest_attempt: (u32, &DailyAttempt),
+    ) -> Self {
+        let share_prefix =
+            ShareMessageMock::daily_share_message(day, first_win, best_win, latest_attempt);
         let emoji_board = game
             .board
             .emojify(depot.gameplay.player_number as usize, game.winner);
+        let share_text = format!("{share_prefix}\n{emoji_board}");
 
         let this_attempt = stats
             .days
@@ -53,17 +56,11 @@ impl ShareMessageMock {
     }
 
     pub fn new_unique(game: &Game, depot: &TruncateDepot) -> Self {
-        let share_text = game.board.share_message(
-            depot.gameplay.player_number as usize,
-            game.winner,
-            Some(game),
-            depot.board_info.board_seed.clone(),
-            depot.gameplay.npc.clone(),
-            format!("https://truncate.town/#"),
-        );
+        let share_prefix = ShareMessageMock::unique_share_message(game, depot);
         let emoji_board = game
             .board
             .emojify(depot.gameplay.player_number as usize, game.winner);
+        let share_text = format!("{share_prefix}\n{emoji_board}");
 
         Self {
             is_daily: false,
@@ -122,5 +119,88 @@ impl ShareMessageMock {
                 }
             });
         });
+    }
+}
+
+impl ShareMessageMock {
+    pub fn daily_share_message(
+        day: u32,
+        first_win: Option<(u32, &DailyAttempt)>,
+        best_win: Option<&DailyAttempt>,
+        latest_attempt: (u32, &DailyAttempt),
+    ) -> String {
+        let plur = |num: u32| if num == 1 { "" } else { "s" };
+
+        let Some(first_win) = first_win else {
+            return format!(
+                "Truncate Town Day #{day}\nLost in {} move{} on attempt #{}",
+                latest_attempt.1.moves,
+                plur(latest_attempt.1.moves),
+                latest_attempt.0 + 1,
+            );
+        };
+
+        let best_win = best_win.unwrap_or(first_win.1);
+
+        let first_win_message = if first_win.0 == 0 {
+            format!(
+                "Won first try in {} move{}",
+                first_win.1.moves,
+                plur(first_win.1.moves)
+            )
+        } else {
+            format!(
+                "Won on attempt #{} in {} move{}",
+                first_win.0 + 1,
+                first_win.1.moves,
+                plur(first_win.1.moves)
+            )
+        };
+
+        if best_win.id == first_win.1.id {
+            format!("Truncate Town Day #{day}\n{first_win_message}")
+        } else {
+            format!(
+                "Truncate Town Day #{day}\n{first_win_message}\nBest score: {} move{}",
+                best_win.moves,
+                plur(best_win.moves)
+            )
+        }
+    }
+
+    pub fn unique_share_message(game: &Game, depot: &TruncateDepot) -> String {
+        let player = depot.gameplay.player_number as usize;
+        let won = game.winner;
+
+        let player_won = won == Some(player);
+
+        let plur = |num: u32| if num == 1 { "" } else { "s" };
+
+        let (Some(seed), Some(npc)) = (&depot.board_info.board_seed, &depot.gameplay.npc) else {
+            if player_won {
+                return format!("Won puzzle");
+            }
+            return format!("Lost puzzle");
+        };
+
+        let share_link = format!(
+            "Play Puzzle: https://truncate.town/#PUZZLE:{}:{}:{}:{}",
+            seed.generation,
+            npc.name.to_ascii_uppercase(),
+            seed.seed,
+            player
+        );
+
+        let counts = format!(
+            " in {} move{}",
+            game.player_turn_count[player],
+            plur(game.player_turn_count[player]),
+        );
+
+        if player_won {
+            format!("Truncate Town Puzzle\nWon{counts}\n{share_link}")
+        } else {
+            format!("Truncate Town Puzzle\nLost{counts}\n{share_link}")
+        }
     }
 }
