@@ -16,12 +16,18 @@ use super::moves::Move;
 use super::player::Player;
 use super::reporting::Change;
 
+pub const GAME_COLOR_BLUE: (u8, u8, u8) = (80_u8, 167_u8, 232_u8);
+pub const GAME_COLOR_PURPLE: (u8, u8, u8) = (122_u8, 40_u8, 203_u8);
+pub const GAME_COLOR_PINK: (u8, u8, u8) = (253_u8, 197_u8, 245_u8);
+pub const GAME_COLOR_RED: (u8, u8, u8) = (230_u8, 63_u8, 56_u8);
+pub const GAME_COLOR_YELLOW: (u8, u8, u8) = (246_u8, 174_u8, 45_u8);
+
 pub const GAME_COLORS: [(u8, u8, u8); 5] = [
-    (80_u8, 167_u8, 232_u8),
-    (122_u8, 40_u8, 203_u8),
-    (253_u8, 197_u8, 245_u8),
-    (230_u8, 63_u8, 56_u8),
-    (246_u8, 174_u8, 45_u8),
+    GAME_COLOR_BLUE,
+    GAME_COLOR_PURPLE,
+    GAME_COLOR_PINK,
+    GAME_COLOR_RED,
+    GAME_COLOR_YELLOW,
 ];
 
 #[derive(Debug, Default, Clone)]

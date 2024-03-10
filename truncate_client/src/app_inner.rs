@@ -3,7 +3,7 @@ use epaint::{vec2, Color32};
 use instant::Duration;
 use truncate_core::{
     board::Board,
-    game::{self, GAME_COLORS},
+    game::{self, GAME_COLORS, GAME_COLOR_BLUE, GAME_COLOR_RED},
     generation::{self, generate_board, BoardSeed},
     messages::{LobbyPlayerMessage, RoomCode, TruncateToken},
     npc::scoring::{NPCParams, NPCPersonality},
@@ -273,14 +273,14 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                     game.add_player("You".into());
                     game.add_player("Computer".into());
 
-                    game.players[0].color = GAME_COLORS[0];
-                    game.players[1].color = GAME_COLORS[1];
+                    game.players[0].color = GAME_COLOR_BLUE;
+                    game.players[1].color = GAME_COLOR_RED;
                 } else {
                     game.add_player("Computer".into());
                     game.add_player("You".into());
 
-                    game.players[0].color = GAME_COLORS[1];
-                    game.players[1].color = GAME_COLORS[0];
+                    game.players[0].color = GAME_COLOR_RED;
+                    game.players[1].color = GAME_COLOR_BLUE;
                 }
 
                 let mut board = generation::generate_board(seed.clone())
