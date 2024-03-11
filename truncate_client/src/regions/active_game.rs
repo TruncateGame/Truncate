@@ -37,7 +37,6 @@ pub enum HeaderType {
     Timers,
     Summary {
         title: String,
-        sentinel: char,
         attempt: Option<usize>,
     },
     None,
@@ -275,11 +274,7 @@ impl ActiveGame {
 
                             ui.add_space(item_spacing);
                         }
-                        HeaderType::Summary {
-                            title,
-                            sentinel,
-                            attempt,
-                        } => {
+                        HeaderType::Summary { title, attempt } => {
                             let summary_height = 50.0;
                             let summary_width = ui.available_width();
                             let (rect, _) = ui.allocate_exact_size(

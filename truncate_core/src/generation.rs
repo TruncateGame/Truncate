@@ -26,15 +26,26 @@ pub struct BoardParams {
 // Do not modify any numbered generations.
 // Add a new generation number with new parameters.
 // Updating an existing generation will break puzzle URLs.
-const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
-    land_dimensions: [10, 10],
-    dispersion: [5.0, 5.0],
-    isolation: 2.0,
-    maximum_town_density: 0.2,
-    maximum_town_distance: 0.15,
-    island_influence: 0.0,
-    minimum_choke: 3,
-}];
+const BOARD_GENERATIONS: [BoardParams; 2] = [
+    BoardParams {
+        land_dimensions: [10, 10],
+        dispersion: [5.0, 5.0],
+        isolation: 2.0,
+        maximum_town_density: 0.2,
+        maximum_town_distance: 0.15,
+        island_influence: 0.0,
+        minimum_choke: 3,
+    },
+    BoardParams {
+        land_dimensions: [9, 10],
+        dispersion: [5.0, 5.0],
+        isolation: 2.0,
+        maximum_town_density: 0.2,
+        maximum_town_distance: 0.15,
+        island_influence: 0.0,
+        minimum_choke: 3,
+    },
+];
 
 impl BoardParams {
     pub fn generation(gen: u32) -> Self {

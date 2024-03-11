@@ -79,6 +79,7 @@ fn evaluate_single_seed(seed: BoardSeed, log: bool) -> Option<SeedNote> {
                 return Some(SeedNote {
                     rerolls: 0,
                     best_player: winner,
+                    board_generation: seed.generation,
                     verification,
                 });
             }
@@ -141,9 +142,12 @@ fn get_game_for_seed(seed: BoardSeed) -> Game {
 }
 
 fn evaluate_seed(mut seed: BoardSeed, log: bool) -> (u32, SeedNote) {
-    let mut rerolls = 0;
-    let mut seed_result = None;
     let core_seed = seed.seed;
+
+    seed.external_reroll();
+    let mut rerolls = 1;
+
+    let mut seed_result = None;
 
     println!("-----> Starting on seed {core_seed}");
 
@@ -163,7 +167,7 @@ fn evaluate_seed(mut seed: BoardSeed, log: bool) -> (u32, SeedNote) {
 }
 
 fn verify_note(seed: &u32, note: &SeedNote) {
-    let mut board_seed = BoardSeed::new(*seed);
+    let mut board_seed = BoardSeed::new_with_generation(note.board_generation, *seed);
     for _ in 0..(note.rerolls) {
         board_seed.external_reroll();
     }
