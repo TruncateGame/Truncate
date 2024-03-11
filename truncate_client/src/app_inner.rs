@@ -412,7 +412,6 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 .board;
             let header = HeaderType::Summary {
                 title: format!("Regular Puzzle"),
-                sentinel: '•',
                 attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
@@ -434,7 +433,6 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 .board;
             let header = HeaderType::Summary {
                 title: format!("Easy Puzzle"),
-                sentinel: '•',
                 attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
@@ -481,7 +479,6 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     .board;
                 let header = HeaderType::Summary {
                     title: format!("Truncate Puzzle"),
-                    sentinel: '•',
                     attempt: None,
                 };
                 let puzzle_game = SinglePlayerState::new(

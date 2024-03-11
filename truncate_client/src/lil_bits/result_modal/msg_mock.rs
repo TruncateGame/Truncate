@@ -161,7 +161,7 @@ impl ShareMessageMock {
             format!("Truncate Town Day #{day}\n{first_win_message}")
         } else {
             format!(
-                "Truncate Town Day #{day}\n{first_win_message}\nBest score: {} move{}",
+                "Truncate Town Day #{day}\n{first_win_message}\nPersonal best: {} move{}",
                 best_win.moves,
                 plur(best_win.moves)
             )

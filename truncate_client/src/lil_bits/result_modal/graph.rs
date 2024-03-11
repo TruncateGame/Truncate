@@ -136,7 +136,7 @@ impl DailySplashGraph {
             (
                 best_win.moves,
                 format!(
-                    "Won! Best score {} move{}",
+                    "Won! Personal best: {} move{}",
                     best_win.moves,
                     if best_win.moves == 1 { "" } else { "s" }
                 ),
