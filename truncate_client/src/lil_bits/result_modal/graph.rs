@@ -40,7 +40,18 @@ impl DailySplashGraph {
         let max_total_moves = stats
             .days
             .values()
-            .map(|day| day.attempts.iter().map(|a| a.moves as usize).sum())
+            .map(|day| {
+                if let Some(best_win) = day
+                    .attempts
+                    .iter()
+                    .filter(|a| a.won)
+                    .min_by_key(|a| a.moves)
+                {
+                    return best_win.moves as usize;
+                };
+
+                day.attempts.iter().map(|a| a.moves as usize).sum()
+            })
             .max()
             .unwrap_or(30);
 

@@ -7,7 +7,7 @@ use serde::Deserialize;
 use truncate_core::{
     bag::TileBag,
     board::{Board, Coordinate},
-    game::Game,
+    game::{Game, GAME_COLOR_BLUE, GAME_COLOR_RED},
     judge::Judge,
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
@@ -125,7 +125,7 @@ impl TutorialState {
                     ),
                     swap_count: 0,
                     penalties_incurred: 0,
-                    color: (128, 128, 255),
+                    color: GAME_COLOR_BLUE,
                 },
                 Player {
                     name: "Computer".into(),
@@ -137,7 +137,7 @@ impl TutorialState {
                     turn_starts_no_later_than: None,
                     swap_count: 0,
                     penalties_incurred: 0,
-                    color: (255, 80, 80),
+                    color: GAME_COLOR_RED,
                 },
             ],
             board: Board::from_string(loaded_tutorial.board.clone()),

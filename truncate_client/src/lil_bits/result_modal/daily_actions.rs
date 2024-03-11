@@ -3,7 +3,7 @@ use epaint::{emath::Align, hex_color, vec2, Color32, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     game::Game,
-    messages::{DailyStats, PlayerMessage},
+    messages::{DailyAttempt, DailyStats, PlayerMessage},
 };
 
 use crate::{
@@ -16,7 +16,7 @@ use super::{msg_mock::ShareMessageMock, ResultModalAction};
 #[derive(Clone)]
 pub struct DailyActions {
     msg_mock: ShareMessageMock,
-    replay_link: Option<String>,
+    replay_link: String,
     replay_copied_at: Option<Duration>,
     share_copied_at: Option<Duration>,
     won_today: bool,
@@ -24,14 +24,60 @@ pub struct DailyActions {
 }
 
 impl DailyActions {
-    pub fn new(game: &Game, depot: &TruncateDepot, stats: &DailyStats) -> Self {
-        let this_attempt = stats
-            .days
-            .last_key_value()
-            .map(|(_, v)| v.attempts.last().map(|a| a.id.clone()))
-            .flatten();
+    pub fn new(
+        game: &Game,
+        player_move_count: u32,
+        depot: &TruncateDepot,
+        stats: &DailyStats,
+        day: u32,
+    ) -> Self {
+        let mut first_win = None;
+        let mut best_win = None;
+        let mut latest_attempt = None;
 
-        let msg_mock = ShareMessageMock::new_daily(game, &depot, &stats);
+        if let Some(today_result) = stats.days.get(&day) {
+            best_win = today_result
+                .attempts
+                .iter()
+                .filter(|a| a.won)
+                .min_by_key(|a| a.moves);
+
+            first_win = today_result
+                .attempts
+                .iter()
+                .enumerate()
+                .find(|(_, a)| a.won)
+                .map(|(i, a)| (i as u32, a));
+
+            latest_attempt = today_result
+                .attempts
+                .last()
+                .cloned()
+                .map(|a| (today_result.attempts.len() as u32 - 1, a));
+        };
+
+        let latest_attempt = latest_attempt.unwrap_or_else(|| {
+            (
+                0,
+                DailyAttempt {
+                    id: "UNAVAILABLE".to_string(),
+                    moves: player_move_count,
+                    won: game.winner == Some(depot.gameplay.player_number as usize),
+                },
+            )
+        });
+
+        let shared_attempt = best_win.unwrap_or(&latest_attempt.1);
+
+        let msg_mock = ShareMessageMock::new_daily(
+            day,
+            game,
+            depot,
+            stats,
+            first_win,
+            best_win,
+            (latest_attempt.0, &latest_attempt.1),
+        );
 
         let win_history = |rev_day: usize| {
             stats
@@ -47,7 +93,10 @@ impl DailyActions {
 
         Self {
             msg_mock,
-            replay_link: this_attempt.map(|a| format!("https://truncate.town/#REPLAY:{a}")),
+            replay_link: format!(
+                "https://truncate.town/#REPLAY:{}",
+                shared_attempt.id.clone()
+            ),
             replay_copied_at: None,
             share_copied_at: None,
             won_today: win_history(0),
@@ -108,39 +157,39 @@ impl DailyActions {
 
             ui.add_space(ui.available_height() * 0.05);
 
-            if let Some(replay_link) = &self.replay_link {
-                let button_text = if self.replay_copied_at.is_some() {
-                    "COPIED LINK!"
-                } else {
-                    "SHARE REPLAY"
-                };
-                let text = TextHelper::heavy(button_text, 12.0, None, ui);
-                let replay_button =
-                    text.centered_button(theme.button_primary, theme.text, map_texture, ui);
+            let button_text = if self.replay_copied_at.is_some() {
+                "COPIED LINK!"
+            } else {
+                "SHARE REPLAY"
+            };
+            let text = TextHelper::heavy(button_text, 12.0, None, ui);
+            let replay_button =
+                text.centered_button(theme.button_primary, theme.text, map_texture, ui);
 
-                if self.replay_copied_at.is_none()
-                    && (replay_button.clicked()
-                        || replay_button.drag_started()
-                        || replay_button.is_pointer_button_down_on())
-                {
-                    if let Some(backchannel) = backchannel {
-                        if backchannel.is_open() {
-                            backchannel.send_msg(crate::app_outer::BackchannelMsg::Copy {
-                                text: replay_link.clone(),
-                                share: ShareType::Url,
-                            });
-                        } else {
-                            ui.ctx().output_mut(|o| o.copied_text = replay_link.clone());
-                        }
+            if self.replay_copied_at.is_none()
+                && (replay_button.clicked()
+                    || replay_button.drag_started()
+                    || replay_button.is_pointer_button_down_on())
+            {
+                if let Some(backchannel) = backchannel {
+                    if backchannel.is_open() {
+                        backchannel.send_msg(crate::app_outer::BackchannelMsg::Copy {
+                            text: self.replay_link.clone(),
+                            share: ShareType::Url,
+                        });
                     } else {
-                        ui.ctx().output_mut(|o| o.copied_text = replay_link.clone());
+                        ui.ctx()
+                            .output_mut(|o| o.copied_text = self.replay_link.clone());
                     }
-
-                    self.replay_copied_at = Some(depot.timing.current_time);
+                } else {
+                    ui.ctx()
+                        .output_mut(|o| o.copied_text = self.replay_link.clone());
                 }
 
-                ui.add_space(ui.available_height() * 0.01);
+                self.replay_copied_at = Some(depot.timing.current_time);
             }
+
+            ui.add_space(ui.available_height() * 0.01);
 
             let button_text = if self.share_copied_at.is_some() {
                 "COPIED TEXT!"

@@ -3,7 +3,7 @@ use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, TextureHandle, Vec2
 use instant::Duration;
 use truncate_core::{
     board::Board,
-    game::{Game, GAME_COLORS},
+    game::{Game, GAME_COLORS, GAME_COLOR_BLUE, GAME_COLOR_RED},
     generation::BoardSeed,
     messages::{DailyStats, GameStateMessage, PlayerMessage},
     moves::Move,
@@ -62,14 +62,14 @@ impl SinglePlayerState {
             game.add_player("You".into());
             game.add_player("Computer".into());
 
-            game.players[0].color = GAME_COLORS[0];
-            game.players[1].color = GAME_COLORS[1];
+            game.players[0].color = GAME_COLOR_BLUE;
+            game.players[1].color = GAME_COLOR_RED;
         } else {
             game.add_player("Computer".into());
             game.add_player("You".into());
 
-            game.players[0].color = GAME_COLORS[1];
-            game.players[1].color = GAME_COLORS[0];
+            game.players[0].color = GAME_COLOR_RED;
+            game.players[1].color = GAME_COLOR_BLUE;
         }
 
         board.cache_special_squares();
@@ -144,14 +144,14 @@ impl SinglePlayerState {
             game.add_player("You".into());
             game.add_player("Computer".into());
 
-            game.players[0].color = GAME_COLORS[0];
-            game.players[1].color = GAME_COLORS[1];
+            game.players[0].color = GAME_COLOR_BLUE;
+            game.players[1].color = GAME_COLOR_RED;
         } else {
             game.add_player("Computer".into());
             game.add_player("You".into());
 
-            game.players[0].color = GAME_COLORS[1];
-            game.players[1].color = GAME_COLORS[0];
+            game.players[0].color = GAME_COLOR_RED;
+            game.players[1].color = GAME_COLOR_BLUE;
         }
 
         let mut rand_board = truncate_core::generation::generate_board(seed.clone())
@@ -420,9 +420,10 @@ impl SinglePlayerState {
                 .board_info
                 .board_seed
                 .as_ref()
-                .is_some_and(|s| s.day.is_some());
+                .map(|s| s.day)
+                .flatten();
 
-            if is_daily_puzzle {
+            if let Some(puzzle_day) = is_daily_puzzle {
                 if let Some(token) = logged_in_as {
                     if self.splash.is_none() {
                         msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
@@ -460,9 +461,11 @@ impl SinglePlayerState {
                         self.splash = Some(ResultModalUI::new_daily(
                             &mut ui,
                             &self.game,
+                            self.turns as u32,
                             &mut self.active_game.depot,
                             stats,
                             self.best_game.as_ref(),
+                            puzzle_day,
                         ));
                     }
                 }

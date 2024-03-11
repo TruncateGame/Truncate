@@ -535,7 +535,7 @@ impl MappedBoard {
                                 TileDecoration::None,
                                 seed_at_coord,
                             );
-                            layers = layers.merge(tile_layers);
+                            layers = tile_layers.merge(layers);
                         }
                     }
                 }
