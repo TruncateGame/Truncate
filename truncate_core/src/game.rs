@@ -432,6 +432,7 @@ impl Game {
                     player,
                     player_reported_position,
                     &self.rules.visibility,
+                    attacker_dictionary,
                 );
 
                 if let Square::Occupied(..) = self.board.get(position)? {
@@ -475,11 +476,13 @@ impl Game {
                         player_index,
                         player_reported_positions[0],
                         &self.rules.visibility,
+                        attacker_dictionary,
                     ),
                     self.board.map_player_coord_to_game(
                         player_index,
                         player_reported_positions[1],
                         &self.rules.visibility,
+                        attacker_dictionary,
                     ),
                 ];
 
@@ -726,10 +729,17 @@ impl Game {
         self.next_player
     }
 
-    pub fn filter_game_to_player(&self, player_index: usize) -> (Board, Vec<Change>) {
-        let visible_board =
-            self.board
-                .filter_to_player(player_index, &self.rules.visibility, &self.winner);
+    pub fn filter_game_to_player(
+        &self,
+        player_index: usize,
+        ref_dict: Option<&WordDict>,
+    ) -> (Board, Vec<Change>) {
+        let visible_board = self.board.filter_to_player(
+            player_index,
+            &self.rules.visibility,
+            &self.winner,
+            ref_dict,
+        );
         let visible_changes = reporting::filter_to_player(
             &self.recent_changes,
             &self.board,
@@ -737,6 +747,7 @@ impl Game {
             player_index,
             &self.rules.visibility,
             &self.winner,
+            ref_dict,
         );
         (visible_board, visible_changes)
     }

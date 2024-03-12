@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::{
     board::{Board, Coordinate, Square},
-    judge::Outcome,
+    judge::{Outcome, WordDict},
     rules,
 };
 
@@ -170,6 +170,7 @@ pub(crate) fn filter_to_player(
     player_index: usize,
     visibility: &rules::Visibility,
     winner: &Option<usize>,
+    ref_dict: Option<&WordDict>,
 ) -> Vec<Change> {
     changes
         .iter()
@@ -189,9 +190,12 @@ pub(crate) fn filter_to_player(
                 detail: BoardChangeDetail { coordinate, square },
                 action,
             }) => {
-                let Some(relative_coord) =
-                    full_board.map_game_coord_to_player(player_index, *coordinate, visibility)
-                else {
+                let Some(relative_coord) = full_board.map_game_coord_to_player(
+                    player_index,
+                    *coordinate,
+                    visibility,
+                    ref_dict,
+                ) else {
                     return None;
                 };
                 let relative_change = Change::Board(BoardChange {

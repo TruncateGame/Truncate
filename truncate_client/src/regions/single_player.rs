@@ -75,7 +75,8 @@ impl SinglePlayerState {
 
         game.start();
 
-        let (filtered_board, _) = game.filter_game_to_player(if human_starts { 0 } else { 1 });
+        let (filtered_board, _) =
+            game.filter_game_to_player(if human_starts { 0 } else { 1 }, None);
 
         let mut active_game = ActiveGame::new(
             ctx,
@@ -639,7 +640,7 @@ impl SinglePlayerState {
                             }
                         }
                     } else {
-                        let (filtered_board, _) = self.game.filter_game_to_player(npc_player);
+                        let (filtered_board, _) = self.game.filter_game_to_player(npc_player, None);
                         let pending_msg =
                             backchannel.send_msg(crate::app_outer::BackchannelMsg::EvalGame {
                                 board: filtered_board,
@@ -653,7 +654,7 @@ impl SinglePlayerState {
                 } else {
                     // If we have no backchannel available to evaluate moves through,
                     // just evaluate the move on this thread and live with blocking.
-                    let (filtered_board, _) = self.game.filter_game_to_player(npc_player);
+                    let (filtered_board, _) = self.game.filter_game_to_player(npc_player, None);
                     let mut evaluation_game = self.game.clone();
                     evaluation_game.board = filtered_board;
 

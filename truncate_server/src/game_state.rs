@@ -108,9 +108,14 @@ impl GameManager {
         player_index: usize,
         word_map: Option<&MutexGuard<'_, WordDB>>,
     ) -> GameStateMessage {
-        let (board, mut changes) = self.core_game.filter_game_to_player(player_index);
+        let (mut board, mut changes) = (Board::new(2, 2), vec![]);
+        println!("is: {:?}", word_map.is_some());
 
         if let Some(definitions) = word_map {
+            (board, changes) = self
+                .core_game
+                .filter_game_to_player(player_index, Some(&definitions.valid_words));
+
             for battle in changes.iter_mut().filter_map(|change| match change {
                 Change::Battle(battle) => Some(battle),
                 _ => None,
@@ -170,7 +175,7 @@ impl GameManager {
         }
     }
 
-    pub fn start(&mut self) -> Vec<(Player, GameMessage)> {
+    pub fn start(&mut self, words: Arc<Mutex<WordDB>>) -> Vec<(Player, GameMessage)> {
         // TODO: Check correct # of players
 
         let rand_board =
@@ -197,30 +202,41 @@ impl GameManager {
         self.core_game.start();
         let mut messages = Vec::with_capacity(self.players.len());
 
+        let words_db = words.lock();
+
         // TODO: Maintain an index of Player to the Game player index
         // For cases where players reconnect and game.hands[0] is players[1] etc
         for (player_index, player) in self.players.iter().enumerate() {
             messages.push((
                 player.clone(),
-                GameMessage::StartedGame(self.game_msg(player_index, None)),
+                GameMessage::StartedGame(self.game_msg(player_index, Some(&words_db))),
             ));
         }
 
         messages
     }
 
-    pub fn resign(&mut self, player: SocketAddr) -> Vec<(&Player, GameMessage)> {
+    pub fn resign(
+        &mut self,
+        player: SocketAddr,
+        words: Arc<Mutex<WordDB>>,
+    ) -> Vec<(&Player, GameMessage)> {
         if let Some(player_index) = self.get_player_index(player) {
             self.core_game.resign_player(player_index);
             let mut messages = Vec::with_capacity(self.players.len());
 
+            let words_db = words.lock();
+
             if let Some(winner) = self.core_game.winner {
                 for (player_index, player) in self.players.iter().enumerate() {
-                    let mut end_game_msg = self.game_msg(player_index, None);
+                    let mut end_game_msg = self.game_msg(player_index, Some(&words_db));
                     end_game_msg.changes = vec![];
                     messages.push((
                         player,
-                        GameMessage::GameEnd(self.game_msg(player_index, None), winner as u64),
+                        GameMessage::GameEnd(
+                            self.game_msg(player_index, Some(&words_db)),
+                            winner as u64,
+                        ),
                     ));
                 }
             }
@@ -318,7 +334,7 @@ impl GameManager {
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player,
-                            GameMessage::GameUpdate(self.game_msg(player_index, None)),
+                            GameMessage::GameUpdate(self.game_msg(player_index, Some(&words_db))),
                         ));
                     }
 
