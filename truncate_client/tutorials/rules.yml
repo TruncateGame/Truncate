@@ -26,7 +26,7 @@ rules:
             In Truncate, players take turns to place a tile on the board
 
         - message: |-
-            In this game you are playing as blue. You will generally play as blue unless you're facing a human opponent.
+            In this game you are playing as blue. You will always play as blue against the computer.
 
             You can tell which colour you're playing by the colour of the tiles in your hand.
 
@@ -310,12 +310,86 @@ rules:
 
             The "C" was destroyed because after a winning attack, all defending letters touching the new tile are destroyed to keep the players' words disconnected.
     
-    - name: "The longest attacker is used"
-  
     - name: "All attackers must be valid"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ __ __ __ __ __ __ ~~ ~~ ~~
+        ~~ __ __ __ __ __ __ __ ~~ ~~ ~~
+        ~~ #0 __ __ __ __ __ ~~ ~~ ~~ ~~
+        |0 R0 U0 O0 F0 __ __ __ __ __ ~~
+        ~~ __ __ __ __ N1 O1 U1 G1 H1 ~~
+        ~~ __ __ __ E1 __ __ __ __ __ ~~
+        ~~ __ __ __ X1 A1 V1 R1 F1 Q1 |1
+        ~~ __ __ __ __ __ __ __ __ __ ~~
+        ~~ __ __ __ __ __ __ __ __ __ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: ERTYELU
+      computer_hand: R
+
+      steps:
+        - description: |-
+            When there are multiple attackers, all must be valid in order to win, otherwise all attackers are lost.
+
+            Try playing "ENOUGH" and "EEX" against "FOUR." You will lose both attackers despite "ENOUGH" being strong enough to beat "FOUR."
+
+          you: "E -> 4,4"
+          gets: "I"
+
+    - name: "The longest attacker is used"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ __ __ __ __ __ __ ~~ ~~ ~~
+        ~~ __ __ __ __ __ __ __ ~~ ~~ ~~
+        ~~ #0 __ __ __ __ __ ~~ ~~ ~~ ~~
+        |0 R0 U0 O0 F0 __ __ __ __ __ ~~
+        ~~ __ __ __ __ N1 O1 U1 G1 H1 ~~
+        ~~ __ __ __ E1 __ __ __ __ __ ~~
+        ~~ __ __ __ L1 A1 V1 R1 F1 Q1 |1
+        ~~ __ __ __ __ __ __ __ __ __ ~~
+        ~~ __ __ __ __ __ __ __ __ __ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: ERTYELU
+      computer_hand: R
+
+      steps:
+        - message: |-
+            When there are multiple attackers and all of them are valid, the longest attacker determines the outcome of the battle.
+            
+            Intuitively, this is because the attackers have the initiative, and can use their strongest words to target the weakest defenders.
+        - desciprtion: |-
+            Try playing "ENOUGH" and "EEL" against "FOUR."
+            
+            You will win because "ENOUGH" is long enough to beat "FOUR" and "EEL" is irrelevant.
+          you: "E -> 4,4"
+          gets: "I"
 
     - name: "Tiles disconnected from the dock are truncated"
-      # there must be a connection from every tile to the dock, or else it is removed
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~
+        ~~ ~~ __ __ __ __ __ __ G0 #0 ~~
+        ~~ ~~ __ __ __ __ T0 O0 N0 __ ~~
+        ~~ ~~ ~~ ~~ __ __ __ __ O0 __ ~~
+        ~~ ~~ ~~ __ __ __ E1 __ R0 ~~ ~~
+        ~~ ~~ __ __ __ __ S1 __ T0 __ ~~
+        ~~ ~~ __ __ __ __ T1 __ S0 __ ~~
+        ~~ ~~ __ __ __ __ A1 __ __ __ ~~
+        ~~ ~~ ~~ ~~ __ __ T1 __ __ ~~ ~~
+        ~~ ~~ ~~ __ __ #1 E1 __ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~
+
+      player_hand: ERTYELU
+      computer_hand: R
+
+      steps:
+        - description: |-
+            When a battle is lost and some tiles become disconnected from the dock, they are removed ("truncated").
+            
+            
+            Try playing "RESTATE" against "NOT." "NOT" will be defeated and most of "STRONG" will be truncate.
+          you: "R -> 6,7"
+          gets: "I"
     
 
 
