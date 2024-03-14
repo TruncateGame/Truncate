@@ -1,20 +1,37 @@
+# let f = (b) => {
+#     let thing = b.split("\n")
+#     thing = thing.map((t) => {
+#         t = t.trim()
+        
+#         return t.split(" ").reverse().join(" ")
+#     }).reverse().join('\r\n')
+
+#     thing = thing.replaceAll("1", "2")
+#     thing = thing.replaceAll("0", "1")
+#     thing = thing.replaceAll("2", "0")
+    
+#     return thing
+# }
+
 rules:
   - category: Basics
     scenarios:
     - name: "Place tiles by your dock or your own tiles" # Implicitly covers that players take turns and you play as blue
       board: |-
-        ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
-        ~~ ~~ __ #0 __ #0 #0 __ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
+        ~~ ~~ ~~ __ __ __ #0 __ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~
+        ~~ __ ~~ __ __ __ __ ~~ ~~
+        ~~ __ __ __ __ __ ~~ ~~ ~~
         ~~ __ __ __ __ __ __ __ ~~
-        ~~ ~~ ~~ __ __ __ __ __ ~~
-        ~~ ~~ __ __ __ __ ~~ __ ~~
-        ~~ __ __ __ __ ~~ ~~ __ ~~
-        ~~ __ __ __ __ ~~ ~~ __ ~~
-        ~~ __ #1 __ __ __ ~~ ~~ ~~
-        ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ __ #1 #1 __ #1 __ ~~ ~~
+        ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~
 
       player_hand: ALIFIRM
       computer_hand: D
+
+      dict: {}
 
       steps:
         - message: |-
@@ -34,7 +51,7 @@ rules:
             You start the game by placing tiles beside your dock.
 
             Your dock is at the bottom left of the board. Try playing an 'L' there.
-          you: "L -> 1,1"
+          you: "L -> 7,1"
           gets: "E"
 
         - description: |-
@@ -48,23 +65,26 @@ rules:
             Once you've placed a tile, you can place tiles beside your dock or your existing tiles.
 
             Try playing an 'I' beside the 'L' you just played.
-          you: "L -> 1,2"
+          you: "I -> 7,2"
           gets: "E"
 
     - name: "To win, touch an opponent's town with a valid word"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ ~~ __ __ ~~ __ __ __ ~~
-        |0 __ __ __ __ __ __ #1 ~~
-        ~~ __ R1 O1 W1 I1 N1 G1 |1
-        ~~ #0 __ __ __ __ __ __ ~~
-        ~~ __ __ ~~ __ __ __ __ ~~
-        ~~ ~~ ~~ ~~ __ __ __ __ ~~
-        ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~
+        ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~
+        ~~ __ __ __ __ ~~ ~~ ~~ ~~
+        ~~ __ __ __ __ ~~ __ __ ~~
+        ~~ __ __ __ __ __ __ #1 ~~
+        |0 G0 N0 I0 W0 O0 R0 __ ~~
+        ~~ #0 __ __ __ __ __ __ |1
+        ~~ __ __ __ ~~ __ __ ~~ ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: GSUYIFZ
       computer_hand: D
+
+      dict:
+        GROWING: present past participle of grow
 
       steps:
         - message: |-
@@ -74,91 +94,103 @@ rules:
 
         - description: |-
             Place 'G' beside your opponent's town to form the word 'GROWING' and win the game.
-          you: "G -> 1,5"
+          you: "G -> 7,5"
           gets: "E"
 
     - name: "Tiles don't always have to form valid words"
       board: |-
-        ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ A1 #1 ~~ __ __ __ __ ~~
-        ~~ X1 __ ~~ __ __ __ __ ~~
-        ~~ Q1 __ ~~ __ __ __ __ ~~
-        ~~ T1 Y1 U1 Z1 __ __ __ ~~
-        ~~ ~~ ~~ ~~ Y0 O0 U0 __ |0
-        ~~ ~~ ~~ ~~ ~~ __ __ #0 ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ #1 __ __ ~~ ~~ ~~ ~~ ~~
+        |1 __ U0 O0 Y0 ~~ ~~ ~~ ~~
+        ~~ __ __ __ Z0 U0 Y0 T0 ~~
+        ~~ __ __ __ __ ~~ __ Q0 ~~
+        ~~ __ __ __ __ ~~ __ X0 ~~
+        ~~ __ __ __ __ ~~ #0 A0 ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
 
       player_hand: RTUYIL
       computer_hand: D
+
+      dict:
+        YOUR: Belonging to you; of you; related to you
 
       steps:
         - description: |-
             To win, the word touching your opponent's town has to be valid, but the rest of your words don't.
 
             You will win if you play 'R' to form 'YOUR', even though you have invalid words like 'AXQT' on your board.
-          you: "G -> 7,2"
+          you: "R -> 1,2"
           gets: "E"
 
     - name: "Your words are read left to right and top to bottom, and your opponent's words are the opposite"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ ~~ ~~ __ S0 D0 R0 O0 W0 |0
-        ~~ ~~ __ __ __ __ I0 __ __ ~~
-        ~~ __ __ __ W1 __ E0 __ #0 ~~
-        ~~ __ __ __ O1 __ H0 __ __ ~~
-        |1 Y1 O1 U1 R1 __ T0 __ __ ~~
-        ~~ #1 __ __ D1 __ __ ~~ ~~ ~~
-        ~~ ~~ __ __ S1 __ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ __ S0 __ __ ~~ ~~
+        ~~ ~~ ~~ __ __ D0 __ __ #0 ~~
+        ~~ __ __ T1 __ R0 U0 O0 Y0 |0
+        ~~ __ __ H1 __ O0 __ __ __ ~~
+        ~~ #1 __ E1 __ W0 __ __ __ ~~
+        ~~ __ __ I1 __ __ __ __ ~~ ~~
+        |1 W1 O1 R1 D1 S1 __ ~~ ~~ ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: RTUYIL
       computer_hand: D
 
+      dict: {}
+
       steps:
         - message: |-
-            Your words on this board spell "YOUR WORDS" and your opponent's words spell "THEIR WORDS."
+            Your words are written left to right and top to bottom as normal, but your opponent's words are reversed.
 
-            Your words are written left to right and top to bottom as normal, but notice that your opponent's words are reversed as though they were situated on the opposite side of the island. Reading their words can take some getting used to.
+            Your words on this board spell "YOUR WORDS" and your opponent's words spell "THEIR WORDS."
+        - message: |-
+            To make sense of this, imagine that you were playing Truncate as a board game, and you opponent was sitting on the opposite side of the table.
 
     - name: "You can swap two tiles on the board"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ ~~ ~~ #1 __ __ __ __ ~~ ~~
-        |1 V1 A1 L1 D1 I1 __ __ __ ~~
+        |1 __ __ __ __ __ __ __ ~~ ~~
+        ~~ #1 ~~ __ __ __ __ __ ~~ ~~
+        ~~ ~~ ~~ __ __ __ __ __ ~~ ~~
         ~~ __ __ __ __ __ __ __ __ ~~
-        ~~ ~~ __ __ __ __ __ ~~ ~~ ~~
-        ~~ ~~ __ __ __ __ __ ~~ #0 ~~
-        ~~ ~~ __ __ __ __ __ __ __ |0
+        ~~ __ __ __ I0 D0 L0 A0 V0 |0
+        ~~ ~~ __ __ __ __ #0 ~~ ~~ ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: KFAGUMI
       computer_hand: D
+
+      dict: {}
 
       steps:
         - description: |-
             Instead of playing a tile from your hand, you can swap two tiles on the board.
 
             Try turning "VALDI" into "VALID" by swapping the "D" and "I." Note, you can't swap between the board and your hand.
-          you: "4,5 -> 5,4"
+          you: "4,5 -> 5,5"
           gets: "_"
 
   - category: Battles
     scenarios:
     - name: "Valid words beat invalid words"
       board: |-
-        ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~
-        ~~ __ __ __ __ __ I0 __ __ ~~
-        ~~ ~~ __ __ __ __ D0 __ #0 ~~
-        ~~ ~~ ~~ __ __ __ L0 __ __ ~~
-        ~~ ~~ ~~ __ __ __ A0 __ __ ~~
-        ~~ __ __ __ __ __ V0 __ __ ~~
-        ~~ __ __ __ __ __ I0 __ __ ~~
-        ~~ __ P1 O1 P1 __ N0 __ __ ~~
-        ~~ ~~ I1 __ __ __ __ __ __ ~~
-        ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~
+        ~~ __ __ __ __ __ __ I0 ~~ ~~
+        ~~ __ __ N1 __ P0 O0 P0 __ ~~
+        ~~ __ __ I1 __ __ __ __ __ ~~
+        ~~ __ __ V1 __ __ __ __ __ ~~
+        ~~ __ __ A1 __ __ __ ~~ ~~ ~~
+        ~~ __ __ L1 __ __ __ ~~ ~~ ~~
+        ~~ #1 __ D1 __ __ __ __ ~~ ~~
+        ~~ __ __ I1 __ __ __ __ __ ~~
+        ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: UMSIKQU
       computer_hand: D
+
+      dict:
+        POPS: Father, dad.
 
       steps:
         - message: |-
@@ -168,74 +200,87 @@ rules:
           
         - description: |-
             Try playing "POPS" which will defeat the opponent's word "NIVALDI" because it's invalid.
-          you: "S -> 5,2"
+          you: "S -> 4,2"
           gets: "E"
 
     - name: "Battles only involve touching words"
       board: |-
+        ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ X0 Q0 Z0 __ __ __ ~~ ~~
+        ~~ __ X0 __ U0 O0 X0 Z0 __ ~~
+        ~~ __ __ __ __ __ __ __ ~~ ~~
+        ~~ ~~ __ __ __ F1 T1 __ ~~ ~~
+        ~~ __ __ __ __ __ O1 __ ~~ ~~
+        ~~ __ __ ~~ ~~ __ U1 __ __ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ R1 I1 G1 |1
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        |0 G0 I0 R0 ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ __ __ U0 __ ~~ ~~ __ __ ~~
-        ~~ ~~ __ O0 __ __ __ __ __ ~~
-        ~~ ~~ __ T0 F0 __ __ __ ~~ ~~
-        ~~ ~~ __ __ __ __ __ __ __ ~~
-        ~~ __ Z1 X1 O1 U1 __ X1 __ ~~
-        ~~ ~~ __ __ __ Z1 Q1 X1 ~~ ~~
-        ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~
 
       player_hand: YTIGHUI
       computer_hand: D
 
+      dict:
+        TO: A particle used for marking the following verb as an infinitive.
+
       steps:
-          message: |-
-            The only words involved in the battle are those that are actually touching an opponent's words.
+        - message: |-
+            The only words involved in a battle are the ones are actually touching the opponent's words.
 
             This means our board can consist of largely invalid words, yet we can still win battles.
           
-          description: |-
+        - description: |-
             Try playing "TO" against the opponent's "TF".
             
             Even though your board is mostly invalid, the only words involved in the battle are "TO" and "TF", so you'll win.
-          you: "T -> 4,3"
+          you: "T -> 5,3"
           gets: "E"
             
     - name: "Long words beat short words"
       board: |-
-        ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ Y0 #0 __ ~~ ~~ __ ~~ ~~ ~~
-        ~~ N0 __ __ ~~ __ __ __ ~~ ~~
-        ~~ U0 __ __ ~~ __ __ __ __ ~~
-        ~~ P0 __ __ __ __ __ __ __ ~~
-        ~~ __ N1 O1 R1 M1 O1 U1 S1 ~~
-        ~~ __ __ __ __ __ __ __ __ ~~
-        ~~ ~~ ~~ ~~ __ __ __ __ #1 ~~
-        ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~
+        ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ #0 __ T0 __ __ ~~ ~~ ~~ ~~
+        ~~ __ __ U0 __ __ __ __ __ ~~
+        ~~ S0 U0 O0 M0 R0 O0 N0 __ ~~
+        ~~ __ __ __ __ __ __ __ P1 ~~
+        ~~ __ __ __ __ ~~ __ __ U1 ~~
+        ~~ ~~ __ __ __ ~~ __ __ N1 ~~
+        ~~ ~~ ~~ __ ~~ ~~ __ #1 Y1 ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~
 
       player_hand: ETHRYUF
       computer_hand: D
+
+      dict:
+        ENORMOUS: Deviating from the norm; unusual, extraordinary.
 
       steps:
         - description: |-
             Long words beat short words in a battle. "ENORMOUS" is significantly longer than "PUNY" and would win in a battle.
 
             Try playing an "E" to defeat the opponent's word.
-          you: "E -> 1,3"
+          you: "E -> 8,3"
           gets: "F"
 
     - name: "The defender has a length bonus"
       board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
+        ~~ __ ~~ ~~ #0 __ E0 __ ~~ ~~ ~~
+        ~~ __ ~~ __ __ __ N0 __ __ ~~ ~~
+        ~~ __ __ E0 G0 N0 O0 L0 __ __ ~~
+        ~~ __ C1 __ __ __ __ I0 __ __ ~~
+        ~~ __ A1 __ __ __ __ A0 ~~ __ ~~
+        ~~ #1 P1 __ R0 O0 H0 S0 ~~ __ ~~
+        |1 A1 S1 __ ~~ ~~ __ ~~ ~~ ~~ ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ ~~ ~~ ~~ __ ~~ ~~ __ S0 A0 |0
-        ~~ __ ~~ S1 H1 O1 R1 __ P0 #0 ~~
-        ~~ __ ~~ A1 __ __ __ __ A0 __ ~~
-        ~~ __ __ I1 __ __ __ __ C0 __ ~~
-        ~~ __ __ L1 O1 N1 G1 E1 __ __ ~~
-        ~~ ~~ __ __ N1 __ __ __ ~~ __ ~~
-        ~~ ~~ ~~ __ E1 __ #1 ~~ ~~ __ ~~
-        ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: TYUIGII
       computer_hand: H
+
+      dict:
+        SHORT: Having a small distance from one end or edge to another, either horizontally or vertically.
+        LONGER: |-
+          adj; comparative form of long: more long
+        CAPS: |-
+          noun: plural of cap.
 
       steps:
         - message: |-
@@ -246,53 +291,67 @@ rules:
             Let's demonstrate a failed attack by playing "SHORT" into "CAPS."
 
             "SHORT" is longer, but only by one, and since it's the attacker, it will lose.
-          you: "E -> 7,6"
+          you: "T -> 3,6"
           gets: "R"
         - description: |-
             Notice that when an attack fails, the attacker is destroyed.
 
             Thankfully, we just picked up an "R" and will be able to play "LONGER" next turn.
-          computer: "H -> 7,7"
+          computer: "H -> 3,7"
           gets: "H"
         - description: |-
+            The opponent played "ASH."
+
             Try playing "LONGER." Since it is 2 letters longer than "CAPS" it will win.
+          you: "R -> 2,3"
+          gets: "R"
     
     - name: "The weakest defender is used"
       board: |-
-        ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
-        ~~ ~~ __ #0 R0 U0 F0 __ ~~ __ ~~
-        ~~ __ __ __ I0 __ L0 I0 A0 __ ~~
-        ~~ __ __ __ A0 __ A0 __ X0 __ ~~
-        ~~ __ __ I0 P0 __ C0 __ Q0 __ ~~
-        ~~ __ __ __ __ __ __ R1 __ __ ~~
-        ~~ ~~ __ __ R1 A1 G1 A1 __ __ ~~
-        ~~ ~~ ~~ __ A1 __ __ __ __ __ ~~
-        ~~ ~~ ~~ __ P1 __ ~~ ~~ #1 __~~
-        ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
+        ~~ __ #0 ~~ ~~ __ P0 __ ~~ ~~ ~~
+        ~~ __ __ __ __ __ A0 __ ~~ ~~ ~~
+        ~~ __ __ A0 G0 A0 R0 __ __ ~~ ~~
+        ~~ __ __ R0 __ __ __ __ __ __ ~~
+        ~~ __ Q1 __ C1 __ P1 I1 __ __ ~~
+        ~~ __ X1 __ A1 __ A1 __ __ __ ~~
+        ~~ __ A1 I1 L1 __ I1 __ __ __ ~~
+        ~~ __ ~~ __ F1 U1 R1 #1 __ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~
 
       player_hand: PLTGHYY
       computer_hand: R
+
+      dict:
+        ERA: |- 
+          noun: A time period of indeterminate length, usually more than a year.
+        TRAP: |- 
+          noun: A machine designed to catch and (and sometimes kill) animals, either by holding them in a container or catching hold of part of their body.
+        PAIR: |- 
+          noun: Two similar or identical things taken together; often followed by of.
+        CALF: |- 
+          noun: A young cow or bull.
 
       steps:
         - message: |-
             Often multiple defenders will be involved in a battle.
 
             In Truncate, the weakest defender determines the outcome of the battle.
-        - desciprtion: |-
+        - description: |-
             This means that even if you have a strong word, it can be undermined by a weaker one.
 
             For example, we can play "TRAP" against "PAIR" which normally wouldn't win due to the defenders advantage, but since "PI" is also involved we will win.
-          you: "T -> 4,4"
+          you: "T -> 6,4"
           gets: "E"
         - message: |-
             Notice that "PI" was beaten and removed, but since it is shorter than "TRAP" but "PAIR" remains.
 
             Even though we won the battle, we don't destroy the words that are strong than our attacker.
         - description: |-
-            However, since the "P" in "PAIR" was also the "P" in "PI", the "P" was destroyed which shortens "PAIR" to "AIR".
+            However, since the "P" in "PAIR" was also in "PI", it was destroyed shortening "PAIR" to "AIR".
 
             Let's see what our oponent does.
-          computer: "R -> 4,8"
+          computer: "R -> 1,7"
           gets: "O"
         - message: |-
             Now we can attack our opponent's invalid word "QXA".
@@ -302,30 +361,36 @@ rules:
             Since the weakest defender determines the battle, we will win, and we will actually damage "CALF" at the same time.
 
             Try playing "ERA".
-          you: "E -> 7,5"
+          you: "E -> 3,5"
           gets: "A"
           # TODO: consinder moving out to separate rule?
         - message: |-
             Notice that the "C" in "CALF" was destroyed as well. This is for a different reason to why the opponent lost the "P" in "PAIR".
 
-            The "C" was destroyed because after a winning attack, all defending letters touching the new tile are destroyed to keep the players' words disconnected.
+            The "C" was destroyed to keep the players' words disconnected.
     
     - name: "All attackers must be valid"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ ~~ __ __ __ __ __ __ ~~ ~~ ~~
-        ~~ __ __ __ __ __ __ __ ~~ ~~ ~~
-        ~~ #0 __ __ __ __ __ ~~ ~~ ~~ ~~
-        |0 R0 U0 O0 F0 __ __ __ __ __ ~~
-        ~~ __ __ __ __ N1 O1 U1 G1 H1 ~~
-        ~~ __ __ __ E1 __ __ __ __ __ ~~
-        ~~ __ __ __ X1 A1 V1 R1 F1 Q1 |1
+        ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
         ~~ __ __ __ __ __ __ __ __ __ ~~
-        ~~ __ __ __ __ __ __ __ __ __ ~~
+        |0 Q0 F0 R0 V0 A0 X0 __ __ __ ~~
+        ~~ __ __ __ __ __ E0 __ __ __ ~~
+        ~~ H0 G0 U0 O0 N0 __ __ __ __ ~~
+        ~~ __ __ __ __ __ F1 O1 U1 R1 |1
+        ~~ ~~ ~~ ~~ __ __ __ __ __ #1 ~~
+        ~~ ~~ ~~ __ __ __ __ __ __ __ ~~
+        ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: ERTYELU
       computer_hand: R
+
+      dict:
+        ENOUGH: |-
+          det: Sufficient; all that is required, needed, or appropriate.
+        FOUR: |-
+          num: A numerical value equal to 4; the number after 3 and before 5; two plus two. This many dots (????)
 
       steps:
         - description: |-
@@ -333,62 +398,75 @@ rules:
 
             Try playing "ENOUGH" and "EEX" against "FOUR." You will lose both attackers despite "ENOUGH" being strong enough to beat "FOUR."
 
-          you: "E -> 4,4"
+          you: "E -> 6,5"
           gets: "I"
 
     - name: "The longest attacker is used"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ ~~ __ __ __ __ __ __ ~~ ~~ ~~
-        ~~ __ __ __ __ __ __ __ ~~ ~~ ~~
-        ~~ #0 __ __ __ __ __ ~~ ~~ ~~ ~~
-        |0 R0 U0 O0 F0 __ __ __ __ __ ~~
-        ~~ __ __ __ __ N1 O1 U1 G1 H1 ~~
-        ~~ __ __ __ E1 __ __ __ __ __ ~~
-        ~~ __ __ __ L1 A1 V1 R1 F1 Q1 |1
+        ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
         ~~ __ __ __ __ __ __ __ __ __ ~~
-        ~~ __ __ __ __ __ __ __ __ __ ~~
+        |0 Q0 F0 R0 V0 A0 L0 __ __ __ ~~
+        ~~ __ __ __ __ __ E0 __ __ __ ~~
+        ~~ H0 G0 U0 O0 N0 __ __ __ __ ~~
+        ~~ __ __ __ __ __ F1 O1 U1 R1 |1
+        ~~ ~~ ~~ ~~ __ __ __ __ __ #1 ~~
+        ~~ ~~ ~~ __ __ __ __ __ __ __ ~~
+        ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: ERTYELU
       computer_hand: R
+
+      dict:
+        ENOUGH: |-
+          det: Sufficient; all that is required, needed, or appropriate.
+        FOUR: |-
+          num: A numerical value equal to 4; the number after 3 and before 5; two plus two. This many dots (????)
+        EEL: |-
+          noun: Any freshwater or marine fish of the order Anguilliformes, which are elongated and resemble snakes.
 
       steps:
         - message: |-
             When there are multiple attackers and all of them are valid, the longest attacker determines the outcome of the battle.
             
             Intuitively, this is because the attackers have the initiative, and can use their strongest words to target the weakest defenders.
-        - desciprtion: |-
+        - description: |-
             Try playing "ENOUGH" and "EEL" against "FOUR."
             
             You will win because "ENOUGH" is long enough to beat "FOUR" and "EEL" is irrelevant.
-          you: "E -> 4,4"
+          you: "E -> 6,5"
           gets: "I"
 
     - name: "Tiles disconnected from the dock are truncated"
       board: |-
-        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~
-        ~~ ~~ __ __ __ __ __ __ G0 #0 ~~
-        ~~ ~~ __ __ __ __ T0 O0 N0 __ ~~
-        ~~ ~~ ~~ ~~ __ __ __ __ O0 __ ~~
-        ~~ ~~ ~~ __ __ __ E1 __ R0 ~~ ~~
-        ~~ ~~ __ __ __ __ S1 __ T0 __ ~~
-        ~~ ~~ __ __ __ __ T1 __ S0 __ ~~
-        ~~ ~~ __ __ __ __ A1 __ __ __ ~~
-        ~~ ~~ ~~ ~~ __ __ T1 __ __ ~~ ~~
-        ~~ ~~ ~~ __ __ #1 E1 __ ~~ ~~ ~~
-        ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ __ E0 #0 __ __ ~~ ~~ ~~
+        ~~ ~~ __ __ T0 __ __ ~~ ~~ ~~ ~~
+        ~~ __ __ __ A0 __ __ __ __ ~~ ~~
+        ~~ __ S1 __ T0 __ __ __ __ ~~ ~~
+        ~~ __ T1 __ S0 __ __ __ __ ~~ ~~
+        ~~ ~~ R1 __ E0 __ __ __ ~~ ~~ ~~
+        ~~ __ O1 __ __ __ __ ~~ ~~ ~~ ~~
+        ~~ __ N1 O1 T1 __ __ __ __ ~~ ~~
+        ~~ #1 G1 __ __ __ __ __ __ ~~ ~~
+        ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: ERTYELU
       computer_hand: R
+
+      dict:
+        RESTATE: |-
+          verb: to state again (without chaning)
+        NOT: |-
+          adv: Negates the meaning of the modified verb
 
       steps:
         - description: |-
             When a battle is lost and some tiles become disconnected from the dock, they are removed ("truncated").
             
-            
-            Try playing "RESTATE" against "NOT." "NOT" will be defeated and most of "STRONG" will be truncate.
-          you: "R -> 6,7"
+            Try playing "RESTATE" against "NOT." "NOT" will be defeated and most of "STRONG" will be truncated.
+          you: "R -> 4,7"
           gets: "I"
     
 

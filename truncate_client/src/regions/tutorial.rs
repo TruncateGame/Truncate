@@ -19,20 +19,32 @@ use crate::utils::{text::TextHelper, Diaphanize, Lighten, Theme};
 
 use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
-const TUTORIAL_01: &[u8] = include_bytes!("../../tutorials/tutorial_01.yml");
+const RULES: &[u8] = include_bytes!("../../tutorials/rules.yml");
 
 #[derive(Deserialize, Debug)]
 struct Tutorial {
+    rules: Vec<Category>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct Category {
+    category: String,
+    scenarios: Vec<Scenario>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct Scenario {
+    name: String,
     board: String,
     player_hand: String,
     computer_hand: String,
     dict: HashMap<String, String>,
-    steps: Vec<TutorialStep>,
+    steps: Vec<ScenarioStep>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
-enum TutorialStep {
+enum ScenarioStep {
     OwnMove {
         you: String,
         gets: char,
@@ -81,15 +93,15 @@ fn action_to_move(player: usize, action: &str) -> Move {
     }
 }
 
-impl PartialEq<Move> for TutorialStep {
+impl PartialEq<Move> for ScenarioStep {
     fn eq(&self, msg: &Move) -> bool {
         match self {
-            TutorialStep::OwnMove { you, .. } => {
+            ScenarioStep::OwnMove { you, .. } => {
                 return &action_to_move(0, you) == msg;
             }
-            TutorialStep::ComputerMove { .. } => false,
-            TutorialStep::Dialog { .. } => false,
-            TutorialStep::EndAction { .. } => false,
+            ScenarioStep::ComputerMove { .. } => false,
+            ScenarioStep::Dialog { .. } => false,
+            ScenarioStep::EndAction { .. } => false,
         }
     }
 }
@@ -99,13 +111,16 @@ pub struct TutorialState {
     pub active_game: ActiveGame,
     stage: usize,
     stage_changed_at: Duration,
-    tutorial: Tutorial,
+    tutorial: Scenario,
 }
 
 impl TutorialState {
     pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: Theme) -> Self {
-        let loaded_tutorial: Tutorial =
-            serde_yaml::from_slice(TUTORIAL_01).expect("Tutorial should match Tutorial format");
+        let full_tutorial: Tutorial =
+            serde_yaml::from_slice(RULES).expect("Tutorial should match Tutorial format");
+
+        let scenarios = (full_tutorial.rules.get(1).unwrap()).scenarios.clone();
+        let loaded_tutorial = (*scenarios.get(7).unwrap()).clone();
 
         let game = Game {
             rules: GameRules::default(),
@@ -189,7 +204,7 @@ impl TutorialState {
         if self.game.started_at.is_none()
             && matches!(
                 current_step,
-                Some(TutorialStep::OwnMove {
+                Some(ScenarioStep::OwnMove {
                     you: _,
                     gets: _,
                     description: _
@@ -199,7 +214,7 @@ impl TutorialState {
             self.game.start();
         }
 
-        if let Some(TutorialStep::OwnMove { you, .. }) = current_step {
+        if let Some(ScenarioStep::OwnMove { you, .. }) = current_step {
             let m = action_to_move(0, you);
             match m {
                 Move::Place { tile, position, .. } => {
@@ -281,7 +296,7 @@ impl TutorialState {
 
                     match current_step {
                         Some(step) => match step {
-                            TutorialStep::OwnMove { description, .. } => {
+                            ScenarioStep::OwnMove { description, .. } => {
                                 let dialog_text = TextHelper::light(
                                     &description,
                                     tut_fz,
@@ -305,7 +320,7 @@ impl TutorialState {
                                     ui,
                                 );
                             }
-                            TutorialStep::ComputerMove {
+                            ScenarioStep::ComputerMove {
                                 computer: action,
                                 description,
                                 ..
@@ -365,7 +380,7 @@ impl TutorialState {
                                     });
                                 }
                             }
-                            TutorialStep::Dialog { message } => {
+                            ScenarioStep::Dialog { message } => {
                                 let dialog_text = TextHelper::light(
                                     &message,
                                     tut_fz,
@@ -422,7 +437,7 @@ impl TutorialState {
                                     });
                                 }
                             }
-                            TutorialStep::EndAction { end_message } => {
+                            ScenarioStep::EndAction { end_message } => {
                                 let dialog_text = TextHelper::light(
                                     &end_message,
                                     tut_fz,
@@ -499,8 +514,8 @@ impl TutorialState {
 
         if let Some(game_move) = next_move {
             if let Some(next_tile) = match current_step {
-                Some(TutorialStep::OwnMove { gets, .. }) => Some(gets),
-                Some(TutorialStep::ComputerMove { gets, .. }) => Some(gets),
+                Some(ScenarioStep::OwnMove { gets, .. }) => Some(gets),
+                Some(ScenarioStep::ComputerMove { gets, .. }) => Some(gets),
                 _ => None,
             } {
                 self.game.bag = TileBag::explicit(vec![*next_tile], None);
