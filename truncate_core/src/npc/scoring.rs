@@ -8,7 +8,17 @@ use crate::board::Board;
 use super::WordQualityScores;
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct BoardWeights {
+pub enum NPCVocab {
+    Medium,
+    Small,
+}
+
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct NPCParams {
+    pub pruning: bool,
+    pub evaluation_cap: usize,
+    pub vocab: NPCVocab,
+    pub max_depth: usize,
     pub raced_defense: f32,
     pub raced_attack: f32,
     pub self_defense: f32,
@@ -20,18 +30,77 @@ pub struct BoardWeights {
     pub word_extensibility: f32,
 }
 
-impl Default for BoardWeights {
+#[derive(Clone)]
+pub struct NPCPersonality {
+    pub name: String,
+    pub params: NPCParams,
+}
+
+// Do not modify any named params.
+// Add a new npc constant new parameters.
+// Updating an existing NPC will break puzzle URLs.
+
+impl Default for NPCParams {
     fn default() -> Self {
         Self {
+            pruning: true,
+            evaluation_cap: 1000,
+            max_depth: 1,
+            vocab: NPCVocab::Medium,
             raced_defense: 6.0,
             raced_attack: 2.0,
             self_defense: 1.0,
             self_attack: 2.0,
             direct_defence: 1.0,
             direct_attack: 1.0,
-            word_validity: 2.0,
+            word_validity: 3.0,
             word_length: 1.0,
             word_extensibility: 1.0,
+        }
+    }
+}
+
+impl NPCPersonality {
+    pub fn opal() -> Self {
+        Self {
+            name: "opal".to_string(),
+            params: NPCParams {
+                evaluation_cap: 15000,
+                max_depth: 12,
+                ..NPCParams::default()
+            },
+        }
+    }
+
+    pub fn jet() -> Self {
+        Self {
+            name: "jet".to_string(),
+            params: NPCParams {
+                evaluation_cap: 10000,
+                max_depth: 3,
+                ..NPCParams::default()
+            },
+        }
+    }
+
+    pub fn mellite() -> Self {
+        Self {
+            name: "mellite".to_string(),
+            params: NPCParams {
+                evaluation_cap: 5000,
+                max_depth: 1,
+                vocab: NPCVocab::Small,
+                ..NPCParams::default()
+            },
+        }
+    }
+
+    pub fn from_id(id: impl AsRef<str>) -> Option<Self> {
+        match id.as_ref() {
+            "opal" => Some(Self::opal()),
+            "jet" => Some(Self::jet()),
+            "mellite" => Some(Self::mellite()),
+            _ => None,
         }
     }
 }
@@ -50,7 +119,7 @@ pub struct BoardScore {
     direct_attack: f32,
     self_win: bool,
     opponent_win: bool,
-    weights: BoardWeights,
+    npc_params: NPCParams,
     pub board: Option<Board>,
 }
 
@@ -79,8 +148,8 @@ impl BoardScore {
         self
     }
 
-    pub fn weights(mut self, value: BoardWeights) -> Self {
-        self.weights = value;
+    pub fn npc_params(mut self, value: NPCParams) -> Self {
+        self.npc_params = value;
         self
     }
 
@@ -153,15 +222,15 @@ impl BoardScore {
 
 impl BoardScore {
     pub fn rank(&self) -> f32 {
-        self.raced_defense * self.weights.raced_defense
-            + self.raced_attack * self.weights.raced_attack
-            + self.self_defense * self.weights.self_defense
-            + self.self_attack * self.weights.self_attack
-            + self.direct_defence * self.weights.direct_defence
-            + self.direct_attack * self.weights.direct_attack
-            + self.word_quality.word_validity * self.weights.word_validity
-            + self.word_quality.word_length * self.weights.word_length
-            + self.word_quality.word_extensibility * self.weights.word_extensibility
+        self.raced_defense * self.npc_params.raced_defense
+            + self.raced_attack * self.npc_params.raced_attack
+            + self.self_defense * self.npc_params.self_defense
+            + self.self_attack * self.npc_params.self_attack
+            + self.direct_defence * self.npc_params.direct_defence
+            + self.direct_attack * self.npc_params.direct_attack
+            + self.word_quality.word_validity * self.npc_params.word_validity
+            + self.word_quality.word_length * self.npc_params.word_length
+            + self.word_quality.word_extensibility * self.npc_params.word_extensibility
     }
 
     pub fn usize_rank(&self) -> usize {

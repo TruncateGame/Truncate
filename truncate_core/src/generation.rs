@@ -26,15 +26,26 @@ pub struct BoardParams {
 // Do not modify any numbered generations.
 // Add a new generation number with new parameters.
 // Updating an existing generation will break puzzle URLs.
-const BOARD_GENERATIONS: [BoardParams; 1] = [BoardParams {
-    land_dimensions: [10, 10],
-    dispersion: [5.0, 5.0],
-    isolation: 2.0,
-    maximum_town_density: 0.2,
-    maximum_town_distance: 0.15,
-    island_influence: 0.0,
-    minimum_choke: 3,
-}];
+const BOARD_GENERATIONS: [BoardParams; 2] = [
+    BoardParams {
+        land_dimensions: [10, 10],
+        dispersion: [5.0, 5.0],
+        isolation: 2.0,
+        maximum_town_density: 0.2,
+        maximum_town_distance: 0.15,
+        island_influence: 0.0,
+        minimum_choke: 3,
+    },
+    BoardParams {
+        land_dimensions: [9, 10],
+        dispersion: [5.0, 5.0],
+        isolation: 2.0,
+        maximum_town_density: 0.2,
+        maximum_town_distance: 0.15,
+        island_influence: 0.0,
+        minimum_choke: 3,
+    },
+];
 
 impl BoardParams {
     pub fn generation(gen: u32) -> Self {
@@ -195,7 +206,6 @@ pub fn generate_board(
     let retry_with = |mut board_seed: BoardSeed, failed_board: Board| {
         board_seed.internal_reroll();
         if current_iteration > max_attempts {
-            eprintln!("Could not resolve a playable board within {max_attempts} tries");
             return Err(BoardGenerationResult {
                 board: failed_board,
                 iterations: max_attempts,
@@ -324,11 +334,6 @@ pub fn generate_board(
     {
         return retry_with(board_seed, board);
     };
-
-    println!(
-        "Generated a board in {} step(s)",
-        board_seed.current_iteration
-    );
 
     Ok(BoardGenerationResult {
         board,

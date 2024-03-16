@@ -36,11 +36,22 @@ pub struct DailySplashGraph {
 
 impl DailySplashGraph {
     pub fn new(ui: &mut egui::Ui, stats: &DailyStats, current_time: Duration) -> Self {
-        let days_played = stats.days.len().max(10);
+        let days_played = stats.days.len().clamp(10, 1000);
         let max_total_moves = stats
             .days
             .values()
-            .map(|day| day.attempts.iter().map(|a| a.moves as usize).sum())
+            .map(|day| {
+                if let Some(best_win) = day
+                    .attempts
+                    .iter()
+                    .filter(|a| a.won)
+                    .min_by_key(|a| a.moves)
+                {
+                    return best_win.moves as usize;
+                };
+
+                day.attempts.iter().map(|a| a.moves as usize).sum()
+            })
             .max()
             .unwrap_or(30);
 
@@ -57,25 +68,38 @@ impl DailySplashGraph {
             .rev()
             .enumerate()
             .for_each(|(col, day)| {
+                if days_played == col {
+                    return;
+                }
                 // We draw from the right since we might have made the canvas
                 // larger than the amount of days we have.
                 let day_pixel_index = days_played - col - 1;
                 let mut current_row = max_total_moves - 1; // Start drawing each day from the bottom
 
-                day.attempts.iter().enumerate().for_each(|(i, attempt)| {
-                    let attempt_color = match (attempt.won, i % 2) {
-                        (true, _) => hex_color!("#6DAF6B"), // TODO: Pull these from palette
-                        (false, 0) => hex_color!("#944D5E"), // Alternate failure colors to make them distinct
-                        (false, _) => hex_color!("#A75E6F"),
-                    };
-                    for _ in 0..attempt.moves as usize {
-                        moves_image_base[(day_pixel_index, current_row)] = attempt_color;
+                let best_win = day
+                    .attempts
+                    .iter()
+                    .filter(|a| a.won)
+                    .min_by_key(|a| a.moves);
+
+                if let Some(best_win) = best_win {
+                    for _ in 0..best_win.moves as usize {
+                        moves_image_base[(day_pixel_index, current_row)] = hex_color!("#6DAF6B");
                         current_row = current_row.saturating_sub(1);
                     }
-                    if attempt.won {
-                        streak_image_base[(day_pixel_index, 0)] = attempt_color;
-                    }
-                });
+                    streak_image_base[(day_pixel_index, 0)] = hex_color!("#6DAF6B");
+                } else {
+                    day.attempts.iter().enumerate().for_each(|(i, attempt)| {
+                        let attempt_color = match i % 2 {
+                            0 => hex_color!("#944D5E"), // Alternate failure colors to make them distinct
+                            _ => hex_color!("#A75E6F"),
+                        };
+                        for _ in 0..attempt.moves as usize {
+                            moves_image_base[(day_pixel_index, current_row)] = attempt_color;
+                            current_row = current_row.saturating_sub(1);
+                        }
+                    });
+                }
             });
 
         let moves_graph_texture = ui.ctx().load_texture(
@@ -102,18 +126,33 @@ impl DailySplashGraph {
 
         // TODO: Once we have interactions, we'll need this highlight info to be reactive
         let today = stats.days.values().last().cloned().unwrap_or_default();
-        let won = today.attempts.last().map(|a| a.won) == Some(true);
-        let attempts = today.attempts.len();
-        let moves: u32 = today.attempts.iter().map(|a| a.moves).sum();
+        let best_win = today
+            .attempts
+            .iter()
+            .filter(|a| a.won)
+            .min_by_key(|a| a.moves);
 
-        let today_label = format!(
-            "{}: {} attempt{}, {} total move{}",
-            if won { "Won" } else { "Lost" },
-            attempts,
-            if attempts == 1 { "" } else { "s" },
-            moves,
-            if moves == 1 { "" } else { "s" },
-        );
+        let (moves, today_label) = if let Some(best_win) = best_win {
+            (
+                best_win.moves,
+                format!(
+                    "Won! Personal best: {} move{}",
+                    best_win.moves,
+                    if best_win.moves == 1 { "" } else { "s" }
+                ),
+            )
+        } else {
+            let attempts = today.attempts.len();
+            (
+                today.attempts.iter().map(|a| a.moves).sum(),
+                format!(
+                    "No win yet! {} attempt{}",
+                    attempts,
+                    if attempts == 1 { "" } else { "s" }
+                ),
+            )
+        };
+
         let today_height: f32 = moves as f32 / max_total_moves as f32;
 
         Self {
@@ -129,10 +168,8 @@ impl DailySplashGraph {
         }
     }
 
-    pub fn render(&self, ui: &mut egui::Ui) {
+    pub fn render(&self, ui: &mut egui::Ui, graph_rect: Rect) {
         let fz = 16.0; // Label font size, should come from a theme.
-        let (graph_rect, _) =
-            ui.allocate_exact_size(vec2(ui.available_width(), 128.0), Sense::hover());
 
         let mut moves_graph_rect = graph_rect.clone();
         *moves_graph_rect.top_mut() += 30.0;

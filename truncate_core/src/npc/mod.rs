@@ -17,7 +17,7 @@ pub mod scoring;
 use scoring::BoardScore;
 use xxhash_rust::xxh3;
 
-use self::scoring::BoardWeights;
+use self::scoring::NPCParams;
 
 pub struct Arborist {
     assessed: usize,
@@ -84,11 +84,15 @@ impl Game {
         depth: usize,
         counter: Option<&mut Arborist>,
         log: bool,
-        weights: &BoardWeights,
+        npc_params: &NPCParams,
     ) -> (PlayerMessage, BoardScore) {
         let evaluation_player = game.next_player;
 
-        let mut internal_arborist = Arborist::pruning();
+        let mut internal_arborist = if npc_params.pruning {
+            Arborist::pruning()
+        } else {
+            Arborist::exhaustive()
+        };
         let mut caches = Caches::new();
 
         let mut run_mini = |partial_depth: usize, arborist: &mut Arborist| {
@@ -104,7 +108,7 @@ impl Game {
                 evaluation_player,
                 arborist,
                 &mut caches,
-                weights,
+                npc_params,
             )
         };
 
@@ -161,14 +165,14 @@ impl Game {
         for_player: usize,
         arborist: &mut Arborist,
         caches: &mut Caches,
-        weights: &BoardWeights,
+        npc_params: &NPCParams,
     ) -> (BoardScore, Option<(Coordinate, char)>) {
         game.instrument_unknown_game_state(for_player, total_depth, depth);
         let pruning = arborist.prune();
 
         if depth == 0 || game.winner.is_some() {
             return (
-                game.static_eval(self_dictionary, for_player, depth, caches, weights),
+                game.static_eval(self_dictionary, for_player, depth, caches, npc_params),
                 None,
             );
         }
@@ -222,7 +226,7 @@ impl Game {
                     for_player,
                     arborist,
                     caches,
-                    weights,
+                    npc_params,
                 )
                 .0;
 
@@ -391,7 +395,7 @@ impl Game {
         for_player: usize,
         depth: usize,
         caches: &mut Caches,
-        weights: &BoardWeights,
+        npc_params: &NPCParams,
     ) -> BoardScore {
         let word_quality = if let Some(external_dictionary) = external_dictionary {
             self.eval_word_quality(external_dictionary, for_player, caches)
@@ -415,7 +419,7 @@ impl Game {
             };
 
         BoardScore::default()
-            .weights(*weights)
+            .npc_params(*npc_params)
             .turn_number(depth)
             .word_quality(word_quality)
             .raced_defense(self.eval_min_raced_distance_to_towns(
@@ -565,7 +569,7 @@ impl Game {
                                     (((resolved_word.len() - 1) as f32) / 5.0).min(1.0);
 
                                 word_scores.word_extensibility +=
-                                    (word_data.extensions.min(100) as f32) / 100.0;
+                                    (word_data.extensions as f32).sqrt().min(100.0) / 100.0;
 
                                 word_scores.word_validity += 1.0;
                             }
@@ -589,7 +593,7 @@ mod tests {
 
     use crate::{bag::TileBag, board::Board, judge::WordData, player::Player};
 
-    pub static TESTING_DICT: &str = include_str!("../../../word_freqs/final_wordlist.txt");
+    pub static TESTING_DICT: &str = include_str!("../../../dict_builder/final_wordlist.txt");
 
     /// Build an (expensive) word dictionary using the real game data.
     fn dict() -> WordDict {
@@ -674,7 +678,7 @@ mod tests {
             depth,
             Some(&mut exhaustive_arbor),
             false,
-            &BoardWeights::default(),
+            &NPCParams::default(),
         );
 
         let mut pruned_arbor = Arborist::pruning();
@@ -685,7 +689,7 @@ mod tests {
             depth,
             Some(&mut pruned_arbor),
             false,
-            &BoardWeights::default(),
+            &NPCParams::default(),
         );
 
         assert_eq!(
@@ -740,13 +744,8 @@ mod tests {
             "###,
             "A",
         );
-        let score_a = game_a.static_eval(
-            Some(&dict),
-            1,
-            1,
-            &mut Caches::new(),
-            &BoardWeights::default(),
-        );
+        let score_a =
+            game_a.static_eval(Some(&dict), 1, 1, &mut Caches::new(), &NPCParams::default());
         let game_b = test_game(
             r###"
             ~~ ~~ ~~ |0 ~~ ~~ ~~
@@ -760,13 +759,8 @@ mod tests {
             "###,
             "A",
         );
-        let score_b = game_b.static_eval(
-            Some(&dict),
-            1,
-            1,
-            &mut Caches::new(),
-            &BoardWeights::default(),
-        );
+        let score_b =
+            game_b.static_eval(Some(&dict), 1, 1, &mut Caches::new(), &NPCParams::default());
 
         insta::with_settings!({
             description => format!("Game A:\n{}\n\nGame B:\n{}", game_a.board.to_string(), game_b.board.to_string()),
@@ -780,7 +774,7 @@ mod tests {
                 word_quality: WordQualityScores {
                     word_length: 0.4,
                     word_validity: 1.0,
-                    word_extensibility: 1.0,
+                    word_extensibility: 0.4700235,
                 },
                 raced_defense: 0.0,
                 raced_attack: 1.0,
@@ -797,7 +791,7 @@ mod tests {
                 word_quality: WordQualityScores {
                     word_length: 0.4,
                     word_validity: 1.0,
-                    word_extensibility: 1.0,
+                    word_extensibility: 0.5438283,
                 },
                 raced_defense: 0.0,
                 raced_attack: 1.0,
@@ -955,17 +949,17 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1573 possible leaves
-                  - 481 after pruning
-                  - Move: Place E at (3, 6)
+                  - 1592 possible leaves
+                  - 438 after pruning
+                  - Move: Place S at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ S0 O0 __ __
                 __ T0 __ __ __
                 __ R0 __ __ __
                 __ __ T1 __ __
-                __ __ A1 __ __
-                __ __ R1 E1 __
+                __ __ A1 S1 __
+                __ __ R1 __ __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -997,16 +991,16 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1618 possible leaves
-                  - 529 after pruning
-                  - Move: Place E at (3, 6)
+                  - 415 after pruning
+                  - Move: Place S at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 __ A0 __ __ __
                 __ R0 __ __ __
                 __ __ T1 __ __
-                __ __ A1 __ __
-                __ __ R1 E1 __
+                __ __ A1 S1 __
+                __ __ R1 __ __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -1038,16 +1032,16 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 1608 possible leaves
-                  - 375 after pruning
-                  - Move: Place E at (3, 6)
+                  - 450 after pruning
+                  - Move: Place S at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 __ A0 __ __ __
                 __ __ __ __ __
                 __ X1 T1 __ __
-                __ __ A1 __ __
-                __ __ R1 E1 __
+                __ __ A1 S1 __
+                __ __ R1 __ __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -1078,17 +1072,17 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1623 possible leaves
-                  - 454 after pruning
-                  - Move: Place T at (3, 6)
+                  - 1611 possible leaves
+                  - 481 after pruning
+                  - Move: Place T at (1, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
                 D0 A0 __ __ __
                 __ __ __ __ __
                 T1 E1 E1 __ __
-                __ __ A1 __ __
-                R1 I1 T1 T1 __
+                __ T1 A1 __ __
+                R1 I1 T1 __ __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -1119,17 +1113,17 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 1640 possible leaves
-                  - 483 after pruning
-                  - Move: Place S at (2, 3)
+                  - 1656 possible leaves
+                  - 455 after pruning
+                  - Move: Place E at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
+                __ T0 O0 __ __
+                D0 A0 Q0 __ __
                 __ __ __ __ __
-                __ __ __ __ __
-                __ __ S1 __ __
                 Q1 E1 E1 __ __
                 __ __ A1 __ __
-                R1 I1 T1 __ __
+                R1 I1 T1 E1 __
                 ~~ ~~ |1 ~~ ~~
                 "###);
             });
@@ -1163,9 +1157,9 @@ mod tests {
             }, {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
-                  - 13605 possible leaves
-                  - 2767 after pruning
-                  - Move: Place A at (3, 9)
+                  - 13594 possible leaves
+                  - 1671 after pruning
+                  - Move: Place S at (3, 9)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -1176,7 +1170,7 @@ mod tests {
                 __ __ __ B0 __ __ __
                 __ __ I1 __ __ __ __
                 __ __ D1 A1 T1 E1 S1
-                __ __ E1 A1 __ __ __
+                __ __ E1 S1 __ __ __
                 ~~ ~~ |1 ~~ ~~ ~~ ~~
                 "###);
             });
@@ -1211,8 +1205,8 @@ mod tests {
                 insta::assert_snapshot!(result, @r###"
                 Evaluating:
                   - 6130 possible leaves
-                  - 873 after pruning
-                  - Move: Place U at (4, 7)
+                  - 802 after pruning
+                  - Move: Place E at (4, 7)
 
                 ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
                 ~~ #0 #0 #0 #0 E0 #0 #0 #0 #0 ~~
@@ -1221,7 +1215,7 @@ mod tests {
                 ~~ __ __ __ __ __ __ __ __ __ ~~
                 ~~ __ __ __ __ __ __ __ __ __ ~~
                 ~~ __ __ __ __ __ __ __ __ __ ~~
-                ~~ __ __ __ U1 N1 __ __ __ __ ~~
+                ~~ __ __ __ E1 N1 __ __ __ __ ~~
                 ~~ __ __ __ __ E1 __ __ __ __ ~~
                 ~~ #1 #1 #1 #1 E1 #1 #1 #1 #1 ~~
                 ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~

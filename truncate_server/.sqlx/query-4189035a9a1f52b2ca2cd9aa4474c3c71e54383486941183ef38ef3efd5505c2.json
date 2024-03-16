@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT \n            dpa.sequence_of_moves,\n            dpa.attempt_number,\n            dpr.daily_puzzle\n        FROM\n            daily_puzzle_attempts dpa\n        JOIN \n            daily_puzzle_results dpr ON dpr.result_id = dpa.result_id\n        WHERE\n            attempt_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sequence_of_moves",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "attempt_number",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "daily_puzzle",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4189035a9a1f52b2ca2cd9aa4474c3c71e54383486941183ef38ef3efd5505c2"
+}

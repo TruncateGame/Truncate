@@ -10,6 +10,7 @@ use truncate_core::{
     game::Game,
     generation::{generate_board, get_game_verification, BoardSeed},
     moves::Move,
+    npc::scoring::{NPCParams, NPCPersonality},
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail},
 };
 
@@ -28,10 +29,11 @@ pub const DAILY_PUZZLE_DAY_ZERO: usize = 19751;
  * TODO: Store NotesFile and SeedNote type definitions in a common crate
  */
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeedNote {
     pub rerolls: usize,
     pub best_player: usize,
+    pub board_generation: u32,
     pub verification: String,
 }
 
@@ -49,31 +51,40 @@ pub fn get_puzzle_day(current_time: Duration) -> u32 {
     day
 }
 
-pub fn get_daily_puzzle(
+pub type HumanStarts = bool;
+pub fn get_raw_daily_puzzle(day: u32) -> (BoardSeed, Option<(HumanStarts, SeedNote)>) {
+    let loaded_notes: NotesFile =
+        serde_yaml::from_slice(SEED_NOTES).expect("Seed notes should match the spec");
+
+    let notes = loaded_notes.notes.get(&day);
+
+    if let Some(notes) = notes {
+        let mut board_seed = BoardSeed::new_with_generation(notes.board_generation, day).day(day);
+
+        for _ in 0..notes.rerolls {
+            board_seed.external_reroll();
+        }
+        let info = Some((notes.best_player == 0, notes.clone()));
+
+        (board_seed, info)
+    } else {
+        let board_seed = BoardSeed::new(day).day(day);
+
+        (board_seed, None)
+    }
+}
+
+pub fn get_playable_daily_puzzle(
     ctx: &egui::Context,
     day: u32,
     map_texture: &TextureHandle,
     theme: &Theme,
     backchannel: &Backchannel,
 ) -> SinglePlayerState {
-    let loaded_notes: NotesFile =
-        serde_yaml::from_slice(SEED_NOTES).expect("Seed notes should match the spec");
+    let (board_seed, info) = get_raw_daily_puzzle(day);
 
-    let mut board_seed = BoardSeed::new(day).day(day);
-
-    let header_title = format!("Truncate Town Day #{day}");
-    let mut header_sentinel = '*';
-
-    let mut human_starts = true;
-
-    let notes = loaded_notes.notes.get(&day);
-    if let Some(notes) = notes {
-        human_starts = notes.best_player == 0;
-        header_sentinel = '★';
-        for _ in 0..notes.rerolls {
-            board_seed.external_reroll();
-        }
-    }
+    let mut header_sentinel = if info.is_some() { '#' } else { '?' };
+    let human_starts = info.as_ref().map(|(h, _)| *h).unwrap_or(true);
 
     let board = generate_board(board_seed.clone())
         .expect("Common seeds should always generate a board")
@@ -86,18 +97,18 @@ pub fn get_daily_puzzle(
         Some(board_seed.clone()),
         human_starts,
         HeaderType::None, // Replaced soon with HeaderType::Summary
+        NPCPersonality::jet(),
     );
 
-    if let Some(notes) = notes {
+    if let Some((_, notes)) = info {
         let verification = get_game_verification(&game_state.game);
         if verification != notes.verification {
-            header_sentinel = '¤';
+            header_sentinel = '!';
         }
     }
 
     game_state.header = HeaderType::Summary {
-        title: header_title,
-        sentinel: header_sentinel,
+        title: format!("Truncate Town Day {header_sentinel}{day}"),
         attempt: Some(0),
     };
 

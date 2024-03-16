@@ -7,7 +7,7 @@ use truncate_core::{
     reporting::WordMeaning,
 };
 
-pub static WORDNIK: &str = include_str!("../../word_freqs/final_wordlist.txt");
+pub static TRUNCATE_DICT: &str = include_str!("../../dict_builder/final_wordlist.txt");
 
 pub struct WordDB {
     pub conn: Option<Connection>,
@@ -60,7 +60,7 @@ pub fn read_defs() -> WordDB {
     let defs_file = option_env!("TR_DEFS_FILE").unwrap_or_else(|| "/truncate/defs.db");
 
     let mut valid_words = HashMap::new();
-    let lines = WORDNIK.lines();
+    let lines = TRUNCATE_DICT.lines();
 
     for line in lines {
         let mut chunks = line.split(' ');

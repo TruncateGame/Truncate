@@ -9,7 +9,7 @@ use truncate_core::{
     generation::{generate_board, get_game_verification, BoardSeed},
     messages::PlayerMessage,
     moves::Move,
-    npc::scoring::BoardWeights,
+    npc::scoring::NPCParams,
 };
 
 use crate::dicts::{ensure_dicts, RESTRICTED_DICT, TOTAL_DICT};
@@ -17,7 +17,7 @@ use crate::dicts::{ensure_dicts, RESTRICTED_DICT, TOTAL_DICT};
 mod dicts;
 mod storage;
 
-fn best_move(game: &Game, weights: &BoardWeights, dicts: &Dicts) -> PlayerMessage {
+fn best_move(game: &Game, npc_params: &NPCParams, dicts: &Dicts) -> PlayerMessage {
     ensure_dicts();
 
     let mut arb = truncate_core::npc::Arborist::pruning();
@@ -31,7 +31,7 @@ fn best_move(game: &Game, weights: &BoardWeights, dicts: &Dicts) -> PlayerMessag
         search_depth,
         Some(&mut arb),
         false,
-        weights,
+        npc_params,
     );
 
     best_move
@@ -43,11 +43,11 @@ fn evaluate_single_seed(seed: BoardSeed, log: bool) -> Option<SeedNote> {
     let mut game = get_game_for_seed(seed.clone());
 
     let verification = get_game_verification(&game);
-    let weights = BoardWeights::default();
+    let npc_params = NPCParams::default();
     let mut dicts = get_dicts();
 
     while game.turn_count < maximum_turns {
-        let best_move_for_next_player = best_move(&game, &weights, &dicts);
+        let best_move_for_next_player = best_move(&game, &npc_params, &dicts);
         let next_player = game.next_player;
 
         let next_move = match best_move_for_next_player {
@@ -79,6 +79,7 @@ fn evaluate_single_seed(seed: BoardSeed, log: bool) -> Option<SeedNote> {
                 return Some(SeedNote {
                     rerolls: 0,
                     best_player: winner,
+                    board_generation: seed.generation,
                     verification,
                 });
             }
@@ -141,9 +142,12 @@ fn get_game_for_seed(seed: BoardSeed) -> Game {
 }
 
 fn evaluate_seed(mut seed: BoardSeed, log: bool) -> (u32, SeedNote) {
-    let mut rerolls = 0;
-    let mut seed_result = None;
     let core_seed = seed.seed;
+
+    seed.external_reroll();
+    let mut rerolls = 1;
+
+    let mut seed_result = None;
 
     println!("-----> Starting on seed {core_seed}");
 
@@ -163,7 +167,7 @@ fn evaluate_seed(mut seed: BoardSeed, log: bool) -> (u32, SeedNote) {
 }
 
 fn verify_note(seed: &u32, note: &SeedNote) {
-    let mut board_seed = BoardSeed::new(*seed);
+    let mut board_seed = BoardSeed::new_with_generation(note.board_generation, *seed);
     for _ in 0..(note.rerolls) {
         board_seed.external_reroll();
     }

@@ -4,6 +4,7 @@ use truncate_core::{
     board::{Coordinate, Square},
     generation::BoardSeed,
     messages::RoomCode,
+    npc::scoring::{NPCParams, NPCPersonality},
     reporting::Change,
 };
 
@@ -52,6 +53,8 @@ pub struct UIStateDepot {
     pub is_mobile: bool,
     pub is_touch: bool,
     pub game_header: HeaderType,
+    pub actions_menu_open: bool,
+    pub hand_height_last_frame: f32,
 }
 
 #[derive(Clone)]
@@ -88,6 +91,7 @@ pub struct GameplayDepot {
     pub winner: Option<usize>,
     pub changes: Vec<Change>,
     pub last_battle_origin: Option<Coordinate>,
+    pub npc: Option<NPCPersonality>,
 }
 
 #[derive(Clone)]
@@ -100,6 +104,11 @@ pub struct AestheticDepot {
     pub destruction_duration: f32,
 }
 
+#[derive(Clone, Default)]
+pub struct AudioDepot {
+    pub muted: bool,
+}
+
 #[derive(Clone)]
 pub struct TruncateDepot {
     pub interactions: InteractionDepot,
@@ -109,4 +118,5 @@ pub struct TruncateDepot {
     pub timing: TimingDepot,
     pub gameplay: GameplayDepot,
     pub aesthetics: AestheticDepot,
+    pub audio: AudioDepot,
 }
