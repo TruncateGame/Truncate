@@ -64,7 +64,7 @@ impl<'a> BoardUI<'a> {
                 &game_area,
                 self.board.width(),
                 self.board.height(),
-                0.4..2.0,
+                0.05..2.0,
                 (0, 0),
             );
         let theme = theme.rescale(depot.board_info.board_zoom);

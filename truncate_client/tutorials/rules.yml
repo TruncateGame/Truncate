@@ -88,7 +88,7 @@ rules:
           gets: "E"
 
         - message: |-
-            Since 'GROWING' is a valid word touching your opponent's town, you win the game.
+            Since "GROWING" is a valid word touching your opponent's town, you win the game.
 
         - message: |-
             You can check whether words are valid in Truncate's dictionary using the menu in the bottom right.
@@ -115,7 +115,7 @@ rules:
         - description: |-
             To win, the word touching your opponent's town has to be valid, but the rest of your words don't.
 
-            You will win if you play 'R' to form 'YOUR', even though you have invalid words like 'AXQT' on your board.
+            You will win if you play 'R' to form "YOUR", even though you have invalid words like "AXQT" on your board.
           you: "R -> 1,2"
           gets: "E"
 
@@ -171,12 +171,14 @@ rules:
         - description: |-
             You can swap by clicking one and then the other, or by dragging one onto the other.
 
-            Try turning "VALDI" into "VALID" by swapping the "D" and "I." Note, you can't swap between the board and your hand.
+            Try turning "VALDI" into "VALID" by swapping the 'D' and 'I'. Note, you can't swap between the board and your hand.
           you: "4,5 -> 5,5"
           gets: "_"
         - message: |-
             This used up your turn, but now your word is valid!
 
+            You can't swap twice in a row, so your next turn would have to place a tile.
+          # TODO: Show the can't swap between disjoint groups rule
   - category: Battles
     scenarios:
     - name: "Valid beats invalid"
@@ -266,14 +268,14 @@ rules:
 
       steps:
         - description: |-
-            Long words beat short words in a battle. "ENORMOUS" is significantly longer than "PUNY" and would win in a battle.
+            Long valid words beat short words in a battle. "ENORMOUS" is significantly longer than "PUNY" and would win in a battle.
 
             Try playing an "E" to defeat your opponent's word.
           you: "E -> 8,3"
           gets: "F"
 
         - message: |-
-            "ENORMOUS" was easily long enough to beat "PUNY", so "PUNY" was removed from the board.
+            "ENORMOUS" was valid, and easily long enough to beat "PUNY", so "PUNY" was removed from the board.
 
     - name: "Defender's advantage"
       description: "The defender has a length bonus"
@@ -353,7 +355,7 @@ rules:
 
             In Truncate, the weakest defender determines the outcome of a battle.
         - message: |-
-            This means that even if you have a strong word, it can be undermined by a weaker one.
+            This means that even if you have a strong word on the board, it can be undermined by one of your weaker words.
         - description: |-
             For example, you can attack "PAIR" with "TRAP". Normally, you wouldn't win due to the defender's advantage.
             
@@ -363,7 +365,7 @@ rules:
         - message: |-
             "PI" was destroyed since it was shorter than "TRAP", but "PAIR" was not. Even though you won the battle, you only destroyed words that were weaker than your attack.
         - description: |-
-            Since the "P" in "PAIR" was also in "PI", it was destroyed, shortening "PAIR" to "AIR".
+            Since the 'P' in "PAIR" was also in "PI", it was destroyed, shortening "PAIR" to "AIR".
 
             Now your opponent will take their turn.
           computer: "R -> 1,7"
@@ -382,7 +384,7 @@ rules:
         - message: |-
             When an attack succeeds, all tiles touching the attack are removed, even if they were part of a surviving word.
 
-            As a result, the "C" in "CALF" was destroyed.
+            As a result, the 'C' in "CALF" was destroyed.
 
     
     - name: "Failed attacks"
@@ -499,19 +501,15 @@ rules:
     - name: "Conclusion"
       description: ""
       board: |-
-        ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ ~~ ~~ __ E0 #0 __ __ ~~ ~~ ~~
-        ~~ ~~ __ __ T0 __ __ ~~ ~~ ~~ ~~
-        ~~ __ __ __ A0 __ __ __ __ ~~ ~~
-        ~~ __ __ __ T0 __ __ __ __ ~~ ~~
-        ~~ __ __ __ S0 __ __ __ __ ~~ ~~
-        ~~ ~~ __ __ E0 __ __ __ ~~ ~~ ~~
-        ~~ __ __ __ R0 __ __ ~~ ~~ ~~ ~~
-        ~~ __ __ __ __ __ __ __ __ ~~ ~~
-        ~~ #1 G1 __ __ __ __ __ __ ~~ ~~
-        ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ #1 __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~ ~~ __ __ #0 __ |0 ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ __ __ __ #1 ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ |1 ~~ ~~
+        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ #1 __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ __ ~~ __ __ ~~ ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~
+        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ __ #0 __ __ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ __ __ __ ~~ |0 ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~
+        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~ #0 __ ~~ ~~ __ __ ~~ ~~ #0 __ __ __ __ __ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
-      player_hand: ERTYELU
+      player_hand: ""
       computer_hand: R
 
       dict:
