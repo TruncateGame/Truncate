@@ -8,8 +8,8 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-eframe = "0.24.1"
-epaint = { version = "0.24.1", features = ["color-hex"] }
+eframe = "0.26.2"
+epaint = { version = "0.26.2", features = ["color-hex"] }
 color-hex = "0.2.0"
 futures-util = { version = "0.3", default-features = false, features = [
     "sink",
@@ -21,7 +21,7 @@ serde_yaml = "0.9"
 truncate_core = { path = "../truncate_core" }
 hashbrown = "0.13"
 time = { version = "0.3", features = ["serde", "macros", "formatting"] }
-instant = "0.1"
+instant = { version = "0.1", features = ["wasm-bindgen"] }
 chrono = "0.4"
 futures = "0.3"
 image = { version = "0.24", features = ["png"] }

@@ -6,8 +6,6 @@ cd "$script_path/.."
 CRATE_NAME="truncate_client"
 FEATURES=""
 
-OPTIMIZE=false
-
 # This is required to enable the web_sys clipboard API which eframe web uses
 # https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.Clipboard.html
 # https://rustwasm.github.io/docs/wasm-bindgen/web-sys/unstable-apis.html
@@ -43,10 +41,14 @@ wasm-bindgen "${WASM_PATH}" --out-dir web_client/src/static --no-modules --no-ty
 # to get wasm-strip:  apt/brew/dnf install wabt
 # wasm-strip docs/${CRATE_NAME}_bg.wasm
 
-if [[ "${OPTIMIZE}" = true ]]; then
-  echo "Optimizing wasm…"
-  # to get wasm-opt:  apt/brew/dnf install binaryen
-  wasm-opt "web_client/src/static/${CRATE_NAME}_bg.wasm" -O2 --fast-math -o "docs/${CRATE_NAME}_bg.wasm" # add -g to get debug symbols
+
+
+if [ -n "${TRUNC_OPT+x}" ]; then
+  if [[ "${TRUNC_OPT}" = true ]]; then
+    echo "Optimizing wasm…"
+    # to get wasm-opt:  apt/brew/dnf install binaryen
+    wasm-opt "web_client/src/static/${CRATE_NAME}_bg.wasm" -O4 --fast-math -o "web_client/src/static/${CRATE_NAME}_bg.wasm" # add -g to get debug symbols
+  fi
 fi
 
 echo "Finished web_client/src/static/${CRATE_NAME}_bg.wasm"

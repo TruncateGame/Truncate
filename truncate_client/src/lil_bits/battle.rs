@@ -30,7 +30,6 @@ impl<'a> BattleUI<'a> {
 
 #[derive(Clone, Copy, PartialEq)]
 struct BattleUIState {
-    hovered_last_frame: bool,
     size_last_frame: Vec2,
     /// If None, we defer to showing when it is the latest battle
     /// TODO: For now this is always true until we re-implement closing these dialogs
@@ -139,7 +138,7 @@ impl<'a> BattleUI<'a> {
                                 + galley.mesh_bounds.height() * 0.25,
                         );
 
-                    ui.painter().galley(word_pt, galley);
+                    ui.painter().galley(word_pt, galley, Color32::BLACK);
 
                     total_x += x + word_pad * 2.0;
                 }
@@ -166,7 +165,6 @@ impl<'a> BattleUI<'a> {
 
         // Paint the background dialog based on the size of the battle last frame
         if let Some(BattleUIState {
-            hovered_last_frame,
             size_last_frame,
             show_details,
         }) = prev_battle_storage
@@ -176,11 +174,7 @@ impl<'a> BattleUI<'a> {
                 false,
                 false,
                 size_last_frame,
-                if hovered_last_frame {
-                    Color32::WHITE
-                } else {
-                    aesthetics.theme.water.lighten()
-                },
+                aesthetics.theme.water.lighten(),
                 &aesthetics.map_texture,
                 ui,
             );
@@ -195,23 +189,8 @@ impl<'a> BattleUI<'a> {
                 depot,
             );
 
-            let resp = ui.interact(
-                dialog_rect,
-                ui.auto_id_with("battle_interact"),
-                Sense::hover(),
-            );
-
-            // TODO: Not sensing clicks for now until we re-implement closing these dialogs
-            // if resp.hovered() {
-            //     ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-            // }
-            // if resp.clicked() {
-            //     show_details = Some(!(show_details.unwrap_or(true)));
-            // }
-
             // Save the sizing of our box for the next render pass to draw the background
             let new_state = BattleUIState {
-                hovered_last_frame: resp.hovered(),
                 size_last_frame: battle_rect.size(),
                 show_details,
             };
@@ -229,7 +208,6 @@ impl<'a> BattleUI<'a> {
                 m.data.insert_temp(
                     battle_id,
                     BattleUIState {
-                        hovered_last_frame: false,
                         show_details: None,
                         size_last_frame: battle_rect.size(),
                     },
