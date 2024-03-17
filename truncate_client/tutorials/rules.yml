@@ -495,6 +495,30 @@ rules:
             "NOT" was defeated, because it was too short.
 
             This leaves "STRO" disconnected from their dock, causing it to be truncated.
+
+    - name: "Conclusion"
+      description: ""
+      board: |-
+        ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ __ E0 #0 __ __ ~~ ~~ ~~
+        ~~ ~~ __ __ T0 __ __ ~~ ~~ ~~ ~~
+        ~~ __ __ __ A0 __ __ __ __ ~~ ~~
+        ~~ __ __ __ T0 __ __ __ __ ~~ ~~
+        ~~ __ __ __ S0 __ __ __ __ ~~ ~~
+        ~~ ~~ __ __ E0 __ __ __ ~~ ~~ ~~
+        ~~ __ __ __ R0 __ __ ~~ ~~ ~~ ~~
+        ~~ __ __ __ __ __ __ __ __ ~~ ~~
+        ~~ #1 G1 __ __ __ __ __ __ ~~ ~~
+        ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: ERTYELU
+      computer_hand: R
+
+      dict:
+        DONE: |-
+          done
+
+      steps:
         - end_message: |-
             That's all of the rules!
             
