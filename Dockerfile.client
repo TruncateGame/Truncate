@@ -38,6 +38,7 @@ ADD Cargo.* /app
 ADD web_client /app/web_client
 ADD .backstage /app/.backstage
 RUN chmod +x .backstage/build-web-client.sh
+ENV TRUNC_OPT=true
 RUN .backstage/build-web-client.sh
 
 # Thin Docker image for runtime
