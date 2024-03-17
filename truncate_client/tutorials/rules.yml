@@ -1,18 +1,3 @@
-# let f = (b) => {
-#     let thing = b.split("\n")
-#     thing = thing.map((t) => {
-#         t = t.trim()
-        
-#         return t.split(" ").reverse().join(" ")
-#     }).reverse().join('\r\n')
-
-#     thing = thing.replaceAll("1", "2")
-#     thing = thing.replaceAll("0", "1")
-#     thing = thing.replaceAll("2", "0")
-    
-#     return thing
-# }
-
 rules:
   - category: Basics
     scenarios:
@@ -40,10 +25,10 @@ rules:
             This tutorial covers the rules of the game.
 
         - message: |-
-            In Truncate, players take turns to place a tile on the board
+            In Truncate, players take turns to place a tile on the board.
 
         - message: |-
-            In this game you are playing as blue. You will always play as blue against the computer.
+            In this game you are playing as blue.
 
             You can tell which colour you're playing by the colour of the tiles in your hand.
 
@@ -68,6 +53,9 @@ rules:
           you: "I -> 7,2"
           gets: "E"
 
+        - message: |-
+            Next, we'll look at how you win the game.
+
     - name: "To win, touch an opponent's town with a valid word"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
@@ -88,14 +76,17 @@ rules:
 
       steps:
         - message: |-
-            To win Truncate, you must touch your opponent's town with a valid word.
+            To win, touch your opponent's town with a valid word.
 
-            Notice that your dock is on the right hand side on this boad, and your opponent's town and dock are on the left.
+            Notice that your dock is on the right of the board, and your opponent's town and dock are on the left.
 
         - description: |-
-            Place 'G' beside your opponent's town to form the word 'GROWING' and win the game.
+            Place a 'G' beside your opponent's town to form the word 'GROWING' and win the game.
           you: "G -> 7,5"
           gets: "E"
+
+        - message: |-
+            Since 'GROWING' is a valid word touching your opponent's town, you win the game.
 
     - name: "Tiles don't always have to form valid words"
       board: |-
@@ -122,6 +113,9 @@ rules:
           you: "R -> 1,2"
           gets: "E"
 
+        - message: |-
+            'YOUR' wins the game, despite your board containing invalid words.
+
     - name: "Your words are read left to right and top to bottom, and your opponent's words are the opposite"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
@@ -143,9 +137,9 @@ rules:
         - message: |-
             Your words are written left to right and top to bottom as normal, but your opponent's words are reversed.
 
-            Your words on this board spell "YOUR WORDS" and your opponent's words spell "THEIR WORDS."
+            Right now, your opponent's words spell "THEIR WORDS".
         - message: |-
-            To make sense of this, imagine that you were playing Truncate as a board game, and you opponent was sitting on the opposite side of the table.
+            To make sense of this, imagine that you are playing Truncate as a board game, and your opponent is sitting on the opposite side of the table.
 
     - name: "You can swap two tiles on the board"
       board: |-
@@ -164,12 +158,16 @@ rules:
       dict: {}
 
       steps:
-        - description: |-
+        - message: |-
             Instead of playing a tile from your hand, you can swap two tiles on the board.
+        - description: |-
+            You can swap by clicking one and then the other, or by dragging one onto the other.
 
             Try turning "VALDI" into "VALID" by swapping the "D" and "I." Note, you can't swap between the board and your hand.
           you: "4,5 -> 5,5"
           gets: "_"
+        - message: |-
+            This used up your turn, but now your word is valid!
 
   - category: Battles
     scenarios:
@@ -194,14 +192,19 @@ rules:
 
       steps:
         - message: |-
-            When your tiles and the opponent's tiles touch there is a battle.
+            When your tiles and the opponent's tiles touch, they battle.
 
             The battle is between the words that are touching, and valid words beat invalid words.
           
         - description: |-
-            Try playing "POPS" which will defeat the opponent's word "NIVALDI" because it's invalid.
+            Your opponent's word "NIVALDI" is invalid, so you can defeat it with a valid word.
+            
+            Try playing "POPS".
           you: "S -> 4,2"
           gets: "E"
+
+        - message: |-
+            Since "POPS" is valid, and "NIVALDI" was invalid, "NIVALDI" was removed from the board.
 
     - name: "Battles only involve touching words"
       board: |-
@@ -223,16 +226,14 @@ rules:
 
       steps:
         - message: |-
-            The only words involved in a battle are the ones are actually touching the opponent's words.
-
-            This means our board can consist of largely invalid words, yet we can still win battles.
-          
+            Only words touching another player's words are involved in a battle. This means you can win battles even though your board contains invalid words.
         - description: |-
-            Try playing "TO" against the opponent's "TF".
-            
-            Even though your board is mostly invalid, the only words involved in the battle are "TO" and "TF", so you'll win.
+            Try playing "TO" against your opponent's "FT".
           you: "T -> 5,3"
           gets: "E"
+
+        - message: |-
+            Even though your board is mostly invalid, the only words involved in the battle were "TO" and "FT", so you won and "FT" was removed from the board.
             
     - name: "Long words beat short words"
       board: |-
@@ -256,9 +257,12 @@ rules:
         - description: |-
             Long words beat short words in a battle. "ENORMOUS" is significantly longer than "PUNY" and would win in a battle.
 
-            Try playing an "E" to defeat the opponent's word.
+            Try playing an "E" to defeat your opponent's word.
           you: "E -> 8,3"
           gets: "F"
+
+        - message: |-
+            "ENORMOUS" was easily long enough to beat "PUNY", so "PUNY" was removed from the board.
 
     - name: "The defender has a length bonus"
       board: |-
@@ -269,7 +273,7 @@ rules:
         ~~ __ C1 __ __ __ __ I0 __ __ ~~
         ~~ __ A1 __ __ __ __ A0 ~~ __ ~~
         ~~ #1 P1 __ R0 O0 H0 S0 ~~ __ ~~
-        |1 A1 S1 __ ~~ ~~ __ ~~ ~~ ~~ ~~
+        |1 T1 S1 __ ~~ ~~ __ ~~ ~~ ~~ ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: TYUIGII
@@ -284,27 +288,25 @@ rules:
 
       steps:
         - message: |-
-            In Truncate, there is a defender's advantage of 2.
-
-            If the defending and attacking words are both valid, the attacking word must be 2 longer than the defending word to win.
+            In battles, defenders have a length advantage of 2. If the defending and attacking words are both valid, the attacking word must be 2 letters longer than the defending word to win.
         - description: |-
-            Let's demonstrate a failed attack by playing "SHORT" into "CAPS."
-
-            "SHORT" is longer, but only by one, and since it's the attacker, it will lose.
+            Let's demonstrate a failed attack by playing "SHORT" into "CAPS".
           you: "T -> 3,6"
           gets: "R"
         - description: |-
-            Notice that when an attack fails, the attacker is destroyed.
+            "SHORT" was longer, but only by one. Since it was the attacker, the attack failed.
 
-            Thankfully, we just picked up an "R" and will be able to play "LONGER" next turn.
-          computer: "H -> 3,7"
-          gets: "H"
+            When an attack fails, the attacker is destroyed.
+          computer: "2,6 -> 1,7"
+          gets: "_"
         - description: |-
-            The opponent played "ASH."
+            Your opponent used their turn to swap "CAPS" into "CATS".
 
-            Try playing "LONGER." Since it is 2 letters longer than "CAPS" it will win.
+            Let's now demonstrate a successful attack by playing "LONGER" into "CATS".
           you: "R -> 2,3"
           gets: "R"
+        - message: |-
+            Since "LONGER" is 2 letters longer than "CATS", it won the battle and "CATS" was removed from the board.
     
     - name: "The weakest defender is used"
       board: |-
@@ -336,38 +338,39 @@ rules:
         - message: |-
             Often multiple defenders will be involved in a battle.
 
-            In Truncate, the weakest defender determines the outcome of the battle.
-        - description: |-
+            In Truncate, the weakest defender determines the outcome of a battle.
+        - message: |-
             This means that even if you have a strong word, it can be undermined by a weaker one.
-
-            For example, we can play "TRAP" against "PAIR" which normally wouldn't win due to the defenders advantage, but since "PI" is also involved we will win.
+        - description: |-
+            For example, you can attack "PAIR" with "TRAP". Normally, you wouldn't win due to the defender's advantage.
+            
+            However, since you're also attacking "PI", the battle will be in your favour.
           you: "T -> 6,4"
           gets: "E"
         - message: |-
-            Notice that "PI" was beaten and removed, but since it is shorter than "TRAP" but "PAIR" remains.
-
-            Even though we won the battle, we don't destroy the words that are strong than our attacker.
+            "PI" was destroyed since it was shorter than "TRAP", but "PAIR" was not. Even though you won the battle, you only destroyed words that were weaker than your attack.
         - description: |-
-            However, since the "P" in "PAIR" was also in "PI", it was destroyed shortening "PAIR" to "AIR".
+            Since the "P" in "PAIR" was also in "PI", it was destroyed, shortening "PAIR" to "AIR".
 
-            Let's see what our oponent does.
+            Now your opponent will take their turn.
           computer: "R -> 1,7"
           gets: "O"
         - message: |-
-            Now we can attack our opponent's invalid word "QXA".
+            Now you can attack your opponent's invalid word "QXA".
 
-            We could play "RE" (the musical note) but we would be better off playing "ERA" and attacking "CALF" at the same time.
+            You could play "RE" (the musical note), or you could play "ERA" and attack "CALF" at the same time.
         - description: |-
-            Since the weakest defender determines the battle, we will win, and we will actually damage "CALF" at the same time.
+            Since the weakest defender determines the battle, you will win an attack against both "QXA" and "CALF".
 
             Try playing "ERA".
           you: "E -> 3,5"
           gets: "A"
           # TODO: consinder moving out to separate rule?
         - message: |-
-            Notice that the "C" in "CALF" was destroyed as well. This is for a different reason to why the opponent lost the "P" in "PAIR".
+            When an attack succeeds, all tiles touching the attack are removed, even if they were part of a surviving word.
 
-            The "C" was destroyed to keep the players' words disconnected.
+            As a result, the "C" in "CALF" was destroyed.
+
     
     - name: "All attackers must be valid"
       board: |-
@@ -396,10 +399,16 @@ rules:
         - description: |-
             When there are multiple attackers, all must be valid in order to win, otherwise all attackers are lost.
 
-            Try playing "ENOUGH" and "EEX" against "FOUR." You will lose both attackers despite "ENOUGH" being strong enough to beat "FOUR."
+            Let's demonstrate a failed attack by playing "ENOUGH" and "EEX" against "FOUR".
 
           you: "E -> 6,5"
           gets: "I"
+        - message: |-
+            "ENOUGH" was valid, but "EEX" was not.
+
+            You lost both attackers despite "ENOUGH" being strong enough to beat "FOUR".
+        - message: |-
+            Lets see a similar case, where the shorter attacker is valid.
 
     - name: "The longest attacker is used"
       board: |-
@@ -427,16 +436,14 @@ rules:
           noun: Any freshwater or marine fish of the order Anguilliformes, which are elongated and resemble snakes.
 
       steps:
-        - message: |-
-            When there are multiple attackers and all of them are valid, the longest attacker determines the outcome of the battle.
-            
-            Intuitively, this is because the attackers have the initiative, and can use their strongest words to target the weakest defenders.
         - description: |-
-            Try playing "ENOUGH" and "EEL" against "FOUR."
-            
-            You will win because "ENOUGH" is long enough to beat "FOUR" and "EEL" is irrelevant.
+            When there are multiple attackers and all of them are valid, the longest attacker determines the outcome of the battle.
+
+            Try playing "ENOUGH" and "EEL" against "FOUR".
           you: "E -> 6,5"
           gets: "I"
+        - message: |-
+            Since "ENOUGH" was long enough to beat "FOUR", and "EEL" was valid, the length of "EEL" didn't matter.
 
     - name: "Tiles disconnected from the dock are truncated"
       board: |-
@@ -463,12 +470,16 @@ rules:
 
       steps:
         - description: |-
-            When a battle is lost and some tiles become disconnected from the dock, they are removed ("truncated").
+            When a battle is lost and some tiles become disconnected from their dock, they are removed ("Truncate-d").
             
-            Try playing "RESTATE" against "NOT." "NOT" will be defeated and most of "STRONG" will be truncated.
+            Try playing "RESTATE" against "NOT".
           you: "R -> 4,7"
           gets: "I"
-    
+        - message: |-
+            "NOT" was defeated, because it was too short.
 
-
-
+            This leaves "STRO" disconnected from their dock, causing it to be truncated.
+        - end_message: |-
+            That's all of the rules!
+            
+            Now you're ready to tackle some puzzles, or play against a friend online.
