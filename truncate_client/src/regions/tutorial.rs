@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use eframe::egui::{self, Layout, Order};
-use epaint::{vec2, Color32, Rect, TextureHandle};
+use eframe::egui::{self, Align, Align2, CursorIcon, Layout, NumExt, Order, Sense};
+use epaint::{hex_color, vec2, Color32, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use serde::Deserialize;
 use truncate_core::{
@@ -15,7 +15,12 @@ use truncate_core::{
     rules::{GameRules, TileDistribution},
 };
 
-use crate::utils::{depot::AestheticDepot, text::TextHelper, Diaphanize, Lighten, Theme};
+use crate::utils::{
+    depot::AestheticDepot,
+    tex::{render_tex_quad, render_tex_quads, tiles, Tint},
+    text::TextHelper,
+    Diaphanize, Lighten, Theme,
+};
 
 use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
@@ -106,8 +111,15 @@ impl PartialEq<Move> for ScenarioStep {
     }
 }
 
+enum ChangeStage {
+    Next,
+    Previous,
+    None,
+}
+
 pub struct TutorialState {
     stage_index: usize,
+    change_stage_next_frame: ChangeStage,
     stage: Option<TutorialStage>,
     stage_changed_at: Duration,
     tutorial: Tutorial,
@@ -210,10 +222,20 @@ impl TutorialState {
 
         Self {
             stage_index: 0,
+            change_stage_next_frame: ChangeStage::None,
             stage: stage_zero,
             stage_changed_at: Duration::from_secs(0),
             tutorial,
         }
+    }
+
+    fn get_nth_scenario(tutorial: &Tutorial, index: usize) -> Option<(&String, &Scenario)> {
+        tutorial
+            .rules
+            .iter()
+            .map(|r| r.scenarios.iter().map(|s| (&r.category, s)))
+            .flatten()
+            .nth(index)
     }
 
     fn get_stage(
@@ -223,12 +245,7 @@ impl TutorialState {
         map_texture: TextureHandle,
         theme: &Theme,
     ) -> Option<TutorialStage> {
-        let scenario = tutorial
-            .rules
-            .iter()
-            .map(|r| r.scenarios.iter().map(|s| (&r.category, s)))
-            .flatten()
-            .nth(index);
+        let scenario = TutorialState::get_nth_scenario(tutorial, index);
 
         scenario.map(|(category, scenario)| {
             let mut game = Game {
@@ -305,8 +322,22 @@ impl TutorialState {
         })
     }
 
+    fn can_increment_stage(&self) -> bool {
+        TutorialState::get_nth_scenario(&self.tutorial, self.stage_index + 1).is_some()
+    }
+
     fn increment_stage(&mut self, ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) {
         self.stage_index += 1;
+        self.stage =
+            TutorialState::get_stage(self.stage_index, &self.tutorial, ctx, map_texture, theme);
+    }
+
+    fn can_decrement_stage(&self) -> bool {
+        self.stage_index != 0
+    }
+
+    fn decrement_stage(&mut self, ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) {
+        self.stage_index = self.stage_index.saturating_sub(1);
         self.stage =
             TutorialState::get_stage(self.stage_index, &self.tutorial, ctx, map_texture, theme);
     }
@@ -322,6 +353,20 @@ impl TutorialState {
             self.stage_changed_at = current_time;
         }
 
+        match self.change_stage_next_frame {
+            ChangeStage::Next => {
+                self.increment_stage(ui.ctx(), map_texture.clone(), theme);
+                self.change_stage_next_frame = ChangeStage::None;
+                self.stage_changed_at = current_time;
+            }
+            ChangeStage::Previous => {
+                self.decrement_stage(ui.ctx(), map_texture.clone(), theme);
+                self.change_stage_next_frame = ChangeStage::None;
+                self.stage_changed_at = current_time;
+            }
+            ChangeStage::None => {}
+        }
+
         while self
             .stage
             .as_ref()
@@ -330,6 +375,9 @@ impl TutorialState {
             self.increment_stage(ui.ctx(), map_texture.clone(), theme);
         }
 
+        let can_decrement_stage = self.can_decrement_stage();
+        let can_increment_stage = self.can_increment_stage();
+
         let Some(current_stage) = self.stage.as_mut() else {
             ui.label("Tutorial is over!!!!!!!!!!!!!!!!!!!!!!!!");
             return;
@@ -337,6 +385,111 @@ impl TutorialState {
 
         current_stage.highlight_interactions();
         let current_step = current_stage.get_step().cloned();
+
+        let area = egui::Area::new(egui::Id::new("tutorial_stage_heading"))
+            .movable(false)
+            .order(Order::Foreground)
+            .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
+
+        let heading_height = 60.0;
+        let item_spacing = 10.0;
+        let button_size = 48.0;
+
+        let button_offset = (heading_height - button_size) / 2.0;
+        let header_content_width = ui.available_width().at_most(700.0);
+        let header_text_width = header_content_width - button_size * 2.0 - item_spacing * 4.0;
+
+        let header_x_padding = (ui.available_width() - header_content_width) / 2.0;
+
+        area.show(ui.ctx(), |ui| {
+            let header_rect = Rect::from_min_size(
+                ui.next_widget_position(),
+                vec2(ui.available_width(), heading_height),
+            );
+
+            ui.painter()
+                .clone()
+                .rect_filled(header_rect, 0.0, theme.water.gamma_multiply(0.9));
+
+            ui.allocate_ui_with_layout(
+                vec2(ui.available_width(), heading_height),
+                Layout::left_to_right(Align::TOP),
+                |ui| {
+                    ui.expand_to_include_rect(header_rect);
+                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+
+                    ui.add_space(header_x_padding);
+
+                    ui.add_space(item_spacing);
+
+                    if can_decrement_stage {
+                        let (prev_stage_rect, _) = ui
+                            .allocate_exact_size(vec2(button_size, heading_height), Sense::hover());
+                        let mut prev_stage_rect = prev_stage_rect.shrink2(vec2(0.0, button_offset));
+                        let prev_stage_resp = ui.allocate_rect(prev_stage_rect, Sense::click());
+                        if prev_stage_resp.hovered() {
+                            prev_stage_rect = prev_stage_rect.translate(vec2(0.0, -2.0));
+                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        }
+
+                        render_tex_quad(
+                            tiles::quad::INFO_BUTTON,
+                            prev_stage_rect,
+                            &map_texture,
+                            ui,
+                        );
+
+                        if prev_stage_resp.clicked() {
+                            self.change_stage_next_frame = ChangeStage::Previous;
+                        }
+                    } else {
+                        ui.add_space(button_size);
+                    }
+
+                    ui.add_space(item_spacing);
+
+                    let (title_rect, _) = ui.allocate_exact_size(
+                        vec2(header_text_width, heading_height),
+                        Sense::hover(),
+                    );
+
+                    let mut fz = 14.0;
+                    let mut title_text =
+                        TextHelper::heavy(&current_stage.scenario.name, fz, None, ui);
+                    while title_text.mesh_size().x > title_rect.width() {
+                        fz -= 1.0;
+                        title_text = TextHelper::heavy(&current_stage.scenario.name, fz, None, ui);
+                    }
+                    title_text.paint_within(title_rect, Align2::CENTER_CENTER, theme.text, ui);
+
+                    if can_increment_stage {
+                        ui.add_space(item_spacing);
+
+                        let (next_stage_rect, _) = ui
+                            .allocate_exact_size(vec2(button_size, heading_height), Sense::hover());
+                        let mut next_stage_rect = next_stage_rect.shrink2(vec2(0.0, button_offset));
+                        let next_stage_resp = ui.allocate_rect(next_stage_rect, Sense::click());
+                        if next_stage_resp.hovered() {
+                            next_stage_rect = next_stage_rect.translate(vec2(0.0, -2.0));
+                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        }
+
+                        render_tex_quad(
+                            tiles::quad::INFO_BUTTON,
+                            next_stage_rect,
+                            &map_texture,
+                            ui,
+                        );
+
+                        if next_stage_resp.clicked() {
+                            self.change_stage_next_frame = ChangeStage::Next;
+                        }
+                    }
+                },
+            );
+        });
+
+        ui.add_space(heading_height);
 
         let mut next_move = None;
 

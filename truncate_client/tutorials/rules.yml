@@ -1,7 +1,8 @@
 rules:
   - category: Basics
     scenarios:
-    - name: "Place tiles by your dock or your own tiles" # Implicitly covers that players take turns and you play as blue
+    - name: "Placing tiles"
+      description: "Place tiles by your dock or your own tiles"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
         ~~ ~~ ~~ __ __ __ #0 __ ~~
@@ -56,7 +57,8 @@ rules:
         - message: |-
             Next, we'll look at how you win the game.
 
-    - name: "To win, touch an opponent's town with a valid word"
+    - name: "Win condition"
+      description: "To win, touch an opponent's town with a valid word"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
         ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~
@@ -88,7 +90,8 @@ rules:
         - message: |-
             Since 'GROWING' is a valid word touching your opponent's town, you win the game.
 
-    - name: "Tiles don't always have to form valid words"
+    - name: "Word validity"
+      description: "Tiles don't always have to form valid words"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
         ~~ #1 __ __ ~~ ~~ ~~ ~~ ~~
@@ -116,7 +119,8 @@ rules:
         - message: |-
             'YOUR' wins the game, despite your board containing invalid words.
 
-    - name: "Your words are read left to right and top to bottom, and your opponent's words are the opposite"
+    - name: "Word orientation"
+      description: "Your words are read left to right and top to bottom, and your opponent's words are the opposite"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
         ~~ ~~ ~~ ~~ __ S0 __ __ ~~ ~~
@@ -141,7 +145,8 @@ rules:
         - message: |-
             To make sense of this, imagine that you are playing Truncate as a board game, and your opponent is sitting on the opposite side of the table.
 
-    - name: "You can swap two tiles on the board"
+    - name: "Swapping"
+      description: "You can swap two tiles on the board"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
         |1 __ __ __ __ __ __ __ ~~ ~~
@@ -171,7 +176,8 @@ rules:
 
   - category: Battles
     scenarios:
-    - name: "Valid words beat invalid words"
+    - name: "Valid beats invalid"
+      description: "Valid words beat invalid words"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~
         ~~ __ __ __ __ __ __ I0 ~~ ~~
@@ -206,7 +212,8 @@ rules:
         - message: |-
             Since "POPS" is valid, and "NIVALDI" was invalid, "NIVALDI" was removed from the board.
 
-    - name: "Battles only involve touching words"
+    - name: "Combatants"
+      description: "Battles only involve touching words"
       board: |-
         ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
         ~~ ~~ X0 Q0 Z0 __ __ __ ~~ ~~
@@ -235,7 +242,8 @@ rules:
         - message: |-
             Even though your board is mostly invalid, the only words involved in the battle were "TO" and "FT", so you won and "FT" was removed from the board.
             
-    - name: "Long words beat short words"
+    - name: "Long beats short"
+      description: "Long words beat short words"
       board: |-
         ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
         ~~ #0 __ T0 __ __ ~~ ~~ ~~ ~~
@@ -264,7 +272,8 @@ rules:
         - message: |-
             "ENORMOUS" was easily long enough to beat "PUNY", so "PUNY" was removed from the board.
 
-    - name: "The defender has a length bonus"
+    - name: "Defender's advantage"
+      description: "The defender has a length bonus"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
         ~~ __ ~~ ~~ #0 __ E0 __ ~~ ~~ ~~
@@ -308,7 +317,8 @@ rules:
         - message: |-
             Since "LONGER" is 2 letters longer than "CATS", it won the battle and "CATS" was removed from the board.
     
-    - name: "The weakest defender is used"
+    - name: "Weakest link"
+      description: "The weakest defender is used"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
         ~~ __ #0 ~~ ~~ __ P0 __ ~~ ~~ ~~
@@ -372,7 +382,8 @@ rules:
             As a result, the "C" in "CALF" was destroyed.
 
     
-    - name: "All attackers must be valid"
+    - name: "Failed attacks"
+      description: "All attackers must be valid"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
         ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
@@ -410,7 +421,8 @@ rules:
         - message: |-
             Lets see a similar case, where the shorter attacker is valid.
 
-    - name: "The longest attacker is used"
+    - name: "Strongest attacker"
+      description: "The longest attacker is used"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
         ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
@@ -445,7 +457,8 @@ rules:
         - message: |-
             Since "ENOUGH" was long enough to beat "FOUR", and "EEL" was valid, the length of "EEL" didn't matter.
 
-    - name: "Tiles disconnected from the dock are truncated"
+    - name: "Truncation"
+      description: "Tiles disconnected from the dock are truncated"
       board: |-
         ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
         ~~ ~~ ~~ __ E0 #0 __ __ ~~ ~~ ~~
