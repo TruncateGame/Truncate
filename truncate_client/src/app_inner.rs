@@ -373,7 +373,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                 ui.ctx(),
                 outer.map_texture.clone(),
-                outer.theme.clone(),
+                &outer.theme,
             )));
         } else if launched_room == "SINGLE_PLAYER" {
             let mut board = Board::new(9, 9);
@@ -557,7 +557,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                     ui.ctx(),
                     outer.map_texture.clone(),
-                    outer.theme.clone(),
+                    &outer.theme,
                 )));
             }
             if ui.button("Single Player").clicked() {
@@ -628,7 +628,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             generator.render(ui, &outer.theme, current_time);
         }
         GameStatus::Tutorial(tutorial) => {
-            tutorial.render(ui, &outer.theme, current_time);
+            tutorial.render(ui, outer.map_texture.clone(), &outer.theme, current_time);
         }
         GameStatus::PendingSinglePlayer(editor_state) => {
             if let Some(msg) = editor_state.render(ui, &outer.theme) {

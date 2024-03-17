@@ -1,4 +1,4 @@
-name: "Tutorial 01: Basics"
+name: "Full Example Game"
 board: |-
   ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
   ~~ #0 #0 #0 __ #0 #0 #0 ~~

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use eframe::egui::{self, Layout, Order};
-use epaint::{vec2, Color32, TextureHandle};
+use eframe::egui::{self, Align, Align2, CursorIcon, Layout, NumExt, Order, Sense};
+use epaint::{hex_color, vec2, Color32, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use serde::Deserialize;
 use truncate_core::{
@@ -15,24 +15,41 @@ use truncate_core::{
     rules::{GameRules, TileDistribution},
 };
 
-use crate::utils::{text::TextHelper, Diaphanize, Lighten, Theme};
+use crate::utils::{
+    depot::AestheticDepot,
+    tex::{render_tex_quad, render_tex_quads, tiles, Tint},
+    text::TextHelper,
+    Diaphanize, Lighten, Theme,
+};
 
 use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
-const TUTORIAL_01: &[u8] = include_bytes!("../../tutorials/tutorial_01.yml");
+const RULES: &[u8] = include_bytes!("../../tutorials/rules.yml");
 
 #[derive(Deserialize, Debug)]
 struct Tutorial {
+    rules: Vec<Category>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct Category {
+    category: String,
+    scenarios: Vec<Scenario>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct Scenario {
+    name: String,
     board: String,
     player_hand: String,
     computer_hand: String,
     dict: HashMap<String, String>,
-    steps: Vec<TutorialStep>,
+    steps: Vec<ScenarioStep>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
-enum TutorialStep {
+enum ScenarioStep {
     OwnMove {
         you: String,
         gets: char,
@@ -81,126 +98,48 @@ fn action_to_move(player: usize, action: &str) -> Move {
     }
 }
 
-impl PartialEq<Move> for TutorialStep {
+impl PartialEq<Move> for ScenarioStep {
     fn eq(&self, msg: &Move) -> bool {
         match self {
-            TutorialStep::OwnMove { you, .. } => {
+            ScenarioStep::OwnMove { you, .. } => {
                 return &action_to_move(0, you) == msg;
             }
-            TutorialStep::ComputerMove { .. } => false,
-            TutorialStep::Dialog { .. } => false,
-            TutorialStep::EndAction { .. } => false,
+            ScenarioStep::ComputerMove { .. } => false,
+            ScenarioStep::Dialog { .. } => false,
+            ScenarioStep::EndAction { .. } => false,
         }
     }
 }
 
+enum ChangeStage {
+    Next,
+    Previous,
+    None,
+}
+
 pub struct TutorialState {
-    game: Game,
-    pub active_game: ActiveGame,
-    stage: usize,
+    stage_index: usize,
+    change_stage_next_frame: ChangeStage,
+    stage: Option<TutorialStage>,
     stage_changed_at: Duration,
     tutorial: Tutorial,
 }
 
-impl TutorialState {
-    pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: Theme) -> Self {
-        let loaded_tutorial: Tutorial =
-            serde_yaml::from_slice(TUTORIAL_01).expect("Tutorial should match Tutorial format");
+struct TutorialStage {
+    category: String,
+    scenario: Scenario,
+    game: Game,
+    pub active_game: ActiveGame,
+    step: usize,
+}
 
-        let game = Game {
-            rules: GameRules::default(),
-            players: vec![
-                Player {
-                    name: "You".into(),
-                    index: 0,
-                    hand: Hand(loaded_tutorial.player_hand.chars().collect()),
-                    hand_capacity: loaded_tutorial.player_hand.len(),
-                    allotted_time: None,
-                    time_remaining: None,
-                    turn_starts_no_later_than: Some(
-                        instant::SystemTime::now()
-                            .duration_since(instant::SystemTime::UNIX_EPOCH)
-                            .expect("Please don't play Truncate earlier than 1970")
-                            .as_secs(),
-                    ),
-                    swap_count: 0,
-                    penalties_incurred: 0,
-                    color: GAME_COLOR_BLUE,
-                },
-                Player {
-                    name: "Computer".into(),
-                    index: 1,
-                    hand: Hand(loaded_tutorial.computer_hand.chars().collect()),
-                    hand_capacity: loaded_tutorial.computer_hand.len(),
-                    allotted_time: None,
-                    time_remaining: None,
-                    turn_starts_no_later_than: None,
-                    swap_count: 0,
-                    penalties_incurred: 0,
-                    color: GAME_COLOR_RED,
-                },
-            ],
-            board: Board::from_string(loaded_tutorial.board.clone()),
-            // TODO: Use some special infinite bag?
-            bag: TileBag::new(&TileDistribution::Standard, None),
-            judge: Judge::new(loaded_tutorial.dict.keys().cloned().collect()),
-            battle_count: 0,
-            turn_count: 0,
-            player_turn_count: vec![0, 0],
-            recent_changes: vec![],
-            started_at: None,
-            next_player: 0,
-            winner: None,
-        };
-
-        let mut active_game = ActiveGame::new(
-            ctx,
-            "TUTORIAL_01".into(),
-            None,
-            None,
-            game.players.iter().map(Into::into).collect(),
-            0,
-            0,
-            game.board.clone(),
-            game.players[0].hand.clone(),
-            map_texture,
-            theme,
-            GameLocation::Local,
-        );
-        active_game.depot.ui_state.game_header = HeaderType::None;
-
-        Self {
-            game,
-            active_game,
-            stage: 0,
-            stage_changed_at: Duration::from_secs(0),
-            tutorial: loaded_tutorial,
-        }
+impl TutorialStage {
+    fn get_step(&self) -> Option<&ScenarioStep> {
+        self.scenario.steps.get(self.step)
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
-        if self.stage_changed_at.is_zero() {
-            self.stage_changed_at = current_time;
-        }
-
-        let current_step = self.tutorial.steps.get(self.stage);
-        let mut next_move = None;
-
-        // Start the game after any leading dialogs
-        if self.game.started_at.is_none()
-            && matches!(
-                current_step,
-                Some(TutorialStep::OwnMove {
-                    you: _,
-                    gets: _,
-                    description: _
-                })
-            )
-        {
-            self.game.start();
-        }
-
-        if let Some(TutorialStep::OwnMove { you, .. }) = current_step {
+    fn highlight_interactions(&mut self) {
+        if let Some(ScenarioStep::OwnMove { you, .. }) = self.get_step() {
             let m = action_to_move(0, you);
             match m {
                 Move::Place { tile, position, .. } => {
@@ -216,9 +155,346 @@ impl TutorialState {
             self.active_game.depot.interactions.highlight_tiles = None;
             self.active_game.depot.interactions.highlight_squares = None;
         }
+    }
+
+    fn render_game(&mut self, ui: &mut egui::Ui, current_time: Duration) -> Option<PlayerMessage> {
+        self.active_game.render(ui, current_time, None)
+    }
+
+    fn get_dialog_position(&self) -> Option<Rect> {
+        self.active_game.depot.regions.hand_companion_rect
+    }
+
+    fn increment_step(&mut self) {
+        self.step += 1;
+    }
+
+    fn handle_move(&mut self, next_move: Move) -> Result<(), ()> {
+        if let Some(next_tile) = match self.get_step() {
+            Some(ScenarioStep::OwnMove { gets, .. }) => Some(gets),
+            Some(ScenarioStep::ComputerMove { gets, .. }) => Some(gets),
+            _ => None,
+        } {
+            self.game.bag = TileBag::explicit(vec![*next_tile], None);
+        }
+
+        match self.game.make_move(next_move, None, None, None) {
+            Ok(changes) => {
+                let changes = changes
+                    .into_iter()
+                    .filter(|change| match change {
+                        truncate_core::reporting::Change::Board(_) => true,
+                        truncate_core::reporting::Change::Hand(hand_change) => {
+                            hand_change.player == 0
+                        }
+                        truncate_core::reporting::Change::Battle(_) => true,
+                        truncate_core::reporting::Change::Time(_) => true,
+                    })
+                    .collect();
+                let room_code = self.active_game.depot.gameplay.room_code.clone();
+                let state_message = GameStateMessage {
+                    room_code,
+                    players: self.game.players.iter().map(Into::into).collect(),
+                    player_number: 0,
+                    next_player_number: self.game.next_player as u64,
+                    board: self.game.board.clone(),
+                    hand: self.game.players[0].hand.clone(),
+                    changes,
+                };
+                self.active_game.apply_new_state(state_message);
+                self.increment_step();
+                Ok(())
+            }
+            Err(msg) => {
+                // TODO: Handle errored moves in tutorial gameplay
+                Err(())
+            }
+        }
+    }
+}
+
+impl TutorialState {
+    pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
+        let tutorial: Tutorial =
+            serde_yaml::from_slice(RULES).expect("Tutorial should match Tutorial format");
+
+        let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
+
+        Self {
+            stage_index: 0,
+            change_stage_next_frame: ChangeStage::None,
+            stage: stage_zero,
+            stage_changed_at: Duration::from_secs(0),
+            tutorial,
+        }
+    }
+
+    fn get_nth_scenario(tutorial: &Tutorial, index: usize) -> Option<(&String, &Scenario)> {
+        tutorial
+            .rules
+            .iter()
+            .map(|r| r.scenarios.iter().map(|s| (&r.category, s)))
+            .flatten()
+            .nth(index)
+    }
+
+    fn get_stage(
+        index: usize,
+        tutorial: &Tutorial,
+        ctx: &egui::Context,
+        map_texture: TextureHandle,
+        theme: &Theme,
+    ) -> Option<TutorialStage> {
+        let scenario = TutorialState::get_nth_scenario(tutorial, index);
+
+        scenario.map(|(category, scenario)| {
+            let mut game = Game {
+                rules: GameRules::default(),
+                players: vec![
+                    Player {
+                        name: "You".into(),
+                        index: 0,
+                        hand: Hand(scenario.player_hand.chars().collect()),
+                        hand_capacity: scenario.player_hand.len(),
+                        allotted_time: None,
+                        time_remaining: None,
+                        turn_starts_no_later_than: Some(
+                            instant::SystemTime::now()
+                                .duration_since(instant::SystemTime::UNIX_EPOCH)
+                                .expect("Please don't play Truncate earlier than 1970")
+                                .as_secs(),
+                        ),
+                        swap_count: 0,
+                        penalties_incurred: 0,
+                        color: GAME_COLOR_BLUE,
+                    },
+                    Player {
+                        name: "Computer".into(),
+                        index: 1,
+                        hand: Hand(scenario.computer_hand.chars().collect()),
+                        hand_capacity: scenario.computer_hand.len(),
+                        allotted_time: None,
+                        time_remaining: None,
+                        turn_starts_no_later_than: None,
+                        swap_count: 0,
+                        penalties_incurred: 0,
+                        color: GAME_COLOR_RED,
+                    },
+                ],
+                board: Board::from_string(scenario.board.clone()),
+                // TODO: Use some special infinite bag?
+                bag: TileBag::new(&TileDistribution::Standard, None),
+                judge: Judge::new(scenario.dict.keys().cloned().collect()),
+                battle_count: 0,
+                turn_count: 0,
+                player_turn_count: vec![0, 0],
+                recent_changes: vec![],
+                started_at: None,
+                next_player: 0,
+                winner: None,
+            };
+
+            let mut active_game = ActiveGame::new(
+                ctx,
+                "TUTORIAL_01".into(),
+                None,
+                None,
+                game.players.iter().map(Into::into).collect(),
+                0,
+                0,
+                game.board.clone(),
+                game.players[0].hand.clone(),
+                map_texture,
+                theme.clone(),
+                GameLocation::Local,
+            );
+            active_game.depot.ui_state.game_header = HeaderType::None;
+
+            game.start();
+
+            TutorialStage {
+                category: category.clone(),
+                scenario: scenario.clone(),
+                game,
+                active_game,
+                step: 0,
+            }
+        })
+    }
+
+    fn can_increment_stage(&self) -> bool {
+        TutorialState::get_nth_scenario(&self.tutorial, self.stage_index + 1).is_some()
+    }
+
+    fn increment_stage(&mut self, ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) {
+        self.stage_index += 1;
+        self.stage =
+            TutorialState::get_stage(self.stage_index, &self.tutorial, ctx, map_texture, theme);
+    }
+
+    fn can_decrement_stage(&self) -> bool {
+        self.stage_index != 0
+    }
+
+    fn decrement_stage(&mut self, ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) {
+        self.stage_index = self.stage_index.saturating_sub(1);
+        self.stage =
+            TutorialState::get_stage(self.stage_index, &self.tutorial, ctx, map_texture, theme);
+    }
+
+    pub fn render(
+        &mut self,
+        ui: &mut egui::Ui,
+        map_texture: TextureHandle,
+        theme: &Theme,
+        current_time: Duration,
+    ) {
+        if self.stage_changed_at.is_zero() {
+            self.stage_changed_at = current_time;
+        }
+
+        match self.change_stage_next_frame {
+            ChangeStage::Next => {
+                self.increment_stage(ui.ctx(), map_texture.clone(), theme);
+                self.change_stage_next_frame = ChangeStage::None;
+                self.stage_changed_at = current_time;
+            }
+            ChangeStage::Previous => {
+                self.decrement_stage(ui.ctx(), map_texture.clone(), theme);
+                self.change_stage_next_frame = ChangeStage::None;
+                self.stage_changed_at = current_time;
+            }
+            ChangeStage::None => {}
+        }
+
+        while self
+            .stage
+            .as_ref()
+            .is_some_and(|stage| stage.get_step().is_none())
+        {
+            self.increment_stage(ui.ctx(), map_texture.clone(), theme);
+        }
+
+        let can_decrement_stage = self.can_decrement_stage();
+        let can_increment_stage = self.can_increment_stage();
+
+        let Some(current_stage) = self.stage.as_mut() else {
+            ui.label("Tutorial is over!!!!!!!!!!!!!!!!!!!!!!!!");
+            return;
+        };
+
+        current_stage.highlight_interactions();
+        let current_step = current_stage.get_step().cloned();
+
+        let area = egui::Area::new(egui::Id::new("tutorial_stage_heading"))
+            .movable(false)
+            .order(Order::Foreground)
+            .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
+
+        let heading_height = 60.0;
+        let item_spacing = 10.0;
+        let button_size = 48.0;
+
+        let button_offset = (heading_height - button_size) / 2.0;
+        let header_content_width = ui.available_width().at_most(450.0);
+        let header_text_width = header_content_width - button_size * 2.0 - item_spacing * 4.0;
+
+        let header_x_padding = (ui.available_width() - header_content_width) / 2.0;
+
+        area.show(ui.ctx(), |ui| {
+            let header_rect = Rect::from_min_size(
+                ui.next_widget_position(),
+                vec2(ui.available_width(), heading_height),
+            );
+
+            ui.painter()
+                .clone()
+                .rect_filled(header_rect, 0.0, theme.water.gamma_multiply(0.9));
+
+            ui.allocate_ui_with_layout(
+                vec2(ui.available_width(), heading_height),
+                Layout::left_to_right(Align::TOP),
+                |ui| {
+                    ui.expand_to_include_rect(header_rect);
+                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+
+                    ui.add_space(header_x_padding);
+
+                    ui.add_space(item_spacing);
+
+                    if can_decrement_stage {
+                        let (prev_stage_rect, _) = ui
+                            .allocate_exact_size(vec2(button_size, heading_height), Sense::hover());
+                        let mut prev_stage_rect = prev_stage_rect.shrink2(vec2(0.0, button_offset));
+                        let prev_stage_resp = ui.allocate_rect(prev_stage_rect, Sense::click());
+                        if prev_stage_resp.hovered() {
+                            prev_stage_rect = prev_stage_rect.translate(vec2(0.0, -2.0));
+                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        }
+
+                        render_tex_quad(
+                            tiles::quad::SKIP_PREV_BUTTON,
+                            prev_stage_rect,
+                            &map_texture,
+                            ui,
+                        );
+
+                        if prev_stage_resp.clicked() {
+                            self.change_stage_next_frame = ChangeStage::Previous;
+                        }
+                    } else {
+                        ui.add_space(button_size);
+                    }
+
+                    ui.add_space(item_spacing);
+
+                    let (title_rect, _) = ui.allocate_exact_size(
+                        vec2(header_text_width, heading_height),
+                        Sense::hover(),
+                    );
+
+                    let mut fz = 14.0;
+                    let mut title_text =
+                        TextHelper::heavy(&current_stage.scenario.name, fz, None, ui);
+                    while title_text.mesh_size().x > title_rect.width() {
+                        fz -= 1.0;
+                        title_text = TextHelper::heavy(&current_stage.scenario.name, fz, None, ui);
+                    }
+                    title_text.paint_within(title_rect, Align2::CENTER_CENTER, theme.text, ui);
+
+                    if can_increment_stage {
+                        ui.add_space(item_spacing);
+
+                        let (next_stage_rect, _) = ui
+                            .allocate_exact_size(vec2(button_size, heading_height), Sense::hover());
+                        let mut next_stage_rect = next_stage_rect.shrink2(vec2(0.0, button_offset));
+                        let next_stage_resp = ui.allocate_rect(next_stage_rect, Sense::click());
+                        if next_stage_resp.hovered() {
+                            next_stage_rect = next_stage_rect.translate(vec2(0.0, -2.0));
+                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        }
+
+                        render_tex_quad(
+                            tiles::quad::SKIP_NEXT_BUTTON,
+                            next_stage_rect,
+                            &map_texture,
+                            ui,
+                        );
+
+                        if next_stage_resp.clicked() {
+                            self.change_stage_next_frame = ChangeStage::Next;
+                        }
+                    }
+                },
+            );
+        });
+
+        ui.add_space(heading_height);
+
+        let mut next_move = None;
 
         // Standard game helper
-        if let Some(msg) = self.active_game.render(ui, current_time, None) {
+        if let Some(msg) = current_stage.render_game(ui, current_time) {
             let Some(game_move) = (match msg {
                 PlayerMessage::Place(position, tile) => Some(Move::Place {
                     player: 0,
@@ -234,7 +510,9 @@ impl TutorialState {
                 return;
             };
 
-            let Some(step) = current_step else { return };
+            let Some(step) = current_step.as_ref() else {
+                return;
+            };
 
             if step == &game_move {
                 next_move = Some(game_move);
@@ -243,7 +521,7 @@ impl TutorialState {
             }
         }
 
-        if let Some(dialog_pos) = self.active_game.depot.regions.hand_companion_rect {
+        if let Some(dialog_pos) = current_stage.get_dialog_position() {
             let max_width = f32::min(700.0, dialog_pos.width());
             let dialog_padding_x = (dialog_pos.width() - max_width) / 2.0;
 
@@ -255,16 +533,8 @@ impl TutorialState {
                 .fixed_pos(dialog_pos.left_top());
 
             area.show(ui.ctx(), |ui| {
-                ui.painter().rect_filled(
-                    dialog_pos,
-                    4.0,
-                    self.active_game
-                        .depot
-                        .aesthetics
-                        .theme
-                        .water
-                        .gamma_multiply(0.75),
-                );
+                ui.painter()
+                    .rect_filled(dialog_pos, 4.0, theme.water.gamma_multiply(0.75));
                 ui.expand_to_include_rect(dialog_pos);
                 ui.allocate_ui_at_rect(inner_dialog, |ui| {
                     ui.expand_to_include_rect(inner_dialog);
@@ -281,7 +551,7 @@ impl TutorialState {
 
                     match current_step {
                         Some(step) => match step {
-                            TutorialStep::OwnMove { description, .. } => {
+                            ScenarioStep::OwnMove { description, .. } => {
                                 let dialog_text = TextHelper::light(
                                     &description,
                                     tut_fz,
@@ -301,11 +571,11 @@ impl TutorialState {
                                     Color32::WHITE.diaphanize(),
                                     Color32::BLACK,
                                     0.0,
-                                    &self.active_game.depot.aesthetics.map_texture,
+                                    &map_texture,
                                     ui,
                                 );
                             }
-                            TutorialStep::ComputerMove {
+                            ScenarioStep::ComputerMove {
                                 computer: action,
                                 description,
                                 ..
@@ -330,7 +600,7 @@ impl TutorialState {
                                     Color32::WHITE.diaphanize(),
                                     Color32::BLACK,
                                     button_spacing,
-                                    &self.active_game.depot.aesthetics.map_texture,
+                                    &map_texture,
                                     ui,
                                 );
 
@@ -349,23 +619,19 @@ impl TutorialState {
                                                     .button(
                                                         theme.water.lighten(),
                                                         theme.text,
-                                                        &self
-                                                            .active_game
-                                                            .depot
-                                                            .aesthetics
-                                                            .map_texture,
+                                                        &map_texture,
                                                         ui,
                                                     )
                                                     .clicked()
                                                 {
-                                                    next_move = Some(action_to_move(1, action));
+                                                    next_move = Some(action_to_move(1, &action));
                                                 }
                                             },
                                         );
                                     });
                                 }
                             }
-                            TutorialStep::Dialog { message } => {
+                            ScenarioStep::Dialog { message } => {
                                 let dialog_text = TextHelper::light(
                                     &message,
                                     tut_fz,
@@ -386,7 +652,7 @@ impl TutorialState {
                                     Color32::WHITE.diaphanize(),
                                     Color32::BLACK,
                                     button_spacing,
-                                    &self.active_game.depot.aesthetics.map_texture,
+                                    &map_texture,
                                     ui,
                                 );
 
@@ -405,16 +671,12 @@ impl TutorialState {
                                                     .button(
                                                         theme.water.lighten(),
                                                         theme.text,
-                                                        &self
-                                                            .active_game
-                                                            .depot
-                                                            .aesthetics
-                                                            .map_texture,
+                                                        &map_texture,
                                                         ui,
                                                     )
                                                     .clicked()
                                                 {
-                                                    self.stage += 1;
+                                                    current_stage.increment_step();
                                                     self.stage_changed_at = current_time;
                                                 }
                                             },
@@ -422,7 +684,7 @@ impl TutorialState {
                                     });
                                 }
                             }
-                            TutorialStep::EndAction { end_message } => {
+                            ScenarioStep::EndAction { end_message } => {
                                 let dialog_text = TextHelper::light(
                                     &end_message,
                                     tut_fz,
@@ -443,7 +705,7 @@ impl TutorialState {
                                     Color32::WHITE.diaphanize(),
                                     Color32::BLACK,
                                     button_spacing,
-                                    &self.active_game.depot.aesthetics.map_texture,
+                                    &map_texture,
                                     ui,
                                 );
 
@@ -462,11 +724,7 @@ impl TutorialState {
                                                     .button(
                                                         theme.water.lighten(),
                                                         theme.text,
-                                                        &self
-                                                            .active_game
-                                                            .depot
-                                                            .aesthetics
-                                                            .map_texture,
+                                                        &map_texture,
                                                         ui,
                                                     )
                                                     .clicked()
@@ -497,45 +755,9 @@ impl TutorialState {
             });
         }
 
-        if let Some(game_move) = next_move {
-            if let Some(next_tile) = match current_step {
-                Some(TutorialStep::OwnMove { gets, .. }) => Some(gets),
-                Some(TutorialStep::ComputerMove { gets, .. }) => Some(gets),
-                _ => None,
-            } {
-                self.game.bag = TileBag::explicit(vec![*next_tile], None);
-            }
-
-            match self.game.make_move(game_move, None, None, None) {
-                Ok(changes) => {
-                    let changes = changes
-                        .into_iter()
-                        .filter(|change| match change {
-                            truncate_core::reporting::Change::Board(_) => true,
-                            truncate_core::reporting::Change::Hand(hand_change) => {
-                                hand_change.player == 0
-                            }
-                            truncate_core::reporting::Change::Battle(_) => true,
-                            truncate_core::reporting::Change::Time(_) => true,
-                        })
-                        .collect();
-                    let room_code = self.active_game.depot.gameplay.room_code.clone();
-                    let state_message = GameStateMessage {
-                        room_code,
-                        players: self.game.players.iter().map(Into::into).collect(),
-                        player_number: 0,
-                        next_player_number: self.game.next_player as u64,
-                        board: self.game.board.clone(),
-                        hand: self.game.players[0].hand.clone(),
-                        changes,
-                    };
-                    self.active_game.apply_new_state(state_message);
-                    self.stage += 1;
-                    self.stage_changed_at = current_time;
-                }
-                Err(msg) => {
-                    // TODO: Handle errored moves in tutorial gameplay
-                }
+        if let Some(next_move) = next_move {
+            if current_stage.handle_move(next_move).is_ok() {
+                self.stage_changed_at = current_time;
             }
         }
     }
