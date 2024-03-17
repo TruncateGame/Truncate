@@ -434,16 +434,22 @@ impl<'a> BoardUI<'a> {
 
         let mut board_pos = board_frame.response.rect.clone();
 
-        if let Some(hover_pos) = board_frame.response.hover_pos() {
-            // Move the drag focus to our board layer if it looks like a drag is starting.
-            // NB: This is sensitive to the board being painted _last_ on our screen,
-            // such that anything else that should be getting the drag this frame will already
-            // exist in the `is_anything_being_dragged` check.
-            // (The `layer_id_at` check should avoid this issue in most cases, I imagine)
-            if ui.input(|i| i.pointer.any_down() && i.pointer.any_pressed())
+        // Move the drag focus to our board layer if it looks like a drag is starting.
+        // NB: This is sensitive to the board being painted _last_ on our screen,
+        // such that anything else that should be getting the drag this frame will already
+        // exist in the `is_anything_being_dragged` check.
+        // (The `layer_id_at` check should avoid this issue in most cases, I imagine)
+        if let Some(pos) = ui.input(|i| {
+            if i.pointer.any_down() {
+                i.pointer.interact_pos()
+            } else {
+                None
+            }
+        }) {
+            if board_frame.response.contains_pointer()
                 && !ui.memory(|mem| mem.is_anything_being_dragged())
             {
-                if ui.ctx().layer_id_at(hover_pos) == Some(area_id) {
+                if ui.ctx().layer_id_at(pos) == Some(area_id) {
                     ui.memory_mut(|mem| mem.set_dragged_id(area_id.id))
                 }
             }
