@@ -11,5 +11,5 @@ http:// {
   }
 
   header @commit Cache-Control "public, max-age=31536000" # 1 year
-  header @noCommit Cache-Control max-age=0, must-revalidate
+  header @noCommit Cache-Control "max-age=0, must-revalidate"
 }
