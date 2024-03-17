@@ -89,7 +89,14 @@ impl<'a> BoardUI<'a> {
 
         let mut drag_pos = None;
         if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-            let drag_offset = if depot.ui_state.is_touch { -50.0 } else { 0.0 };
+            // When dragging on a touchscreen, we show the tile above the pointer position.
+            // We avoid doing this when not dragging, as otherwise taps show tiles in the wrong position.
+            let mid_drag = ui.input(|i| i.pointer.is_decidedly_dragging());
+            let drag_offset = if depot.ui_state.is_touch && mid_drag {
+                -50.0
+            } else {
+                0.0
+            };
             drag_pos = Some(pointer_pos + vec2(0.0, drag_offset));
         }
 
