@@ -57,7 +57,7 @@ impl EditorSquareUI {
                             inner_bounds,
                             theme.rounding,
                             hex_color!("ffffff03"),
-                        )
+                        );
                     }
                 }
             }

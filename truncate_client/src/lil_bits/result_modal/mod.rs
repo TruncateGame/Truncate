@@ -472,7 +472,7 @@ impl ResultModalUI {
                         modal_remainder,
                         0.0,
                         Color32::BLACK.gamma_multiply(1.0 - fade_in_animation),
-                    )
+                    );
                 }
             });
         });

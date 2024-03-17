@@ -810,7 +810,8 @@ impl ActiveGame {
                                 self.depot.aesthetics.theme.text,
                             );
                             let (r, _) = ui.allocate_at_least(room.size(), Sense::hover());
-                            ui.painter().galley(r.min, room);
+                            ui.painter()
+                                .galley(r.min, room, self.depot.aesthetics.theme.text);
                             ui.add_space(15.0);
 
                             for turn in self.turn_reports.iter().rev() {

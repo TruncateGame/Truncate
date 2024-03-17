@@ -452,7 +452,7 @@ impl<'a> BoardUI<'a> {
         // Global(ish) interactions
         if let Some(hover_pos) = ui.ctx().pointer_hover_pos() {
             let zoom_delta = ui.input(|i| i.zoom_delta());
-            let scroll_delta = ui.input(|i| i.scroll_delta);
+            let scroll_delta = ui.input(|i| i.raw_scroll_delta);
 
             let maybe_zooming = zoom_delta != 1.0;
             let maybe_panning = scroll_delta != Vec2::ZERO;
