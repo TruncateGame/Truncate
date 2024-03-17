@@ -919,7 +919,7 @@
             };
 
             (async function () {
-                const truncate_worker = new Worker('static/worker.js');
+                const truncate_worker = new Worker('static/worker.js?commit={{ env.commit }}');
 
                 const wasm_bytes = await (await fetch("/static/truncate_client_bg.wasm?commit={{ env.commit }}")).arrayBuffer();
 
