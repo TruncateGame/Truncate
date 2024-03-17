@@ -90,6 +90,9 @@ rules:
         - message: |-
             Since 'GROWING' is a valid word touching your opponent's town, you win the game.
 
+        - message: |-
+            You can check whether words are valid in Truncate's dictionary using the menu in the bottom right.
+
     - name: "Word validity"
       description: "Tiles don't always have to form valid words"
       board: |-

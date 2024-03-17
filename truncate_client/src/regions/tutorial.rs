@@ -396,7 +396,7 @@ impl TutorialState {
         let button_size = 48.0;
 
         let button_offset = (heading_height - button_size) / 2.0;
-        let header_content_width = ui.available_width().at_most(700.0);
+        let header_content_width = ui.available_width().at_most(450.0);
         let header_text_width = header_content_width - button_size * 2.0 - item_spacing * 4.0;
 
         let header_x_padding = (ui.available_width() - header_content_width) / 2.0;
@@ -433,7 +433,7 @@ impl TutorialState {
                         }
 
                         render_tex_quad(
-                            tiles::quad::INFO_BUTTON,
+                            tiles::quad::SKIP_PREV_BUTTON,
                             prev_stage_rect,
                             &map_texture,
                             ui,
@@ -475,7 +475,7 @@ impl TutorialState {
                         }
 
                         render_tex_quad(
-                            tiles::quad::INFO_BUTTON,
+                            tiles::quad::SKIP_NEXT_BUTTON,
                             next_stage_rect,
                             &map_texture,
                             ui,
