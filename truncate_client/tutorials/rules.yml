@@ -36,8 +36,8 @@ rules:
         - description: |-
             You start the game by placing tiles beside your dock.
 
-            Your dock is at the bottom left of the board. Try playing an 'L' there.
-          you: "L -> 7,1"
+            Your dock is at the bottom left of the board. Try playing an 'M' there.
+          you: "M -> 7,1"
           gets: "E"
 
         - description: |-
@@ -50,8 +50,8 @@ rules:
         - description: |-
             Once you've placed a tile, you can place tiles beside your dock or your existing tiles.
 
-            Try playing an 'I' beside the 'L' you just played.
-          you: "I -> 7,2"
+            Try playing an 'A' beside the 'M' you just played.
+          you: "A -> 7,2"
           gets: "E"
 
         - message: |-
@@ -83,7 +83,7 @@ rules:
             Notice that your dock is on the right of the board, and your opponent's town and dock are on the left.
 
         - description: |-
-            Place a 'G' beside your opponent's town to form the word 'GROWING' and win the game.
+            Place a 'G' beside your opponent's town to form the word 'GROWING', touch your opponent's town, and win the game.
           you: "G -> 7,5"
           gets: "E"
 
@@ -120,7 +120,7 @@ rules:
           gets: "E"
 
         - message: |-
-            'YOUR' wins the game, despite your board containing invalid words.
+            'YOUR' wins the game, even though your board contains invalid words.
 
     - name: "Word orientation"
       description: "Your words are read left to right and top to bottom, and your opponent's words are the opposite"
@@ -304,7 +304,7 @@ rules:
         - message: |-
             In battles, defenders have a length advantage of 2. If the defending and attacking words are both valid, the attacking word must be 2 letters longer than the defending word to win.
         - description: |-
-            Let's demonstrate a failed attack by playing "SHORT" into "CAPS".
+            Let's demonstrate a failed attack by playing "SHORT" against "CAPS".
           you: "T -> 3,6"
           gets: "R"
         - description: |-
@@ -488,7 +488,7 @@ rules:
 
       steps:
         - description: |-
-            When a battle is lost and some tiles become disconnected from their dock, they are removed ("Truncate-d").
+            When a battle is lost and some tiles become disconnected from their dock, they are removed ("Truncated").
             
             Try playing "RESTATE" against "NOT".
           you: "R -> 4,7"
