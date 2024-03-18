@@ -1,8 +1,8 @@
 rules:
   - category: Basics
     scenarios:
-    - name: "Placing tiles"
-      description: "Place tiles by your dock or your own tiles"
+    - name: "Learn to play"
+      description: "The tutorial for the tutorial"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
         ~~ ~~ ~~ __ __ __ #0 __ ~~
@@ -25,6 +25,30 @@ rules:
 
             This tutorial covers the rules of the game.
 
+        - message: |-
+            We'll demonstrate each rule by having you play example scenarios.
+
+            You can use the buttons above the board to navigate through the rules at any time.
+
+    - name: "Placing tiles"
+      description: "Place tiles by your dock or your own tiles"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
+        ~~ ~~ ~~ __ __ __ #0 __ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~
+        ~~ __ ~~ __ __ __ __ ~~ ~~
+        ~~ __ __ __ __ __ ~~ ~~ ~~
+        ~~ __ __ __ __ __ __ __ ~~
+        ~~ __ #1 #1 __ #1 __ ~~ ~~
+        ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~
+
+      player_hand: ALIFIRM
+      computer_hand: D
+
+      dict: {}
+
+      steps:
         - message: |-
             In Truncate, players take turns to place a tile on the board.
 
@@ -83,7 +107,7 @@ rules:
             Notice that your dock is on the right of the board, and your opponent's town and dock are on the left.
 
         - description: |-
-            Place a 'G' beside your opponent's town to form the word 'GROWING', touch your opponent's town, and win the game.
+            Place a 'G' to form the word 'GROWING', which will touch your opponent's town, and win the game.
           you: "G -> 7,5"
           gets: "E"
 
@@ -517,7 +541,10 @@ rules:
           done
 
       steps:
-        - end_message: |-
+        - message: |-
             That's all of the rules!
             
-            Now you're ready to tackle some puzzles, or play against a friend online.
+        - end_message: |-
+            In the tutorials section, you can play through an example game to get more familiar with Truncate strategy.
+
+            Now you're ready to tackle some puzzles, or play against a friend online!
