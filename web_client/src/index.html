@@ -446,7 +446,7 @@
                     if (!has_played_tut) {
                         this.button("Learn To Play", () => {
                             localStorage.setItem("tutorial_played", "true");
-                            truncate_runner.join_game('TUTORIAL_01');
+                            truncate_runner.join_game('TUTORIAL_RULES');
                         }, "special");
                     }
 
@@ -463,12 +463,24 @@
                         this.multiStage();
                     });
 
-                    if (has_played_tut) {
-                        this.button("Learn To Play", () => {
-                            localStorage.setItem("tutorial_played", "true");
-                            truncate_runner.join_game('TUTORIAL_01');
-                        });
-                    }
+                    this.button("Tutorials", () => {
+                        this.learnStage();
+                    });
+                }
+
+                learnStage() {
+                    this.reset();
+
+                    this.button("Learn To Play", () => {
+                        localStorage.setItem("tutorial_played", "true");
+                        truncate_runner.join_game('TUTORIAL_RULES');
+                    });
+
+                    this.button("Example Game", () => {
+                        truncate_runner.join_game('TUTORIAL_EXAMPLE');
+                    });
+
+                    this.backButton();
                 }
 
                 singleStage() {

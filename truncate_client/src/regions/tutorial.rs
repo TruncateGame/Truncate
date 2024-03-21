@@ -25,6 +25,7 @@ use crate::utils::{
 use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
 const RULES: &[u8] = include_bytes!("../../tutorials/rules.yml");
+const EXAMPLE_GAME: &[u8] = include_bytes!("../../tutorials/example_game.yml");
 
 #[derive(Deserialize, Debug)]
 struct Tutorial {
@@ -214,9 +215,24 @@ impl TutorialStage {
 }
 
 impl TutorialState {
-    pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
+    pub fn new_rules(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
         let tutorial: Tutorial =
             serde_yaml::from_slice(RULES).expect("Tutorial should match Tutorial format");
+
+        let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
+
+        Self {
+            stage_index: 0,
+            change_stage_next_frame: ChangeStage::None,
+            stage: stage_zero,
+            stage_changed_at: Duration::from_secs(0),
+            tutorial,
+        }
+    }
+
+    pub fn new_example(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
+        let tutorial: Tutorial =
+            serde_yaml::from_slice(EXAMPLE_GAME).expect("Tutorial should match Tutorial format");
 
         let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
 
@@ -296,7 +312,7 @@ impl TutorialState {
 
             let mut active_game = ActiveGame::new(
                 ctx,
-                "TUTORIAL_01".into(),
+                "TUTORIAL_GAME".into(),
                 None,
                 None,
                 game.players.iter().map(Into::into).collect(),

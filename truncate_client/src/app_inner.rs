@@ -369,8 +369,14 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                         Some(GameStatus::HardError(vec!["Could not rejoin".to_string()]));
                 }
             }
-        } else if launched_room == "TUTORIAL_01" {
-            new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+        } else if launched_room == "TUTORIAL_RULES" {
+            new_game_status = Some(GameStatus::Tutorial(TutorialState::new_rules(
+                ui.ctx(),
+                outer.map_texture.clone(),
+                &outer.theme,
+            )));
+        } else if launched_room == "TUTORIAL_EXAMPLE" {
+            new_game_status = Some(GameStatus::Tutorial(TutorialState::new_example(
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
@@ -553,8 +559,15 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     outer.theme.clone(),
                 )));
             }
-            if ui.button("Tutorial").clicked() {
-                new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+            if ui.button("Tutorial: Rules").clicked() {
+                new_game_status = Some(GameStatus::Tutorial(TutorialState::new_rules(
+                    ui.ctx(),
+                    outer.map_texture.clone(),
+                    &outer.theme,
+                )));
+            }
+            if ui.button("Tutorial: Example").clicked() {
+                new_game_status = Some(GameStatus::Tutorial(TutorialState::new_example(
                     ui.ctx(),
                     outer.map_texture.clone(),
                     &outer.theme,
