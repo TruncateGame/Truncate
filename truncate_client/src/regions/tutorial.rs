@@ -179,10 +179,13 @@ impl TutorialStage {
             self.game.bag = TileBag::explicit(vec![*next_tile], None);
         }
 
-        match self.game.make_move(next_move, None, None, None) {
-            Ok(changes) => {
-                let changes = changes
-                    .into_iter()
+        match self.game.play_turn(next_move, None, None, None) {
+            Ok(possible_winner) => {
+                let changes = self
+                    .game
+                    .recent_changes
+                    .iter()
+                    .cloned()
                     .filter(|change| match change {
                         truncate_core::reporting::Change::Board(_) => true,
                         truncate_core::reporting::Change::Hand(hand_change) => {
@@ -193,6 +196,7 @@ impl TutorialStage {
                     })
                     .collect();
                 let room_code = self.active_game.depot.gameplay.room_code.clone();
+
                 let state_message = GameStateMessage {
                     room_code,
                     players: self.game.players.iter().map(Into::into).collect(),
@@ -203,6 +207,8 @@ impl TutorialStage {
                     changes,
                 };
                 self.active_game.apply_new_state(state_message);
+                self.active_game.depot.gameplay.winner = possible_winner;
+
                 self.increment_step();
                 Ok(())
             }

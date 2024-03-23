@@ -474,6 +474,24 @@ impl ActiveGame {
                             {
                                 msg = Some(PlayerMessage::Rematch);
                             }
+
+                            ui.add_space(20.0);
+                        }
+                        if matches!(self.location, GameLocation::Local) {
+                            let text = TextHelper::heavy("VIEW RESULTS", 12.0, None, ui);
+                            if text
+                                .centered_button(
+                                    self.depot.aesthetics.theme.button_primary,
+                                    self.depot.aesthetics.theme.text,
+                                    &self.depot.aesthetics.map_texture,
+                                    ui,
+                                )
+                                .clicked()
+                            {
+                                msg = Some(PlayerMessage::Resign);
+                            }
+
+                            ui.add_space(20.0);
                         }
                     }
 

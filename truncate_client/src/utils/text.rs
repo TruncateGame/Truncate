@@ -201,6 +201,17 @@ impl<'a> TextHelper<'a> {
         dialog_resp
     }
 
+    pub fn get_button_height(&self, ui: &egui::Ui) -> f32 {
+        let text_size = self.mesh_size();
+
+        let button_texs = Tex::text_button(text_size.x / text_size.y * 0.7);
+        let button_width = text_size.x + self.size * 2.0;
+
+        let button_tile_size = button_width / (button_texs.len() / 2) as f32;
+
+        button_tile_size * 2.0
+    }
+
     fn paint_tile_background(
         self,
         full_width: bool,
