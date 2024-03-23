@@ -361,7 +361,7 @@ impl SinglePlayerState {
             return msgs_to_server;
         } else if matches!(next_msg, Some((_, PlayerMessage::Resign))) {
             match self.active_game.location {
-                GameLocation::Local => {
+                GameLocation::Tutorial | GameLocation::Local => {
                     self.splash = Some(ResultModalUI::new_resigning(
                         &mut ui,
                         "Resign and try again?".to_string(),

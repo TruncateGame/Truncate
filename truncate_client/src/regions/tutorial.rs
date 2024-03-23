@@ -322,7 +322,7 @@ impl TutorialState {
                 game.players[0].hand.clone(),
                 map_texture,
                 theme.clone(),
-                GameLocation::Local,
+                GameLocation::Tutorial,
             );
             active_game.depot.ui_state.game_header = HeaderType::None;
 
