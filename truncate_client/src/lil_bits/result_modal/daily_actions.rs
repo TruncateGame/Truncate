@@ -147,7 +147,7 @@ impl DailyActions {
                 let share_text = if self.share_copied_at.is_some() {
                     "COPIED TEXT!"
                 } else {
-                    "SHARE BEST SCORE"
+                    "SHARE SUMMARY"
                 };
                 let share_button_text = TextHelper::heavy(share_text, 12.0, None, ui);
 
@@ -266,7 +266,7 @@ impl DailyActions {
 
             ui.add_space(ui.available_height() * 0.05);
 
-            let text = TextHelper::heavy("SHARE", 12.0, None, ui);
+            let text = TextHelper::heavy("SHARE »", 12.0, None, ui);
             let share_buton =
                 text.centered_button(theme.button_primary, theme.text, map_texture, ui);
 
