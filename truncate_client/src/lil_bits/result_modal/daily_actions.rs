@@ -223,6 +223,8 @@ impl DailyActions {
                 self.share_copied_at = Some(depot.timing.current_time);
             }
 
+            ui.add_space(ui.available_height() * 0.05);
+
             self.msg_mock.render(ui, theme, map_texture);
         });
 
