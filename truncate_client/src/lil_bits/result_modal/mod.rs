@@ -198,11 +198,12 @@ impl ResultModalUI {
         map_texture: &TextureHandle,
         animate: f32,
     ) -> Option<ResultModalAction> {
-        let mut close_rect = ui.available_rect_before_wrap();
-        close_rect.set_right(close_rect.right() - 5.0);
-        close_rect.set_top(close_rect.top() + 5.0);
-        close_rect.set_left(close_rect.right() - 32.0);
-        close_rect.set_bottom(close_rect.top() + 32.0);
+        let button_size = 32.0;
+
+        let (close_banner, _) =
+            ui.allocate_exact_size(vec2(ui.available_width(), button_size), Sense::hover());
+        let mut close_rect =
+            close_banner.shrink2(vec2((close_banner.width() - button_size) / 2.0, 0.0));
 
         let close_resp = ui.interact(close_rect, ui.id().with("close"), Sense::click());
 
@@ -283,7 +284,7 @@ impl ResultModalUI {
                 return;
             }
 
-            let modal_inner_dimension = modal_dimension.shrink(10.0);
+            let modal_inner_dimension = modal_dimension.shrink2(vec2(10.0, 15.0));
             ui.allocate_ui_at_rect(modal_inner_dimension, |mut ui| {
                 let modal_items = ResultModalUI::anim(ui, Anim::Items, 1.0, 0.75);
 
