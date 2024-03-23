@@ -84,6 +84,22 @@ impl ShareMessageMock {
             message_bounds = message_bounds.shrink2(vec2(x_difference, 0.0));
         }
 
+        ui.painter()
+            .rect_filled(message_bounds, 15.0, hex_color!("#444444"));
+
+        if message_bounds.height() > 50.0 {
+            let mut tail = message_bounds.translate(vec2(message_bounds.width() - 7.0, 0.0));
+            tail.set_right(tail.left() + 20.0);
+            tail.set_top(tail.bottom() - 30.0);
+
+            ui.painter().rect_filled(tail, 10.0, hex_color!("#444444"));
+            tail = tail.translate(vec2(7.0, -3.0));
+            tail.set_top(tail.bottom() - 40.0);
+            ui.painter().rect_filled(tail, 10.0, hex_color!("#111111"));
+        }
+
+        message_bounds = message_bounds.shrink(10.0);
+
         ui.allocate_ui_at_rect(message_bounds, |ui| {
             ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
                 let styles = ui.style_mut();

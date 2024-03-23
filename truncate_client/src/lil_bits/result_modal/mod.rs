@@ -1,4 +1,4 @@
-use epaint::{emath::Align2, vec2, Color32, Rect, Shadow, TextureHandle};
+use epaint::{emath::Align2, hex_color, vec2, Color32, Rect, Shadow, TextureHandle};
 use instant::Duration;
 use interpolation::Ease;
 use truncate_core::{
@@ -212,7 +212,7 @@ impl ResultModalUI {
             let bg_alpha = ResultModalUI::anim(ui, Anim::Background, 0.5, 1.5);
             let bg = Color32::BLACK.gamma_multiply(bg_alpha);
 
-            ui.painter().clone().rect_filled(screen_dimension, 10.0, bg);
+            ui.painter().clone().rect_filled(screen_dimension, 0.0, bg);
 
             // Wait for the background overlay to start animating before showing the modal
             if bg_alpha < 0.3 {
@@ -232,11 +232,11 @@ impl ResultModalUI {
             let mut modal_dimension = screen_dimension.shrink2(vec2(x_difference, y_difference));
 
             let modal_pos = ResultModalUI::anim(ui, Anim::ModalPos, 1.0, 0.5);
-            let bg = Color32::BLACK.gamma_multiply(modal_pos); // Fade in the modal background
+            let bg = hex_color!("#111111").gamma_multiply(modal_pos); // Fade in the modal background
             let offset = (1.0 - modal_pos) * 40.0;
             modal_dimension = modal_dimension.translate(vec2(0.0, offset)); // Animate the modal in vertically
 
-            ui.painter().rect_filled(modal_dimension, 4.0, bg);
+            ui.painter().rect_filled(modal_dimension, 20.0, bg);
 
             // Wait for the modal position to be close before showing the contents
             if modal_pos < 0.7 {
@@ -471,7 +471,7 @@ impl ResultModalUI {
                     ui.painter().rect_filled(
                         modal_remainder,
                         0.0,
-                        Color32::BLACK.gamma_multiply(1.0 - fade_in_animation),
+                        hex_color!("#111111").gamma_multiply(1.0 - fade_in_animation),
                     );
                 }
             });
