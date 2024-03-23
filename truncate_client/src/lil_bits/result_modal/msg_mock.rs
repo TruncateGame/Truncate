@@ -101,6 +101,10 @@ impl ShareMessageMock {
                         emoji_size = line_height;
                     }
                     ui.horizontal(|ui| {
+                        let full_line = line.chars().count() as f32 * emoji_size;
+                        if full_line < ui.available_width() {
+                            ui.add_space((ui.available_width() - full_line) / 2.0);
+                        }
                         for emoji in line.chars() {
                             let color = match emoji {
                                 '🟦' => hex_color!("#4F55E2"), // TODO: Pull from theming palette
