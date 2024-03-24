@@ -27,6 +27,7 @@ use crate::{
         tex::{render_tex_quad, render_tex_quads, tiles},
         text::TextHelper,
         timing::get_qs_tick,
+        urls::back_to_menu,
         Lighten, Theme,
     },
 };
@@ -708,12 +709,7 @@ impl ActiveGame {
                         )
                         .clicked()
                     {
-                        #[cfg(target_arch = "wasm32")]
-                        {
-                            _ = web_sys::window().unwrap().location().set_hash("");
-                            _ = web_sys::window().unwrap().location().set_pathname("/");
-                            _ = web_sys::window().unwrap().location().reload();
-                        }
+                        back_to_menu();
                     }
                     ui.add_space(menu_spacing);
                 });

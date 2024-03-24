@@ -24,6 +24,7 @@ use crate::{
         game_evals::get_main_dict,
         macros::tr_log,
         text::TextHelper,
+        urls::back_to_menu,
         Lighten,
     },
 };
@@ -77,10 +78,11 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                         .unwrap();
 
                     // If we're joining a lobby, update the URL to match
+                    _ = web_sys::window().unwrap().location().set_pathname("/join/");
                     _ = web_sys::window()
                         .unwrap()
                         .location()
-                        .set_hash(id.to_uppercase().as_str());
+                        .set_search(&format!("j={}", id.to_uppercase()));
                 }
 
                 outer.game_status = GameStatus::PendingStart(Lobby::new(
@@ -694,12 +696,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
             if resp.clicked == Some("cancel") {
-                // TODO: Neatly kick back to the wrapper page without a reload
-                #[cfg(target_arch = "wasm32")]
-                {
-                    _ = web_sys::window().unwrap().location().set_hash("");
-                    _ = web_sys::window().unwrap().location().reload();
-                }
+                back_to_menu();
             }
         }
         GameStatus::PendingJoin(room_code) => {
@@ -714,12 +711,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
             if resp.clicked == Some("cancel") {
-                // TODO: Neatly kick back to the wrapper page without a reload
-                #[cfg(target_arch = "wasm32")]
-                {
-                    _ = web_sys::window().unwrap().location().set_hash("");
-                    _ = web_sys::window().unwrap().location().reload();
-                }
+                back_to_menu();
             }
         }
         GameStatus::PendingCreate => {
@@ -734,12 +726,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
             if resp.clicked == Some("cancel") {
-                // TODO: Neatly kick back to the wrapper page without a reload
-                #[cfg(target_arch = "wasm32")]
-                {
-                    _ = web_sys::window().unwrap().location().set_hash("");
-                    _ = web_sys::window().unwrap().location().reload();
-                }
+                back_to_menu();
             }
         }
         GameStatus::PendingStart(editor_state) => {
@@ -769,12 +756,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
             if resp.clicked == Some("cancel") {
-                // TODO: Neatly kick back to the wrapper page without a reload
-                #[cfg(target_arch = "wasm32")]
-                {
-                    _ = web_sys::window().unwrap().location().set_hash("");
-                    _ = web_sys::window().unwrap().location().reload();
-                }
+                back_to_menu();
             }
         }
         GameStatus::Replay(replay) => {
