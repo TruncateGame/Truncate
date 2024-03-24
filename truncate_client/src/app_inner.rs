@@ -78,11 +78,10 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                         .unwrap();
 
                     // If we're joining a lobby, update the URL to match
-                    _ = web_sys::window().unwrap().location().set_pathname("/join/");
                     _ = web_sys::window()
                         .unwrap()
                         .location()
-                        .set_search(&format!("j={}", id.to_uppercase()));
+                        .set_hash(id.to_uppercase().as_str());
                 }
 
                 outer.game_status = GameStatus::PendingStart(Lobby::new(
