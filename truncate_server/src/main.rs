@@ -540,7 +540,20 @@ async fn handle_player_msg(
                 .send_to_player(&player_addr, GameMessage::SupplyDefinitions(definitions))
                 .unwrap();
         }
-        CreateAnonymousPlayer => match accounts::create_player(&server_state).await {
+        CreateAnonymousPlayer {
+            screen_width,
+            screen_height,
+            user_agent,
+            referrer,
+        } => match accounts::create_player(
+            &server_state,
+            screen_width,
+            screen_height,
+            user_agent,
+            referrer,
+        )
+        .await
+        {
             Ok(new_player) => {
                 let token = accounts::get_player_token(&server_state, new_player);
 
@@ -552,26 +565,31 @@ async fn handle_player_msg(
                 todo!("Error handling for database actions");
             }
         },
-        Login(token) => match accounts::login(&server_state, token.clone()).await {
+        Login {
+            player_token,
+            screen_width,
+            screen_height,
+            user_agent,
+            referrer,
+        } => match accounts::login(
+            &server_state,
+            player_token.clone(),
+            screen_width,
+            screen_height,
+            user_agent,
+        )
+        .await
+        {
             Ok(_player_id) => {
                 server_state
-                    .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
+                    .send_to_player(&player_addr, GameMessage::LoggedInAs(player_token))
                     .unwrap();
             }
             Err(e) => {
-                eprintln!("Player did not exist, creating a new player instead: {e}\n{e:?}");
-                match accounts::create_player(&server_state).await {
-                    Ok(new_player) => {
-                        let token = accounts::get_player_token(&server_state, new_player);
-
-                        server_state
-                            .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
-                            .unwrap();
-                    }
-                    Err(_) => {
-                        todo!("Error handling for database actions");
-                    }
-                }
+                eprintln!(
+                    "Player tried to login with a bad token and failed ! ! ! ! ! ! ! ! ! ! !"
+                );
+                return player_err("Invalid Token".into());
             }
         },
         LoadDailyPuzzle(token, day) => {

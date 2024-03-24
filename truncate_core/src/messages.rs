@@ -31,8 +31,19 @@ pub enum PlayerMessage {
     Swap(Coordinate, Coordinate),
     Rematch,
     RequestDefinitions(Vec<String>),
-    CreateAnonymousPlayer,
-    Login(TruncateToken),
+    CreateAnonymousPlayer {
+        screen_width: u32,
+        screen_height: u32,
+        user_agent: String,
+        referrer: String,
+    },
+    Login {
+        player_token: TruncateToken,
+        screen_width: u32,
+        screen_height: u32,
+        user_agent: String,
+        referrer: String,
+    },
     LoadDailyPuzzle(TruncateToken, u32),
     PersistPuzzleMoves {
         player_token: TruncateToken,
@@ -67,10 +78,10 @@ impl fmt::Display for PlayerMessage {
             PlayerMessage::Swap(a, b) => write!(f, "Swap the tiles at {} and {}", a, b),
             PlayerMessage::Rematch => write!(f, "Rematch!"),
             PlayerMessage::RequestDefinitions(words) => write!(f, "Get definition of {words:?}"),
-            PlayerMessage::CreateAnonymousPlayer => {
+            PlayerMessage::CreateAnonymousPlayer { .. } => {
                 write!(f, "Create a new anonymous player in the database")
             }
-            PlayerMessage::Login(_token) => {
+            PlayerMessage::Login { .. } => {
                 write!(f, "Login as an existing player")
             }
             PlayerMessage::LoadDailyPuzzle(_token, day) => {
