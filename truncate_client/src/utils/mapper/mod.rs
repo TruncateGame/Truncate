@@ -498,8 +498,20 @@ impl MappedBoard {
                     color = Some(aesthetics.theme.ring_selected_hovered);
                 }
 
+                let mut variant = MappedTileVariant::Healthy;
+                if let Some(GameplayDepot {
+                    winner: Some(winner),
+                    ..
+                }) = gameplay
+                {
+                    if winner != player {
+                        color = None;
+                        variant = MappedTileVariant::Gone;
+                    }
+                }
+
                 let tile_layers = Tex::board_game_tile(
-                    MappedTileVariant::Healthy,
+                    variant,
                     render_as_swap.unwrap_or(*character),
                     orient(*player),
                     color,
