@@ -160,6 +160,11 @@ impl OuterApplication {
         let mut player_name = "___AUTO___".to_string();
         let mut player_token: Option<String> = None;
 
+        let mut screen_width = 0;
+        let mut screen_height = 0;
+        let mut user_agent = String::new();
+        let mut referrer = String::new();
+
         #[cfg(target_arch = "wasm32")]
         {
             let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -178,17 +183,41 @@ impl OuterApplication {
             {
                 player_token = Some(existing_player_token);
             }
+
+            if let Some(width) = web_sys::window().unwrap().inner_width().unwrap().as_f64() {
+                screen_width = width as u32;
+            }
+            if let Some(height) = web_sys::window().unwrap().inner_height().unwrap().as_f64() {
+                screen_height = height as u32;
+            }
+            if let Ok(agent) = web_sys::window().unwrap().navigator().user_agent() {
+                user_agent = agent;
+            }
+            if let Some(document) = web_sys::window().unwrap().document() {
+                referrer = document.referrer();
+            }
         }
 
         match &player_token {
             Some(existing_token) => {
                 tx_player
-                    .try_send(PlayerMessage::Login(existing_token.clone()))
+                    .try_send(PlayerMessage::Login {
+                        player_token: existing_token.clone(),
+                        screen_width,
+                        screen_height,
+                        user_agent,
+                        referrer,
+                    })
                     .unwrap();
             }
             None => {
                 tx_player
-                    .try_send(PlayerMessage::CreateAnonymousPlayer)
+                    .try_send(PlayerMessage::CreateAnonymousPlayer {
+                        screen_width,
+                        screen_height,
+                        user_agent,
+                        referrer,
+                    })
                     .unwrap();
             }
         }

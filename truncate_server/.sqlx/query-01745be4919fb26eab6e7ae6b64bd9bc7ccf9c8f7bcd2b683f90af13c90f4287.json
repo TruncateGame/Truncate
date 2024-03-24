@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE players\n            SET \n                last_login = CURRENT_TIMESTAMP, \n                last_screen_width = $2,\n                last_screen_height = $3,\n                last_browser_name = $4,\n                last_browser_version = $5\n            WHERE player_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "01745be4919fb26eab6e7ae6b64bd9bc7ccf9c8f7bcd2b683f90af13c90f4287"
+}

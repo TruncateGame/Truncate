@@ -36,6 +36,7 @@ sqlx = { version = "0.7", features = [
     "runtime-tokio",
     "tls-rustls",
 ] }
+woothee = "0.13.0"
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO events (\n            event_type,\n            player_id\n        ) VALUES ($1, $2) RETURNING player_id;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "player_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d90f76d17fa28e9fc07f76825af45de9d500e317dbd5bade555a1034315dcc71"
+}

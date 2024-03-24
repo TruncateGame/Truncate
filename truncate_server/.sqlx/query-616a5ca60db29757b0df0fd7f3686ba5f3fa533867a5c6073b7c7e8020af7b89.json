@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO players (\n            last_screen_width,\n            last_screen_height,\n            last_browser_name,\n            last_browser_version,\n            first_referrer\n        ) VALUES ($1, $2, $3, $4, $5) RETURNING player_id;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "player_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "616a5ca60db29757b0df0fd7f3686ba5f3fa533867a5c6073b7c7e8020af7b89"
+}

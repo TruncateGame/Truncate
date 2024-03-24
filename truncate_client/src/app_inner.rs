@@ -327,7 +327,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
     // Block all further actions until we have a login token from the server,
     // or until the player accepts to play offline.
     if let (Some(waiting_for_login), None) = (&outer.started_login_at, &outer.logged_in_as) {
-        if (current_time - *waiting_for_login) < Duration::from_secs(10) {
+        if (current_time - *waiting_for_login) < Duration::from_secs(5) {
             SplashUI::new(vec!["INITIALIZING".to_string()])
                 .animated(true)
                 .render(ui, &outer.theme, current_time, &outer.map_texture);
@@ -377,12 +377,18 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 outer.map_texture.clone(),
                 &outer.theme,
             )));
+            send(PlayerMessage::StartedTutorial {
+                name: "rules".to_string(),
+            });
         } else if launched_room == "TUTORIAL_EXAMPLE" {
             new_game_status = Some(GameStatus::Tutorial(TutorialState::new_example(
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
             )));
+            send(PlayerMessage::StartedTutorial {
+                name: "example".to_string(),
+            });
         } else if launched_room == "SINGLE_PLAYER" {
             let mut board = Board::new(9, 9);
             board.grow();
@@ -405,6 +411,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 board,
                 outer.map_texture.clone(),
             )));
+            send(PlayerMessage::StartedSinglePlayer);
         } else if launched_room == "DAILY_PUZZLE" {
             let day = get_puzzle_day(current_time);
             if let Some(token) = &outer.logged_in_as {
@@ -433,6 +440,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 NPCPersonality::jet(),
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+            send(PlayerMessage::StartedRandomPuzzle {
+                personality: "jet".into(),
+            });
         } else if launched_room == "RANDOM_EASY_PUZZLE" {
             let seed = (current_time.as_micros() % 243985691) as u32;
             let board_seed = BoardSeed::new(seed);
@@ -454,6 +464,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 NPCPersonality::mellite(),
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+            send(PlayerMessage::StartedRandomPuzzle {
+                personality: "mellite".into(),
+            });
         } else if launched_room.starts_with("PUZZLE:") {
             let url_segments = launched_room.chars().filter(|c| *c == ':').count();
             let has_board_generation = url_segments >= 3;
@@ -489,6 +502,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     title: format!("Truncate Puzzle"),
                     attempt: None,
                 };
+                send(PlayerMessage::StartedRandomPuzzle {
+                    personality: npc.name.clone(),
+                });
                 let puzzle_game = SinglePlayerState::new(
                     ui.ctx(),
                     outer.map_texture.clone(),

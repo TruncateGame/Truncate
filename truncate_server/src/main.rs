@@ -22,8 +22,9 @@ use tungstenite::protocol::Message;
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
 use crate::storage::daily;
+use crate::storage::events::create_event;
 use game_state::GameManager;
-use storage::accounts;
+use storage::accounts::{self, AuthedTruncateToken};
 use truncate_core::messages::{
     DailyStateMessage, GameMessage, GameStateMessage, LobbyPlayerMessage, PlayerMessage,
 };
@@ -71,7 +72,6 @@ impl ServerState {
     fn get_game_by_player(&self, addr: &SocketAddr) -> Option<Arc<Mutex<GameManager>>> {
         let assignments = self.assignments.lock();
         let game_id = assignments.get(addr)?;
-        println!("{addr} is assigned to game {game_id}");
         self.games.lock().get(game_id).map(Arc::clone)
     }
 
@@ -103,9 +103,12 @@ async fn handle_player_msg(
     msg: Message,
     player_addr: SocketAddr,
     server_state: ServerState,
+    connection_info_mutex: Arc<Mutex<ConnectionInfo>>,
 ) -> Result<(), tungstenite::Error> {
-    let mut parsed_msg: PlayerMessage =
-        serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
+    let Ok(mut parsed_msg): Result<PlayerMessage, _> = serde_json::from_str(msg.to_text().unwrap())
+    else {
+        return Ok(());
+    };
 
     use PlayerMessage::*;
     // If player is joining a room that they have a token for,
@@ -137,6 +140,9 @@ async fn handle_player_msg(
         NewGame(mut player_name) => {
             let new_game_id = server_state.game_code();
             let mut game = GameManager::new(new_game_id.clone());
+
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(&server_state, &"new_game".into(), connection_player).await;
 
             if &player_name == "___AUTO___" {
                 player_name = "Player 1".into();
@@ -188,6 +194,9 @@ async fn handle_player_msg(
         JoinGame(room_code, mut player_name, _) => {
             let code = room_code.to_ascii_lowercase();
             if let Some(existing_game) = server_state.get_game_by_code(&code) {
+                let connection_player = connection_info_mutex.lock().player.clone();
+                _ = create_event(&server_state, &"join_game".into(), connection_player).await;
+
                 let mut game_manager = existing_game.lock();
 
                 // TODO: This is the easiest place to check for lobby capacity right now,
@@ -400,6 +409,9 @@ async fn handle_player_msg(
         }
         StartGame => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let connection_player = connection_info_mutex.lock().player.clone();
+                _ = create_event(&server_state, &"start_game".into(), connection_player).await;
+
                 let mut game_manager = existing_game.lock();
                 for (player, message) in game_manager.start() {
                     let Some(socket) = player.socket else {
@@ -458,6 +470,9 @@ async fn handle_player_msg(
         }
         Rematch => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let connection_player = connection_info_mutex.lock().player.clone();
+                _ = create_event(&server_state, &"rematch".into(), connection_player).await;
+
                 let mut existing_game_manager = existing_game.lock();
                 if existing_game_manager.core_game.winner.is_none() {
                     return player_err("Cannot rematch unfinished game".into());
@@ -540,38 +555,62 @@ async fn handle_player_msg(
                 .send_to_player(&player_addr, GameMessage::SupplyDefinitions(definitions))
                 .unwrap();
         }
-        CreateAnonymousPlayer => match accounts::create_player(&server_state).await {
+        CreateAnonymousPlayer {
+            screen_width,
+            screen_height,
+            user_agent,
+            referrer,
+        } => match accounts::create_player(
+            &server_state,
+            screen_width,
+            screen_height,
+            user_agent,
+            referrer,
+        )
+        .await
+        {
             Ok(new_player) => {
-                let token = accounts::get_player_token(&server_state, new_player);
+                let authed_token = accounts::get_player_token(&server_state, new_player);
+
+                let mut connection_info = connection_info_mutex.lock();
+                connection_info.player = Some(authed_token.clone());
 
                 server_state
-                    .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
+                    .send_to_player(&player_addr, GameMessage::LoggedInAs(authed_token.token()))
                     .unwrap();
             }
             Err(_) => {
                 todo!("Error handling for database actions");
             }
         },
-        Login(token) => match accounts::login(&server_state, token.clone()).await {
-            Ok(_player_id) => {
+        Login {
+            player_token,
+            screen_width,
+            screen_height,
+            user_agent,
+            referrer,
+        } => match accounts::login(
+            &server_state,
+            player_token.clone(),
+            screen_width,
+            screen_height,
+            user_agent,
+        )
+        .await
+        {
+            Ok((_player_id, authed_token)) => {
+                let mut connection_info = connection_info_mutex.lock();
+                connection_info.player = Some(authed_token);
+
                 server_state
-                    .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
+                    .send_to_player(&player_addr, GameMessage::LoggedInAs(player_token))
                     .unwrap();
             }
             Err(e) => {
-                eprintln!("Player did not exist, creating a new player instead: {e}\n{e:?}");
-                match accounts::create_player(&server_state).await {
-                    Ok(new_player) => {
-                        let token = accounts::get_player_token(&server_state, new_player);
-
-                        server_state
-                            .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
-                            .unwrap();
-                    }
-                    Err(_) => {
-                        todo!("Error handling for database actions");
-                    }
-                }
+                eprintln!(
+                    "Player tried to login with a bad token and failed ! ! ! ! ! ! ! ! ! ! !"
+                );
+                return player_err("Invalid Token".into());
             }
         },
         LoadDailyPuzzle(token, day) => {
@@ -654,9 +693,36 @@ async fn handle_player_msg(
                 }
             }
         }
+        StartedRandomPuzzle { personality } => {
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(
+                &server_state,
+                &format!("random_puzzle_{personality}"),
+                connection_player,
+            )
+            .await;
+        }
+        StartedSinglePlayer => {
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(&server_state, &"single_player".into(), connection_player).await;
+        }
+        StartedTutorial { name } => {
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(
+                &server_state,
+                &format!("tutorial_{name}"),
+                connection_player,
+            )
+            .await;
+        }
     }
 
     Ok(())
+}
+
+#[derive(Default)]
+struct ConnectionInfo {
+    player: Option<AuthedTruncateToken>,
 }
 
 async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, addr: SocketAddr) {
@@ -669,10 +735,13 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
 
     let (outgoing, incoming) = ws_stream.split();
 
+    let connection_info = Arc::new(Mutex::new(ConnectionInfo::default()));
+
     // TODO: try_for_each from TryStreamExt is quite nice,
     // look to bring that trait to the other stream places
-    let handle_player_msg =
-        incoming.try_for_each(|msg| handle_player_msg(msg, addr, server_state.clone()));
+    let handle_player_msg = incoming.try_for_each(|msg| {
+        handle_player_msg(msg, addr, server_state.clone(), connection_info.clone())
+    });
 
     let messages_to_player = {
         UnboundedReceiverStream::new(player_rx)
