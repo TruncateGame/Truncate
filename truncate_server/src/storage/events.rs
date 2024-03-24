@@ -4,7 +4,7 @@ use super::accounts::AuthedTruncateToken;
 
 pub async fn create_event(
     server_state: &ServerState,
-    event_type: &'static str,
+    event_type: &String,
     player: Option<AuthedTruncateToken>,
 ) -> Result<(), TruncateServerError> {
     let Some(player_token) = player else {

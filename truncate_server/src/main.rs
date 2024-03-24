@@ -141,7 +141,7 @@ async fn handle_player_msg(
             let mut game = GameManager::new(new_game_id.clone());
 
             let connection_player = connection_info_mutex.lock().player.clone();
-            _ = create_event(&server_state, "new_game", connection_player).await;
+            _ = create_event(&server_state, &"new_game".into(), connection_player).await;
 
             if &player_name == "___AUTO___" {
                 player_name = "Player 1".into();
@@ -194,7 +194,7 @@ async fn handle_player_msg(
             let code = room_code.to_ascii_lowercase();
             if let Some(existing_game) = server_state.get_game_by_code(&code) {
                 let connection_player = connection_info_mutex.lock().player.clone();
-                _ = create_event(&server_state, "join_game", connection_player).await;
+                _ = create_event(&server_state, &"join_game".into(), connection_player).await;
 
                 let mut game_manager = existing_game.lock();
 
@@ -409,7 +409,7 @@ async fn handle_player_msg(
         StartGame => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
                 let connection_player = connection_info_mutex.lock().player.clone();
-                _ = create_event(&server_state, "start_game", connection_player).await;
+                _ = create_event(&server_state, &"start_game".into(), connection_player).await;
 
                 let mut game_manager = existing_game.lock();
                 for (player, message) in game_manager.start() {
@@ -470,7 +470,7 @@ async fn handle_player_msg(
         Rematch => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
                 let connection_player = connection_info_mutex.lock().player.clone();
-                _ = create_event(&server_state, "rematch", connection_player).await;
+                _ = create_event(&server_state, &"rematch".into(), connection_player).await;
 
                 let mut existing_game_manager = existing_game.lock();
                 if existing_game_manager.core_game.winner.is_none() {
@@ -691,6 +691,28 @@ async fn handle_player_msg(
                     eprintln!("Errored loading stats for player: {e}\n{e:?}");
                 }
             }
+        }
+        StartedRandomPuzzle { personality } => {
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(
+                &server_state,
+                &format!("random_puzzle_{personality}"),
+                connection_player,
+            )
+            .await;
+        }
+        StartedSinglePlayer => {
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(&server_state, &"single_player".into(), connection_player).await;
+        }
+        StartedTutorial { name } => {
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(
+                &server_state,
+                &format!("tutorial_{name}"),
+                connection_player,
+            )
+            .await;
         }
     }
 
