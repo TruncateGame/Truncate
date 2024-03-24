@@ -1,0 +1,19 @@
+# fly.toml app configuration file generated for trunkshipper on 2024-03-24T18:43:45+13:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'trunkshipper'
+primary_region = 'syd'
+
+[build]
+image = 'ghcr.io/superfly/fly-log-shipper:latest'
+
+[[services]]
+http_checks = []
+internal_port = 8686
+
+[[vm]]
+memory = '1gb'
+cpu_kind = 'shared'
+cpus = 1

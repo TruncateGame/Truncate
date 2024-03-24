@@ -22,6 +22,7 @@ pub struct DailyActions {
     won_today: bool,
     won_yesterday: bool,
     is_sharing: bool,
+    day: u32,
 }
 
 impl DailyActions {
@@ -103,6 +104,7 @@ impl DailyActions {
             won_today: win_history(0),
             won_yesterday: win_history(1),
             is_sharing: false,
+            day,
         }
     }
 
@@ -210,8 +212,11 @@ impl DailyActions {
                     if let Some(backchannel) = backchannel {
                         if backchannel.is_open() {
                             backchannel.send_msg(crate::app_outer::BackchannelMsg::Copy {
-                                text: self.replay_link.clone(),
-                                share: ShareType::Url,
+                                text: format!(
+                                    "Here's my replay for Truncate Town Day #{}: {}",
+                                    self.day, self.replay_link
+                                ),
+                                share: ShareType::Text,
                             });
                         } else {
                             ui.ctx()
