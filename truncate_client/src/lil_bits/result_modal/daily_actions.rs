@@ -95,7 +95,7 @@ impl DailyActions {
         Self {
             msg_mock,
             replay_link: format!(
-                "https://truncate.town/replay/#REPLAY:{}",
+                "https://truncate.town/replay/?j=REPLAY:{}",
                 shared_attempt.id.clone()
             ),
             replay_copied_at: None,

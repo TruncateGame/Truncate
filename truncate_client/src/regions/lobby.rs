@@ -144,7 +144,7 @@ impl Lobby {
                                     .unwrap_or_else(|_| "truncate.town".into());
                                 ui.output_mut(|o| {
                                     o.copied_text =
-                                        format!("https://{host}/join/#{}", &self.room_code);
+                                        format!("https://{host}/join/?j={}", &self.room_code);
                                 });
                                 self.copied_code = true;
                             }

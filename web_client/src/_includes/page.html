@@ -583,9 +583,12 @@
                 }
             });
 
-            let room_code = window.location.hash.substring(1);
-            if (room_code) {
-                truncate_runner.join_game(room_code);
+            let initial_url = new URL(window.location);
+
+            let hash_room_code = initial_url.hash.substring(1);
+            let query_room_code = initial_url.searchParams.get("j");
+            if (query_room_code || hash_room_code) {
+                truncate_runner.join_game(query_room_code || hash_room_code);
             }
 
             {% include "noise.js" %}
