@@ -291,6 +291,8 @@ impl ResultModalUI {
                     msg = Some(close_msg);
                 }
 
+                ui.add_space(12.0);
+
                 let offset = (1.0 - modal_items) * 50.0;
                 ui.add_space(offset); // Animate the main text upward
 
