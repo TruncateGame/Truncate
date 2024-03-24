@@ -711,8 +711,12 @@ impl ActiveGame {
                         #[cfg(target_arch = "wasm32")]
                         {
                             _ = web_sys::window().unwrap().location().set_hash("");
-                            _ = web_sys::window().unwrap().location().set_pathname("/");
-                            _ = web_sys::window().unwrap().location().reload();
+                            let path = web_sys::window().unwrap().location().pathname().unwrap();
+                            if path == "/" {
+                                _ = web_sys::window().unwrap().location().reload();
+                            } else {
+                                _ = web_sys::window().unwrap().location().set_pathname("/");
+                            }
                         }
                     }
                     ui.add_space(menu_spacing);
