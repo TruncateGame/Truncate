@@ -58,6 +58,10 @@
             color: #5088e8;
         }
 
+        .cent {
+            text-align: center;
+        }
+
         #splash {
             position: absolute;
             top: 0;
@@ -402,6 +406,7 @@
                 constructor(el) {
                     this.el = el;
 
+                    // this.maintenanceStage();
                     this.rootStage();
                 }
 
@@ -425,6 +430,20 @@
 
                 backButton() {
                     this.button("← Back", () => this.rootStage(), "back");
+                }
+
+                maintenanceStage() {
+                    this.reset();
+
+                    let p1 = document.createElement("p");
+                    p1.classList.add("cent");
+                    p1.innerText = "Maintenance underway...";
+                    this.add(p1);
+
+                    let p2 = document.createElement("p");
+                    p2.classList.add("cent");
+                    p2.innerText = "Truncate will be right back!";
+                    this.add(p2);
                 }
 
                 rootStage() {
