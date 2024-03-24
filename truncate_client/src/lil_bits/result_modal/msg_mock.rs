@@ -206,7 +206,7 @@ impl ShareMessageMock {
         };
 
         let share_link = format!(
-            "Play Puzzle: https://truncate.town/#PUZZLE:{}:{}:{}:{}",
+            "Play Puzzle: https://truncate.town/puzzle/#PUZZLE:{}:{}:{}:{}",
             seed.generation,
             npc.name.to_ascii_uppercase(),
             seed.seed,
