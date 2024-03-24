@@ -1,4 +1,4 @@
-use epaint::{emath::Align2, vec2, Color32, Rect, Shadow, TextureHandle};
+use epaint::{emath::Align2, hex_color, vec2, Color32, Rect, Shadow, TextureHandle};
 use instant::Duration;
 use interpolation::Ease;
 use truncate_core::{
@@ -11,11 +11,18 @@ mod daily_actions;
 mod graph;
 mod msg_mock;
 
-use eframe::egui::{self, Align, Id, Layout, Order, Sense};
+use eframe::egui::{self, Align, CursorIcon, Id, Layout, Order, Sense};
 
 use crate::{
     app_outer::Backchannel,
-    utils::{daily, depot::TruncateDepot, macros::tr_log, text::TextHelper, Lighten, Theme},
+    utils::{
+        daily,
+        depot::TruncateDepot,
+        macros::tr_log,
+        tex::{render_tex_quad, tiles, Tint},
+        text::TextHelper,
+        Lighten, Theme,
+    },
 };
 
 use self::{daily_actions::DailyActions, graph::DailySplashGraph, msg_mock::ShareMessageMock};
@@ -185,6 +192,39 @@ pub enum ResultModalAction {
 }
 
 impl ResultModalUI {
+    fn render_close(
+        &mut self,
+        ui: &mut egui::Ui,
+        map_texture: &TextureHandle,
+        animate: f32,
+    ) -> Option<ResultModalAction> {
+        let mut close_rect = ui.available_rect_before_wrap();
+        close_rect.set_right(close_rect.right() - 5.0);
+        close_rect.set_top(close_rect.top() + 5.0);
+        close_rect.set_left(close_rect.right() - 32.0);
+        close_rect.set_bottom(close_rect.top() + 32.0);
+
+        let close_resp = ui.interact(close_rect, ui.id().with("close"), Sense::click());
+
+        if close_resp.hovered() {
+            close_rect = close_rect.translate(vec2(0.0, -2.0));
+            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+        }
+
+        render_tex_quad(
+            tiles::quad::CLOSE_BUTTON.tint(Color32::WHITE.gamma_multiply(animate * 0.7)),
+            close_rect,
+            &map_texture,
+            ui,
+        );
+
+        if close_resp.clicked() {
+            Some(ResultModalAction::Dismiss)
+        } else {
+            None
+        }
+    }
+
     pub fn render(
         &mut self,
         ui: &mut egui::Ui,
@@ -209,10 +249,10 @@ impl ResultModalUI {
             // Capture events on our overlay to stop them falling through to the game
             ui.allocate_rect(screen_dimension, Sense::click());
 
-            let bg_alpha = ResultModalUI::anim(ui, Anim::Background, 0.5, 1.5);
+            let bg_alpha = ResultModalUI::anim(ui, Anim::Background, 0.5, 1.2);
             let bg = Color32::BLACK.gamma_multiply(bg_alpha);
 
-            ui.painter().clone().rect_filled(screen_dimension, 10.0, bg);
+            ui.painter().clone().rect_filled(screen_dimension, 0.0, bg);
 
             // Wait for the background overlay to start animating before showing the modal
             if bg_alpha < 0.3 {
@@ -232,11 +272,11 @@ impl ResultModalUI {
             let mut modal_dimension = screen_dimension.shrink2(vec2(x_difference, y_difference));
 
             let modal_pos = ResultModalUI::anim(ui, Anim::ModalPos, 1.0, 0.5);
-            let bg = Color32::BLACK.gamma_multiply(modal_pos); // Fade in the modal background
+            let bg = hex_color!("#111111").gamma_multiply(modal_pos); // Fade in the modal background
             let offset = (1.0 - modal_pos) * 40.0;
             modal_dimension = modal_dimension.translate(vec2(0.0, offset)); // Animate the modal in vertically
 
-            ui.painter().rect_filled(modal_dimension, 4.0, bg);
+            ui.painter().rect_filled(modal_dimension, 10.0, bg);
 
             // Wait for the modal position to be close before showing the contents
             if modal_pos < 0.7 {
@@ -245,9 +285,14 @@ impl ResultModalUI {
 
             let modal_inner_dimension = modal_dimension.shrink(10.0);
             ui.allocate_ui_at_rect(modal_inner_dimension, |mut ui| {
-                // TODO: Add close button (reference game sidebar on mobile)
-
                 let modal_items = ResultModalUI::anim(ui, Anim::Items, 1.0, 0.75);
+
+                if let Some(close_msg) = self.render_close(ui, map_texture, modal_items) {
+                    msg = Some(close_msg);
+                }
+
+                ui.add_space(12.0);
+
                 let offset = (1.0 - modal_items) * 50.0;
                 ui.add_space(offset); // Animate the main text upward
 
@@ -471,7 +516,7 @@ impl ResultModalUI {
                     ui.painter().rect_filled(
                         modal_remainder,
                         0.0,
-                        Color32::BLACK.gamma_multiply(1.0 - fade_in_animation),
+                        hex_color!("#111111").gamma_multiply(1.0 - fade_in_animation),
                     );
                 }
             });

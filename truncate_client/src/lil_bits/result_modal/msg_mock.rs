@@ -70,7 +70,7 @@ impl ShareMessageMock {
     }
 
     pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, map_texture: &TextureHandle) {
-        let target_height = 180.0.at_most(ui.available_height());
+        let target_height = 120.0.at_most(ui.available_height());
 
         let (mut message_bounds, _) = ui.allocate_exact_size(
             // This height is just a rough guess to look right.
@@ -79,10 +79,28 @@ impl ShareMessageMock {
             Sense::hover(),
         );
 
+        if message_bounds.height() < 50.0 {
+            return;
+        }
+
         let x_difference = (message_bounds.width() - target_height) / 2.0;
         if x_difference > 0.0 {
             message_bounds = message_bounds.shrink2(vec2(x_difference, 0.0));
         }
+
+        ui.painter()
+            .rect_filled(message_bounds, 15.0, hex_color!("#444444"));
+
+        let mut tail = message_bounds.translate(vec2(message_bounds.width() - 7.0, 0.0));
+        tail.set_right(tail.left() + 20.0);
+        tail.set_top(tail.bottom() - 30.0);
+
+        ui.painter().rect_filled(tail, 10.0, hex_color!("#444444"));
+        tail = tail.translate(vec2(7.0, -3.0));
+        tail.set_top(tail.bottom() - 40.0);
+        ui.painter().rect_filled(tail, 10.0, hex_color!("#111111"));
+
+        message_bounds = message_bounds.shrink(10.0);
 
         ui.allocate_ui_at_rect(message_bounds, |ui| {
             ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
@@ -101,6 +119,10 @@ impl ShareMessageMock {
                         emoji_size = line_height;
                     }
                     ui.horizontal(|ui| {
+                        let full_line = line.chars().count() as f32 * emoji_size;
+                        if full_line < ui.available_width() {
+                            ui.add_space((ui.available_width() - full_line) / 2.0);
+                        }
                         for emoji in line.chars() {
                             let color = match emoji {
                                 '🟦' => hex_color!("#4F55E2"), // TODO: Pull from theming palette

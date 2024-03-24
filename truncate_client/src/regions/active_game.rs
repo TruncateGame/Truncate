@@ -44,6 +44,7 @@ pub enum HeaderType {
 
 #[derive(Clone)]
 pub enum GameLocation {
+    Tutorial,
     Local,
     Online,
 }
@@ -473,6 +474,24 @@ impl ActiveGame {
                             {
                                 msg = Some(PlayerMessage::Rematch);
                             }
+
+                            ui.add_space(20.0);
+                        }
+                        if matches!(self.location, GameLocation::Local) {
+                            let text = TextHelper::heavy("VIEW RESULTS", 12.0, None, ui);
+                            if text
+                                .centered_button(
+                                    self.depot.aesthetics.theme.button_primary,
+                                    self.depot.aesthetics.theme.text,
+                                    &self.depot.aesthetics.map_texture,
+                                    ui,
+                                )
+                                .clicked()
+                            {
+                                msg = Some(PlayerMessage::Resign);
+                            }
+
+                            ui.add_space(20.0);
                         }
                     }
 
@@ -628,27 +647,6 @@ impl ActiveGame {
                     }
                     ui.add_space(menu_spacing);
 
-                    // TODO: Resigning is largely implented for multiplayer games as well, but we need to:
-                    // - Resolve why the update isn't being sent from the server
-                    // - Show the confirmation modal inside active_game (we only show it in single player)
-                    //   otherwise this button is an immediate resign.
-                    if matches!(self.location, GameLocation::Local) {
-                        let text = TextHelper::heavy("RESIGN", 14.0, None, ui);
-                        if text
-                            .button(
-                                self.depot.aesthetics.theme.button_primary,
-                                self.depot.aesthetics.theme.text,
-                                &self.depot.aesthetics.map_texture,
-                                ui,
-                            )
-                            .clicked()
-                        {
-                            msg = Some(PlayerMessage::Resign);
-                            self.depot.ui_state.actions_menu_open = false;
-                        }
-                        ui.add_space(menu_spacing);
-                    }
-
                     let text = if self.depot.audio.muted {
                         TextHelper::heavy("UNMUTE SOUNDS", 14.0, None, ui)
                     } else {
@@ -673,6 +671,48 @@ impl ActiveGame {
                             local_storage
                                 .set_item("truncate_muted", &self.depot.audio.muted.to_string())
                                 .unwrap();
+                        }
+                    }
+
+                    // TODO: Resigning is largely implented for multiplayer games as well, but we need to:
+                    // - Resolve why the update isn't being sent from the server
+                    // - Show the confirmation modal inside active_game (we only show it in single player)
+                    //   otherwise this button is an immediate resign.
+                    // This intentionally excludes the tutorial
+                    if matches!(self.location, GameLocation::Local) {
+                        ui.add_space(menu_spacing);
+                        let text = TextHelper::heavy("RESIGN", 14.0, None, ui);
+                        if text
+                            .button(
+                                self.depot.aesthetics.theme.button_primary,
+                                self.depot.aesthetics.theme.text,
+                                &self.depot.aesthetics.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            msg = Some(PlayerMessage::Resign);
+                            self.depot.ui_state.actions_menu_open = false;
+                        }
+                    }
+
+                    ui.add_space(menu_spacing);
+
+                    let text = TextHelper::heavy("BACK TO MENU", 14.0, None, ui);
+                    if text
+                        .button(
+                            self.depot.aesthetics.theme.button_primary,
+                            self.depot.aesthetics.theme.text,
+                            &self.depot.aesthetics.map_texture,
+                            ui,
+                        )
+                        .clicked()
+                    {
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            _ = web_sys::window().unwrap().location().set_hash("");
+                            _ = web_sys::window().unwrap().location().set_pathname("/");
+                            _ = web_sys::window().unwrap().location().reload();
                         }
                     }
                     ui.add_space(menu_spacing);

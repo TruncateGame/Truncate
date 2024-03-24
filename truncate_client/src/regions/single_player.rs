@@ -43,6 +43,7 @@ pub struct SinglePlayerState {
     pub daily_stats: Option<DailyStats>,
     pub best_game: Option<Game>,
     splash: Option<ResultModalUI>,
+    hide_splash: bool,
     pub move_sequence: Vec<Move>,
 }
 
@@ -111,6 +112,7 @@ impl SinglePlayerState {
             daily_stats: None,
             best_game: None,
             splash: None,
+            hide_splash: false,
             move_sequence: vec![],
         }
     }
@@ -360,18 +362,22 @@ impl SinglePlayerState {
             self.reset(current_time, ui.ctx());
             return msgs_to_server;
         } else if matches!(next_msg, Some((_, PlayerMessage::Resign))) {
-            match self.active_game.location {
-                GameLocation::Local => {
-                    self.splash = Some(ResultModalUI::new_resigning(
-                        &mut ui,
-                        "Resign and try again?".to_string(),
-                    ))
-                }
-                GameLocation::Online => {
-                    self.splash = Some(ResultModalUI::new_resigning(
-                        &mut ui,
-                        "Resign this game?".to_string(),
-                    ))
+            if self.hide_splash {
+                self.hide_splash = false;
+            } else {
+                match self.active_game.location {
+                    GameLocation::Tutorial | GameLocation::Local => {
+                        self.splash = Some(ResultModalUI::new_resigning(
+                            &mut ui,
+                            "Start again?".to_string(),
+                        ))
+                    }
+                    GameLocation::Online => {
+                        self.splash = Some(ResultModalUI::new_resigning(
+                            &mut ui,
+                            "Resign this game?".to_string(),
+                        ))
+                    }
                 }
             }
         } else if let Some((_, PlayerMessage::RequestDefinitions(words))) = &next_msg {
@@ -379,37 +385,42 @@ impl SinglePlayerState {
         }
 
         if let Some(splash) = &mut self.splash {
-            let splash_msg = splash.render(
-                &mut ui,
-                theme,
-                &self.map_texture,
-                &self.active_game.depot,
-                Some(backchannel),
-            );
+            if self.hide_splash == false {
+                let splash_msg = splash.render(
+                    &mut ui,
+                    theme,
+                    &self.map_texture,
+                    &self.active_game.depot,
+                    Some(backchannel),
+                );
 
-            match splash_msg {
-                Some(ResultModalAction::NewPuzzle) => {
-                    self.splash = None;
-                    self.reset(current_time, ui.ctx());
-                }
-                Some(ResultModalAction::TryAgain) => {
-                    self.splash = None;
-
-                    if let Some(seed) = &self.active_game.depot.board_info.board_seed {
-                        self.reset_to(seed.clone(), self.human_starts, ui.ctx());
-                    } else {
+                match splash_msg {
+                    Some(ResultModalAction::NewPuzzle) => {
+                        self.splash = None;
                         self.reset(current_time, ui.ctx());
                     }
+                    Some(ResultModalAction::TryAgain) => {
+                        self.splash = None;
+
+                        if let Some(seed) = &self.active_game.depot.board_info.board_seed {
+                            self.reset_to(seed.clone(), self.human_starts, ui.ctx());
+                        } else {
+                            self.reset(current_time, ui.ctx());
+                        }
+                    }
+                    Some(ResultModalAction::Dismiss) => {
+                        self.hide_splash = true;
+
+                        // Trigger showing the "view summary" button below the game board
+                        self.active_game.depot.gameplay.winner = self.winner;
+                    }
+                    Some(ResultModalAction::Resign) => {
+                        self.splash = None;
+                        self.game.resign_player(human_player);
+                        self.winner = Some(npc_player);
+                    }
+                    None => {}
                 }
-                Some(ResultModalAction::Dismiss) => {
-                    self.splash = None;
-                }
-                Some(ResultModalAction::Resign) => {
-                    self.splash = None;
-                    self.game.resign_player(human_player);
-                    self.winner = Some(npc_player);
-                }
-                None => {}
             }
         }
 
