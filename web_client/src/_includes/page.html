@@ -274,8 +274,7 @@
     <canvas id="truncate_canvas"></canvas>
 
     <div id="controls" class="unloaded" data-control-stage="root">
-        <button style="display: none" data-stage="root" id="about_control" data-control="to_about">ABOUT &
-            CREDITS</button>
+        <button data-stage="root" id="about_control" data-control="to_about">ABOUT & CREDITS</button>
 
         <div id="menu_region">
         </div>
@@ -575,7 +574,7 @@
 
                 }
             }
-            // menu = new Menu(document.querySelector("#menu_region"));
+            menu = new Menu(document.querySelector("#menu_region"));
 
             document.querySelector("#about_control").addEventListener("click", () => {
                 let modal = document.querySelector("#about_truncate");
@@ -596,7 +595,7 @@
             const island_threshold = 0.4;
             const town_threshold = 0.45;
             const decor_threshold = 0.6;
-            const dock_neg_threshold = -0.3;
+            const dock_neg_threshold = -0.7;
 
             const TILES = JSON.parse(`{{ tiles | json }}`);
             const TILEPACKS = {
@@ -622,7 +621,7 @@
                 }
                 const calc_midpoint = () => {
                     let x = Math.round(canvas.width / 2);
-                    let y = Math.round(canvas.height / 2);
+                    let y = Math.round(canvas.height / 3);
                     return [x - (x % 2), y - (y % 2)];
                 }
 
@@ -754,8 +753,7 @@
                 name: (name) => {
                     name = name.toUpperCase();
                     const name_width = name.length * (output_size * 2);
-                    const x = midpoint[0] - name_width / 2;
-                    const y = midpoint[1] - output_size;
+                    const x = midpoint[0] - name_width / 2, y = midpoint[1] - output_size;
 
                     ctx.font = `${output_size * 0.9}px Truncate`;
                     ctx.textAlign = `center`;
@@ -808,9 +806,7 @@
                     for (const tex of houses?.[3] ?? []) paint.tile(tex, x, y + output_size);
                 },
                 dock: (x, y, seed, neighbors) => {
-                    // if (seed > dock_neg_threshold) return;
-
-                    if (Math.random() < 0.95) return;
+                    if (seed > dock_neg_threshold) return;
 
                     if (neighbors[1]) {
                         paint.tiles(TILES.QUAD.SOUTH_DOCK, x, y);
@@ -869,7 +865,7 @@
                 for (let col = 0; col < horiz_tile_count; col += 1) {
                     island_map[col] = [];
                     for (let row = 0; row < vert_tile_count; row += 1) {
-                        const seed = islander.simplex2(col / 6, row / 6);
+                        const seed = islander.simplex2(col, row);
 
                         const tile_data = {
                             x: tile_from_x + col * logical_tile_size,
@@ -881,7 +877,7 @@
                         };
 
                         // Clear space around text
-                        const space_below = 0;
+                        const space_below = mobile ? 7 : 4;
                         if (tile_data.x >= metrics.x - logical_tile_size
                             && tile_data.x < metrics.x + metrics.name_width + logical_tile_size
                             && tile_data.y >= metrics.y - logical_tile_size
