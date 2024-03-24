@@ -25,6 +25,7 @@ use crate::utils::{
 use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
 const RULES: &[u8] = include_bytes!("../../tutorials/rules.yml");
+const EXAMPLE_GAME: &[u8] = include_bytes!("../../tutorials/example_game.yml");
 
 #[derive(Deserialize, Debug)]
 struct Tutorial {
@@ -178,10 +179,13 @@ impl TutorialStage {
             self.game.bag = TileBag::explicit(vec![*next_tile], None);
         }
 
-        match self.game.make_move(next_move, None, None, None) {
-            Ok(changes) => {
-                let changes = changes
-                    .into_iter()
+        match self.game.play_turn(next_move, None, None, None) {
+            Ok(possible_winner) => {
+                let changes = self
+                    .game
+                    .recent_changes
+                    .iter()
+                    .cloned()
                     .filter(|change| match change {
                         truncate_core::reporting::Change::Board(_) => true,
                         truncate_core::reporting::Change::Hand(hand_change) => {
@@ -192,6 +196,7 @@ impl TutorialStage {
                     })
                     .collect();
                 let room_code = self.active_game.depot.gameplay.room_code.clone();
+
                 let state_message = GameStateMessage {
                     room_code,
                     players: self.game.players.iter().map(Into::into).collect(),
@@ -202,6 +207,8 @@ impl TutorialStage {
                     changes,
                 };
                 self.active_game.apply_new_state(state_message);
+                self.active_game.depot.gameplay.winner = possible_winner;
+
                 self.increment_step();
                 Ok(())
             }
@@ -214,9 +221,24 @@ impl TutorialStage {
 }
 
 impl TutorialState {
-    pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
+    pub fn new_rules(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
         let tutorial: Tutorial =
             serde_yaml::from_slice(RULES).expect("Tutorial should match Tutorial format");
+
+        let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
+
+        Self {
+            stage_index: 0,
+            change_stage_next_frame: ChangeStage::None,
+            stage: stage_zero,
+            stage_changed_at: Duration::from_secs(0),
+            tutorial,
+        }
+    }
+
+    pub fn new_example(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
+        let tutorial: Tutorial =
+            serde_yaml::from_slice(EXAMPLE_GAME).expect("Tutorial should match Tutorial format");
 
         let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
 
@@ -296,7 +318,7 @@ impl TutorialState {
 
             let mut active_game = ActiveGame::new(
                 ctx,
-                "TUTORIAL_01".into(),
+                "TUTORIAL_GAME".into(),
                 None,
                 None,
                 game.players.iter().map(Into::into).collect(),
@@ -306,7 +328,7 @@ impl TutorialState {
                 game.players[0].hand.clone(),
                 map_texture,
                 theme.clone(),
-                GameLocation::Local,
+                GameLocation::Tutorial,
             );
             active_game.depot.ui_state.game_header = HeaderType::None;
 

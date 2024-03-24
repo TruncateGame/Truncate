@@ -1,5 +1,7 @@
-use eframe::egui::{self, widget_text::WidgetTextGalley, Sense};
-use epaint::{emath::Align2, pos2, vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
+use std::sync::Arc;
+
+use eframe::egui::{self, Sense};
+use epaint::{emath::Align2, pos2, vec2, Color32, Galley, Pos2, Rect, TextureHandle, Vec2};
 
 use super::tex::{paint_dialog_background, render_texs_clockwise, Tex, Tint};
 
@@ -9,7 +11,7 @@ pub struct TextHelper<'a> {
     original_text: &'a str,
     size: f32,
     max_width: Option<f32>,
-    galley: WidgetTextGalley,
+    galley: Arc<Galley>,
 }
 
 impl<'a> TextHelper<'a> {
@@ -66,7 +68,7 @@ impl<'a> TextHelper<'a> {
     }
 
     pub fn mesh_size(&self) -> Vec2 {
-        self.galley.galley.mesh_bounds.size()
+        self.galley.mesh_bounds.size()
     }
 
     pub fn get_partial_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
@@ -92,8 +94,8 @@ impl<'a> TextHelper<'a> {
     }
 
     pub fn paint_at(self, pos: Pos2, color: Color32, ui: &mut egui::Ui) {
-        self.galley
-            .paint_with_color_override(ui.painter(), pos, color);
+        ui.painter()
+            .galley_with_override_text_color(pos, self.galley, color);
     }
 
     pub fn paint_within(self, bounds: Rect, alignment: Align2, color: Color32, ui: &mut egui::Ui) {
@@ -110,12 +112,12 @@ impl<'a> TextHelper<'a> {
             egui::Align::Max => bounds.top() + (bounds.height() - dims.y),
         };
 
-        self.galley
-            .paint_with_color_override(ui.painter(), pos2(x_pos, y_pos), color);
+        ui.painter()
+            .galley_with_override_text_color(pos2(x_pos, y_pos), self.galley, color);
     }
 
     pub fn paint(self, color: Color32, ui: &mut egui::Ui, centered: bool) -> egui::Response {
-        let text_size = self.galley.galley.mesh_bounds.size();
+        let text_size = self.galley.mesh_bounds.size();
 
         let (text_rect, text_resp) = if centered {
             ui.horizontal(|ui| {
@@ -197,6 +199,17 @@ impl<'a> TextHelper<'a> {
         self.paint_at(dialog_rect.min + offset, text_color, ui);
 
         dialog_resp
+    }
+
+    pub fn get_button_height(&self, ui: &egui::Ui) -> f32 {
+        let text_size = self.mesh_size();
+
+        let button_texs = Tex::text_button(text_size.x / text_size.y * 0.7);
+        let button_width = text_size.x + self.size * 2.0;
+
+        let button_tile_size = button_width / (button_texs.len() / 2) as f32;
+
+        button_tile_size * 2.0
     }
 
     fn paint_tile_background(

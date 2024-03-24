@@ -24,6 +24,7 @@ use crate::{
         game_evals::get_main_dict,
         macros::tr_log,
         text::TextHelper,
+        urls::back_to_menu,
         Lighten,
     },
 };
@@ -77,10 +78,11 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui, curren
                         .unwrap();
 
                     // If we're joining a lobby, update the URL to match
+                    _ = web_sys::window().unwrap().location().set_pathname("/join/");
                     _ = web_sys::window()
                         .unwrap()
                         .location()
-                        .set_hash(id.to_uppercase().as_str());
+                        .set_search(&format!("j={}", id.to_uppercase()));
                 }
 
                 outer.game_status = GameStatus::PendingStart(Lobby::new(
@@ -325,7 +327,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
     // Block all further actions until we have a login token from the server,
     // or until the player accepts to play offline.
     if let (Some(waiting_for_login), None) = (&outer.started_login_at, &outer.logged_in_as) {
-        if (current_time - *waiting_for_login) < Duration::from_secs(10) {
+        if (current_time - *waiting_for_login) < Duration::from_secs(5) {
             SplashUI::new(vec!["INITIALIZING".to_string()])
                 .animated(true)
                 .render(ui, &outer.theme, current_time, &outer.map_texture);
@@ -369,12 +371,24 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                         Some(GameStatus::HardError(vec!["Could not rejoin".to_string()]));
                 }
             }
-        } else if launched_room == "TUTORIAL_01" {
-            new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+        } else if launched_room == "TUTORIAL_RULES" {
+            new_game_status = Some(GameStatus::Tutorial(TutorialState::new_rules(
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
             )));
+            send(PlayerMessage::StartedTutorial {
+                name: "rules".to_string(),
+            });
+        } else if launched_room == "TUTORIAL_EXAMPLE" {
+            new_game_status = Some(GameStatus::Tutorial(TutorialState::new_example(
+                ui.ctx(),
+                outer.map_texture.clone(),
+                &outer.theme,
+            )));
+            send(PlayerMessage::StartedTutorial {
+                name: "example".to_string(),
+            });
         } else if launched_room == "SINGLE_PLAYER" {
             let mut board = Board::new(9, 9);
             board.grow();
@@ -397,6 +411,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 board,
                 outer.map_texture.clone(),
             )));
+            send(PlayerMessage::StartedSinglePlayer);
         } else if launched_room == "DAILY_PUZZLE" {
             let day = get_puzzle_day(current_time);
             if let Some(token) = &outer.logged_in_as {
@@ -425,6 +440,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 NPCPersonality::jet(),
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+            send(PlayerMessage::StartedRandomPuzzle {
+                personality: "jet".into(),
+            });
         } else if launched_room == "RANDOM_EASY_PUZZLE" {
             let seed = (current_time.as_micros() % 243985691) as u32;
             let board_seed = BoardSeed::new(seed);
@@ -446,6 +464,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 NPCPersonality::mellite(),
             );
             new_game_status = Some(GameStatus::SinglePlayer(puzzle_game));
+            send(PlayerMessage::StartedRandomPuzzle {
+                personality: "mellite".into(),
+            });
         } else if launched_room.starts_with("PUZZLE:") {
             let url_segments = launched_room.chars().filter(|c| *c == ':').count();
             let has_board_generation = url_segments >= 3;
@@ -481,6 +502,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     title: format!("Truncate Puzzle"),
                     attempt: None,
                 };
+                send(PlayerMessage::StartedRandomPuzzle {
+                    personality: npc.name.clone(),
+                });
                 let puzzle_game = SinglePlayerState::new(
                     ui.ctx(),
                     outer.map_texture.clone(),
@@ -553,8 +577,15 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     outer.theme.clone(),
                 )));
             }
-            if ui.button("Tutorial").clicked() {
-                new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+            if ui.button("Tutorial: Rules").clicked() {
+                new_game_status = Some(GameStatus::Tutorial(TutorialState::new_rules(
+                    ui.ctx(),
+                    outer.map_texture.clone(),
+                    &outer.theme,
+                )));
+            }
+            if ui.button("Tutorial: Example").clicked() {
+                new_game_status = Some(GameStatus::Tutorial(TutorialState::new_example(
                     ui.ctx(),
                     outer.map_texture.clone(),
                     &outer.theme,
@@ -681,12 +712,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
             if resp.clicked == Some("cancel") {
-                // TODO: Neatly kick back to the wrapper page without a reload
-                #[cfg(target_arch = "wasm32")]
-                {
-                    _ = web_sys::window().unwrap().location().set_hash("");
-                    _ = web_sys::window().unwrap().location().reload();
-                }
+                back_to_menu();
             }
         }
         GameStatus::PendingJoin(room_code) => {
@@ -701,12 +727,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
             if resp.clicked == Some("cancel") {
-                // TODO: Neatly kick back to the wrapper page without a reload
-                #[cfg(target_arch = "wasm32")]
-                {
-                    _ = web_sys::window().unwrap().location().set_hash("");
-                    _ = web_sys::window().unwrap().location().reload();
-                }
+                back_to_menu();
             }
         }
         GameStatus::PendingCreate => {
@@ -721,12 +742,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
             if resp.clicked == Some("cancel") {
-                // TODO: Neatly kick back to the wrapper page without a reload
-                #[cfg(target_arch = "wasm32")]
-                {
-                    _ = web_sys::window().unwrap().location().set_hash("");
-                    _ = web_sys::window().unwrap().location().reload();
-                }
+                back_to_menu();
             }
         }
         GameStatus::PendingStart(editor_state) => {
@@ -756,12 +772,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
             if resp.clicked == Some("cancel") {
-                // TODO: Neatly kick back to the wrapper page without a reload
-                #[cfg(target_arch = "wasm32")]
-                {
-                    _ = web_sys::window().unwrap().location().set_hash("");
-                    _ = web_sys::window().unwrap().location().reload();
-                }
+                back_to_menu();
             }
         }
         GameStatus::Replay(replay) => {

@@ -8,5 +8,6 @@ pub mod tex;
 pub mod text;
 pub mod theming;
 pub mod timing;
+pub mod urls;
 
 pub use theming::{Darken, Diaphanize, Lighten, Theme};

@@ -15,6 +15,7 @@ use crate::{
         mapper::MappedBoard,
         text::TextHelper,
         timing::get_qs_tick,
+        urls::back_to_menu,
         Theme,
     },
 };
@@ -187,6 +188,16 @@ impl ReplayerState {
 
         if elapsed >= self.playback_speed.ticks() {
             self.play_next_turn(current_time, now);
+        }
+
+        ui.add_space(20.0);
+
+        let text = TextHelper::heavy("BACK TO MENU", 12.0, None, ui);
+        if text
+            .centered_button(theme.button_primary, theme.text, &self.map_texture, ui)
+            .clicked()
+        {
+            back_to_menu();
         }
 
         ui.add_space(20.0);

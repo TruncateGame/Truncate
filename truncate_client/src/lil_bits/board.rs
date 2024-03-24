@@ -89,7 +89,14 @@ impl<'a> BoardUI<'a> {
 
         let mut drag_pos = None;
         if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-            let drag_offset = if depot.ui_state.is_touch { -50.0 } else { 0.0 };
+            // When dragging on a touchscreen, we show the tile above the pointer position.
+            // We avoid doing this when not dragging, as otherwise taps show tiles in the wrong position.
+            let mid_drag = ui.input(|i| i.pointer.is_decidedly_dragging());
+            let drag_offset = if depot.ui_state.is_touch && mid_drag {
+                -50.0
+            } else {
+                0.0
+            };
             drag_pos = Some(pointer_pos + vec2(0.0, drag_offset));
         }
 
@@ -434,16 +441,22 @@ impl<'a> BoardUI<'a> {
 
         let mut board_pos = board_frame.response.rect.clone();
 
-        if let Some(hover_pos) = board_frame.response.hover_pos() {
-            // Move the drag focus to our board layer if it looks like a drag is starting.
-            // NB: This is sensitive to the board being painted _last_ on our screen,
-            // such that anything else that should be getting the drag this frame will already
-            // exist in the `is_anything_being_dragged` check.
-            // (The `layer_id_at` check should avoid this issue in most cases, I imagine)
-            if ui.input(|i| i.pointer.any_down() && i.pointer.any_pressed())
+        // Move the drag focus to our board layer if it looks like a drag is starting.
+        // NB: This is sensitive to the board being painted _last_ on our screen,
+        // such that anything else that should be getting the drag this frame will already
+        // exist in the `is_anything_being_dragged` check.
+        // (The `layer_id_at` check should avoid this issue in most cases, I imagine)
+        if let Some(pos) = ui.input(|i| {
+            if i.pointer.any_down() {
+                i.pointer.interact_pos()
+            } else {
+                None
+            }
+        }) {
+            if board_frame.response.contains_pointer()
                 && !ui.memory(|mem| mem.is_anything_being_dragged())
             {
-                if ui.ctx().layer_id_at(hover_pos) == Some(area_id) {
+                if ui.ctx().layer_id_at(pos) == Some(area_id) {
                     ui.memory_mut(|mem| mem.set_dragged_id(area_id.id))
                 }
             }
@@ -452,7 +465,7 @@ impl<'a> BoardUI<'a> {
         // Global(ish) interactions
         if let Some(hover_pos) = ui.ctx().pointer_hover_pos() {
             let zoom_delta = ui.input(|i| i.zoom_delta());
-            let scroll_delta = ui.input(|i| i.scroll_delta);
+            let scroll_delta = ui.input(|i| i.raw_scroll_delta);
 
             let maybe_zooming = zoom_delta != 1.0;
             let maybe_panning = scroll_delta != Vec2::ZERO;
