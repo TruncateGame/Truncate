@@ -641,6 +641,9 @@ async fn handle_player_msg(
             }
         }
         LoadReplay(id) => {
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(&server_state, &"load_replay".into(), connection_player).await;
+
             let Ok(uuid) = Uuid::parse_str(&id) else {
                 return player_err("Invalid Replay ID".into());
             };
