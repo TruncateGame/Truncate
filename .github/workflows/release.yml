@@ -1,4 +1,4 @@
-name: Deploy to outpost/coup
+name: Deploy to production
 
 on:
   push:
