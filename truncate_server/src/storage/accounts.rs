@@ -16,6 +16,10 @@ impl AuthedTruncateToken {
     pub fn player(&self) -> Uuid {
         self.player_id
     }
+
+    pub fn token(&self) -> TruncateToken {
+        self.token.clone()
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -23,14 +27,24 @@ struct PlayerClaims {
     player_id: Uuid,
 }
 
-pub fn get_player_token(server_state: &ServerState, player_id: Uuid) -> TruncateToken {
+pub fn get_player_token(server_state: &ServerState, player_id: Uuid) -> AuthedTruncateToken {
     let claims =
         Claims::with_custom_claims(PlayerClaims { player_id }, Duration::from_days(100000));
 
-    server_state
+    let token = server_state
         .jwt_key
         .authenticate(claims)
-        .expect("Claims should be serializable")
+        .expect("Claims should be serializable");
+    let authed_token = server_state
+        .jwt_key
+        .verify_token::<PlayerClaims>(&token, None)
+        .map(|t| AuthedTruncateToken {
+            token,
+            player_id: t.custom.player_id,
+        })
+        .expect("We just generated this");
+
+    authed_token
 }
 
 pub fn auth_player_token(
@@ -97,7 +111,7 @@ pub async fn login(
     screen_width: u32,
     screen_height: u32,
     user_agent: String,
-) -> Result<Uuid, TruncateServerError> {
+) -> Result<(Uuid, AuthedTruncateToken), TruncateServerError> {
     let Some(pool) = &server_state.truncate_db else {
         return Err(TruncateServerError::DatabaseOffline);
     };
@@ -143,7 +157,7 @@ pub async fn login(
         .execute(pool)
         .await?;
 
-        Ok(player_id)
+        Ok((player_id, authed))
     } else {
         Err(TruncateServerError::InvalidUser(player_id))
     }

@@ -22,8 +22,9 @@ use tungstenite::protocol::Message;
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
 use crate::storage::daily;
+use crate::storage::events::create_event;
 use game_state::GameManager;
-use storage::accounts;
+use storage::accounts::{self, AuthedTruncateToken};
 use truncate_core::messages::{
     DailyStateMessage, GameMessage, GameStateMessage, LobbyPlayerMessage, PlayerMessage,
 };
@@ -103,6 +104,7 @@ async fn handle_player_msg(
     msg: Message,
     player_addr: SocketAddr,
     server_state: ServerState,
+    connection_info_mutex: Arc<Mutex<ConnectionInfo>>,
 ) -> Result<(), tungstenite::Error> {
     let mut parsed_msg: PlayerMessage =
         serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
@@ -137,6 +139,9 @@ async fn handle_player_msg(
         NewGame(mut player_name) => {
             let new_game_id = server_state.game_code();
             let mut game = GameManager::new(new_game_id.clone());
+
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(&server_state, "new_game", connection_player).await;
 
             if &player_name == "___AUTO___" {
                 player_name = "Player 1".into();
@@ -188,6 +193,9 @@ async fn handle_player_msg(
         JoinGame(room_code, mut player_name, _) => {
             let code = room_code.to_ascii_lowercase();
             if let Some(existing_game) = server_state.get_game_by_code(&code) {
+                let connection_player = connection_info_mutex.lock().player.clone();
+                _ = create_event(&server_state, "join_game", connection_player).await;
+
                 let mut game_manager = existing_game.lock();
 
                 // TODO: This is the easiest place to check for lobby capacity right now,
@@ -400,6 +408,9 @@ async fn handle_player_msg(
         }
         StartGame => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let connection_player = connection_info_mutex.lock().player.clone();
+                _ = create_event(&server_state, "start_game", connection_player).await;
+
                 let mut game_manager = existing_game.lock();
                 for (player, message) in game_manager.start() {
                     let Some(socket) = player.socket else {
@@ -458,6 +469,9 @@ async fn handle_player_msg(
         }
         Rematch => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let connection_player = connection_info_mutex.lock().player.clone();
+                _ = create_event(&server_state, "rematch", connection_player).await;
+
                 let mut existing_game_manager = existing_game.lock();
                 if existing_game_manager.core_game.winner.is_none() {
                     return player_err("Cannot rematch unfinished game".into());
@@ -555,10 +569,13 @@ async fn handle_player_msg(
         .await
         {
             Ok(new_player) => {
-                let token = accounts::get_player_token(&server_state, new_player);
+                let authed_token = accounts::get_player_token(&server_state, new_player);
+
+                let mut connection_info = connection_info_mutex.lock();
+                connection_info.player = Some(authed_token.clone());
 
                 server_state
-                    .send_to_player(&player_addr, GameMessage::LoggedInAs(token))
+                    .send_to_player(&player_addr, GameMessage::LoggedInAs(authed_token.token()))
                     .unwrap();
             }
             Err(_) => {
@@ -580,7 +597,10 @@ async fn handle_player_msg(
         )
         .await
         {
-            Ok(_player_id) => {
+            Ok((_player_id, authed_token)) => {
+                let mut connection_info = connection_info_mutex.lock();
+                connection_info.player = Some(authed_token);
+
                 server_state
                     .send_to_player(&player_addr, GameMessage::LoggedInAs(player_token))
                     .unwrap();
@@ -677,6 +697,11 @@ async fn handle_player_msg(
     Ok(())
 }
 
+#[derive(Default)]
+struct ConnectionInfo {
+    player: Option<AuthedTruncateToken>,
+}
+
 async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, addr: SocketAddr) {
     let ws_stream = tokio_tungstenite::accept_async(raw_stream)
         .await
@@ -687,10 +712,13 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
 
     let (outgoing, incoming) = ws_stream.split();
 
+    let connection_info = Arc::new(Mutex::new(ConnectionInfo::default()));
+
     // TODO: try_for_each from TryStreamExt is quite nice,
     // look to bring that trait to the other stream places
-    let handle_player_msg =
-        incoming.try_for_each(|msg| handle_player_msg(msg, addr, server_state.clone()));
+    let handle_player_msg = incoming.try_for_each(|msg| {
+        handle_player_msg(msg, addr, server_state.clone(), connection_info.clone())
+    });
 
     let messages_to_player = {
         UnboundedReceiverStream::new(player_rx)
