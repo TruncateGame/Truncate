@@ -72,7 +72,6 @@ impl ServerState {
     fn get_game_by_player(&self, addr: &SocketAddr) -> Option<Arc<Mutex<GameManager>>> {
         let assignments = self.assignments.lock();
         let game_id = assignments.get(addr)?;
-        println!("{addr} is assigned to game {game_id}");
         self.games.lock().get(game_id).map(Arc::clone)
     }
 
@@ -106,8 +105,10 @@ async fn handle_player_msg(
     server_state: ServerState,
     connection_info_mutex: Arc<Mutex<ConnectionInfo>>,
 ) -> Result<(), tungstenite::Error> {
-    let mut parsed_msg: PlayerMessage =
-        serde_json::from_str(msg.to_text().unwrap()).expect("Valid JSON");
+    let Ok(mut parsed_msg): Result<PlayerMessage, _> = serde_json::from_str(msg.to_text().unwrap())
+    else {
+        return Ok(());
+    };
 
     use PlayerMessage::*;
     // If player is joining a room that they have a token for,
