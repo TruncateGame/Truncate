@@ -122,7 +122,13 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 GameStatus::Active(game) => {
                     game.apply_new_state(state_message);
                 }
-                _ => todo!("Game update hit an unknown state"),
+                _ => {
+                    outer.game_status = GameStatus::HardError(vec![
+                        "Game hit unknown case".into(),
+                        "Received game message".into(),
+                        "while not in a game".into(),
+                    ])
+                }
             },
             GameMessage::GameEnd(state_message, winner) => {
                 #[cfg(target_arch = "wasm32")]

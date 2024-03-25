@@ -25,7 +25,6 @@ use self::{daily_actions::DailyActions, graph::DailySplashGraph, msg_mock::Share
 
 TODOs for the daily splash screen:
 - Vertically center contents, or size the modal to the contents better
-- Add ability to close the splash screen and look at the game
 
  */
 

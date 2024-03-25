@@ -309,15 +309,6 @@ impl<'a> EditorUI<'a> {
                                     .memory_mut(|mem| mem.data.remove::<EditorDrag>(Id::NULL));
                             } else if response.clicked() {
                                 unreachable!("Maybe unreachable? Duplicate above state if not...");
-                                // match square {
-                                //     Square::Water => modify_pos = Some((coord, Square::Land)),
-                                //     Square::Land => modify_pos = Some((coord, Square::Water)),
-                                //     Square::Town(_) => {} // TODO
-                                //     Square::Dock(_) => {} // TODO
-                                //     Square::Occupied(_, _) => unreachable!(
-                                //         "Board editor shouldn't see occupied tiles"
-                                //     ),
-                                // }
                             };
                         }
                     });

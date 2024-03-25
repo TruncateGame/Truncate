@@ -87,7 +87,6 @@ pub fn render_native_menu_if_required(
                 return Some(GameStatus::SinglePlayer(behemoth_game));
             }
             if ui.button("New Game").clicked() {
-                // TODO: Send player name in NewGame message
                 send_to_server(PlayerMessage::NewGame(outer.name.clone()));
                 return Some(GameStatus::PendingCreate);
             }

@@ -34,7 +34,7 @@ pub const GAME_COLORS: [(u8, u8, u8); 5] = [
 pub struct Game {
     pub rules: GameRules,
     pub players: Vec<Player>,
-    pub board: Board, // TODO: should these actually be public?
+    pub board: Board,
     pub bag: TileBag,
     pub judge: Judge,
     pub battle_count: u32,
@@ -210,7 +210,7 @@ impl Game {
             Ok(changes) => changes,
             Err(msg) => {
                 println!("Error in game: {}", msg);
-                return Err(format!("{msg}")); // TODO: propogate error post polonius
+                return Err(format!("{msg}"));
             }
         };
 

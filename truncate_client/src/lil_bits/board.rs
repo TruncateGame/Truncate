@@ -35,8 +35,7 @@ impl<'a> BoardUI<'a> {
 }
 
 impl<'a> BoardUI<'a> {
-    // TODO: Refactor board to maybe own nothing and pass the whole
-    // game object through, since we touch so much of it.
+    // TODO: Refactor board
     pub fn render(
         self,
         hand: &Hand,

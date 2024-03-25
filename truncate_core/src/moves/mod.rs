@@ -6,7 +6,6 @@ use super::board::Coordinate;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Move {
-    // TODO: make Move a struct and make player a top level property of it
     Place {
         player: usize,
         tile: char,
@@ -75,10 +74,10 @@ mod tests {
             "SILLY".into(),
             "FOLK".into(),
             "ARTS".into(),
-        ]) // TODO: Collins 2018 list
+        ])
     }
     pub fn b_dict() -> Judge {
-        Judge::new(vec!["BIG".into()]) // TODO: Collins 2018 list
+        Judge::new(vec!["BIG".into()])
     }
 
     #[test]

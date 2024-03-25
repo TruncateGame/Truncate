@@ -14,7 +14,6 @@ use crate::utils::{depot::TruncateDepot, Theme};
 
 TODOs for the message mock:
 - Pull all of the colours from a central theme once we refactor general theming
-- Add the small speech bubble decoration bottom right to indicate it's a message bubble
 
  */
 

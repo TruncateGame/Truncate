@@ -18,6 +18,7 @@ use truncate_core::{
 use crate::utils::{
     tex::{render_tex_quad, tiles},
     text::TextHelper,
+    urls::back_to_menu,
     Diaphanize, Lighten, Theme,
 };
 
@@ -750,17 +751,7 @@ impl TutorialState {
                                                     )
                                                     .clicked()
                                                 {
-                                                    // TODO: A more elegant way to show the menu over the game would be nice,
-                                                    // but we would need to add extra endpoints to the lib.rs file,
-                                                    // and also give those endpoints a way to access the active game to change its state.
-                                                    // As an MVP here, we simply reload the page to get back to the menu.
-                                                    #[cfg(target_arch = "wasm32")]
-                                                    {
-                                                        _ = web_sys::window()
-                                                            .unwrap()
-                                                            .location()
-                                                            .reload();
-                                                    }
+                                                    back_to_menu();
                                                 }
                                             },
                                         );
@@ -769,7 +760,7 @@ impl TutorialState {
                             }
                         },
                         None => {
-                            // TODO: Tutorial complete screen, back to menu
+                            // Ideally unreachable in a well formed tutorial
                         }
                     };
                 });
