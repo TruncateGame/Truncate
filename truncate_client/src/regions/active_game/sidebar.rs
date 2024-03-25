@@ -1,21 +1,15 @@
 use epaint::{emath::Align2, vec2, FontId, Vec2};
 
-use truncate_core::{
-    messages::{PlayerMessage},
-    reporting::{Change},
-};
+use truncate_core::{messages::PlayerMessage, reporting::Change};
 
 use eframe::{
     egui::{self, CursorIcon, Layout, Order, ScrollArea, Sense},
     emath::Align,
 };
 
-
 use crate::{
-    lil_bits::{BattleUI},
-    utils::{
-        tex::{render_tex_quad, tiles},
-    },
+    lil_bits::BattleUI,
+    utils::tex::{render_tex_quad, tiles},
 };
 
 use super::ActiveGame;

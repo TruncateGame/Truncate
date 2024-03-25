@@ -1,6 +1,3 @@
-
-
-
 use dicts::{get_dicts, Dicts};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use storage::{load_file, write_file, SeedNote};
@@ -12,7 +9,7 @@ use truncate_core::{
     npc::scoring::NPCParams,
 };
 
-use crate::dicts::{ensure_dicts};
+use crate::dicts::ensure_dicts;
 
 mod dicts;
 mod storage;

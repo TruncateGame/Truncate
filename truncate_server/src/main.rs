@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use definitions::WordDB;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
-use jwt_simple::{prelude::*};
+use jwt_simple::prelude::*;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;

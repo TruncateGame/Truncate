@@ -1,22 +1,15 @@
 use eframe::egui;
 
-
 use truncate_core::{
-    board::Board,
-    generation::{BoardSeed},
-    messages::{LobbyPlayerMessage},
-    npc::scoring::NPCPersonality,
+    board::Board, generation::BoardSeed, messages::LobbyPlayerMessage, npc::scoring::NPCPersonality,
 };
 
 use crate::{
     app_inner::GameStatus,
     app_outer::OuterApplication,
     regions::{
-        active_game::{HeaderType},
-        generator::GeneratorState,
-        lobby::Lobby,
-        single_player::SinglePlayerState,
-        tutorial::TutorialState,
+        active_game::HeaderType, generator::GeneratorState, lobby::Lobby,
+        single_player::SinglePlayerState, tutorial::TutorialState,
     },
 };
 

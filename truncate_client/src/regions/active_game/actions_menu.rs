@@ -1,21 +1,15 @@
 use epaint::{emath::Align2, vec2};
 
-use truncate_core::{
-    messages::{PlayerMessage},
-};
+use truncate_core::messages::PlayerMessage;
 
 use eframe::{
     egui::{self, Layout, Order, Sense},
     emath::Align,
 };
 
-
 use crate::{
-    lil_bits::{DictionaryUI},
-    utils::{
-        text::TextHelper,
-        urls::back_to_menu,
-    },
+    lil_bits::DictionaryUI,
+    utils::{text::TextHelper, urls::back_to_menu},
 };
 
 use super::{ActiveGame, GameLocation};

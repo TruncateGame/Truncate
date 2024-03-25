@@ -1,10 +1,7 @@
 use epaint::{emath::Align2, hex_color, vec2, Color32, TextureHandle};
 use instant::Duration;
 use interpolation::Ease;
-use truncate_core::{
-    game::Game,
-    messages::{DailyStats},
-};
+use truncate_core::{game::Game, messages::DailyStats};
 
 mod daily_actions;
 mod graph;

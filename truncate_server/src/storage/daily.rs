@@ -1,8 +1,5 @@
 use std::collections::BTreeMap;
 
-
-
-
 use truncate_core::{
     messages::{DailyAttempt, DailyResult, DailyStateMessage, DailyStats},
     moves::{self, packing::pack_moves, Move},

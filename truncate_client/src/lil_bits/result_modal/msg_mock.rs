@@ -20,7 +20,6 @@ TODOs for the message mock:
 
 #[derive(Clone)]
 pub struct ShareMessageMock {
-    is_daily: bool,
     pub share_text: String,
     emoji_board: String,
 }
@@ -49,7 +48,6 @@ impl ShareMessageMock {
             .flatten();
 
         Self {
-            is_daily: true,
             share_text,
             emoji_board,
         }
@@ -63,7 +61,6 @@ impl ShareMessageMock {
         let share_text = format!("{share_prefix}\n{emoji_board}");
 
         Self {
-            is_daily: false,
             share_text,
             emoji_board,
         }

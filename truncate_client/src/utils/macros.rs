@@ -6,7 +6,6 @@ macro_rules! tr_log {
     }};
 }
 
-
 macro_rules! current_time {
     () => {{
         // We have to go through the instant crate as

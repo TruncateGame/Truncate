@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 
-
 use eframe::egui;
 use epaint::{hex_color, pos2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
 use instant::Duration;
@@ -19,7 +18,7 @@ pub use self::image_manipulation::ImageMusher;
 
 use super::{
     depot::{AestheticDepot, GameplayDepot, HoveredRegion, InteractionDepot, TimingDepot},
-    glyph_utils::{Glypher},
+    glyph_utils::Glypher,
     tex::{self, BGTexType, Tex, TexLayers, TileDecoration},
     Lighten,
 };

@@ -1,17 +1,14 @@
 use epaint::{emath::Align2, vec2, Rect, Vec2};
 
-use truncate_core::{
-    messages::{PlayerMessage},
-};
+use truncate_core::messages::PlayerMessage;
 
 use eframe::{
     egui::{self, CursorIcon, Layout, Order, Sense},
     emath::Align,
 };
 
-
 use crate::{
-    lil_bits::{TimerUI},
+    lil_bits::TimerUI,
     utils::{
         tex::{render_tex_quad, render_tex_quads, tiles},
         text::TextHelper,

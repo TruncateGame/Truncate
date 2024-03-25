@@ -1,6 +1,7 @@
 use eframe::egui::{self, Layout, Sense};
 use epaint::{
-    emath::{Align, Align2}, vec2, Color32, Stroke,
+    emath::{Align, Align2},
+    vec2, Color32, Stroke,
 };
 
 use std::{collections::HashMap, f32};
@@ -10,12 +11,7 @@ use truncate_core::{
     reporting::{BattleReport, BattleWord, WordMeaning},
 };
 
-use crate::utils::{
-    depot::{TruncateDepot},
-    game_evals::get_main_dict,
-    text::TextHelper,
-    Lighten,
-};
+use crate::utils::{depot::TruncateDepot, game_evals::get_main_dict, text::TextHelper, Lighten};
 
 use super::BattleUI;
 

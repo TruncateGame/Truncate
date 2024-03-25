@@ -7,18 +7,20 @@ use truncate_core::{
     generation::BoardSeed,
     messages::{DailyStats, GameStateMessage, PlayerMessage},
     moves::Move,
-    npc::scoring::{NPCPersonality},
-    reporting::{WordMeaning},
+    npc::scoring::NPCPersonality,
+    reporting::WordMeaning,
 };
 
 use crate::{
     app_outer::Backchannel,
     lil_bits::{
-        result_modal::{ResultModalAction, ResultModalDaily, ResultModalVariant}, ResultModalUI,
+        result_modal::{ResultModalAction, ResultModalDaily, ResultModalVariant},
+        ResultModalUI,
     },
     utils::{
         game_evals::{client_best_move, get_main_dict, remember},
-        text::TextHelper, Theme,
+        text::TextHelper,
+        Theme,
     },
 };
 

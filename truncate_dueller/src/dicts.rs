@@ -1,4 +1,4 @@
-use std::sync::{Mutex};
+use std::sync::Mutex;
 
 use truncate_core::judge::{WordData, WordDict};
 

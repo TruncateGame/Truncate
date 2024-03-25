@@ -1,19 +1,16 @@
 use eframe::egui;
 
-
 use truncate_core::{
     board::Board,
     generation::{generate_board, BoardSeed},
-    messages::{LobbyPlayerMessage},
+    messages::LobbyPlayerMessage,
     npc::scoring::NPCPersonality,
 };
 
 use crate::{
     app_inner::GameStatus,
     regions::{
-        active_game::{HeaderType},
-        lobby::Lobby,
-        single_player::SinglePlayerState,
+        active_game::HeaderType, lobby::Lobby, single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
     utils::{daily::get_puzzle_day, macros::current_time},

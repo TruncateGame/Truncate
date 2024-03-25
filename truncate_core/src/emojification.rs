@@ -1,6 +1,4 @@
-use crate::{
-    board::{Board, Square},
-};
+use crate::board::{Board, Square};
 
 pub const SQ_BLUE: &str = "🟦";
 pub const SQ_GREEN: &str = "🟩";

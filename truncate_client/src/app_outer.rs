@@ -8,10 +8,7 @@ type S = Sender<PlayerMessage>;
 
 use super::utils::Theme;
 use crate::utils::macros::current_time;
-use crate::{
-    app_inner,
-    utils::glyph_utils::{Glypher},
-};
+use crate::{app_inner, utils::glyph_utils::Glypher};
 use eframe::egui::{self, Frame, Margin, TextureOptions};
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::JsValue;

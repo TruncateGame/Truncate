@@ -11,7 +11,7 @@ use eframe::egui::{self, Id, Order, Sense};
 use hashbrown::HashMap;
 
 use crate::utils::{
-    depot::{TruncateDepot},
+    depot::TruncateDepot,
     mapper::{MappedBoard, MappedTile, MappedTileVariant, MappedTiles},
 };
 

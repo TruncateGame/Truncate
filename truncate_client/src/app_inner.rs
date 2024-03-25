@@ -19,7 +19,7 @@ use crate::{
         single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
-    utils::{urls::back_to_menu},
+    utils::urls::back_to_menu,
 };
 
 use super::OuterApplication;

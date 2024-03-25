@@ -1,20 +1,13 @@
 use epaint::{emath::Align2, vec2, Vec2};
 
-use truncate_core::{
-    messages::{PlayerMessage},
-};
+use truncate_core::messages::PlayerMessage;
 
 use eframe::{
     egui::{self, CursorIcon, Layout, Order, Sense},
     emath::Align,
 };
 
-
-use crate::{
-    utils::{
-        tex::{render_tex_quad, tiles},
-    },
-};
+use crate::utils::tex::{render_tex_quad, tiles};
 
 use super::ActiveGame;
 

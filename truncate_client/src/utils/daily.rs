@@ -7,7 +7,7 @@ use instant::Duration;
 use serde::{Deserialize, Serialize};
 use truncate_core::{
     generation::{generate_board, get_game_verification, BoardSeed},
-    npc::scoring::{NPCPersonality},
+    npc::scoring::NPCPersonality,
 };
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
     regions::{active_game::HeaderType, single_player::SinglePlayerState},
 };
 
-use super::{Theme};
+use super::Theme;
 
 const SEED_NOTES: &[u8] = include_bytes!("../../../truncate_dueller/seed_notes.yml");
 // January 29, 2023
