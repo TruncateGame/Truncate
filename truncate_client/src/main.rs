@@ -1,12 +1,11 @@
 mod app_inner;
 mod app_outer;
+mod handle_launch_code;
+mod handle_messages;
 mod lil_bits;
 mod native_comms;
 mod regions;
 mod utils;
-
-// Enable the debug module to expose frame/performance timings
-// mod debug;
 
 use eframe::egui;
 use futures::channel::{mpsc, oneshot};
