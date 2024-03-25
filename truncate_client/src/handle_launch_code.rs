@@ -1,26 +1,22 @@
 use eframe::egui;
-use epaint::vec2;
-use instant::Duration;
+
+
 use truncate_core::{
     board::Board,
     generation::{generate_board, BoardSeed},
-    messages::{LobbyPlayerMessage, RoomCode, TruncateToken},
+    messages::{LobbyPlayerMessage},
     npc::scoring::NPCPersonality,
 };
 
 use crate::{
     app_inner::GameStatus,
-    handle_messages::handle_server_msg,
-    lil_bits::SplashUI,
     regions::{
-        active_game::{ActiveGame, HeaderType},
-        generator::GeneratorState,
+        active_game::{HeaderType},
         lobby::Lobby,
-        replayer::ReplayerState,
         single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
-    utils::{daily::get_puzzle_day, macros::current_time, urls::back_to_menu},
+    utils::{daily::get_puzzle_day, macros::current_time},
 };
 
 use super::OuterApplication;

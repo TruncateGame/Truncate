@@ -5,7 +5,7 @@ macro_rules! tr_log {
         println!("{:?}", $log);
     }};
 }
-pub(crate) use tr_log;
+
 
 macro_rules! current_time {
     () => {{

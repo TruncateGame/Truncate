@@ -1,10 +1,9 @@
-use epaint::{emath::Align2, hex_color, vec2, Color32, Rect, Shadow, TextureHandle};
+use epaint::{emath::Align2, hex_color, vec2, Color32, TextureHandle};
 use instant::Duration;
 use interpolation::Ease;
 use truncate_core::{
     game::Game,
-    messages::{DailyStats, PlayerMessage},
-    moves::Move,
+    messages::{DailyStats},
 };
 
 mod daily_actions;
@@ -16,9 +15,7 @@ use eframe::egui::{self, Align, CursorIcon, Id, Layout, Order, Sense};
 use crate::{
     app_outer::Backchannel,
     utils::{
-        daily,
         depot::TruncateDepot,
-        macros::tr_log,
         tex::{render_tex_quad, tiles, Tint},
         text::TextHelper,
         Lighten, Theme,

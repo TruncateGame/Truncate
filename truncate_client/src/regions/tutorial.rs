@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use eframe::egui::{self, Align, Align2, CursorIcon, Layout, NumExt, Order, Sense};
-use epaint::{hex_color, vec2, Color32, Rect, TextureHandle, Vec2};
+use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use serde::Deserialize;
 use truncate_core::{
@@ -16,8 +16,7 @@ use truncate_core::{
 };
 
 use crate::utils::{
-    depot::AestheticDepot,
-    tex::{render_tex_quad, render_tex_quads, tiles, Tint},
+    tex::{render_tex_quad, tiles},
     text::TextHelper,
     Diaphanize, Lighten, Theme,
 };
@@ -212,7 +211,7 @@ impl TutorialStage {
                 self.increment_step();
                 Ok(())
             }
-            Err(msg) => {
+            Err(_msg) => {
                 // TODO: Handle errored moves in tutorial gameplay
                 Err(())
             }

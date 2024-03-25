@@ -1,12 +1,11 @@
 use std::collections::VecDeque;
 
-use chrono::offset;
+
 use eframe::egui;
-use epaint::{hex_color, pos2, vec2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
+use epaint::{hex_color, pos2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Direction, Square},
-    player,
     reporting::Change,
 };
 
@@ -20,9 +19,8 @@ pub use self::image_manipulation::ImageMusher;
 
 use super::{
     depot::{AestheticDepot, GameplayDepot, HoveredRegion, InteractionDepot, TimingDepot},
-    glyph_utils::{BaseTileGlyphs, Glypher},
-    macros::tr_log,
-    tex::{self, tiles, BGTexType, Tex, TexLayers, TexQuad, TileDecoration},
+    glyph_utils::{Glypher},
+    tex::{self, BGTexType, Tex, TexLayers, TileDecoration},
     Lighten,
 };
 

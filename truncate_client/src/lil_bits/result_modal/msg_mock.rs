@@ -42,7 +42,7 @@ impl ShareMessageMock {
             .emojify(depot.gameplay.player_number as usize, game.winner);
         let share_text = format!("{share_prefix}\n{emoji_board}");
 
-        let this_attempt = stats
+        let _this_attempt = stats
             .days
             .last_key_value()
             .map(|(_, v)| v.attempts.last().map(|a| a.id.clone()))
@@ -69,7 +69,7 @@ impl ShareMessageMock {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, map_texture: &TextureHandle) {
+    pub fn render(&mut self, ui: &mut egui::Ui, _theme: &Theme, _map_texture: &TextureHandle) {
         let target_height = 120.0.at_most(ui.available_height());
 
         let (mut message_bounds, _) = ui.allocate_exact_size(

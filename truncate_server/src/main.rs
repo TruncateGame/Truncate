@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use definitions::WordDB;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
-use jwt_simple::{prelude::*, token};
+use jwt_simple::{prelude::*};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
@@ -588,7 +588,7 @@ async fn handle_player_msg(
             screen_width,
             screen_height,
             user_agent,
-            referrer,
+            referrer: _,
         } => match accounts::login(
             &server_state,
             player_token.clone(),
@@ -606,7 +606,7 @@ async fn handle_player_msg(
                     .send_to_player(&player_addr, GameMessage::LoggedInAs(player_token))
                     .unwrap();
             }
-            Err(e) => {
+            Err(_e) => {
                 eprintln!(
                     "Player tried to login with a bad token and failed ! ! ! ! ! ! ! ! ! ! !"
                 );

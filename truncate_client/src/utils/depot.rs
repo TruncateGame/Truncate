@@ -4,7 +4,7 @@ use truncate_core::{
     board::{Coordinate, Square},
     generation::BoardSeed,
     messages::RoomCode,
-    npc::scoring::{NPCParams, NPCPersonality},
+    npc::scoring::{NPCPersonality},
     reporting::Change,
 };
 

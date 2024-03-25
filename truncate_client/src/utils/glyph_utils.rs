@@ -4,7 +4,7 @@ use crate::utils::mapper::ImageMusher;
 use ab_glyph::{Font, FontRef, ScaleFont};
 use epaint::{
     ahash::{HashMap, HashMapExt},
-    Color32, ColorImage, Vec2,
+    Color32, ColorImage,
 };
 
 struct InnerGlypher {

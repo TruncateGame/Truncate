@@ -2,9 +2,7 @@ use eframe::egui;
 use epaint::vec2;
 use instant::Duration;
 use truncate_core::{
-    board::Board,
-    generation::{generate_board, BoardSeed},
-    messages::{LobbyPlayerMessage, RoomCode, TruncateToken},
+    messages::{RoomCode, TruncateToken},
     npc::scoring::NPCPersonality,
 };
 
@@ -21,7 +19,7 @@ use crate::{
         single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
-    utils::{daily::get_puzzle_day, urls::back_to_menu},
+    utils::{urls::back_to_menu},
 };
 
 use super::OuterApplication;

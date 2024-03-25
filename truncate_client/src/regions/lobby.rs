@@ -3,7 +3,7 @@ use epaint::{
     hex_color, vec2, Color32, Stroke, TextureHandle, Vec2,
 };
 
-use instant::Duration;
+
 use truncate_core::{
     board::Board,
     generation::BoardSeed,

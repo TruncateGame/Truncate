@@ -1,8 +1,5 @@
 use crate::{
     board::{Board, Square},
-    game::Game,
-    generation::BoardSeed,
-    npc::scoring::{NPCParams, NPCPersonality},
 };
 
 pub const SQ_BLUE: &str = "🟦";

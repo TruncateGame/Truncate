@@ -3,7 +3,7 @@ use epaint::{emath::Align, vec2, Color32, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     game::Game,
-    generation::{self, generate_board, BoardGenerationResult, BoardParams, BoardSeed},
+    generation::{generate_board, BoardGenerationResult, BoardParams, BoardSeed},
 };
 
 use crate::utils::{Lighten, Theme};
@@ -66,11 +66,11 @@ impl GeneratorState {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
+    pub fn render(&mut self, ui: &mut egui::Ui, _theme: &Theme, current_time: Duration) {
         let max_attempts = 500;
         let mut changed = self.generation_result.is_none();
 
-        let r = egui::Grid::new("weightings")
+        let _r = egui::Grid::new("weightings")
             .spacing(Vec2::splat(8.0))
             .min_col_width(150.0)
             .show(ui, |ui| {

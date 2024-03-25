@@ -1,34 +1,30 @@
-use epaint::{emath::Align2, hex_color, vec2, Color32, FontId, Rect, TextureHandle, Vec2};
+use epaint::{Color32, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
     generation::BoardSeed,
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
-    npc::scoring::{NPCParams, NPCPersonality},
+    npc::scoring::NPCPersonality,
     player::Hand,
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, TimeChange},
 };
 
 use eframe::{
-    egui::{self, CursorIcon, Layout, Order, ScrollArea, Sense},
+    egui::{self, Layout},
     emath::Align,
 };
 use hashbrown::HashMap;
 
 use crate::{
-    lil_bits::{BattleUI, BoardUI, DictionaryUI, HandUI, TimerUI},
+    lil_bits::{BoardUI, DictionaryUI},
     utils::{
         depot::{
             AestheticDepot, AudioDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot,
             TimingDepot, TruncateDepot, UIStateDepot,
         },
-        macros::tr_log,
         mapper::{MappedBoard, MappedTiles},
-        tex::{render_tex_quad, render_tex_quads, tiles},
-        text::TextHelper,
         timing::get_qs_tick,
-        urls::back_to_menu,
-        Lighten, Theme,
+        Theme,
     },
 };
 
@@ -279,7 +275,7 @@ impl ActiveGame {
 
         self.depot.gameplay.next_player_number = next_player_number;
         if let Some(GamePlayerMessage {
-            turn_starts_no_later_than: Some(time),
+            turn_starts_no_later_than: Some(_time),
             ..
         }) = self.players.get(next_player_number as usize)
         {

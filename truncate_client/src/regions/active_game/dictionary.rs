@@ -1,34 +1,18 @@
-use epaint::{emath::Align2, hex_color, vec2, Color32, FontId, Rect, TextureHandle, Vec2};
-use instant::Duration;
+use epaint::{emath::Align2, vec2, Vec2};
+
 use truncate_core::{
-    board::{Board, Coordinate},
-    generation::BoardSeed,
-    messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
-    npc::scoring::{NPCParams, NPCPersonality},
-    player::Hand,
-    reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, TimeChange},
+    messages::{PlayerMessage},
 };
 
 use eframe::{
-    egui::{self, CursorIcon, Layout, Order, ScrollArea, Sense},
+    egui::{self, CursorIcon, Layout, Order, Sense},
     emath::Align,
 };
-use hashbrown::HashMap;
+
 
 use crate::{
-    lil_bits::{BattleUI, BoardUI, DictionaryUI, HandUI, TimerUI},
     utils::{
-        depot::{
-            AestheticDepot, AudioDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot,
-            TimingDepot, TruncateDepot, UIStateDepot,
-        },
-        macros::tr_log,
-        mapper::{MappedBoard, MappedTiles},
-        tex::{render_tex_quad, render_tex_quads, tiles},
-        text::TextHelper,
-        timing::get_qs_tick,
-        urls::back_to_menu,
-        Lighten, Theme,
+        tex::{render_tex_quad, tiles},
     },
 };
 

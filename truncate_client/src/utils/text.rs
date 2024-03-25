@@ -201,7 +201,7 @@ impl<'a> TextHelper<'a> {
         dialog_resp
     }
 
-    pub fn get_button_height(&self, ui: &egui::Ui) -> f32 {
+    pub fn get_button_height(&self, _ui: &egui::Ui) -> f32 {
         let text_size = self.mesh_size();
 
         let button_texs = Tex::text_button(text_size.x / text_size.y * 0.7);

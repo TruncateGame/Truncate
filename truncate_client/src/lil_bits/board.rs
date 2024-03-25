@@ -11,8 +11,7 @@ use eframe::egui::{self, Id, Order, Sense};
 use hashbrown::HashMap;
 
 use crate::utils::{
-    depot::{HoveredRegion, TruncateDepot},
-    macros::tr_log,
+    depot::{TruncateDepot},
     mapper::{MappedBoard, MappedTile, MappedTileVariant, MappedTiles},
 };
 
@@ -41,7 +40,7 @@ impl<'a> BoardUI<'a> {
     pub fn render(
         self,
         hand: &Hand,
-        board_changes: &HashMap<Coordinate, BoardChange>,
+        _board_changes: &HashMap<Coordinate, BoardChange>,
         ui: &mut egui::Ui,
         mapped_board: &mut MappedBoard,
         mapped_overlay: &mut MappedTiles,

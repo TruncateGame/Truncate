@@ -10,8 +10,7 @@ use truncate_core::reporting::{BattleReport, BattleWord};
 use crate::utils::{
     depot::{AestheticDepot, TruncateDepot},
     tex::paint_dialog_background,
-    text::TextHelper,
-    Darken, Lighten,
+    text::TextHelper, Lighten,
 };
 
 pub struct BattleUI<'a> {

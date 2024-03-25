@@ -1,8 +1,8 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
-    fs::{self, read, read_dir, File},
+    collections::{BTreeMap, BTreeSet},
+    fs::{self, read_dir, File},
     io::{self, BufRead},
-    ops::{Add, AddAssign},
+    ops::{AddAssign},
     path::PathBuf,
 };
 
