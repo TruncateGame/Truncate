@@ -119,7 +119,7 @@ impl Default for GameRules {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
             },
             win_metric: WinMetric::TownProximity,
-            visibility: Visibility::OnlyHouseFog,
+            visibility: Visibility::LandFog,
             truncation: Truncation::None,
             timing: Timing::PerPlayer {
                 time_allowance: 40 * 60,
