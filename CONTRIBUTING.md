@@ -50,7 +50,7 @@ Truncate also runs as a native client, though with significantly more rough edge
 
 Make sure your server is running, then execute:
 ```bash
-cd truncate_client && cargo run --release ws://0.0.0.0:808
+cd truncate_client && cargo run --release ws://0.0.0.0:8080
 ```
 
 ## Specific details
