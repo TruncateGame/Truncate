@@ -1,14 +1,14 @@
-use eframe::egui::{self, Layout, RichText, Sense};
-use epaint::{emath::Align, hex_color, vec2, Color32, TextureHandle, Vec2};
+use eframe::egui::{self, Layout};
+use epaint::{emath::Align, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     game::Game,
-    messages::{DailyAttempt, DailyStats, PlayerMessage},
+    messages::{DailyAttempt, DailyStats},
 };
 
 use crate::{
     app_outer::{Backchannel, ShareType},
-    utils::{depot::TruncateDepot, macros::tr_log, text::TextHelper, Lighten, Theme},
+    utils::{depot::TruncateDepot, text::TextHelper, Theme},
 };
 
 use super::{msg_mock::ShareMessageMock, ResultModalAction};

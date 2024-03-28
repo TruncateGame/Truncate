@@ -1,4 +1,4 @@
-use epaint::{Color32, ColorImage, Hsva, Rect, Rgba};
+use epaint::{Color32, ColorImage, Rgba};
 
 // Sometimes we prefer to mush images in CPU-space so that they can live on the same texture,
 // without the GPU having to tint multiple UV rects when painting.

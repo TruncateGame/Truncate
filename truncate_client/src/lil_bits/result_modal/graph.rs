@@ -1,4 +1,4 @@
-use eframe::egui::{self, Sense};
+use eframe::egui::{self};
 use epaint::{
     emath::Align2, hex_color, pos2, textures::TextureOptions, vec2, Color32, ColorImage, Mesh,
     Rect, Shape, Stroke, TextureHandle,

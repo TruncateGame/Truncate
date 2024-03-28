@@ -110,7 +110,7 @@ pub fn client_best_move(game: &Game, npc_params: &NPCParams) -> PlayerMessage {
     };
     let player_known_dict = LARGE_VOCAB_DICT_UNSAFE.lock().unwrap();
 
-    let start = instant::SystemTime::now()
+    let _start = instant::SystemTime::now()
         .duration_since(instant::SystemTime::UNIX_EPOCH)
         .expect("Please don't play Truncate before 1970")
         .as_millis();
@@ -128,7 +128,7 @@ pub fn client_best_move(game: &Game, npc_params: &NPCParams) -> PlayerMessage {
         npc_params,
     );
 
-    let end = instant::SystemTime::now()
+    let _end = instant::SystemTime::now()
         .duration_since(instant::SystemTime::UNIX_EPOCH)
         .expect("Please don't play Truncate before 1970")
         .as_millis();

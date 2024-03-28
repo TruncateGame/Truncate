@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use eframe::egui::{self, Align, Align2, CursorIcon, Layout, NumExt, Order, Sense};
-use epaint::{hex_color, vec2, Color32, Rect, TextureHandle, Vec2};
+use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use serde::Deserialize;
 use truncate_core::{
@@ -16,9 +16,9 @@ use truncate_core::{
 };
 
 use crate::utils::{
-    depot::AestheticDepot,
-    tex::{render_tex_quad, render_tex_quads, tiles, Tint},
+    tex::{render_tex_quad, tiles},
     text::TextHelper,
+    urls::back_to_menu,
     Diaphanize, Lighten, Theme,
 };
 
@@ -212,7 +212,7 @@ impl TutorialStage {
                 self.increment_step();
                 Ok(())
             }
-            Err(msg) => {
+            Err(_msg) => {
                 // TODO: Handle errored moves in tutorial gameplay
                 Err(())
             }
@@ -751,17 +751,7 @@ impl TutorialState {
                                                     )
                                                     .clicked()
                                                 {
-                                                    // TODO: A more elegant way to show the menu over the game would be nice,
-                                                    // but we would need to add extra endpoints to the lib.rs file,
-                                                    // and also give those endpoints a way to access the active game to change its state.
-                                                    // As an MVP here, we simply reload the page to get back to the menu.
-                                                    #[cfg(target_arch = "wasm32")]
-                                                    {
-                                                        _ = web_sys::window()
-                                                            .unwrap()
-                                                            .location()
-                                                            .reload();
-                                                    }
+                                                    back_to_menu();
                                                 }
                                             },
                                         );
@@ -770,7 +760,7 @@ impl TutorialState {
                             }
                         },
                         None => {
-                            // TODO: Tutorial complete screen, back to menu
+                            // Ideally unreachable in a well formed tutorial
                         }
                     };
                 });

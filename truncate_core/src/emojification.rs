@@ -1,9 +1,4 @@
-use crate::{
-    board::{Board, Square},
-    game::Game,
-    generation::BoardSeed,
-    npc::scoring::{NPCParams, NPCPersonality},
-};
+use crate::board::{Board, Square};
 
 pub const SQ_BLUE: &str = "🟦";
 pub const SQ_GREEN: &str = "🟩";

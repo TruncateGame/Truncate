@@ -7,11 +7,9 @@ type R = Receiver<GameMessage>;
 type S = Sender<PlayerMessage>;
 
 use super::utils::Theme;
-use crate::{
-    app_inner,
-    utils::glyph_utils::{BaseTileGlyphs, Glypher},
-};
-use eframe::egui::{self, Frame, Id, Margin, TextureOptions};
+use crate::utils::macros::current_time;
+use crate::{app_inner, utils::glyph_utils::Glypher};
+use eframe::egui::{self, Frame, Margin, TextureOptions};
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::JsValue;
 use epaint::TextureHandle;
@@ -23,7 +21,7 @@ use truncate_core::{
     rules::GameRules,
 };
 
-/// A way to communicate with an outer host, if one exists.
+/// A way to communicate with an outer host, if one exists. (Typically Browser JS)
 pub struct Backchannel {
     #[cfg(target_arch = "wasm32")]
     pub backchannel: js_sys::Function,
@@ -41,18 +39,15 @@ pub enum BackchannelMsg {
         next_player: usize,
         npc_params: NPCParams,
     },
-    /// Checks if any answer has been posted for a given message
-    QueryFor {
-        id: String,
-    },
     /// Tells the outer host to add a given word to the NPC's known dictionaries
-    Remember {
-        word: String,
-    },
-    Copy {
-        text: String,
-        share: ShareType,
-    },
+    Remember { word: String },
+    /// Tells the outer host to copy the given text, and optionally
+    /// open a system share dialog.
+    /// More reliable than copying within egui, as the browser JS
+    /// makes sure to attach it to an input event.
+    Copy { text: String, share: ShareType },
+    /// Checks if any answer has been posted for a given message
+    QueryFor { id: String },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -110,7 +105,7 @@ pub struct OuterApplication {
     pub rx_game: R,
     pub tx_player: S,
     pub map_texture: TextureHandle,
-    pub launched_room: Option<String>,
+    pub launched_code: Option<String>,
     pub error: Option<String>,
     pub backchannel: Backchannel,
     pub log_frames: bool,
@@ -260,20 +255,16 @@ impl OuterApplication {
             cc.egui_ctx.clone(),
         ));
 
-        let current_time = instant::SystemTime::now()
-            .duration_since(instant::SystemTime::UNIX_EPOCH)
-            .expect("Please don't play Truncate earlier than 1970");
-
         Self {
             name: player_name,
             theme,
-            started_login_at: Some(current_time),
+            started_login_at: Some(current_time!()),
             logged_in_as: player_token,
             game_status,
             rx_game,
             tx_player,
             map_texture,
-            launched_room: room_code,
+            launched_code: room_code,
             error: None,
             backchannel,
             log_frames: false,
@@ -339,19 +330,9 @@ fn load_textures(ctx: &egui::Context, glypher: &Glypher) -> TextureHandle {
 
 impl eframe::App for OuterApplication {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        // We have to go through the instant crate as
-        // most std time functions are not implemented
-        // in Rust's wasm targets.
-        // instant::SystemTime::now() conditionally uses
-        // a js function on wasm targets, and otherwise aliases
-        // to the std SystemTime type.
-        let current_time = instant::SystemTime::now()
-            .duration_since(instant::SystemTime::UNIX_EPOCH)
-            .expect("Please don't play Truncate earlier than 1970");
-
         egui::CentralPanel::default()
             .frame(Frame::default().fill(self.theme.water))
-            .show(ctx, |ui| app_inner::render(self, ui, current_time));
+            .show(ctx, |ui| app_inner::render(self, ui, current_time!()));
 
         if self.log_frames {
             self.frames
@@ -363,10 +344,7 @@ impl eframe::App for OuterApplication {
 #[cfg(not(target_arch = "wasm32"))]
 fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || loop {
-        let current_time = instant::SystemTime::now()
-            .duration_since(instant::SystemTime::UNIX_EPOCH)
-            .expect("Please don't play Truncate earlier than 1970");
-
+        let current_time = current_time!();
         let subsec = current_time.subsec_millis();
         // In-game animations should try align with the quarter-second tick,
         // so we try to repaint around that tick to keep them looking consistent.
@@ -380,10 +358,7 @@ fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread::Jo
 #[cfg(target_arch = "wasm32")]
 async fn setup_repaint_truncate_animations_web(egui_ctx: egui::Context) {
     loop {
-        let current_time = instant::SystemTime::now()
-            .duration_since(instant::SystemTime::UNIX_EPOCH)
-            .expect("Please don't play Truncate earlier than 1970");
-
+        let current_time = current_time!();
         let subsec = current_time.subsec_millis();
         // In-game animations should try align with the quarter-second tick,
         // so we try to repaint around that tick to keep them looking consistent.

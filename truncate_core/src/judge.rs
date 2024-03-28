@@ -1051,10 +1051,10 @@ mod tests {
             "SILLY".into(),
             "FOLK".into(),
             "ARTS".into(),
-        ]) // TODO: Collins 2018 list
+        ])
     }
 
     pub fn b_dict() -> Judge {
-        Judge::new(vec!["BIG".into(), "BAG".into()]) // TODO: Collins 2018 list
+        Judge::new(vec!["BIG".into(), "BAG".into()])
     }
 }

@@ -1,26 +1,26 @@
-use eframe::egui::{self, DragValue, Frame, Layout, RichText, Sense};
-use epaint::{emath::Align, hex_color, vec2, Color32, Stroke, TextureHandle, Vec2};
+use eframe::egui::{self, Layout, Sense};
+use epaint::{emath::Align, hex_color, vec2, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::Board,
-    game::{Game, GAME_COLORS, GAME_COLOR_BLUE, GAME_COLOR_RED},
+    game::{Game, GAME_COLOR_BLUE, GAME_COLOR_RED},
     generation::BoardSeed,
     messages::{DailyStats, GameStateMessage, PlayerMessage},
     moves::Move,
-    npc::scoring::{NPCParams, NPCPersonality},
-    reporting::{Change, HandChange, WordMeaning},
+    npc::scoring::NPCPersonality,
+    reporting::WordMeaning,
 };
 
 use crate::{
     app_outer::Backchannel,
     lil_bits::{
         result_modal::{ResultModalAction, ResultModalDaily, ResultModalVariant},
-        HandUI, ResultModalUI,
+        ResultModalUI,
     },
     utils::{
         game_evals::{client_best_move, get_main_dict, remember},
         text::TextHelper,
-        Lighten, Theme,
+        Theme,
     },
 };
 

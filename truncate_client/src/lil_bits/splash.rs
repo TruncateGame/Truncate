@@ -1,9 +1,9 @@
-use eframe::egui::{self, Id};
-use epaint::{vec2, Color32, TextShape, TextureHandle, Vec2};
+use eframe::egui::{self};
+use epaint::{vec2, Color32, TextureHandle};
 use instant::Duration;
 use std::f32;
 
-use crate::utils::{depot::AestheticDepot, text::TextHelper, Theme};
+use crate::utils::{text::TextHelper, Theme};
 
 struct SplashButton {
     id: &'static str,
@@ -124,7 +124,7 @@ impl SplashUI {
                         .centered_button(button.color, theme.text, &map_texture, ui)
                         .clicked()
                     {
-                        splash_resp.clicked = Some(button.id.clone())
+                        splash_resp.clicked = Some(button.id)
                     }
                 }
             }

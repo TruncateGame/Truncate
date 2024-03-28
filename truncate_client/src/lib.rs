@@ -1,5 +1,7 @@
 mod app_inner;
 mod app_outer;
+mod handle_launch_code;
+mod handle_messages;
 mod lil_bits;
 mod regions;
 mod utils;
@@ -125,6 +127,8 @@ impl WebHandle {
 }
 
 // Functions used in the web worker
+// Used to evaluate games as the NPC using a separate thread,
+// preventing the UI from hanging during computation.
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]

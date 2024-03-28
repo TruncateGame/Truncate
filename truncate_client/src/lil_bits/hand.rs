@@ -1,8 +1,8 @@
 use instant::Duration;
 use truncate_core::player::Hand;
 
-use eframe::egui::{self, CursorIcon, Id, LayerId, Order, Sense};
-use epaint::{emath::Align2, hex_color, pos2, vec2, Color32, Rect, Vec2};
+use eframe::egui::{self, CursorIcon, Id, Order, Sense};
+use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
 
 use crate::utils::{
     depot::{HoveredRegion, TruncateDepot},
@@ -93,7 +93,7 @@ impl<'a> HandUI<'a> {
             Some(interactions),
         );
 
-        let mut rearrange = None;
+        let rearrange = None;
         let mut next_selection = None;
         let mut highlights = interactions.highlight_tiles.clone();
         interactions.hovered_tile_in_hand = None;
@@ -133,7 +133,7 @@ impl<'a> HandUI<'a> {
                             is_being_dragged = false;
                         }
 
-                        let highlight = if let Some(highlights) = highlights.as_mut() {
+                        let _highlight = if let Some(highlights) = highlights.as_mut() {
                             if let Some(c) = highlights.iter().position(|c| c == char) {
                                 highlights.remove(c);
                                 true

@@ -462,7 +462,7 @@ impl Tex {
     }
 
     fn town(color: Color32, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
-        let anim_index = (quickrand(seed + 3) + tick as usize) % 30;
+        let _anim_index = (quickrand(seed + 3) + tick as usize) % 30;
         let rand_house = |n: usize| match quickrand(n) {
             0..=25 => (
                 tiles::HOUSE_0,

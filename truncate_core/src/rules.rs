@@ -11,8 +11,8 @@ pub enum TownDefense {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WinCondition {
-    Destination { town_defense: TownDefense }, // TODO: Implement
-    Elimination,                               // TODO: Implement
+    Destination { town_defense: TownDefense },
+    Elimination, // TODO: Implement
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,17 +31,17 @@ pub enum Truncation {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OvertimeRule {
-    FreeWildcard { period: usize },                   // TODO: Implement
-    Bomb { period: usize },                           // TODO: Implement
+    FreeWildcard { period: usize },
+    Bomb { period: usize },
     RemoveTiles { period: usize, phase_time: usize }, // TODO: Implement
-    Elimination,                                      // TODO: Implement
+    Elimination,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Timing {
     PerPlayer {
         time_allowance: usize,
-        overtime_rule: OvertimeRule, // TODO: Implement
+        overtime_rule: OvertimeRule,
     },
     PerTurn {
         // TODO: Implement
@@ -51,7 +51,7 @@ pub enum Timing {
         // TODO: Implement
         turn_delay: usize,
     },
-    None, // TODO: Implement
+    None,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,7 +61,7 @@ pub enum TileDistribution {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TileBagBehaviour {
-    Standard, // TODO: Implement
+    Standard,
     Infinite, // TODO: Implement
 }
 

@@ -178,7 +178,7 @@ mod tests {
     //         h.use_tile(0, h.hands[0][0])?;
     //         drawn_tiles.push(h.hands[0][0]);
     //         assert_eq!(
-    //             drawn_tiles.iter().filter(|&&t| t == 'A').count(), // TODO: why does this end up being a double reference?
+    //             drawn_tiles.iter().filter(|&&t| t == 'A').count(),
     //             drawn_tiles.iter().filter(|&&t| t == 'B').count(),
     //         )
     //     }

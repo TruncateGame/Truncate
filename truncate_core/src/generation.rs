@@ -1,6 +1,5 @@
 use std::{
     collections::{BinaryHeap, HashSet, VecDeque},
-    hash::Hash,
     ops::Div,
 };
 
@@ -188,7 +187,7 @@ pub fn generate_board(
         day: _,
         current_iteration,
         width_resize_state,
-        height_resize_state,
+        height_resize_state: _,
         water_level,
         max_attempts,
         params:
