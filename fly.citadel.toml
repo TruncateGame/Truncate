@@ -16,8 +16,8 @@ internal_port = 8080
 processes = ["app"]
 protocol = "tcp"
 [services.concurrency]
-hard_limit = 250
-soft_limit = 200
+hard_limit = 1000
+soft_limit = 800
 type = "connections"
 
 [[services.ports]]
