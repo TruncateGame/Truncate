@@ -71,14 +71,14 @@ impl ReplayerState {
             .collect();
 
         let aesthetics = AestheticDepot {
-            theme: Theme::default(),
+            theme: Theme::night(),
             qs_tick: 0,
             map_texture: map_texture.clone(),
             player_colors,
             destruction_tick: 0.05,
             destruction_duration: 0.6,
         };
-        let mapped_board = MappedBoard::new(ctx, &aesthetics, &game.board, as_player);
+        let mapped_board = MappedBoard::new(ctx, &aesthetics, &game.board, as_player, true);
 
         let gameplay = GameplayDepot {
             room_code: "REPLAY".into(),

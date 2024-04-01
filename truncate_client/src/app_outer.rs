@@ -185,7 +185,7 @@ impl OuterApplication {
             }
         }
 
-        let theme = Theme::default();
+        let theme = Theme::night();
 
         {
             use egui::FontFamily;
@@ -261,7 +261,7 @@ pub struct TextureMeasurement {
 }
 
 fn load_textures(ctx: &egui::Context, glypher: &Glypher) -> TextureHandle {
-    let image_bytes = include_bytes!("../img/truncate_packed.png");
+    let image_bytes = include_bytes!("../img/truncate_packed_dark.png");
     let image = image::load_from_memory(image_bytes).unwrap();
     let image_width = image.width();
     let image_height = image.height();

@@ -109,7 +109,7 @@ impl ActiveGame {
                 remaining_turns,
             },
             aesthetics: AestheticDepot {
-                theme,
+                theme: theme.clone(),
                 qs_tick: 0,
                 map_texture,
                 player_colors,
@@ -119,7 +119,7 @@ impl ActiveGame {
         };
 
         Self {
-            mapped_board: MappedBoard::new(ctx, &depot.aesthetics, &board, player_number as usize),
+            mapped_board: MappedBoard::new(ctx, &depot.aesthetics, &board, player_number as usize, theme.daytime),
             mapped_hand: MappedTiles::new(ctx, 7),
             mapped_overlay: MappedTiles::new(ctx, 1),
             depot,

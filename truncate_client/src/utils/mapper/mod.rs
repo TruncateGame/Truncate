@@ -99,6 +99,7 @@ pub struct MappedBoard {
     map_seed: usize,
     inverted: bool,
     for_player: usize,
+    daytime: bool,
     last_tick: u64,
     forecasted_wind: u8,
     incoming_wind: u8,
@@ -111,6 +112,7 @@ impl MappedBoard {
         aesthetics: &AestheticDepot,
         board: &Board,
         for_player: usize,
+        daytime: bool,
     ) -> Self {
         let secs = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
@@ -128,6 +130,7 @@ impl MappedBoard {
             map_seed: (secs % 100000) as usize,
             inverted: for_player == 0,
             for_player,
+            daytime,
             last_tick: 0,
             forecasted_wind: 0,
             incoming_wind: 0,
@@ -151,7 +154,11 @@ impl MappedBoard {
         if let Some(tex) = &self.resolved_textures {
             paint(tex.terrain.id(), Color32::WHITE);
             // This is where we make the checkerboard overlay translucent
-            paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
+            if self.daytime {
+                paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
+            } else {
+                paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.02));
+            }
             paint(tex.structures.id(), Color32::WHITE);
             paint(tex.pieces.id(), Color32::WHITE);
             paint(tex.fog.id(), Color32::BLACK);
