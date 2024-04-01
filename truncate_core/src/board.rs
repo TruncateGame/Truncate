@@ -387,6 +387,10 @@ impl Board {
             };
         }
 
+        if tiles[0] == tiles[1] {
+            return Err(GamePlayError::NoopSwap);
+        }
+
         match swap_rules {
             rules::Swapping::Contiguous(_) => {
                 if self

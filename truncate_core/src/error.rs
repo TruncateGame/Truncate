@@ -16,6 +16,8 @@ pub enum GamePlayError {
 
     #[error("Can't swap a square with itself")]
     SelfSwap,
+    #[error("Can't swap two identical tiles")]
+    NoopSwap,
     #[error("Must swap between occupied squares")]
     UnoccupiedSwap,
     #[error("You can't swap with an opponent's tile")]
