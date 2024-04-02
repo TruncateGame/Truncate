@@ -66,8 +66,15 @@ pub enum TileBagBehaviour {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Champion {
+    Weakest,
+    Strongest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BattleRules {
     pub length_delta: isize,
+    pub attacker_champion: Champion,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,7 +121,7 @@ impl Default for GameRules {
             hand_size: 7,
             tile_distribution: TileDistribution::Standard,
             tile_bag_behaviour: TileBagBehaviour::Standard,
-            battle_rules: BattleRules { length_delta: 2 },
+            battle_rules: BattleRules { length_delta: 2, attacker_champion: Champion::Weakest },
             swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
             battle_delay: 2,
         }

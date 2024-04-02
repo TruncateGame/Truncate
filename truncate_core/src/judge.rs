@@ -182,15 +182,21 @@ impl Judge {
             }
         }
 
-        // The defender wins if all their words are valid and long enough to defend against the longest attacker
-        let longest_attacker = attackers
+        // The defender wins if all their words are valid and long enough to defend against the attacker's champion
+        // The champion is the longest or shortest attacker, depending on the rules
+        let attacker_champion = attackers
             .iter()
-            .reduce(|longest, curr| {
+            .reduce(|reigning_champion, curr| {
                 // TODO: len() is bytes not characters
-                if curr.as_ref().len() > longest.as_ref().len() {
-                    curr
+                let curr_longer = curr.as_ref().len() > reigning_champion.as_ref().len();
+                let new_champ = match battle_rules.attacker_champion {
+                    rules::Champion::Strongest => curr_longer,
+                    rules::Champion::Weakest => !curr_longer,
+                };
+                if new_champ {
+                       curr
                 } else {
-                    longest
+                    reigning_champion
                 }
             })
             .expect("already checked length");
@@ -220,7 +226,7 @@ impl Judge {
             .filter(|(_, word)| {
                 word.valid != Some(true)
                     || word.resolved_word.len() as isize + battle_rules.length_delta as isize
-                        <= longest_attacker.as_ref().len() as isize
+                        <= attacker_champion.as_ref().len() as isize
             })
             .map(|(index, _)| *index)
             .collect();
@@ -231,7 +237,7 @@ impl Judge {
             .filter(|(_, word)| {
                 word.valid != Some(true)
                     || word.resolved_word.len() as isize + battle_rules.length_delta as isize
-                        <= longest_attacker.as_ref().len() as isize
+                        <= attacker_champion.as_ref().len() as isize
             })
             .map(|(index, _)| *index)
             .collect();
@@ -395,7 +401,7 @@ mod tests {
     use super::*;
 
     fn test_battle_rules() -> rules::BattleRules {
-        rules::BattleRules { length_delta: 2 }
+        rules::BattleRules { length_delta: 2, attacker_champion: rules::Champion::Weakest }
     }
 
     fn test_win_rules() -> rules::WinCondition {
@@ -613,6 +619,21 @@ mod tests {
             .outcome,
             Outcome::DefenderWins
         );
+
+        assert_eq!(
+            j.battle(
+                vec!["JOLLY", "BIG"],
+                vec!["FAT"],
+                &test_battle_rules(),
+                &test_win_rules(),
+                None,
+                None,
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
+        );
     }
 
     #[test]
@@ -632,20 +653,7 @@ mod tests {
             .outcome,
             Outcome::AttackerWins(vec![0])
         );
-        assert_eq!(
-            j.battle(
-                vec!["JOLLY", "BIG"],
-                vec!["FAT"],
-                &test_battle_rules(),
-                &test_win_rules(),
-                None,
-                None,
-                None
-            )
-            .unwrap()
-            .outcome,
-            Outcome::AttackerWins(vec![0])
-        );
+
         assert_eq!(
             j.battle(
                 vec!["JOLLY"],
@@ -659,6 +667,42 @@ mod tests {
             .unwrap()
             .outcome,
             Outcome::AttackerWins(vec![0, 1, 4])
+        );
+    }
+
+    #[test]
+    fn champion_rule_variant() {
+        let j = short_dict();
+        assert_eq!(
+            j.battle(
+                vec!["JOLLY", "BAG"],
+                vec!["FAT"],
+                &test_battle_rules(),
+                &test_win_rules(),
+                None,
+                None,
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
+        );
+
+        // original rules
+        let altered_rules = rules::BattleRules { length_delta: 2, attacker_champion: rules::Champion::Strongest };
+        assert_eq!(
+            j.battle(
+                vec!["JOLLY", "BAG"],
+                vec!["FAT"],
+                &altered_rules,
+                &test_win_rules(),
+                None,
+                None,
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::AttackerWins(vec![0])
         );
     }
 
