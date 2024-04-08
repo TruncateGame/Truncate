@@ -1,3 +1,11 @@
+splash_message:
+  - Hello!
+  - Sorry to interrupt, but there has been a small rule change you should know about.
+  - It is now possible to win an attack when some of your words are invalid.
+  - To see the full explanation, click through to the scenario below.
+
+priority: High
+
 rules:
   - category: Update
     scenarios:
@@ -29,8 +37,7 @@ rules:
 
       steps:
         - message: |-
-            Sorry to interrupt your game, but there has been a small rule change you should know about.
-
+            Rule change: Allow invalid secondary attackers
         - message: |-
             Originally, all attacking words had to be valid for an attack to succeed.
             
@@ -38,14 +45,12 @@ rules:
         - message: |-
             Now it should be easier for you to calculate whether an attack succeeds:
             
-            If the strongest attacker beats the weakest defender (plus defender's advantage), the attack succeeds.
-
+            If your strongest attacker beats the weakest defender, you win the attack.
         - description: |-
             Try playing "ENOUGH" and "EEX" against "FOUR".
 
             Originally this failed, now it will succeed.
-            
           you: "E -> 6,5"
           gets: "I"
-        - message: |-
+        - end_message: |-
             Since "ENOUGH" was long enough to beat "FOUR" it wins the battle, and "EEX" is irrelevant despite being invalid and too short.

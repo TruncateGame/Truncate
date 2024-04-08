@@ -9,7 +9,7 @@ use truncate_core::{
 use crate::{
     handle_launch_code::handle_launch_code,
     handle_messages::handle_server_msg,
-    lil_bits::SplashUI,
+    lil_bits::{ChangelogSplashUI, SplashUI},
     regions::{
         active_game::{ActiveGame, HeaderType},
         generator::GeneratorState,
@@ -19,7 +19,10 @@ use crate::{
         single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
-    utils::urls::back_to_menu,
+    utils::{
+        includes::{changelogs, ChangePriority, Tutorial},
+        urls::back_to_menu,
+    },
 };
 
 use super::OuterApplication;
@@ -40,6 +43,11 @@ pub enum GameStatus {
     PendingReplay,
     Replay(ReplayerState),
     HardError(Vec<String>),
+}
+
+#[derive(Default)]
+pub struct AppInnerStorage {
+    pub changelog_ui: Option<ChangelogSplashUI>,
 }
 
 pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Duration) {
@@ -92,6 +100,85 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
     }
 
     let mut new_game_status = None;
+
+    if !outer.unread_changelogs.is_empty() {
+        let all_changelogs = changelogs();
+
+        // TODO: handle showing multiple changelogs
+
+        for unread in outer.unread_changelogs.clone() {
+            let Some(tutorial) = all_changelogs.get(unread.as_str()) else {
+                continue;
+            };
+            let Some(splash_message) = &tutorial.splash_message else {
+                continue;
+            };
+
+            if tutorial.priority == Some(ChangePriority::High) {
+                let changelog_ui = outer.inner_storage.changelog_ui.get_or_insert_with(|| {
+                    ChangelogSplashUI::new(splash_message.clone(), current_time)
+                        .with_button(
+                            "view",
+                            "VIEW SCENARIO".to_string(),
+                            outer.theme.button_primary,
+                        )
+                        .with_button(
+                            "skip",
+                            "REMIND ME LATER".to_string(),
+                            outer.theme.button_primary,
+                        )
+                        .with_button(
+                            "ignore",
+                            "IGNORE FOREVER".to_string(),
+                            outer.theme.button_scary,
+                        )
+                });
+
+                let resp = changelog_ui.render(ui, &outer.theme, current_time, &outer.map_texture);
+
+                if resp.clicked == Some("view") {
+                    outer
+                        .tx_player
+                        .try_send(PlayerMessage::StartedTutorial {
+                            name: unread.to_string(),
+                        })
+                        .unwrap();
+                    outer
+                        .tx_player
+                        .try_send(PlayerMessage::MarkChangelogRead)
+                        .unwrap();
+                    new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+                        tutorial.clone(),
+                        ui.ctx(),
+                        outer.map_texture.clone(),
+                        &outer.theme,
+                    )));
+
+                    outer.launched_code = None;
+                    outer.unread_changelogs = vec![];
+
+                    break;
+                }
+
+                if resp.clicked == Some("skip") {
+                    outer.unread_changelogs = vec![];
+                    break;
+                }
+
+                if resp.clicked == Some("ignore") {
+                    outer.unread_changelogs = vec![];
+                    outer
+                        .tx_player
+                        .try_send(PlayerMessage::MarkChangelogRead)
+                        .unwrap();
+                    break;
+                }
+
+                return;
+            }
+        }
+    }
+
     if let Some(launched_code) = outer.launched_code.take() {
         new_game_status = handle_launch_code(&launched_code, outer, ui);
     }

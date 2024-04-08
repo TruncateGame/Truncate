@@ -7,6 +7,7 @@ type R = Receiver<GameMessage>;
 type S = Sender<PlayerMessage>;
 
 use super::utils::Theme;
+use crate::app_inner::AppInnerStorage;
 use crate::utils::macros::current_time;
 use crate::{app_inner, utils::glyph_utils::Glypher};
 use eframe::egui::{self, Frame, Margin, TextureOptions};
@@ -101,6 +102,8 @@ pub struct OuterApplication {
     pub theme: Theme,
     pub started_login_at: Option<Duration>,
     pub logged_in_as: Option<String>,
+    pub unread_changelogs: Vec<String>,
+    pub inner_storage: AppInnerStorage,
     pub game_status: app_inner::GameStatus,
     pub rx_game: R,
     pub tx_player: S,
@@ -259,8 +262,10 @@ impl OuterApplication {
             name: player_name,
             theme,
             started_login_at: Some(current_time!()),
-            logged_in_as: player_token,
+            logged_in_as: None,
+            unread_changelogs: vec![],
             game_status,
+            inner_storage: AppInnerStorage::default(),
             rx_game,
             tx_player,
             map_texture,

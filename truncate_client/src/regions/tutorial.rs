@@ -16,6 +16,7 @@ use truncate_core::{
 };
 
 use crate::utils::{
+    includes::{Scenario, ScenarioStep, Tutorial},
     tex::{render_tex_quad, tiles},
     text::TextHelper,
     urls::back_to_menu,
@@ -23,51 +24,6 @@ use crate::utils::{
 };
 
 use super::active_game::{ActiveGame, GameLocation, HeaderType};
-
-const RULES: &[u8] = include_bytes!("../../tutorials/rules.yml");
-const EXAMPLE_GAME: &[u8] = include_bytes!("../../tutorials/example_game.yml");
-
-#[derive(Deserialize, Debug)]
-struct Tutorial {
-    rules: Vec<Category>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct Category {
-    category: String,
-    scenarios: Vec<Scenario>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct Scenario {
-    name: String,
-    board: String,
-    player_hand: String,
-    computer_hand: String,
-    dict: HashMap<String, String>,
-    steps: Vec<ScenarioStep>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(untagged)]
-enum ScenarioStep {
-    OwnMove {
-        you: String,
-        gets: char,
-        description: String,
-    },
-    ComputerMove {
-        computer: String,
-        gets: char,
-        description: String,
-    },
-    Dialog {
-        message: String,
-    },
-    EndAction {
-        end_message: String,
-    },
-}
 
 fn pos_to_coord(pos: &str) -> Option<Coordinate> {
     let (x, y) = pos.split_once(',')?;
@@ -221,25 +177,12 @@ impl TutorialStage {
 }
 
 impl TutorialState {
-    pub fn new_rules(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
-        let tutorial: Tutorial =
-            serde_yaml::from_slice(RULES).expect("Tutorial should match Tutorial format");
-
-        let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
-
-        Self {
-            stage_index: 0,
-            change_stage_next_frame: ChangeStage::None,
-            stage: stage_zero,
-            stage_changed_at: Duration::from_secs(0),
-            tutorial,
-        }
-    }
-
-    pub fn new_example(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
-        let tutorial: Tutorial =
-            serde_yaml::from_slice(EXAMPLE_GAME).expect("Tutorial should match Tutorial format");
-
+    pub fn new(
+        tutorial: Tutorial,
+        ctx: &egui::Context,
+        map_texture: TextureHandle,
+        theme: &Theme,
+    ) -> Self {
         let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
 
         Self {
@@ -562,13 +505,13 @@ impl TutorialState {
                     ui.expand_to_include_rect(inner_dialog);
 
                     // TODO one day — put this in a theme
-                    let tut_fz = if inner_dialog.width() < 550.0 {
+                    let tut_fz = if inner_dialog.width() < 600.0 {
                         24.0
                     } else {
                         32.0
                     };
 
-                    let button_spacing = 60.0;
+                    let button_spacing = 70.0;
                     let time_in_stage = (current_time - self.stage_changed_at).as_secs_f32();
 
                     match current_step {

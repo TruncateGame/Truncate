@@ -7,11 +7,17 @@ use super::tex::{paint_dialog_background, render_texs_clockwise, Tex, Tint};
 
 const DIALOG_TIME_PER_CHAR: f32 = 0.05;
 
+pub enum TextStyle {
+    Light,
+    Heavy,
+}
+
 pub struct TextHelper<'a> {
     original_text: &'a str,
     size: f32,
     max_width: Option<f32>,
     galley: Arc<Galley>,
+    text_style: TextStyle,
 }
 
 impl<'a> TextHelper<'a> {
@@ -36,6 +42,7 @@ impl<'a> TextHelper<'a> {
             size,
             max_width,
             galley,
+            text_style: TextStyle::Heavy,
         }
     }
 
@@ -60,6 +67,7 @@ impl<'a> TextHelper<'a> {
             size,
             max_width,
             galley,
+            text_style: TextStyle::Light,
         }
     }
 
@@ -72,11 +80,12 @@ impl<'a> TextHelper<'a> {
     }
 
     pub fn get_partial_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
-        let breaks = self
+        let mut breaks = self
             .original_text
             .char_indices()
             .filter_map(|(i, c)| if c == ' ' { Some(i) } else { None })
             .collect::<Vec<_>>();
+        breaks.push(self.original_text.len() - 1);
         let animation_duration = breaks.len() as f32 * DIALOG_TIME_PER_CHAR;
         if time_passed > animation_duration {
             return None;
@@ -85,12 +94,20 @@ impl<'a> TextHelper<'a> {
         let word_count = (breaks.len() as f32 * (time_passed / animation_duration)) as usize;
         let shortened_text = &self.original_text[0..=breaks[word_count.saturating_sub(1)]];
 
-        Some(TextHelper::light(
-            &shortened_text,
-            self.size,
-            self.max_width,
-            ui,
-        ))
+        match self.text_style {
+            TextStyle::Light => Some(TextHelper::light(
+                &shortened_text,
+                self.size,
+                self.max_width,
+                ui,
+            )),
+            TextStyle::Heavy => Some(TextHelper::heavy(
+                &shortened_text,
+                self.size,
+                self.max_width,
+                ui,
+            )),
+        }
     }
 
     pub fn paint_at(self, pos: Pos2, color: Color32, ui: &mut egui::Ui) {

@@ -91,12 +91,7 @@ impl<'a> EditorUI<'a> {
 
             let text = TextHelper::heavy("STOP EDITING BOARD", 10.0, None, ui);
             if text
-                .button(
-                    Color32::RED.lighten().lighten().lighten(),
-                    theme.text,
-                    map_texture,
-                    ui,
-                )
+                .button(theme.button_scary, theme.text, map_texture, ui)
                 .clicked()
             {
                 *self.editing_mode = BoardEditingMode::None;

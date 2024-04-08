@@ -21,6 +21,7 @@ use tungstenite::protocol::Message;
 
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
+use crate::storage::accounts::{mark_changelogs_read, LoginResponse};
 use crate::storage::daily;
 use crate::storage::events::create_event;
 use game_state::GameManager;
@@ -576,7 +577,13 @@ async fn handle_player_msg(
                 connection_info.player = Some(authed_token.clone());
 
                 server_state
-                    .send_to_player(&player_addr, GameMessage::LoggedInAs(authed_token.token()))
+                    .send_to_player(
+                        &player_addr,
+                        GameMessage::LoggedInAs {
+                            token: authed_token.token(),
+                            unread_changelogs: vec![],
+                        },
+                    )
                     .unwrap();
             }
             Err(_) => {
@@ -598,12 +605,25 @@ async fn handle_player_msg(
         )
         .await
         {
-            Ok((_player_id, authed_token)) => {
+            Ok(LoginResponse {
+                player_id: _,
+                authed,
+                unread_changelogs,
+            }) => {
                 let mut connection_info = connection_info_mutex.lock();
-                connection_info.player = Some(authed_token);
+                connection_info.player = Some(authed);
 
                 server_state
-                    .send_to_player(&player_addr, GameMessage::LoggedInAs(player_token))
+                    .send_to_player(
+                        &player_addr,
+                        GameMessage::LoggedInAs {
+                            token: player_token,
+                            unread_changelogs: unread_changelogs
+                                .into_iter()
+                                .map(|c| c.changelog_id)
+                                .collect(),
+                        },
+                    )
                     .unwrap();
             }
             Err(_e) => {
@@ -717,6 +737,16 @@ async fn handle_player_msg(
                 connection_player,
             )
             .await;
+        }
+        MarkChangelogRead => {
+            let Some(connection_player) = connection_info_mutex.lock().player.clone() else {
+                eprintln!(
+                    "No connection player found, but player wanted to mark changelog as read"
+                );
+                return Ok(());
+            };
+
+            _ = mark_changelogs_read(&server_state, connection_player).await;
         }
     }
 

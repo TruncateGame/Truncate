@@ -13,7 +13,7 @@ use crate::{
         active_game::HeaderType, lobby::Lobby, single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
-    utils::{daily::get_puzzle_day, macros::current_time},
+    utils::{self, daily::get_puzzle_day, macros::current_time},
 };
 
 use super::OuterApplication;
@@ -40,7 +40,8 @@ pub fn handle_launch_code(
             send_to_server(PlayerMessage::StartedTutorial {
                 name: "rules".to_string(),
             });
-            return Some(GameStatus::Tutorial(TutorialState::new_rules(
+            return Some(GameStatus::Tutorial(TutorialState::new(
+                utils::includes::rules(),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
@@ -50,7 +51,8 @@ pub fn handle_launch_code(
             send_to_server(PlayerMessage::StartedTutorial {
                 name: "example".to_string(),
             });
-            return Some(GameStatus::Tutorial(TutorialState::new_example(
+            return Some(GameStatus::Tutorial(TutorialState::new(
+                utils::includes::example_game(),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
