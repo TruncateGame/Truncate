@@ -4,6 +4,8 @@ splash_message:
   - It is now possible to win an attack when some of your words are invalid.
   - To see the full explanation, click through to the scenario below.
 
+changelog_name: Invalid secondary attackers
+
 priority: High
 
 rules:

@@ -88,6 +88,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 "continue",
                 "CONTINUE".to_string(),
                 outer.theme.button_primary,
+                14.0,
             )
             .render(ui, &outer.theme, current_time, &outer.map_texture);
 
@@ -100,8 +101,12 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
     }
 
     let mut new_game_status = None;
+    let loading_changelog = outer
+        .launched_code
+        .as_ref()
+        .is_some_and(|c| c == "CHANGE_LOG");
 
-    if !outer.unread_changelogs.is_empty() {
+    if !outer.unread_changelogs.is_empty() && !loading_changelog {
         let all_changelogs = changelogs();
 
         // TODO: handle showing multiple changelogs
@@ -179,11 +184,56 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
         }
     }
 
+    if loading_changelog {
+        let mut changelog_ui = SplashUI::new(vec!["Latest updates".to_string()]);
+
+        for (changelog_id, changelog_tut) in changelogs() {
+            changelog_ui = changelog_ui.with_button(
+                changelog_id,
+                changelog_tut
+                    .changelog_name
+                    .unwrap_or_else(|| "Update".to_string()),
+                outer.theme.button_primary,
+                11.0,
+            )
+        }
+
+        let resp = changelog_ui.render(ui, &outer.theme, current_time, &outer.map_texture);
+
+        if let Some(requested_changelog) = resp.clicked {
+            let changelog_tut = changelogs().get(requested_changelog).unwrap().clone();
+
+            outer
+                .tx_player
+                .try_send(PlayerMessage::StartedTutorial {
+                    name: requested_changelog.to_string(),
+                })
+                .unwrap();
+            outer
+                .tx_player
+                .try_send(PlayerMessage::MarkChangelogRead)
+                .unwrap();
+            new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+                changelog_tut,
+                ui.ctx(),
+                outer.map_texture.clone(),
+                &outer.theme,
+            )));
+
+            outer.launched_code = None;
+            outer.unread_changelogs = vec![];
+        } else {
+            return;
+        }
+    }
+
     if let Some(launched_code) = outer.launched_code.take() {
         new_game_status = handle_launch_code(&launched_code, outer, ui);
     }
 
-    render_native_menu_if_required(outer, ui);
+    if new_game_status.is_none() {
+        render_native_menu_if_required(outer, ui);
+    }
 
     let mut send = |msg| {
         outer.tx_player.try_send(msg).unwrap();
@@ -243,7 +293,12 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 vec![format!("LOADING DAILY PUZZLE")]
             })
             .animated(outer.error.is_none())
-            .with_button("cancel", "CANCEL".to_string(), outer.theme.button_primary);
+            .with_button(
+                "cancel",
+                "CANCEL".to_string(),
+                outer.theme.button_primary,
+                14.0,
+            );
 
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
@@ -258,7 +313,12 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 vec![format!("JOINING {room_code}")]
             })
             .animated(outer.error.is_none())
-            .with_button("cancel", "CANCEL".to_string(), outer.theme.button_primary);
+            .with_button(
+                "cancel",
+                "CANCEL".to_string(),
+                outer.theme.button_primary,
+                14.0,
+            );
 
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
@@ -273,7 +333,12 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 vec!["CREATING ROOM".to_string()]
             })
             .animated(outer.error.is_none())
-            .with_button("cancel", "CANCEL".to_string(), outer.theme.button_primary);
+            .with_button(
+                "cancel",
+                "CANCEL".to_string(),
+                outer.theme.button_primary,
+                14.0,
+            );
 
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
@@ -303,7 +368,12 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 vec!["LOADING REPLAY".to_string()]
             })
             .animated(outer.error.is_none())
-            .with_button("cancel", "CANCEL".to_string(), outer.theme.button_primary);
+            .with_button(
+                "cancel",
+                "CANCEL".to_string(),
+                outer.theme.button_primary,
+                14.0,
+            );
 
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);
 
@@ -319,6 +389,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 "reload",
                 "RELOAD".to_string(),
                 outer.theme.button_primary,
+                14.0,
             );
 
             let resp = splash.render(ui, &outer.theme, current_time, &outer.map_texture);

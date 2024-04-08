@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub struct Tutorial {
     pub rules: Vec<Category>,
     pub splash_message: Option<Vec<String>>,
+    pub changelog_name: Option<String>,
     pub priority: Option<ChangePriority>,
 }
 

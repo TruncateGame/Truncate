@@ -9,6 +9,7 @@ struct SplashButton {
     id: &'static str,
     text: String,
     color: Color32,
+    font_size: f32,
 }
 
 pub struct SplashUI {
@@ -43,8 +44,19 @@ impl SplashUI {
         self
     }
 
-    pub fn with_button(mut self, id: &'static str, text: String, color: Color32) -> Self {
-        self.buttons.push(SplashButton { id, text, color });
+    pub fn with_button(
+        mut self,
+        id: &'static str,
+        text: String,
+        color: Color32,
+        font_size: f32,
+    ) -> Self {
+        self.buttons.push(SplashButton {
+            id,
+            text,
+            color,
+            font_size,
+        });
         self
     }
 }
@@ -89,7 +101,12 @@ impl SplashUI {
         let buttons: Vec<_> = self
             .buttons
             .iter()
-            .map(|button| (button, TextHelper::heavy(&button.text, 14.0, None, ui)))
+            .map(|button| {
+                (
+                    button,
+                    TextHelper::heavy(&button.text, button.font_size, None, ui),
+                )
+            })
             .collect();
         let button_height = buttons
             .first()
