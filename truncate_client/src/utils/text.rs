@@ -31,12 +31,10 @@ impl<'a> TextHelper<'a> {
             size: size,
             family: egui::FontFamily::Name("Truncate-Heavy".into()),
         });
-        let galley = egui::WidgetText::RichText(egui::RichText::new(text)).into_galley(
-            ui,
-            None,
-            max_width.unwrap_or(10000.0),
-            font,
-        );
+        let galley = egui::WidgetText::RichText(
+            egui::RichText::new(text).line_height(Some((size * 1.34).round())),
+        )
+        .into_galley(ui, None, max_width.unwrap_or(10000.0), font);
         Self {
             original_text: text,
             size,

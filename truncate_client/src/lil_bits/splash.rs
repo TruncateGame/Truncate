@@ -3,7 +3,7 @@ use epaint::{vec2, Color32, TextureHandle};
 use instant::Duration;
 use std::f32;
 
-use crate::utils::{text::TextHelper, Theme};
+use crate::utils::{text::TextHelper, Darken, Theme};
 
 struct SplashButton {
     id: &'static str,
@@ -57,6 +57,10 @@ impl SplashUI {
         current_time: Duration,
         map_texture: &TextureHandle,
     ) -> SplashResponse {
+        let background = ui.available_rect_before_wrap();
+        ui.painter()
+            .rect_filled(background, 0.0, Color32::BLACK.gamma_multiply(0.2));
+
         let dots = || {
             if self.animated {
                 let dot_count = (current_time.as_millis() / 500) % 4;

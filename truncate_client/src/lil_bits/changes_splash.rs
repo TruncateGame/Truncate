@@ -3,7 +3,7 @@ use epaint::{vec2, Color32, TextureHandle};
 use instant::Duration;
 use std::f32;
 
-use crate::utils::{text::TextHelper, Theme};
+use crate::utils::{text::TextHelper, Darken, Theme};
 
 struct SplashButton {
     id: &'static str,
@@ -54,7 +54,11 @@ impl ChangelogSplashUI {
         current_time: Duration,
         map_texture: &TextureHandle,
     ) -> SplashResponse {
-        let max_text_width = ui.available_width() - 48.0;
+        let background = ui.available_rect_before_wrap();
+        ui.painter()
+            .rect_filled(background, 0.0, Color32::BLACK.gamma_multiply(0.2));
+
+        let max_text_width = (ui.available_width() - 48.0).min(600.0);
         let text_pause_delay = Duration::from_millis(500);
         let button_pause_delay = Duration::from_millis(350);
 
@@ -64,7 +68,7 @@ impl ChangelogSplashUI {
             .map(|msg| TextHelper::heavy(&msg, 14.0, Some(max_text_width.max(0.0)), ui))
             .collect::<Vec<_>>();
 
-        let total_text_height: f32 = text_blocks.iter().map(|b| b.mesh_size().y + 10.0).sum();
+        let total_text_height: f32 = text_blocks.iter().map(|b| b.mesh_size().y + 20.0).sum();
         let total_text_blocks = text_blocks.len();
 
         let buttons: Vec<_> = self
@@ -72,7 +76,7 @@ impl ChangelogSplashUI {
             .iter()
             .map(|button| (button, TextHelper::heavy(&button.text, 14.0, None, ui)))
             .collect();
-        let total_button_height: f32 = buttons.iter().map(|(_, b)| b.size().y + 10.0).sum();
+        let total_button_height: f32 = buttons.iter().map(|(_, b)| b.size().y * 2.0 + 10.0).sum();
 
         let required_size = vec2(
             max_text_width,
@@ -87,7 +91,7 @@ impl ChangelogSplashUI {
             for (i, block) in text_blocks.into_iter().enumerate() {
                 if i < self.done_stages {
                     block.paint(Color32::WHITE, ui, false);
-                    ui.add_space(10.0);
+                    ui.add_space(20.0);
                 } else {
                     if current_time <= self.animate_from {
                         ui.ctx()
