@@ -173,7 +173,10 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                     _ => { /* Soft unreachable */ }
                 }
             }
-            GameMessage::LoggedInAs(player_token) => {
+            GameMessage::LoggedInAs {
+                token: player_token,
+                unread_changelogs,
+            } => {
                 #[cfg(target_arch = "wasm32")]
                 {
                     let local_storage =
@@ -184,6 +187,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 }
 
                 outer.logged_in_as = Some(player_token);
+                outer.unread_changelogs = unread_changelogs;
             }
             GameMessage::ResumeDailyPuzzle(latest_puzzle_state, best_puzzle) => {
                 let mut puzzle_game = get_playable_daily_puzzle(

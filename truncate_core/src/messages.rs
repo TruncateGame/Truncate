@@ -61,6 +61,7 @@ pub enum PlayerMessage {
     StartedTutorial {
         name: String,
     },
+    MarkChangelogRead,
 }
 
 impl fmt::Display for PlayerMessage {
@@ -110,6 +111,7 @@ impl fmt::Display for PlayerMessage {
             }
             PlayerMessage::StartedSinglePlayer => write!(f, "Started a single player game"),
             PlayerMessage::StartedTutorial { name } => write!(f, "Started the {name} tutorial"),
+            PlayerMessage::MarkChangelogRead => write!(f, "Marked all changelogs as read"),
         }
     }
 }
@@ -244,7 +246,10 @@ pub enum GameMessage {
     GameError(RoomCode, PlayerNumber, String),
     GenericError(String),
     SupplyDefinitions(Vec<(String, Option<Vec<WordMeaning>>)>),
-    LoggedInAs(TruncateToken),
+    LoggedInAs {
+        token: TruncateToken,
+        unread_changelogs: Vec<String>,
+    },
     ResumeDailyPuzzle(DailyStateMessage, Option<DailyStateMessage>), // (latest, best)
     DailyStats(DailyStats),
     LoadDailyReplay(DailyStateMessage),
@@ -288,7 +293,7 @@ impl fmt::Display for GameMessage {
             GameMessage::SupplyDefinitions(_) => {
                 write!(f, "Supplying definitions for words")
             }
-            GameMessage::LoggedInAs(_token) => {
+            GameMessage::LoggedInAs { .. } => {
                 write!(f, "Logged in as a player")
             }
             GameMessage::ResumeDailyPuzzle(puzzle, _best) => {

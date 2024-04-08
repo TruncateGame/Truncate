@@ -1,5 +1,6 @@
 use jwt_simple::prelude::*;
 use serde::{Deserialize, Serialize};
+use sqlx::types::time;
 use truncate_core::messages::TruncateToken;
 use uuid::Uuid;
 use woothee::parser::Parser as UAParser;
@@ -60,10 +61,6 @@ pub fn auth_player_token(
         })
 }
 
-struct AnonymousPlayer {
-    player_id: Uuid,
-}
-
 pub async fn create_player(
     server_state: &ServerState,
     screen_width: u32,
@@ -82,6 +79,10 @@ pub async fn create_player(
     } else {
         ("Unknown", "Unknown")
     };
+
+    struct AnonymousPlayer {
+        player_id: Uuid,
+    }
 
     let player = sqlx::query_as!(
         AnonymousPlayer,
@@ -105,13 +106,23 @@ pub async fn create_player(
     Ok(player.player_id)
 }
 
+pub struct UnreadChangelog {
+    pub changelog_id: String,
+}
+
+pub struct LoginResponse {
+    pub player_id: Uuid,
+    pub authed: AuthedTruncateToken,
+    pub unread_changelogs: Vec<UnreadChangelog>,
+}
+
 pub async fn login(
     server_state: &ServerState,
     token: TruncateToken,
     screen_width: u32,
     screen_height: u32,
     user_agent: String,
-) -> Result<(Uuid, AuthedTruncateToken), TruncateServerError> {
+) -> Result<LoginResponse, TruncateServerError> {
     let Some(pool) = &server_state.truncate_db else {
         return Err(TruncateServerError::DatabaseOffline);
     };
@@ -121,26 +132,34 @@ pub async fn login(
     };
     let player_id = authed.player();
 
-    let user_exists = sqlx::query!(
-        "SELECT EXISTS(SELECT 1 FROM players WHERE player_id = $1)",
+    struct LoggedInPlayer {
+        player_id: Uuid,
+        last_known_changelog: Option<time::OffsetDateTime>,
+    }
+
+    let Some(login) = sqlx::query_as!(
+        LoggedInPlayer,
+        "SELECT player_id, last_known_changelog FROM players WHERE player_id = $1",
         player_id
     )
-    .fetch_one(pool)
+    .fetch_optional(pool)
     .await?
-    .exists
-    .unwrap_or(false);
+    else {
+        return Err(TruncateServerError::InvalidUser(player_id));
+    };
 
-    if user_exists {
-        let parsed_ua = UAParser::new().parse(&user_agent);
+    let unread_changelogs = get_unreads(pool, login.last_known_changelog).await?;
 
-        let (browser_name, browser_version) = if let Some(ua) = parsed_ua {
-            (ua.name, ua.version)
-        } else {
-            ("Unknown", "Unknown")
-        };
+    let parsed_ua = UAParser::new().parse(&user_agent);
 
-        sqlx::query!(
-            "UPDATE players
+    let (browser_name, browser_version) = if let Some(ua) = parsed_ua {
+        (ua.name, ua.version)
+    } else {
+        ("Unknown", "Unknown")
+    };
+
+    sqlx::query!(
+        "UPDATE players
             SET 
                 last_login = CURRENT_TIMESTAMP, 
                 last_screen_width = $2,
@@ -148,17 +167,66 @@ pub async fn login(
                 last_browser_name = $4,
                 last_browser_version = $5
             WHERE player_id = $1",
-            player_id,
-            screen_width as i32,
-            screen_height as i32,
-            browser_name,
-            browser_version,
-        )
-        .execute(pool)
-        .await?;
+        player_id,
+        screen_width as i32,
+        screen_height as i32,
+        browser_name,
+        browser_version,
+    )
+    .execute(pool)
+    .await?;
 
-        Ok((player_id, authed))
+    Ok(LoginResponse {
+        player_id,
+        authed,
+        unread_changelogs,
+    })
+}
+
+async fn get_unreads(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    last_known_changelog: Option<time::OffsetDateTime>,
+) -> Result<Vec<UnreadChangelog>, sqlx::Error> {
+    if let Some(last_known) = last_known_changelog {
+        sqlx::query_as!(
+            UnreadChangelog,
+            "SELECT changelog_id
+            FROM changelogs
+            WHERE changelog_timestamp > $1",
+            last_known
+        )
+        .fetch_all(pool)
+        .await
     } else {
-        Err(TruncateServerError::InvalidUser(player_id))
+        sqlx::query_as!(
+            UnreadChangelog,
+            "SELECT changelog_id
+             FROM changelogs",
+        )
+        .fetch_all(pool)
+        .await
     }
+}
+
+pub async fn mark_changelogs_read(
+    server_state: &ServerState,
+    authed: AuthedTruncateToken,
+) -> Result<(), TruncateServerError> {
+    let Some(pool) = &server_state.truncate_db else {
+        return Err(TruncateServerError::DatabaseOffline);
+    };
+
+    let player_id = authed.player();
+
+    sqlx::query!(
+        "UPDATE players
+            SET 
+                last_known_changelog = CURRENT_TIMESTAMP
+            WHERE player_id = $1",
+        player_id,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }

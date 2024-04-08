@@ -346,7 +346,7 @@ rules:
         - message: |-
             Since "LONGER" is 2 letters longer than "CATS", it won the battle and "CATS" was removed from the board.
     
-    - name: "Weakest link"
+    - name: "Weakest defender"
       description: "The weakest defender is used"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
@@ -410,9 +410,8 @@ rules:
 
             As a result, the 'C' in "CALF" was destroyed.
 
-    
-    - name: "Failed attacks"
-      description: "All attackers must be valid"
+    - name: "Strongest attacker"
+      description: "The longest attacker is used"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
         ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
@@ -434,57 +433,18 @@ rules:
           det: Sufficient; all that is required, needed, or appropriate.
         FOUR: |-
           num: A numerical value equal to 4; the number after 3 and before 5; two plus two. This many dots (????)
-
-      steps:
-        - description: |-
-            When there are multiple attackers, all must be valid in order to win, otherwise all attackers are lost.
-
-            Let's demonstrate a failed attack by playing "ENOUGH" and "EEX" against "FOUR".
-
-          you: "E -> 6,5"
-          gets: "I"
-        - message: |-
-            "ENOUGH" was valid, but "EEX" was not.
-
-            You lost both attackers despite "ENOUGH" being strong enough to beat "FOUR".
-        - message: |-
-            Lets see a similar case, where the shorter attacker is valid.
-
-    - name: "Strongest attacker"
-      description: "The longest attacker is used"
-      board: |-
-        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
-        ~~ __ __ __ __ __ __ __ __ __ ~~
-        |0 Q0 F0 R0 V0 A0 L0 __ __ __ ~~
-        ~~ A0 __ __ __ __ E0 __ __ __ ~~
-        ~~ H0 G0 U0 O0 N0 __ __ __ __ ~~
-        ~~ __ __ __ __ __ F1 O1 U1 R1 |1
-        ~~ ~~ ~~ ~~ __ __ __ __ __ #1 ~~
-        ~~ ~~ ~~ __ __ __ __ __ __ __ ~~
-        ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~
-        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-
-      player_hand: ERTYELU
-      computer_hand: R
-
-      dict:
-        ENOUGH: |-
-          det: Sufficient; all that is required, needed, or appropriate.
-        FOUR: |-
-          num: A numerical value equal to 4; the number after 3 and before 5; two plus two. This many dots (????)
         EEL: |-
           noun: Any freshwater or marine fish of the order Anguilliformes, which are elongated and resemble snakes.
 
       steps:
         - description: |-
-            When there are multiple attackers and all of them are valid, the longest attacker determines the outcome of the battle.
+            When there are multiple attackers, the strongest attacker determines the outcome of the battle.
 
-            Try playing "ENOUGH" and "EEL" against "FOUR".
+            Try playing "ENOUGH" and "EEX" against "FOUR".
           you: "E -> 6,5"
           gets: "I"
         - message: |-
-            Since "ENOUGH" was long enough to beat "FOUR", and "EEL" was valid, the length of "EEL" didn't matter.
+            Since "ENOUGH" was long enough to beat "FOUR" it wins the battle, and "EEX" is irrelevant despite being invalid and too short.
 
     - name: "Truncation"
       description: "Tiles disconnected from the dock are truncated"

@@ -149,6 +149,10 @@
             border: solid 2px #d2d2d288;
         }
 
+        #controls button[hidden] {
+            display: none;
+        }
+
         #controls button.special {
             background-color: #edbbff;
             border-bottom: solid 2px #c694d9;
@@ -276,7 +280,7 @@
     <canvas id="truncate_canvas"></canvas>
 
     <div id="controls" class="unloaded" data-control-stage="root">
-        <button data-stage="root" id="about_control" data-control="to_about">ABOUT & CREDITS</button>
+        <button data-stage="root" id="about_control">UPDATES & CREDITS</button>
 
         <div id="menu_region">
         </div>
@@ -331,6 +335,8 @@
                 }
             };
             setInterval(remaining_day, 1000);
+
+            let about_control = document.querySelector("#about_control");
 
             class TruncateRunner {
                 constructor() {
@@ -446,6 +452,8 @@
 
                 rootStage() {
                     this.reset();
+
+                    about_control.removeAttribute("hidden");
 
                     const existing_game_token = window.localStorage.getItem("truncate_active_token");
                     let has_played_tut = localStorage.getItem("tutorial_played");
@@ -574,6 +582,25 @@
                     this.backButton();
                 }
 
+                creditsStage() {
+                    this.reset();
+
+                    about_control.setAttribute("hidden", "true");
+
+                    this.button("What's New", () => {
+                        truncate_runner.join_game('CHANGE_LOG');
+                    });
+
+                    this.button("About & Credits", () => {
+                        let modal = document.querySelector("#about_truncate");
+                        if (modal) {
+                            modal.open = true;
+                        }
+                    });
+
+                    this.backButton();
+                }
+
                 loadingStage() {
                     this.reset();
 
@@ -593,11 +620,8 @@
             }
             menu = new Menu(document.querySelector("#menu_region"));
 
-            document.querySelector("#about_control").addEventListener("click", () => {
-                let modal = document.querySelector("#about_truncate");
-                if (modal) {
-                    modal.open = true;
-                }
+            about_control.addEventListener("click", () => {
+                menu.creditsStage();
             });
 
             let initial_url = new URL(window.location);
