@@ -52,7 +52,7 @@ fn test_game(board: &str, hand: &str) -> Game {
         board: b.clone(),
         bag,
         players,
-        next_player,
+        next_player: Some(next_player),
         ..Game::new(3, 1, None)
     };
     game.players[next_player].hand = Hand(hand.chars().collect());

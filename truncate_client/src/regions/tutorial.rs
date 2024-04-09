@@ -9,7 +9,7 @@ use truncate_core::{
     board::{Board, Coordinate},
     game::{Game, GAME_COLOR_BLUE, GAME_COLOR_RED},
     judge::Judge,
-    messages::{GameStateMessage, PlayerMessage},
+    messages::{GamePlayerMessage, GameStateMessage, PlayerMessage},
     moves::Move,
     player::{Hand, Player},
     rules::{GameRules, TileDistribution},
@@ -160,12 +160,19 @@ impl TutorialStage {
 
                 let state_message = GameStateMessage {
                     room_code,
-                    players: self.game.players.iter().map(Into::into).collect(),
+                    players: self
+                        .game
+                        .players
+                        .iter()
+                        .map(|p| GamePlayerMessage::new(p, &self.game))
+                        .collect(),
                     player_number: 0,
-                    next_player_number: self.game.next_player as u64,
+                    next_player_number: self.game.next_player.map(|p| p as u64),
                     board: self.game.board.clone(),
                     hand: self.game.players[0].hand.clone(),
                     changes,
+                    game_ends_at: None,
+                    remaining_turns: None,
                 };
                 self.active_game.apply_new_state(state_message);
                 self.active_game.depot.gameplay.winner = possible_winner;
@@ -224,6 +231,13 @@ impl TutorialState {
         let scenario = TutorialState::get_nth_scenario(tutorial, index);
 
         scenario.map(|(category, scenario)| {
+            let now = Some(
+                instant::SystemTime::now()
+                    .duration_since(instant::SystemTime::UNIX_EPOCH)
+                    .expect("Please don't play Truncate earlier than 1970")
+                    .as_secs(),
+            );
+
             let mut game = Game {
                 rules: GameRules::default(),
                 players: vec![
@@ -234,12 +248,8 @@ impl TutorialState {
                         hand_capacity: scenario.player_hand.len(),
                         allotted_time: None,
                         time_remaining: None,
-                        turn_starts_no_later_than: Some(
-                            instant::SystemTime::now()
-                                .duration_since(instant::SystemTime::UNIX_EPOCH)
-                                .expect("Please don't play Truncate earlier than 1970")
-                                .as_secs(),
-                        ),
+                        turn_starts_no_later_than: now,
+                        turn_starts_no_sooner_than: now,
                         swap_count: 0,
                         penalties_incurred: 0,
                         color: GAME_COLOR_BLUE,
@@ -252,6 +262,7 @@ impl TutorialState {
                         allotted_time: None,
                         time_remaining: None,
                         turn_starts_no_later_than: None,
+                        turn_starts_no_sooner_than: None,
                         swap_count: 0,
                         penalties_incurred: 0,
                         color: GAME_COLOR_RED,
@@ -266,7 +277,8 @@ impl TutorialState {
                 player_turn_count: vec![0, 0],
                 recent_changes: vec![],
                 started_at: None,
-                next_player: 0,
+                game_ends_at: None,
+                next_player: Some(0),
                 winner: None,
             };
 
@@ -275,14 +287,19 @@ impl TutorialState {
                 "TUTORIAL_GAME".into(),
                 None,
                 None,
-                game.players.iter().map(Into::into).collect(),
+                game.players
+                    .iter()
+                    .map(|p| GamePlayerMessage::new(p, &game))
+                    .collect(),
                 0,
-                0,
+                Some(0),
                 game.board.clone(),
                 game.players[0].hand.clone(),
                 map_texture,
                 theme.clone(),
                 GameLocation::Tutorial,
+                None,
+                None,
             );
             active_game.depot.ui_state.game_header = HeaderType::None;
 

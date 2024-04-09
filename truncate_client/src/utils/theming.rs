@@ -5,6 +5,7 @@ use epaint::{hex_color, Color32, Hsva};
 
 #[derive(Debug, Clone)]
 pub struct Theme {
+    pub daytime: bool,
     pub water: Color32,
     pub grass: Color32,
     pub text: Color32,
@@ -28,15 +29,43 @@ pub struct Theme {
     pub mobile_breakpoint: f32,
 }
 
-impl Default for Theme {
-    fn default() -> Self {
+impl Theme {
+    pub fn day() -> Self {
         Self {
+            daytime: true,
             water: hex_color!("#50A7E8"),
             grass: hex_color!("#7BCB69"),
             text: hex_color!("#333333"),
             faded: hex_color!("#777777"),
             button_primary: hex_color!("#FFDE85"),
             button_secondary: hex_color!("#B1DAF9"),
+            button_scary: hex_color!("#FF8E8E"),
+            ring_selected: hex_color!("#FFBE0B"),
+            ring_selected_hovered: hex_color!("#FFDE85"),
+            ring_hovered: hex_color!("#CDF7F6"),
+            ring_added: hex_color!("#0AFFC6"),
+            ring_modified: hex_color!("#FC3692"),
+            word_valid: hex_color!("#00A37D"),
+            word_invalid: hex_color!("#89043D"),
+            gold_medal: hex_color!("#E0A500"),
+            grid_size: 50.0,
+            letter_size: 25.0,
+            tile_margin: 4.0,
+            rounding: 10.0,
+            animation_time: 0.05,
+            mobile_breakpoint: 800.0,
+        }
+    }
+
+    pub fn night() -> Self {
+        Self {
+            daytime: false,
+            water: hex_color!("#000000"),
+            grass: hex_color!("#112b15"),
+            text: hex_color!("#FFFFFF"),
+            faded: hex_color!("#CCCCCC"),
+            button_primary: hex_color!("#8F6900"),
+            button_secondary: hex_color!("#094472"),
             button_scary: hex_color!("#FF8E8E"),
             ring_selected: hex_color!("#FFBE0B"),
             ring_selected_hovered: hex_color!("#FFDE85"),

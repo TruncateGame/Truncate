@@ -45,7 +45,7 @@ fn evaluate_single_seed(seed: BoardSeed, log: bool) -> Option<SeedNote> {
 
     while game.turn_count < maximum_turns {
         let best_move_for_next_player = best_move(&game, &npc_params, &dicts);
-        let next_player = game.next_player;
+        let next_player = game.next_player.unwrap();
 
         let next_move = match best_move_for_next_player {
             PlayerMessage::Place(position, tile) => Move::Place {

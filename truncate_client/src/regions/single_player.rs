@@ -5,7 +5,7 @@ use truncate_core::{
     board::Board,
     game::{Game, GAME_COLOR_BLUE, GAME_COLOR_RED},
     generation::BoardSeed,
-    messages::{DailyStats, GameStateMessage, PlayerMessage},
+    messages::{DailyStats, GamePlayerMessage, GameStateMessage, PlayerMessage},
     moves::Move,
     npc::scoring::NPCPersonality,
     reporting::WordMeaning,
@@ -84,21 +84,27 @@ impl SinglePlayerState {
 
         game.start();
 
-        let (filtered_board, _) = game.filter_game_to_player(if human_starts { 0 } else { 1 });
+        let (filtered_board, _) =
+            game.filter_game_to_player(if human_starts { 0 } else { 1 }, None);
 
         let mut active_game = ActiveGame::new(
             ctx,
             "SINGLE_PLAYER".into(),
             seed,
             Some(npc.clone()),
-            game.players.iter().map(Into::into).collect(),
+            game.players
+                .iter()
+                .map(|p| GamePlayerMessage::new(p, &game))
+                .collect(),
             if human_starts { 0 } else { 1 },
-            0,
+            Some(0),
             filtered_board.clone(),
             game.players[if human_starts { 0 } else { 1 }].hand.clone(),
             map_texture.clone(),
             theme.clone(),
             GameLocation::Local,
+            None,
+            None,
         );
         active_game.depot.ui_state.game_header = header.clone();
 
@@ -182,9 +188,12 @@ impl SinglePlayerState {
             "SINGLE_PLAYER".into(),
             Some(seed),
             Some(self.npc.clone()),
-            game.players.iter().map(Into::into).collect(),
+            game.players
+                .iter()
+                .map(|p| GamePlayerMessage::new(p, &game))
+                .collect(),
             if self.human_starts { 0 } else { 1 },
-            0,
+            Some(0),
             game.board.clone(),
             game.players[if self.human_starts { 0 } else { 1 }]
                 .hand
@@ -192,6 +201,8 @@ impl SinglePlayerState {
             self.map_texture.clone(),
             self.theme.clone(),
             GameLocation::Local,
+            None,
+            None,
         );
         active_game.depot.ui_state.game_header = self.header.clone();
 
@@ -315,12 +326,19 @@ impl SinglePlayerState {
                 let room_code = self.active_game.depot.gameplay.room_code.clone();
                 let state_message = GameStateMessage {
                     room_code,
-                    players: self.game.players.iter().map(Into::into).collect(),
+                    players: self
+                        .game
+                        .players
+                        .iter()
+                        .map(|p| GamePlayerMessage::new(p, &self.game))
+                        .collect(),
                     player_number: human_player as u64,
-                    next_player_number: self.game.next_player as u64,
+                    next_player_number: self.game.next_player.map(|p| p as u64),
                     board: self.game.board.clone(),
                     hand: self.game.players[human_player].hand.clone(),
                     changes,
+                    game_ends_at: None,
+                    remaining_turns: None,
                 };
                 self.active_game.apply_new_state(state_message);
 
@@ -531,7 +549,7 @@ impl SinglePlayerState {
         }
 
         if let Some(next_response_at) = self.next_response_at {
-            if self.game.next_player == npc_player
+            if self.game.next_player.unwrap() == npc_player
                 && next_response_at > self.active_game.depot.timing.current_time
             {
                 return msgs_to_server;
@@ -539,10 +557,10 @@ impl SinglePlayerState {
         }
         self.next_response_at = None;
 
-        if self.game.next_player == npc_player {
+        if self.game.next_player.unwrap() == npc_player {
             if let Some(turn_starts_no_later_than) = self
                 .game
-                .get_player(self.game.next_player)
+                .get_player(self.game.next_player.unwrap())
                 .unwrap()
                 .turn_starts_no_later_than
             {
@@ -564,7 +582,7 @@ impl SinglePlayerState {
                             }
                         }
                     } else {
-                        let (filtered_board, _) = self.game.filter_game_to_player(npc_player);
+                        let (filtered_board, _) = self.game.filter_game_to_player(npc_player, None);
                         let pending_msg =
                             backchannel.send_msg(crate::app_outer::BackchannelMsg::EvalGame {
                                 board: filtered_board,
@@ -578,7 +596,7 @@ impl SinglePlayerState {
                 } else {
                     // If we have no backchannel available to evaluate moves through,
                     // just evaluate the move on this thread and live with blocking.
-                    let (filtered_board, _) = self.game.filter_game_to_player(npc_player);
+                    let (filtered_board, _) = self.game.filter_game_to_player(npc_player, None);
                     let mut evaluation_game = self.game.clone();
                     evaluation_game.board = filtered_board;
 

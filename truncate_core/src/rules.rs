@@ -9,10 +9,17 @@ pub enum TownDefense {
     BeatenWithDefenseStrength(usize),
 }
 
+/// Conditions which, when hit, end the game and mark a winner
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WinCondition {
     Destination { town_defense: TownDefense },
     Elimination, // TODO: Implement
+}
+
+/// Metrics to used to assign a winner when no condition was hit
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WinMetric {
+    TownProximity,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +27,7 @@ pub enum Visibility {
     Standard,
     TileFog,
     LandFog,
+    OnlyHouseFog,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,8 +56,8 @@ pub enum Timing {
         time_allowance: usize,
     },
     Periodic {
-        // TODO: Implement
         turn_delay: usize,
+        total_time_allowance: usize,
     },
     None,
 }
@@ -91,6 +99,7 @@ pub enum SwapPenalty {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameRules {
     pub win_condition: WinCondition,
+    pub win_metric: WinMetric,
     pub visibility: Visibility,
     pub truncation: Truncation,
     pub timing: Timing,
@@ -100,6 +109,7 @@ pub struct GameRules {
     pub battle_rules: BattleRules,
     pub swapping: Swapping,
     pub battle_delay: u64,
+    pub max_turns: Option<u64>,
 }
 
 impl Default for GameRules {
@@ -108,6 +118,7 @@ impl Default for GameRules {
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
             },
+            win_metric: WinMetric::TownProximity,
             visibility: Visibility::Standard,
             truncation: Truncation::Root,
             timing: Timing::None,
@@ -117,6 +128,7 @@ impl Default for GameRules {
             battle_rules: BattleRules { length_delta: 2 },
             swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
             battle_delay: 2,
+            max_turns: None,
         }
     }
 }

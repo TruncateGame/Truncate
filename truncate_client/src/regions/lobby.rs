@@ -58,7 +58,7 @@ impl Lobby {
             .collect();
 
         let aesthetics = AestheticDepot {
-            theme: Theme::default(),
+            theme: Theme::day(),
             qs_tick: 0,
             map_texture,
             player_colors,
@@ -69,7 +69,7 @@ impl Lobby {
         Self {
             room_code,
             board_seed: None,
-            mapped_board: MappedBoard::new(ctx, &aesthetics, &board, 1),
+            mapped_board: MappedBoard::new(ctx, &aesthetics, &board, 1, true),
             players,
             player_index,
             board,

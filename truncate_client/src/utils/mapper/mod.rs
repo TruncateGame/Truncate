@@ -76,6 +76,7 @@ impl ResolvedTextureLayers {
 struct MapState {
     prev_board: Board,
     prev_tick: u64,
+    prev_winner: Option<usize>,
     prev_selected: Option<(Coordinate, Square)>,
     prev_tile_hover: Option<(Coordinate, Square)>,
     prev_dragging: Option<(Coordinate, Square)>,
@@ -95,6 +96,7 @@ pub struct MappedBoard {
     map_seed: usize,
     inverted: bool,
     for_player: usize,
+    daytime: bool,
     last_tick: u64,
     forecasted_wind: u8,
     incoming_wind: u8,
@@ -107,6 +109,7 @@ impl MappedBoard {
         aesthetics: &AestheticDepot,
         board: &Board,
         for_player: usize,
+        daytime: bool,
     ) -> Self {
         let secs = instant::SystemTime::now()
             .duration_since(instant::SystemTime::UNIX_EPOCH)
@@ -124,6 +127,7 @@ impl MappedBoard {
             map_seed: (secs % 100000) as usize,
             inverted: for_player == 0,
             for_player,
+            daytime,
             last_tick: 0,
             forecasted_wind: 0,
             incoming_wind: 0,
@@ -147,9 +151,14 @@ impl MappedBoard {
         if let Some(tex) = &self.resolved_textures {
             paint(tex.terrain.id(), Color32::WHITE);
             // This is where we make the checkerboard overlay translucent
-            paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
+            if self.daytime {
+                paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
+            } else {
+                paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.02));
+            }
             paint(tex.structures.id(), Color32::WHITE);
             paint(tex.pieces.id(), Color32::WHITE);
+            paint(tex.fog.id(), Color32::BLACK);
         }
     }
 
@@ -711,6 +720,7 @@ impl MappedBoard {
             .map(|i| i.hovered_unoccupied_square_on_board.clone())
             .flatten();
         let generic_repaint_tick = self.generic_repaint_tick;
+        let winner = gameplay.map(|g| g.winner).flatten();
 
         if let Some(memory) = self.state_memory.as_mut() {
             let board_eq = memory.prev_board == *board;
@@ -720,6 +730,7 @@ impl MappedBoard {
             let occupied_hover_eq = memory.prev_occupied_hover == occupied_hover;
             let square_hover_eq = memory.prev_square_hover == square_hover;
             let generic_tick_eq = memory.generic_tick == generic_repaint_tick;
+            let winner_eq = memory.prev_winner == winner;
             if memory.prev_tick != aesthetics.qs_tick {
                 tick_eq = false;
             }
@@ -732,6 +743,7 @@ impl MappedBoard {
                 && occupied_hover_eq
                 && square_hover_eq
                 && generic_tick_eq
+                && winner_eq
             {
                 return;
             }
@@ -760,6 +772,9 @@ impl MappedBoard {
             if !generic_tick_eq {
                 memory.generic_tick = generic_repaint_tick;
             }
+            if !winner_eq {
+                memory.prev_winner = winner;
+            }
         } else {
             self.state_memory = Some(MapState {
                 prev_board: board.clone(),
@@ -771,6 +786,7 @@ impl MappedBoard {
                 prev_square_hover: square_hover,
                 prev_changes: vec![],
                 generic_tick: 0,
+                prev_winner: winner,
             });
             tick_eq = false;
         }
