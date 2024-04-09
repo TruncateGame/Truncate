@@ -35,18 +35,22 @@ pub fn render_native_menu_if_required(
             }
             if ui.button("Tutorial: Rules").clicked() {
                 return Some(GameStatus::Tutorial(TutorialState::new(
+                    "rules".to_string(),
                     utils::includes::rules(),
                     ui.ctx(),
                     outer.map_texture.clone(),
                     &outer.theme,
+                    outer.event_dispatcher.clone(),
                 )));
             }
             if ui.button("Tutorial: Example").clicked() {
                 return Some(GameStatus::Tutorial(TutorialState::new(
+                    "example_game".to_string(),
                     utils::includes::example_game(),
                     ui.ctx(),
                     outer.map_texture.clone(),
                     &outer.theme,
+                    outer.event_dispatcher.clone(),
                 )));
             }
             if ui.button("Single Player").clicked() {
@@ -77,6 +81,7 @@ pub fn render_native_menu_if_required(
                     Board::from_string(include_str!("../../tutorials/test_board.txt"));
                 let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
                 let behemoth_game = SinglePlayerState::new(
+                    "behemoth".to_string(),
                     ui.ctx(),
                     outer.map_texture.clone(),
                     outer.theme.clone(),
@@ -85,6 +90,7 @@ pub fn render_native_menu_if_required(
                     true,
                     HeaderType::Timers,
                     NPCPersonality::jet(),
+                    outer.event_dispatcher.clone(),
                 );
                 outer.log_frames = true;
                 return Some(GameStatus::SinglePlayer(behemoth_game));

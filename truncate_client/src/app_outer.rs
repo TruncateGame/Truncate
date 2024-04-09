@@ -113,6 +113,7 @@ pub struct OuterApplication {
     pub backchannel: Backchannel,
     pub log_frames: bool,
     pub frames: debug::FrameHistory,
+    pub event_dispatcher: EventDispatcher,
 }
 
 impl OuterApplication {
@@ -267,13 +268,53 @@ impl OuterApplication {
             game_status,
             inner_storage: AppInnerStorage::default(),
             rx_game,
-            tx_player,
+            tx_player: tx_player.clone(),
             map_texture,
             launched_code: room_code,
             error: None,
             backchannel,
             log_frames: false,
             frames: debug::FrameHistory::default(),
+            event_dispatcher: EventDispatcher {
+                tx_player,
+                sent: vec![],
+            },
+        }
+    }
+}
+
+/// Each EventDispatcher instance ensures a given event is sent only once.
+/// EventDispatcher should be cloned for each unique game area (e.g. tutorial, puzzle).
+pub struct EventDispatcher {
+    tx_player: S,
+    sent: Vec<String>,
+}
+
+impl EventDispatcher {
+    /// Tracks an event, deduplicating all sends for the lifetime of this EventDispatcher
+    pub fn event(&mut self, name: impl AsRef<str>) {
+        let name = name.as_ref();
+
+        if self.sent.iter().any(|s| s == name) {
+            return;
+        }
+        self.sent.push(name.to_string());
+
+        self.tx_player
+            .clone()
+            .try_send(PlayerMessage::GenericEvent {
+                name: name.to_string(),
+            })
+            .unwrap();
+    }
+}
+
+// Cloning an EventDispatcher resets its tracking, and all events can be sent again
+impl Clone for EventDispatcher {
+    fn clone(&self) -> Self {
+        Self {
+            tx_player: self.tx_player.clone(),
+            sent: vec![],
         }
     }
 }

@@ -120,6 +120,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             };
 
             if tutorial.priority == Some(ChangePriority::High) {
+                outer.event_dispatcher.event(format!("interrupt_{unread}"));
                 let changelog_ui = outer.inner_storage.changelog_ui.get_or_insert_with(|| {
                     ChangelogSplashUI::new(splash_message.clone(), current_time)
                         .with_button(
@@ -143,20 +144,19 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
 
                 if resp.clicked == Some("view") {
                     outer
-                        .tx_player
-                        .try_send(PlayerMessage::StartedTutorial {
-                            name: unread.to_string(),
-                        })
-                        .unwrap();
+                        .event_dispatcher
+                        .event(format!("interrupt_view_{unread}"));
                     outer
                         .tx_player
                         .try_send(PlayerMessage::MarkChangelogRead)
                         .unwrap();
                     new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+                        unread.clone(),
                         tutorial.clone(),
                         ui.ctx(),
                         outer.map_texture.clone(),
                         &outer.theme,
+                        outer.event_dispatcher.clone(),
                     )));
 
                     outer.launched_code = None;
@@ -166,11 +166,17 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 }
 
                 if resp.clicked == Some("skip") {
+                    outer
+                        .event_dispatcher
+                        .event(format!("interrupt_skip_{unread}"));
                     outer.unread_changelogs = vec![];
                     break;
                 }
 
                 if resp.clicked == Some("ignore") {
+                    outer
+                        .event_dispatcher
+                        .event(format!("interrupt_ignore_{unread}"));
                     outer.unread_changelogs = vec![];
                     outer
                         .tx_player
@@ -185,6 +191,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
     }
 
     if loading_changelog {
+        outer.event_dispatcher.event(format!("updates_listing"));
         let mut changelog_ui = SplashUI::new(vec!["Latest updates".to_string()]);
 
         for (changelog_id, changelog_tut) in changelogs() {
@@ -204,20 +211,19 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             let changelog_tut = changelogs().get(requested_changelog).unwrap().clone();
 
             outer
-                .tx_player
-                .try_send(PlayerMessage::StartedTutorial {
-                    name: requested_changelog.to_string(),
-                })
-                .unwrap();
+                .event_dispatcher
+                .event(format!("updates_view_{requested_changelog}"));
             outer
                 .tx_player
                 .try_send(PlayerMessage::MarkChangelogRead)
                 .unwrap();
             new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
+                requested_changelog.to_string(),
                 changelog_tut,
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
+                outer.event_dispatcher.clone(),
             )));
 
             outer.launched_code = None;
@@ -252,6 +258,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 match msg {
                     PlayerMessage::StartGame => {
                         let single_player_game = SinglePlayerState::new(
+                            "classic".to_string(),
                             ui.ctx(),
                             outer.map_texture.clone(),
                             outer.theme.clone(),
@@ -260,6 +267,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                             true,
                             HeaderType::Timers,
                             NPCPersonality::jet(),
+                            outer.event_dispatcher.clone(),
                         );
                         new_game_status = Some(GameStatus::SinglePlayer(single_player_game));
                     }

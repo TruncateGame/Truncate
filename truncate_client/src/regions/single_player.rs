@@ -12,7 +12,7 @@ use truncate_core::{
 };
 
 use crate::{
-    app_outer::Backchannel,
+    app_outer::{Backchannel, EventDispatcher},
     lil_bits::{
         result_modal::{ResultModalAction, ResultModalDaily, ResultModalVariant},
         ResultModalUI,
@@ -28,6 +28,7 @@ use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
 #[derive(Clone)]
 pub struct SinglePlayerState {
+    pub name: String,
     pub game: Game,
     human_starts: bool,
     pub active_game: ActiveGame,
@@ -45,10 +46,12 @@ pub struct SinglePlayerState {
     splash: Option<ResultModalUI>,
     hide_splash: bool,
     pub move_sequence: Vec<Move>,
+    event_dispatcher: EventDispatcher,
 }
 
 impl SinglePlayerState {
     pub fn new(
+        name: String,
         ctx: &egui::Context,
         map_texture: TextureHandle,
         theme: Theme,
@@ -57,7 +60,10 @@ impl SinglePlayerState {
         human_starts: bool,
         header: HeaderType,
         npc: NPCPersonality,
+        mut event_dispatcher: EventDispatcher,
     ) -> Self {
+        event_dispatcher.event(format!("single_player_{name}"));
+
         let mut game = Game::new(9, 9, seed.clone().map(|s| s.seed as u64));
         if human_starts {
             game.add_player("You".into());
@@ -97,6 +103,7 @@ impl SinglePlayerState {
         active_game.depot.ui_state.game_header = header.clone();
 
         Self {
+            name,
             game,
             human_starts,
             active_game,
@@ -114,7 +121,13 @@ impl SinglePlayerState {
             splash: None,
             hide_splash: false,
             move_sequence: vec![],
+            event_dispatcher,
         }
+    }
+
+    fn sub_event(&mut self, event: String) {
+        self.event_dispatcher
+            .event(format!("single_player_{}_{}", self.name, event));
     }
 
     pub fn reset(&mut self, current_time: Duration, ctx: &egui::Context) {
@@ -182,12 +195,15 @@ impl SinglePlayerState {
         );
         active_game.depot.ui_state.game_header = self.header.clone();
 
+        self.sub_event("replay".to_string());
+
         self.game = game;
         self.active_game = active_game;
         self.turns = 0;
         self.next_response_at = None;
         self.winner = None;
         self.move_sequence = vec![];
+        self.event_dispatcher = self.event_dispatcher.clone();
     }
 
     /// If the server sent through some new word definitions,
@@ -220,6 +236,7 @@ impl SinglePlayerState {
         &mut self,
         next_move: Move,
         backchannel: &Backchannel,
+        track_events: bool,
     ) -> Result<Vec<String>, ()> {
         let human_player = if self.human_starts { 0 } else { 1 };
 
@@ -232,6 +249,16 @@ impl SinglePlayerState {
         match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
             Ok(winner) => {
                 self.winner = winner;
+
+                if track_events {
+                    if let Some(winner) = winner {
+                        if winner == human_player {
+                            self.sub_event("won".to_string())
+                        } else {
+                            self.sub_event("lost".to_string())
+                        }
+                    }
+                }
 
                 let changes: Vec<_> = self
                     .game
@@ -415,9 +442,16 @@ impl SinglePlayerState {
                         self.active_game.depot.gameplay.winner = self.winner;
                     }
                     Some(ResultModalAction::Resign) => {
+                        self.sub_event("resign".to_string());
                         self.splash = None;
                         self.game.resign_player(human_player);
                         self.winner = Some(npc_player);
+                    }
+                    Some(ResultModalAction::SharedText) => {
+                        self.sub_event("shared_text".to_string());
+                    }
+                    Some(ResultModalAction::SharedReplay) => {
+                        self.sub_event("shared_replay".to_string());
                     }
                     None => {}
                 }
@@ -570,7 +604,7 @@ impl SinglePlayerState {
         };
 
         if let Some(next_move) = next_move {
-            if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel) {
+            if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel, true) {
                 self.move_sequence.push(next_move.clone());
 
                 if let Some(seed) = &self.active_game.depot.board_info.board_seed {

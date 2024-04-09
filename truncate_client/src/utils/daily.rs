@@ -11,7 +11,7 @@ use truncate_core::{
 };
 
 use crate::{
-    app_outer::Backchannel,
+    app_outer::{Backchannel, EventDispatcher},
     regions::{active_game::HeaderType, single_player::SinglePlayerState},
 };
 
@@ -76,6 +76,7 @@ pub fn get_playable_daily_puzzle(
     map_texture: &TextureHandle,
     theme: &Theme,
     _backchannel: &Backchannel,
+    event_dispatcher: EventDispatcher,
 ) -> SinglePlayerState {
     let (board_seed, info) = get_raw_daily_puzzle(day);
 
@@ -86,6 +87,7 @@ pub fn get_playable_daily_puzzle(
         .expect("Common seeds should always generate a board")
         .board;
     let mut game_state = SinglePlayerState::new(
+        "daily".to_string(),
         ctx,
         map_texture.clone(),
         theme.clone(),
@@ -94,6 +96,7 @@ pub fn get_playable_daily_puzzle(
         human_starts,
         HeaderType::None, // Replaced soon with HeaderType::Summary
         NPCPersonality::jet(),
+        event_dispatcher,
     );
 
     if let Some((_, notes)) = info {

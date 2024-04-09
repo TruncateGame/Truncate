@@ -37,29 +37,27 @@ pub fn handle_launch_code(
             _ => return Some(GameStatus::HardError(vec!["Could not rejoin".to_string()])),
         },
         "TUTORIAL_RULES" => {
-            send_to_server(PlayerMessage::StartedTutorial {
-                name: "rules".to_string(),
-            });
             return Some(GameStatus::Tutorial(TutorialState::new(
+                "rules".to_string(),
                 utils::includes::rules(),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
+                outer.event_dispatcher.clone(),
             )));
         }
         "TUTORIAL_EXAMPLE" => {
-            send_to_server(PlayerMessage::StartedTutorial {
-                name: "example".to_string(),
-            });
             return Some(GameStatus::Tutorial(TutorialState::new(
+                "example_game".to_string(),
                 utils::includes::example_game(),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
+                outer.event_dispatcher.clone(),
             )));
         }
         "SINGLE_PLAYER" => {
-            send_to_server(PlayerMessage::StartedSinglePlayer);
+            outer.event_dispatcher.event("single_player_lobby");
             let mut board = Board::new(9, 9);
             board.grow();
             return Some(GameStatus::PendingSinglePlayer(Lobby::new(
@@ -91,9 +89,6 @@ pub fn handle_launch_code(
             return Some(GameStatus::PendingDaily);
         }
         "RANDOM_PUZZLE" => {
-            send_to_server(PlayerMessage::StartedRandomPuzzle {
-                personality: "jet".into(),
-            });
             let seed = (current_time!().as_micros() % 243985691) as u32;
             let board_seed = BoardSeed::new(seed);
             let board = generate_board(board_seed.clone())
@@ -104,6 +99,7 @@ pub fn handle_launch_code(
                 attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
+                "jet".to_string(),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 outer.theme.clone(),
@@ -112,13 +108,11 @@ pub fn handle_launch_code(
                 true,
                 header,
                 NPCPersonality::jet(),
+                outer.event_dispatcher.clone(),
             );
             return Some(GameStatus::SinglePlayer(puzzle_game));
         }
         "RANDOM_EASY_PUZZLE" => {
-            send_to_server(PlayerMessage::StartedRandomPuzzle {
-                personality: "mellite".into(),
-            });
             let seed = (current_time!().as_micros() % 243985691) as u32;
             let board_seed = BoardSeed::new(seed);
             let board = generate_board(board_seed.clone())
@@ -129,6 +123,7 @@ pub fn handle_launch_code(
                 attempt: None,
             };
             let puzzle_game = SinglePlayerState::new(
+                "mellite".to_string(),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 outer.theme.clone(),
@@ -137,6 +132,7 @@ pub fn handle_launch_code(
                 true,
                 header,
                 NPCPersonality::mellite(),
+                outer.event_dispatcher.clone(),
             );
             return Some(GameStatus::SinglePlayer(puzzle_game));
         }
@@ -144,6 +140,7 @@ pub fn handle_launch_code(
             let behemoth_board = Board::from_string(include_str!("../tutorials/test_board.txt"));
             let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
             let behemoth_game = SinglePlayerState::new(
+                "behemoth".to_string(),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 outer.theme.clone(),
@@ -152,6 +149,7 @@ pub fn handle_launch_code(
                 true,
                 HeaderType::Timers,
                 NPCPersonality::jet(),
+                outer.event_dispatcher.clone(),
             );
             outer.log_frames = true;
             return Some(GameStatus::SinglePlayer(behemoth_game));
@@ -194,10 +192,11 @@ pub fn handle_launch_code(
                 title: format!("Truncate Puzzle"),
                 attempt: None,
             };
-            send_to_server(PlayerMessage::StartedRandomPuzzle {
-                personality: npc.name.clone(),
-            });
+            outer
+                .event_dispatcher
+                .event(format!("linked_puzzle_{launch_code}"));
             let puzzle_game = SinglePlayerState::new(
+                npc.name.clone(),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 outer.theme.clone(),
@@ -206,6 +205,7 @@ pub fn handle_launch_code(
                 player == 0,
                 header,
                 npc,
+                outer.event_dispatcher.clone(),
             );
             return Some(GameStatus::SinglePlayer(puzzle_game));
         } else {
