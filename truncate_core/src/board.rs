@@ -387,6 +387,10 @@ impl Board {
             };
         }
 
+        if tiles[0] == tiles[1] {
+            return Err(GamePlayError::NoopSwap);
+        }
+
         match swap_rules {
             rules::Swapping::Contiguous(_) => {
                 if self
@@ -2073,6 +2077,54 @@ pub mod tests {
                     detail: BoardChangeDetail {
                         square: Square::Occupied(0, 'R'),
                         coordinate: pos2,
+                    },
+                    action: BoardChangeAction::Swapped
+                })
+            ])
+        );
+    }
+
+    #[test]
+    fn noop_swapping() {
+        let mut b = Board::from_string(
+            "~~ |0 ~~ ~~\n\
+             __ A0 C0 __\n\
+             __ A0 __ __\n\
+             ~~ |1 ~~ ~~",
+        );
+
+        let a1 = Coordinate { x: 1, y: 1 };
+        let a2 = Coordinate { x: 1, y: 2 };
+        let c = Coordinate { x: 2, y: 1 };
+
+        assert_eq!(
+            b.swap(0, [a1, a2], &rules::Swapping::Contiguous(default_swap_rules())),
+            Err(GamePlayError::NoopSwap)
+        );
+
+        assert_eq!(
+            b.swap(0, [a1, a1], &rules::Swapping::Contiguous(default_swap_rules())),
+            Err(GamePlayError::SelfSwap)
+        );
+
+        assert_eq!(
+            b.swap(
+                0,
+                [a1, c],
+                &rules::Swapping::Contiguous(default_swap_rules())
+            ),
+            Ok(vec![
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
+                        square: Square::Occupied(0, 'C'),
+                        coordinate: a1,
+                    },
+                    action: BoardChangeAction::Swapped
+                }),
+                Change::Board(BoardChange {
+                    detail: BoardChangeDetail {
+                        square: Square::Occupied(0, 'A'),
+                        coordinate: c,
                     },
                     action: BoardChangeAction::Swapped
                 })
