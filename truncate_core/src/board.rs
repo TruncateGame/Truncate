@@ -1097,54 +1097,30 @@ impl Board {
                             .iter()
                             .filter(|w| dict.contains_key(&w.to_ascii_lowercase()))
                             .max_by_key(|w| w.len());
-                        if let Some(valid) = valid {
-                            let vision_dist = valid.len().saturating_sub(4) + 3;
 
-                            let mut sqs = HashSet::new();
-                            sqs.insert(coord);
-
-                            for _ in 0..vision_dist {
-                                let pts = sqs.iter().cloned().collect::<Vec<_>>();
-                                for pt in pts {
-                                    sqs.extend(pt.neighbors_4());
-                                }
-                            }
-
-                            for pt in sqs.iter() {
-                                visible_coords.insert(*pt);
-                                match self.get(*pt) {
-                                    Ok(Square::Occupied(player, _)) if player != player_index => {
-                                        visible_coords.extend(self.get_words(*pt).iter().flatten());
-                                    }
-                                    _ => {}
-                                }
-                            }
+                        let vision_dist = if let Some(valid) = valid {
+                            valid.len().saturating_sub(4) + 3
                         } else {
-                            for (coord, square) in self.neighbouring_squares(coord) {
-                                visible_coords.insert(coord);
-                                match square {
-                                    Square::Occupied(player, _) if player != player_index => {
-                                        visible_coords
-                                            .extend(self.get_words(coord).iter().flatten());
-                                    }
-                                    _ => {}
-                                }
-                            }
+                            2
+                        };
 
-                            for (coord, square) in self
-                                .neighbouring_squares(coord)
-                                .iter()
-                                .flat_map(|(c, _)| self.neighbouring_squares(*c))
-                                .collect::<Vec<_>>()
-                            {
-                                visible_coords.insert(coord);
-                                match square {
-                                    Square::Occupied(player, _) if player != player_index => {
-                                        visible_coords
-                                            .extend(self.get_words(coord).iter().flatten());
-                                    }
-                                    _ => {}
+                        let mut sqs = HashSet::new();
+                        sqs.insert(coord);
+
+                        for _ in 0..vision_dist {
+                            let pts = sqs.iter().cloned().collect::<Vec<_>>();
+                            for pt in pts {
+                                sqs.extend(pt.neighbors_4());
+                            }
+                        }
+
+                        for pt in sqs.iter() {
+                            visible_coords.insert(*pt);
+                            match self.get(*pt) {
+                                Ok(Square::Occupied(player, _)) if player != player_index => {
+                                    visible_coords.extend(self.get_words(*pt).iter().flatten());
                                 }
+                                _ => {}
                             }
                         }
                     }

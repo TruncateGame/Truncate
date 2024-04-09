@@ -286,6 +286,8 @@ async fn handle_player_msg(
                 room_code,
             } = claims.custom;
 
+            let words_db = server_state.words();
+
             let code = room_code.to_ascii_lowercase();
             if let Some(existing_game) = server_state.get_game_by_code(&code) {
                 let mut game_manager = existing_game.lock();
@@ -299,7 +301,7 @@ async fn handle_player_msg(
                                 .send_to_player(
                                     &player_addr,
                                     GameMessage::StartedGame(
-                                        game_manager.game_msg(player_index, None),
+                                        game_manager.game_msg(player_index, Some(&words_db.lock())),
                                     ),
                                 )
                                 .unwrap();
@@ -831,12 +833,14 @@ async fn check_game_over(game_id: String, check_in_ms: i128, server_state: Serve
     let mut game_manager = existing_game.lock();
     game_manager.core_game.calculate_game_over(None);
 
+    let words_db = server_state.words();
+
     if let Some(winner) = game_manager.core_game.winner {
         for (player_index, player) in game_manager.players.iter().enumerate() {
             let Some(socket) = player.socket else {
                 continue;
             };
-            let mut end_game_msg = game_manager.game_msg(player_index, None);
+            let mut end_game_msg = game_manager.game_msg(player_index, Some(&words_db.lock()));
             // Don't send any of the latest battles or hand changes
             end_game_msg.changes = vec![];
             server_state

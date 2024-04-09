@@ -132,3 +132,27 @@ impl Default for GameRules {
         }
     }
 }
+
+impl GameRules {
+    pub fn tuesday() -> Self {
+        Self {
+            win_condition: WinCondition::Destination {
+                town_defense: TownDefense::BeatenWithDefenseStrength(0),
+            },
+            win_metric: WinMetric::TownProximity,
+            visibility: Visibility::LandFog,
+            truncation: Truncation::None,
+            timing: Timing::PerPlayer {
+                time_allowance: 60 * 60,
+                overtime_rule: OvertimeRule::Bomb { period: 30 },
+            },
+            hand_size: 7,
+            tile_distribution: TileDistribution::Standard,
+            tile_bag_behaviour: TileBagBehaviour::Standard,
+            battle_rules: BattleRules { length_delta: 2 },
+            swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
+            battle_delay: 2,
+            max_turns: Some(1050),
+        }
+    }
+}
