@@ -15,12 +15,15 @@ use truncate_core::{
     rules::{GameRules, TileDistribution},
 };
 
-use crate::utils::{
-    includes::{Scenario, ScenarioStep, Tutorial},
-    tex::{render_tex_quad, tiles},
-    text::TextHelper,
-    urls::back_to_menu,
-    Diaphanize, Lighten, Theme,
+use crate::{
+    app_outer::EventDispatcher,
+    utils::{
+        includes::{Scenario, ScenarioStep, Tutorial},
+        tex::{render_tex_quad, tiles},
+        text::TextHelper,
+        urls::back_to_menu,
+        Diaphanize, Lighten, Theme,
+    },
 };
 
 use super::active_game::{ActiveGame, GameLocation, HeaderType};
@@ -75,11 +78,13 @@ enum ChangeStage {
 }
 
 pub struct TutorialState {
+    name: String,
     stage_index: usize,
     change_stage_next_frame: ChangeStage,
     stage: Option<TutorialStage>,
     stage_changed_at: Duration,
     tutorial: Tutorial,
+    event_dispatcher: EventDispatcher,
 }
 
 struct TutorialStage {
@@ -178,19 +183,25 @@ impl TutorialStage {
 
 impl TutorialState {
     pub fn new(
+        name: String,
         tutorial: Tutorial,
         ctx: &egui::Context,
         map_texture: TextureHandle,
         theme: &Theme,
+        mut event_dispatcher: EventDispatcher,
     ) -> Self {
         let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
 
+        event_dispatcher.event(format!("tutorial_{name}"));
+
         Self {
+            name,
             stage_index: 0,
             change_stage_next_frame: ChangeStage::None,
             stage: stage_zero,
             stage_changed_at: Duration::from_secs(0),
             tutorial,
+            event_dispatcher,
         }
     }
 
@@ -307,6 +318,11 @@ impl TutorialState {
             TutorialState::get_stage(self.stage_index, &self.tutorial, ctx, map_texture, theme);
     }
 
+    fn sub_event(&mut self, event: String) {
+        self.event_dispatcher
+            .event(format!("tutorial_{}_{}", self.name, event));
+    }
+
     pub fn render(
         &mut self,
         ui: &mut egui::Ui,
@@ -337,6 +353,16 @@ impl TutorialState {
             .as_ref()
             .is_some_and(|stage| stage.get_step().is_none())
         {
+            let stage_name = self
+                .stage
+                .as_ref()
+                .unwrap()
+                .scenario
+                .name
+                .to_ascii_lowercase()
+                .replace(' ', "_");
+            self.event_dispatcher
+                .event(format!("finish_stage_{stage_name}"));
             self.increment_stage(ui.ctx(), map_texture.clone(), theme);
         }
 
@@ -457,6 +483,7 @@ impl TutorialState {
         ui.add_space(heading_height);
 
         let mut next_move = None;
+        let mut pending_event = None;
 
         // Standard game helper
         if let Some(msg) = current_stage.render_game(ui, current_time) {
@@ -650,6 +677,8 @@ impl TutorialState {
                                 }
                             }
                             ScenarioStep::EndAction { end_message } => {
+                                pending_event = Some("complete".to_string());
+
                                 let dialog_text = TextHelper::light(
                                     &end_message,
                                     tut_fz,
@@ -714,6 +743,10 @@ impl TutorialState {
             if current_stage.handle_move(next_move).is_ok() {
                 self.stage_changed_at = current_time;
             }
+        }
+
+        if let Some(pending_event) = pending_event {
+            self.sub_event(pending_event);
         }
     }
 }

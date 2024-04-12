@@ -11,6 +11,8 @@ pub async fn create_event(
         return Ok(());
     };
 
+    println!("Tracking event: {event_type}");
+
     let Some(pool) = &server_state.truncate_db else {
         return Err(TruncateServerError::DatabaseOffline);
     };

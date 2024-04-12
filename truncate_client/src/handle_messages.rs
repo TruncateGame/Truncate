@@ -196,6 +196,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                     &outer.map_texture,
                     &outer.theme,
                     &outer.backchannel,
+                    outer.event_dispatcher.clone(),
                 );
 
                 if let Some(best_puzzle) = best_puzzle {
@@ -230,7 +231,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 puzzle_game.game.rules.battle_delay = 0;
                 for next_move in latest_puzzle_state.current_moves.into_iter() {
                     if puzzle_game
-                        .handle_move(next_move, &outer.backchannel)
+                        .handle_move(next_move, &outer.backchannel, false)
                         .is_err()
                     {
                         puzzle_game = unplayed_puzzle;

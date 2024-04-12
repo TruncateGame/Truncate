@@ -177,6 +177,7 @@ impl DailyActions {
                         || share_button.drag_started()
                         || share_button.is_pointer_button_down_on())
                 {
+                    msg = Some(ResultModalAction::SharedText);
                     if let Some(backchannel) = backchannel {
                         if backchannel.is_open() {
                             backchannel.send_msg(crate::app_outer::BackchannelMsg::Copy {
@@ -209,6 +210,7 @@ impl DailyActions {
                         || replay_button.drag_started()
                         || replay_button.is_pointer_button_down_on())
                 {
+                    msg = Some(ResultModalAction::SharedReplay);
                     if let Some(backchannel) = backchannel {
                         if backchannel.is_open() {
                             backchannel.send_msg(crate::app_outer::BackchannelMsg::Copy {

@@ -716,28 +716,6 @@ async fn handle_player_msg(
                 }
             }
         }
-        StartedRandomPuzzle { personality } => {
-            let connection_player = connection_info_mutex.lock().player.clone();
-            _ = create_event(
-                &server_state,
-                &format!("random_puzzle_{personality}"),
-                connection_player,
-            )
-            .await;
-        }
-        StartedSinglePlayer => {
-            let connection_player = connection_info_mutex.lock().player.clone();
-            _ = create_event(&server_state, &"single_player".into(), connection_player).await;
-        }
-        StartedTutorial { name } => {
-            let connection_player = connection_info_mutex.lock().player.clone();
-            _ = create_event(
-                &server_state,
-                &format!("tutorial_{name}"),
-                connection_player,
-            )
-            .await;
-        }
         MarkChangelogRead => {
             let Some(connection_player) = connection_info_mutex.lock().player.clone() else {
                 eprintln!(
@@ -747,6 +725,10 @@ async fn handle_player_msg(
             };
 
             _ = mark_changelogs_read(&server_state, connection_player).await;
+        }
+        GenericEvent { name } => {
+            let connection_player = connection_info_mutex.lock().player.clone();
+            _ = create_event(&server_state, &name, connection_player).await;
         }
     }
 

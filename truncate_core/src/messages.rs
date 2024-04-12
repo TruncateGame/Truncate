@@ -54,14 +54,10 @@ pub enum PlayerMessage {
     },
     RequestStats(TruncateToken),
     LoadReplay(String),
-    StartedRandomPuzzle {
-        personality: String,
-    },
-    StartedSinglePlayer,
-    StartedTutorial {
+    MarkChangelogRead,
+    GenericEvent {
         name: String,
     },
-    MarkChangelogRead,
 }
 
 impl fmt::Display for PlayerMessage {
@@ -106,12 +102,8 @@ impl fmt::Display for PlayerMessage {
             }
             PlayerMessage::RequestStats(_token) => write!(f, "Requesting daily puzzle stats!"),
             PlayerMessage::LoadReplay(id) => write!(f, "Requesting the replay for {id}!"),
-            PlayerMessage::StartedRandomPuzzle { personality } => {
-                write!(f, "Started a random puzzle against {personality}!")
-            }
-            PlayerMessage::StartedSinglePlayer => write!(f, "Started a single player game"),
-            PlayerMessage::StartedTutorial { name } => write!(f, "Started the {name} tutorial"),
             PlayerMessage::MarkChangelogRead => write!(f, "Marked all changelogs as read"),
+            PlayerMessage::GenericEvent { name } => write!(f, "Tracking a {name} event"),
         }
     }
 }
