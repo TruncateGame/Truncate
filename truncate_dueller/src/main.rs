@@ -1,6 +1,3 @@
-use std::hash::Hash;
-
-use chrono::{offset, Offset};
 use dicts::{get_dicts, Dicts};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use storage::{load_file, write_file, SeedNote};
@@ -12,7 +9,7 @@ use truncate_core::{
     npc::scoring::NPCParams,
 };
 
-use crate::dicts::{ensure_dicts, RESTRICTED_DICT, TOTAL_DICT};
+use crate::dicts::ensure_dicts;
 
 mod dicts;
 mod storage;
@@ -24,7 +21,7 @@ fn best_move(game: &Game, npc_params: &NPCParams, dicts: &Dicts) -> PlayerMessag
     arb.capped(15000);
     let search_depth = 12;
 
-    let (best_move, score) = truncate_core::game::Game::best_move(
+    let (best_move, _score) = truncate_core::game::Game::best_move(
         game,
         Some(&dicts.restricted),
         Some(&dicts.restricted),

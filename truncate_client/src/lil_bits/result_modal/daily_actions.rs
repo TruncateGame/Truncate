@@ -1,14 +1,14 @@
-use eframe::egui::{self, Layout, RichText, Sense};
-use epaint::{emath::Align, hex_color, vec2, Color32, TextureHandle, Vec2};
+use eframe::egui::{self, Layout};
+use epaint::{emath::Align, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     game::Game,
-    messages::{DailyAttempt, DailyStats, PlayerMessage},
+    messages::{DailyAttempt, DailyStats},
 };
 
 use crate::{
     app_outer::{Backchannel, ShareType},
-    utils::{depot::TruncateDepot, macros::tr_log, text::TextHelper, Lighten, Theme},
+    utils::{depot::TruncateDepot, text::TextHelper, Theme},
 };
 
 use super::{msg_mock::ShareMessageMock, ResultModalAction};
@@ -177,6 +177,7 @@ impl DailyActions {
                         || share_button.drag_started()
                         || share_button.is_pointer_button_down_on())
                 {
+                    msg = Some(ResultModalAction::SharedText);
                     if let Some(backchannel) = backchannel {
                         if backchannel.is_open() {
                             backchannel.send_msg(crate::app_outer::BackchannelMsg::Copy {
@@ -209,6 +210,7 @@ impl DailyActions {
                         || replay_button.drag_started()
                         || replay_button.is_pointer_button_down_on())
                 {
+                    msg = Some(ResultModalAction::SharedReplay);
                     if let Some(backchannel) = backchannel {
                         if backchannel.is_open() {
                             backchannel.send_msg(crate::app_outer::BackchannelMsg::Copy {

@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use definitions::WordDB;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
-use jwt_simple::{prelude::*, token};
+use jwt_simple::prelude::*;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
@@ -21,6 +21,7 @@ use tungstenite::protocol::Message;
 
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
+use crate::storage::accounts::{mark_changelogs_read, LoginResponse};
 use crate::storage::daily;
 use crate::storage::events::create_event;
 use game_state::GameManager;
@@ -576,7 +577,13 @@ async fn handle_player_msg(
                 connection_info.player = Some(authed_token.clone());
 
                 server_state
-                    .send_to_player(&player_addr, GameMessage::LoggedInAs(authed_token.token()))
+                    .send_to_player(
+                        &player_addr,
+                        GameMessage::LoggedInAs {
+                            token: authed_token.token(),
+                            unread_changelogs: vec![],
+                        },
+                    )
                     .unwrap();
             }
             Err(_) => {
@@ -588,7 +595,7 @@ async fn handle_player_msg(
             screen_width,
             screen_height,
             user_agent,
-            referrer,
+            referrer: _,
         } => match accounts::login(
             &server_state,
             player_token.clone(),
@@ -598,15 +605,28 @@ async fn handle_player_msg(
         )
         .await
         {
-            Ok((_player_id, authed_token)) => {
+            Ok(LoginResponse {
+                player_id: _,
+                authed,
+                unread_changelogs,
+            }) => {
                 let mut connection_info = connection_info_mutex.lock();
-                connection_info.player = Some(authed_token);
+                connection_info.player = Some(authed);
 
                 server_state
-                    .send_to_player(&player_addr, GameMessage::LoggedInAs(player_token))
+                    .send_to_player(
+                        &player_addr,
+                        GameMessage::LoggedInAs {
+                            token: player_token,
+                            unread_changelogs: unread_changelogs
+                                .into_iter()
+                                .map(|c| c.changelog_id)
+                                .collect(),
+                        },
+                    )
                     .unwrap();
             }
-            Err(e) => {
+            Err(_e) => {
                 eprintln!(
                     "Player tried to login with a bad token and failed ! ! ! ! ! ! ! ! ! ! !"
                 );
@@ -696,27 +716,19 @@ async fn handle_player_msg(
                 }
             }
         }
-        StartedRandomPuzzle { personality } => {
-            let connection_player = connection_info_mutex.lock().player.clone();
-            _ = create_event(
-                &server_state,
-                &format!("random_puzzle_{personality}"),
-                connection_player,
-            )
-            .await;
+        MarkChangelogRead => {
+            let Some(connection_player) = connection_info_mutex.lock().player.clone() else {
+                eprintln!(
+                    "No connection player found, but player wanted to mark changelog as read"
+                );
+                return Ok(());
+            };
+
+            _ = mark_changelogs_read(&server_state, connection_player).await;
         }
-        StartedSinglePlayer => {
+        GenericEvent { name } => {
             let connection_player = connection_info_mutex.lock().player.clone();
-            _ = create_event(&server_state, &"single_player".into(), connection_player).await;
-        }
-        StartedTutorial { name } => {
-            let connection_player = connection_info_mutex.lock().player.clone();
-            _ = create_event(
-                &server_state,
-                &format!("tutorial_{name}"),
-                connection_player,
-            )
-            .await;
+            _ = create_event(&server_state, &name, connection_player).await;
         }
     }
 

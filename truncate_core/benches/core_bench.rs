@@ -1,9 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::format,
-    hint::black_box,
-};
+use std::collections::HashMap;
 use truncate_core::{
     bag::TileBag,
     board::{Board, Coordinate},
@@ -13,7 +9,6 @@ use truncate_core::{
     player::{Hand, Player},
     rules,
 };
-use xxhash_rust::xxh3;
 
 pub static TESTING_DICT: &str = include_str!("../../dict_builder/final_wordlist.txt");
 

@@ -1,10 +1,7 @@
 use std::collections::BTreeMap;
 
-use jwt_simple::prelude::*;
-use serde::{Deserialize, Serialize};
-use sqlx::types::Json;
 use truncate_core::{
-    messages::{DailyAttempt, DailyResult, DailyStateMessage, DailyStats, TruncateToken},
+    messages::{DailyAttempt, DailyResult, DailyStateMessage, DailyStats},
     moves::{self, packing::pack_moves, Move},
 };
 use uuid::Uuid;

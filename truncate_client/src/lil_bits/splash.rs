@@ -1,14 +1,15 @@
-use eframe::egui::{self, Id};
-use epaint::{vec2, Color32, TextShape, TextureHandle, Vec2};
+use eframe::egui::{self};
+use epaint::{vec2, Color32, TextureHandle};
 use instant::Duration;
 use std::f32;
 
-use crate::utils::{depot::AestheticDepot, text::TextHelper, Theme};
+use crate::utils::{text::TextHelper, Darken, Theme};
 
 struct SplashButton {
     id: &'static str,
     text: String,
     color: Color32,
+    font_size: f32,
 }
 
 pub struct SplashUI {
@@ -43,8 +44,19 @@ impl SplashUI {
         self
     }
 
-    pub fn with_button(mut self, id: &'static str, text: String, color: Color32) -> Self {
-        self.buttons.push(SplashButton { id, text, color });
+    pub fn with_button(
+        mut self,
+        id: &'static str,
+        text: String,
+        color: Color32,
+        font_size: f32,
+    ) -> Self {
+        self.buttons.push(SplashButton {
+            id,
+            text,
+            color,
+            font_size,
+        });
         self
     }
 }
@@ -89,7 +101,12 @@ impl SplashUI {
         let buttons: Vec<_> = self
             .buttons
             .iter()
-            .map(|button| (button, TextHelper::heavy(&button.text, 14.0, None, ui)))
+            .map(|button| {
+                (
+                    button,
+                    TextHelper::heavy(&button.text, button.font_size, None, ui),
+                )
+            })
             .collect();
         let button_height = buttons
             .first()
@@ -124,7 +141,7 @@ impl SplashUI {
                         .centered_button(button.color, theme.text, &map_texture, ui)
                         .clicked()
                     {
-                        splash_resp.clicked = Some(button.id.clone())
+                        splash_resp.clicked = Some(button.id)
                     }
                 }
             }

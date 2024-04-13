@@ -1,9 +1,13 @@
-# Truncate
+# Truncate: A word-based strategy game
 
-To build and serve a web client:
+Spell words to cut off your enemy and conquer their town.
 
-```bash
-./.backstage/build-web-client.sh && python3 -m http.server -d web_client/ # or any webserver
-```
+![Truncate Town Homepage Screenshot](https://github.com/TruncateGame/Truncate/blob/3ae09319d9f255f7fd7e8fa1d491532c4c6f06b8/web_client/src/static/og.png)
 
-Then load `localhost:8000?server=<server_addr>`
+## Playing Truncate
+
+Truncate can be played for free in your browser at https://truncate.town
+
+## Working on Truncate
+
+See the CONTRIBUTING.md file for technical information.

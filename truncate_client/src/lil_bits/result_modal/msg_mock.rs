@@ -14,13 +14,11 @@ use crate::utils::{depot::TruncateDepot, Theme};
 
 TODOs for the message mock:
 - Pull all of the colours from a central theme once we refactor general theming
-- Add the small speech bubble decoration bottom right to indicate it's a message bubble
 
  */
 
 #[derive(Clone)]
 pub struct ShareMessageMock {
-    is_daily: bool,
     pub share_text: String,
     emoji_board: String,
 }
@@ -42,14 +40,13 @@ impl ShareMessageMock {
             .emojify(depot.gameplay.player_number as usize, game.winner);
         let share_text = format!("{share_prefix}\n{emoji_board}");
 
-        let this_attempt = stats
+        let _this_attempt = stats
             .days
             .last_key_value()
             .map(|(_, v)| v.attempts.last().map(|a| a.id.clone()))
             .flatten();
 
         Self {
-            is_daily: true,
             share_text,
             emoji_board,
         }
@@ -63,13 +60,12 @@ impl ShareMessageMock {
         let share_text = format!("{share_prefix}\n{emoji_board}");
 
         Self {
-            is_daily: false,
             share_text,
             emoji_board,
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, map_texture: &TextureHandle) {
+    pub fn render(&mut self, ui: &mut egui::Ui, _theme: &Theme, _map_texture: &TextureHandle) {
         let target_height = 120.0.at_most(ui.available_height());
 
         let (mut message_bounds, _) = ui.allocate_exact_size(

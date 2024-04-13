@@ -6,20 +6,16 @@ use epaint::TextureHandle;
 use instant::Duration;
 use serde::{Deserialize, Serialize};
 use truncate_core::{
-    board::Square,
-    game::Game,
     generation::{generate_board, get_game_verification, BoardSeed},
-    moves::Move,
-    npc::scoring::{NPCParams, NPCPersonality},
-    reporting::{BoardChange, BoardChangeAction, BoardChangeDetail},
+    npc::scoring::NPCPersonality,
 };
 
 use crate::{
-    app_outer::Backchannel,
+    app_outer::{Backchannel, EventDispatcher},
     regions::{active_game::HeaderType, single_player::SinglePlayerState},
 };
 
-use super::{game_evals::get_main_dict, Theme};
+use super::Theme;
 
 const SEED_NOTES: &[u8] = include_bytes!("../../../truncate_dueller/seed_notes.yml");
 // January 29, 2023
@@ -46,7 +42,7 @@ pub fn get_puzzle_day(current_time: Duration) -> u32 {
     let seconds_offset = chrono::Local::now().offset().fix().local_minus_utc();
     let local_seconds = current_time.as_secs() as i32 + seconds_offset;
     let seed = (local_seconds / (60 * 60 * 24)) as u32;
-    let day = (seed - DAILY_PUZZLE_DAY_ZERO as u32);
+    let day = seed - DAILY_PUZZLE_DAY_ZERO as u32;
 
     day
 }
@@ -79,7 +75,8 @@ pub fn get_playable_daily_puzzle(
     day: u32,
     map_texture: &TextureHandle,
     theme: &Theme,
-    backchannel: &Backchannel,
+    _backchannel: &Backchannel,
+    event_dispatcher: EventDispatcher,
 ) -> SinglePlayerState {
     let (board_seed, info) = get_raw_daily_puzzle(day);
 
@@ -90,6 +87,7 @@ pub fn get_playable_daily_puzzle(
         .expect("Common seeds should always generate a board")
         .board;
     let mut game_state = SinglePlayerState::new(
+        "daily".to_string(),
         ctx,
         map_texture.clone(),
         theme.clone(),
@@ -98,6 +96,7 @@ pub fn get_playable_daily_puzzle(
         human_starts,
         HeaderType::None, // Replaced soon with HeaderType::Summary
         NPCPersonality::jet(),
+        event_dispatcher,
     );
 
     if let Some((_, notes)) = info {

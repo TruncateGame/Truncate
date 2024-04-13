@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use eframe::egui::{self, Align, Align2, CursorIcon, Layout, NumExt, Order, Sense};
-use epaint::{hex_color, vec2, Color32, Rect, TextureHandle, Vec2};
+use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use serde::Deserialize;
 use truncate_core::{
@@ -15,59 +15,18 @@ use truncate_core::{
     rules::{GameRules, TileDistribution},
 };
 
-use crate::utils::{
-    depot::AestheticDepot,
-    tex::{render_tex_quad, render_tex_quads, tiles, Tint},
-    text::TextHelper,
-    Diaphanize, Lighten, Theme,
+use crate::{
+    app_outer::EventDispatcher,
+    utils::{
+        includes::{Scenario, ScenarioStep, Tutorial},
+        tex::{render_tex_quad, tiles},
+        text::TextHelper,
+        urls::back_to_menu,
+        Diaphanize, Lighten, Theme,
+    },
 };
 
 use super::active_game::{ActiveGame, GameLocation, HeaderType};
-
-const RULES: &[u8] = include_bytes!("../../tutorials/rules.yml");
-const EXAMPLE_GAME: &[u8] = include_bytes!("../../tutorials/example_game.yml");
-
-#[derive(Deserialize, Debug)]
-struct Tutorial {
-    rules: Vec<Category>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct Category {
-    category: String,
-    scenarios: Vec<Scenario>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct Scenario {
-    name: String,
-    board: String,
-    player_hand: String,
-    computer_hand: String,
-    dict: HashMap<String, String>,
-    steps: Vec<ScenarioStep>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(untagged)]
-enum ScenarioStep {
-    OwnMove {
-        you: String,
-        gets: char,
-        description: String,
-    },
-    ComputerMove {
-        computer: String,
-        gets: char,
-        description: String,
-    },
-    Dialog {
-        message: String,
-    },
-    EndAction {
-        end_message: String,
-    },
-}
 
 fn pos_to_coord(pos: &str) -> Option<Coordinate> {
     let (x, y) = pos.split_once(',')?;
@@ -119,11 +78,13 @@ enum ChangeStage {
 }
 
 pub struct TutorialState {
+    name: String,
     stage_index: usize,
     change_stage_next_frame: ChangeStage,
     stage: Option<TutorialStage>,
     stage_changed_at: Duration,
     tutorial: Tutorial,
+    event_dispatcher: EventDispatcher,
 }
 
 struct TutorialStage {
@@ -212,7 +173,7 @@ impl TutorialStage {
                 self.increment_step();
                 Ok(())
             }
-            Err(msg) => {
+            Err(_msg) => {
                 // TODO: Handle errored moves in tutorial gameplay
                 Err(())
             }
@@ -221,33 +182,26 @@ impl TutorialStage {
 }
 
 impl TutorialState {
-    pub fn new_rules(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
-        let tutorial: Tutorial =
-            serde_yaml::from_slice(RULES).expect("Tutorial should match Tutorial format");
-
+    pub fn new(
+        name: String,
+        tutorial: Tutorial,
+        ctx: &egui::Context,
+        map_texture: TextureHandle,
+        theme: &Theme,
+        mut event_dispatcher: EventDispatcher,
+    ) -> Self {
         let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
 
+        event_dispatcher.event(format!("tutorial_{name}"));
+
         Self {
+            name,
             stage_index: 0,
             change_stage_next_frame: ChangeStage::None,
             stage: stage_zero,
             stage_changed_at: Duration::from_secs(0),
             tutorial,
-        }
-    }
-
-    pub fn new_example(ctx: &egui::Context, map_texture: TextureHandle, theme: &Theme) -> Self {
-        let tutorial: Tutorial =
-            serde_yaml::from_slice(EXAMPLE_GAME).expect("Tutorial should match Tutorial format");
-
-        let stage_zero = TutorialState::get_stage(0, &tutorial, ctx, map_texture, &theme);
-
-        Self {
-            stage_index: 0,
-            change_stage_next_frame: ChangeStage::None,
-            stage: stage_zero,
-            stage_changed_at: Duration::from_secs(0),
-            tutorial,
+            event_dispatcher,
         }
     }
 
@@ -364,6 +318,11 @@ impl TutorialState {
             TutorialState::get_stage(self.stage_index, &self.tutorial, ctx, map_texture, theme);
     }
 
+    fn sub_event(&mut self, event: String) {
+        self.event_dispatcher
+            .event(format!("tutorial_{}_{}", self.name, event));
+    }
+
     pub fn render(
         &mut self,
         ui: &mut egui::Ui,
@@ -394,6 +353,16 @@ impl TutorialState {
             .as_ref()
             .is_some_and(|stage| stage.get_step().is_none())
         {
+            let stage_name = self
+                .stage
+                .as_ref()
+                .unwrap()
+                .scenario
+                .name
+                .to_ascii_lowercase()
+                .replace(' ', "_");
+            self.event_dispatcher
+                .event(format!("finish_stage_{stage_name}"));
             self.increment_stage(ui.ctx(), map_texture.clone(), theme);
         }
 
@@ -514,6 +483,7 @@ impl TutorialState {
         ui.add_space(heading_height);
 
         let mut next_move = None;
+        let mut pending_event = None;
 
         // Standard game helper
         if let Some(msg) = current_stage.render_game(ui, current_time) {
@@ -562,13 +532,13 @@ impl TutorialState {
                     ui.expand_to_include_rect(inner_dialog);
 
                     // TODO one day — put this in a theme
-                    let tut_fz = if inner_dialog.width() < 550.0 {
+                    let tut_fz = if inner_dialog.width() < 600.0 {
                         24.0
                     } else {
                         32.0
                     };
 
-                    let button_spacing = 60.0;
+                    let button_spacing = 70.0;
                     let time_in_stage = (current_time - self.stage_changed_at).as_secs_f32();
 
                     match current_step {
@@ -707,6 +677,8 @@ impl TutorialState {
                                 }
                             }
                             ScenarioStep::EndAction { end_message } => {
+                                pending_event = Some("complete".to_string());
+
                                 let dialog_text = TextHelper::light(
                                     &end_message,
                                     tut_fz,
@@ -751,17 +723,7 @@ impl TutorialState {
                                                     )
                                                     .clicked()
                                                 {
-                                                    // TODO: A more elegant way to show the menu over the game would be nice,
-                                                    // but we would need to add extra endpoints to the lib.rs file,
-                                                    // and also give those endpoints a way to access the active game to change its state.
-                                                    // As an MVP here, we simply reload the page to get back to the menu.
-                                                    #[cfg(target_arch = "wasm32")]
-                                                    {
-                                                        _ = web_sys::window()
-                                                            .unwrap()
-                                                            .location()
-                                                            .reload();
-                                                    }
+                                                    back_to_menu();
                                                 }
                                             },
                                         );
@@ -770,7 +732,7 @@ impl TutorialState {
                             }
                         },
                         None => {
-                            // TODO: Tutorial complete screen, back to menu
+                            // Ideally unreachable in a well formed tutorial
                         }
                     };
                 });
@@ -781,6 +743,10 @@ impl TutorialState {
             if current_stage.handle_move(next_move).is_ok() {
                 self.stage_changed_at = current_time;
             }
+        }
+
+        if let Some(pending_event) = pending_event {
+            self.sub_event(pending_event);
         }
     }
 }

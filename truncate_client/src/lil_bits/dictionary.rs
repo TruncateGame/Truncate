@@ -1,9 +1,9 @@
-use eframe::egui::{self, Id, Layout, Sense, WidgetText};
+use eframe::egui::{self, Layout, Sense};
 use epaint::{
-    emath::{Align, Align2, NumExt},
-    pos2, vec2, Color32, Rect, Stroke, TextShape, TextureHandle, Vec2,
+    emath::{Align, Align2},
+    vec2, Color32, Stroke,
 };
-use instant::Duration;
+
 use std::{collections::HashMap, f32};
 use truncate_core::{
     judge::Outcome,
@@ -11,12 +11,7 @@ use truncate_core::{
     reporting::{BattleReport, BattleWord, WordMeaning},
 };
 
-use crate::utils::{
-    depot::{AestheticDepot, TruncateDepot},
-    game_evals::get_main_dict,
-    text::TextHelper,
-    Lighten, Theme,
-};
+use crate::utils::{depot::TruncateDepot, game_evals::get_main_dict, text::TextHelper, Lighten};
 
 use super::BattleUI;
 

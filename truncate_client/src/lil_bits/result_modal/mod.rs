@@ -1,11 +1,7 @@
-use epaint::{emath::Align2, hex_color, vec2, Color32, Rect, Shadow, TextureHandle};
+use epaint::{emath::Align2, hex_color, vec2, Color32, TextureHandle};
 use instant::Duration;
 use interpolation::Ease;
-use truncate_core::{
-    game::Game,
-    messages::{DailyStats, PlayerMessage},
-    moves::Move,
-};
+use truncate_core::{game::Game, messages::DailyStats};
 
 mod daily_actions;
 mod graph;
@@ -16,9 +12,7 @@ use eframe::egui::{self, Align, CursorIcon, Id, Layout, Order, Sense};
 use crate::{
     app_outer::Backchannel,
     utils::{
-        daily,
         depot::TruncateDepot,
-        macros::tr_log,
         tex::{render_tex_quad, tiles, Tint},
         text::TextHelper,
         Lighten, Theme,
@@ -31,7 +25,6 @@ use self::{daily_actions::DailyActions, graph::DailySplashGraph, msg_mock::Share
 
 TODOs for the daily splash screen:
 - Vertically center contents, or size the modal to the contents better
-- Add ability to close the splash screen and look at the game
 
  */
 
@@ -189,6 +182,8 @@ pub enum ResultModalAction {
     NewPuzzle,
     Dismiss,
     Resign,
+    SharedText,
+    SharedReplay,
 }
 
 impl ResultModalUI {
@@ -463,6 +458,7 @@ impl ResultModalUI {
                                         || share_button.drag_started()
                                         || share_button.is_pointer_button_down_on())
                                 {
+                                    msg = Some(ResultModalAction::SharedText);
                                     let share_text = unique.msg_mock.share_text.clone();
                                     if let Some(backchannel) = backchannel {
                                         if backchannel.is_open() {

@@ -160,7 +160,7 @@ impl Judge {
         if battle_report
             .attackers
             .iter()
-            .any(|word| word.valid == Some(false))
+            .all(|word| word.valid == Some(false))
         {
             battle_report.outcome = Outcome::DefenderWins;
             return Some(battle_report);
@@ -489,7 +489,7 @@ mod tests {
             )
             .unwrap()
             .outcome,
-            Outcome::DefenderWins
+            Outcome::AttackerWins(vec![0])
         );
         assert_eq!(
             j.battle(
@@ -1051,10 +1051,10 @@ mod tests {
             "SILLY".into(),
             "FOLK".into(),
             "ARTS".into(),
-        ]) // TODO: Collins 2018 list
+        ])
     }
 
     pub fn b_dict() -> Judge {
-        Judge::new(vec!["BIG".into(), "BAG".into()]) // TODO: Collins 2018 list
+        Judge::new(vec!["BIG".into(), "BAG".into()])
     }
 }

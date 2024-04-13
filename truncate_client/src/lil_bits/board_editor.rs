@@ -1,5 +1,5 @@
 use epaint::{emath::Align, vec2, Color32, Rect, TextureHandle, Vec2};
-use instant::Duration;
+
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::PlayerMessage,
@@ -91,12 +91,7 @@ impl<'a> EditorUI<'a> {
 
             let text = TextHelper::heavy("STOP EDITING BOARD", 10.0, None, ui);
             if text
-                .button(
-                    Color32::RED.lighten().lighten().lighten(),
-                    theme.text,
-                    map_texture,
-                    ui,
-                )
+                .button(theme.button_scary, theme.text, map_texture, ui)
                 .clicked()
             {
                 *self.editing_mode = BoardEditingMode::None;
@@ -309,15 +304,6 @@ impl<'a> EditorUI<'a> {
                                     .memory_mut(|mem| mem.data.remove::<EditorDrag>(Id::NULL));
                             } else if response.clicked() {
                                 unreachable!("Maybe unreachable? Duplicate above state if not...");
-                                // match square {
-                                //     Square::Water => modify_pos = Some((coord, Square::Land)),
-                                //     Square::Land => modify_pos = Some((coord, Square::Water)),
-                                //     Square::Town(_) => {} // TODO
-                                //     Square::Dock(_) => {} // TODO
-                                //     Square::Occupied(_, _) => unreachable!(
-                                //         "Board editor shouldn't see occupied tiles"
-                                //     ),
-                                // }
                             };
                         }
                     });

@@ -1,5 +1,5 @@
 use eframe::egui;
-use epaint::{vec2, Color32, TextureHandle, Vec2};
+use epaint::{vec2, Color32, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     game::Game,
@@ -176,7 +176,7 @@ impl ReplayerState {
         ui: &mut egui::Ui,
         theme: &Theme,
         current_time: Duration,
-        backchannel: &Backchannel,
+        _backchannel: &Backchannel,
     ) {
         let start = self
             .played_at_tick

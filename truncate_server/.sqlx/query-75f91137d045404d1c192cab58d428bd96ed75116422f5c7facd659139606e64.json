@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE players\n            SET \n                last_known_changelog = CURRENT_TIMESTAMP\n            WHERE player_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "75f91137d045404d1c192cab58d428bd96ed75116422f5c7facd659139606e64"
+}

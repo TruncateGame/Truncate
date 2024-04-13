@@ -1,0 +1,58 @@
+splash_message:
+  - Hello!
+  - Sorry to interrupt, but there has been a small rule change you should know about.
+  - It is now possible to win an attack when some of your words are invalid.
+  - To see the full explanation, click through to the scenario below.
+
+changelog_name: Invalid secondary attackers
+
+priority: High
+
+rules:
+  - category: Update
+    scenarios:
+    - name: "Invalid attackers"
+      description: "Invalid secondary attackers are now allowed"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
+        ~~ __ __ __ __ __ __ __ __ __ ~~
+        |0 Q0 F0 R0 V0 A0 X0 __ __ __ ~~
+        ~~ A0 __ __ __ __ E0 __ __ __ ~~
+        ~~ H0 G0 U0 O0 N0 __ __ __ __ ~~
+        ~~ __ __ __ __ __ F1 O1 U1 R1 |1
+        ~~ ~~ ~~ ~~ __ __ __ __ __ #1 ~~
+        ~~ ~~ ~~ __ __ __ __ __ __ __ ~~
+        ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: ERTYELU
+      computer_hand: R
+
+      dict:
+        ENOUGH: |-
+          det: Sufficient; all that is required, needed, or appropriate.
+        FOUR: |-
+          num: A numerical value equal to 4; the number after 3 and before 5; two plus two. This many dots (????)
+        EEL: |-
+          noun: Any freshwater or marine fish of the order Anguilliformes, which are elongated and resemble snakes.
+
+      steps:
+        - message: |-
+            Rule change: Allow invalid secondary attackers
+        - message: |-
+            Originally, all attacking words had to be valid for an attack to succeed.
+            
+            From now on, only the strongest attacker matters, and an attack can succeed even if some attackers are invalid.
+        - message: |-
+            Now it should be easier for you to calculate whether an attack succeeds:
+            
+            If your strongest attacker beats the weakest defender, you win the attack.
+        - description: |-
+            Try playing "ENOUGH" and "EEX" against "FOUR".
+
+            Originally this failed, now it will succeed.
+          you: "E -> 6,5"
+          gets: "I"
+        - end_message: |-
+            Since "ENOUGH" was long enough to beat "FOUR" it wins the battle, and "EEX" is irrelevant despite being invalid and too short.

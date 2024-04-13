@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT changelog_id\n            FROM changelogs\n            WHERE changelog_timestamp > $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "changelog_id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "647574d6e04abc2a50eb97a405497f8009a7a59dd76c7caae32e6002d878a805"
+}

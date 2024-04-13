@@ -27,6 +27,7 @@ futures = "0.3"
 image = { version = "0.24", features = ["png"] }
 ab_glyph = "0.2"
 interpolation = "0.3.0"
+tracing = "0.1.40"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

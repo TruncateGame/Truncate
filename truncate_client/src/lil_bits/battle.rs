@@ -11,7 +11,7 @@ use crate::utils::{
     depot::{AestheticDepot, TruncateDepot},
     tex::paint_dialog_background,
     text::TextHelper,
-    Darken, Lighten,
+    Lighten,
 };
 
 pub struct BattleUI<'a> {
