@@ -183,11 +183,19 @@ impl Judge {
         }
 
         // The defender wins if all their words are valid and long enough to defend against the longest attacker
-        let longest_attacker = attackers
+        let longest_attacker = battle_report
+            .attackers
             .iter()
+            .filter_map(|word| {
+                if word.valid == Some(true) {
+                    Some(&word.original_word)
+                } else {
+                    None
+                }
+            })
             .reduce(|longest, curr| {
                 // TODO: len() is bytes not characters
-                if curr.as_ref().len() > longest.as_ref().len() {
+                if curr.len() > longest.len() {
                     curr
                 } else {
                     longest
@@ -220,7 +228,7 @@ impl Judge {
             .filter(|(_, word)| {
                 word.valid != Some(true)
                     || word.resolved_word.len() as isize + battle_rules.length_delta as isize
-                        <= longest_attacker.as_ref().len() as isize
+                        <= longest_attacker.len() as isize
             })
             .map(|(index, _)| *index)
             .collect();
@@ -231,7 +239,7 @@ impl Judge {
             .filter(|(_, word)| {
                 word.valid != Some(true)
                     || word.resolved_word.len() as isize + battle_rules.length_delta as isize
-                        <= longest_attacker.as_ref().len() as isize
+                        <= longest_attacker.len() as isize
             })
             .map(|(index, _)| *index)
             .collect();
@@ -494,6 +502,20 @@ mod tests {
         assert_eq!(
             j.battle(
                 vec!["BIG", "XYZ"],
+                vec!["BIG"],
+                &test_battle_rules(),
+                &test_win_rules(),
+                None,
+                None,
+                None
+            )
+            .unwrap()
+            .outcome,
+            Outcome::DefenderWins
+        );
+        assert_eq!(
+            j.battle(
+                vec!["BIG", "XYZXYZXYZ"],
                 vec!["BIG"],
                 &test_battle_rules(),
                 &test_win_rules(),
