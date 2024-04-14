@@ -54,7 +54,6 @@ jobs:
         working-directory: ./${{ matrix.workspace }}
         run: cargo test
 
-      - name: Ensure wasm compiled
-        working-directory: .
-        if: matrix.workspace == "truncate_client"
+      - name: Ensure wasm compiles
+        if: matrix.workspace == 'truncate_client'
         run: ./.backstage/build-web-client.sh
