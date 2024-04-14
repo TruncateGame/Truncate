@@ -7,6 +7,7 @@ use truncate_core::{
     messages::{GameMessage, GameStateMessage, LobbyPlayerMessage},
     moves::Move,
     reporting::Change,
+    rules::GameRules,
 };
 
 use crate::definitions::WordDB;
@@ -30,7 +31,8 @@ pub struct GameManager {
 
 impl GameManager {
     pub fn new(game_id: String) -> Self {
-        let game = Game::new(9, 11, None);
+        let latest_rules = GameRules::latest().0;
+        let game = Game::new(9, 11, None, latest_rules);
 
         Self {
             game_id,

@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn default() {
-        let mut bag = TileBag::default();
+        let mut bag = TileBag::latest(None).1;
         let player = Player::new(
             "Liam Gallagher".into(),
             0,

@@ -99,7 +99,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3, None)
+            ..Game::new(3, 3, None, 0)
         };
         assert_eq!(
             game.make_move(out_of_bounds, None, None, None),
@@ -139,7 +139,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3, None)
+            ..Game::new(3, 3, None, 0)
         };
 
         // Places beside dock
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn invalid_player_or_tile() {
-        let mut bag = TileBag::default();
+        let mut bag = TileBag::latest(None).1;
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
             Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
@@ -297,7 +297,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3, None)
+            ..Game::new(3, 3, None, 0)
         };
 
         assert_eq!(
@@ -447,7 +447,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1, None)
+            ..Game::new(1, 1, None, 0)
         };
 
         game.make_move(
@@ -493,7 +493,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
 
         game.make_move(
@@ -549,7 +549,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
 
         game.make_move(
@@ -603,7 +603,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
 
         game.make_move(
@@ -653,7 +653,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -711,7 +711,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -769,7 +769,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -827,7 +827,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -885,7 +885,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -942,7 +942,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -997,7 +997,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
 
         game.make_move(
@@ -1045,7 +1045,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1, None)
+            ..Game::new(1, 1, None, 0)
         };
 
         game.make_move(
@@ -1095,7 +1095,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1, None)
+            ..Game::new(1, 1, None, 0)
         };
 
         game.make_move(

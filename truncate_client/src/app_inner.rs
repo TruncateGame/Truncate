@@ -4,6 +4,7 @@ use instant::Duration;
 use truncate_core::{
     messages::{RoomCode, TruncateToken},
     npc::scoring::NPCPersonality,
+    rules::GameRules,
 };
 
 use crate::{
@@ -257,6 +258,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             if let Some(msg) = editor_state.render(ui, &outer.theme) {
                 match msg {
                     PlayerMessage::StartGame => {
+                        let rules_generation = GameRules::latest().0;
                         let single_player_game = SinglePlayerState::new(
                             "classic".to_string(),
                             ui.ctx(),
@@ -264,6 +266,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                             outer.theme.clone(),
                             editor_state.board.clone(),
                             editor_state.board_seed.clone(),
+                            rules_generation,
                             true,
                             HeaderType::Timers,
                             NPCPersonality::jet(),
