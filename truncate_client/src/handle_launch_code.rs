@@ -5,6 +5,7 @@ use truncate_core::{
     generation::{generate_board, BoardSeed},
     messages::LobbyPlayerMessage,
     npc::scoring::NPCPersonality,
+    rules::GameRules,
 };
 
 use crate::{
@@ -98,6 +99,7 @@ pub fn handle_launch_code(
                 title: format!("Regular Puzzle"),
                 attempt: None,
             };
+            let rules_generation = GameRules::latest().0;
             let puzzle_game = SinglePlayerState::new(
                 "jet".to_string(),
                 ui.ctx(),
@@ -105,6 +107,7 @@ pub fn handle_launch_code(
                 outer.theme.clone(),
                 board,
                 Some(board_seed),
+                rules_generation,
                 true,
                 header,
                 NPCPersonality::jet(),
@@ -122,6 +125,7 @@ pub fn handle_launch_code(
                 title: format!("Easy Puzzle"),
                 attempt: None,
             };
+            let rules_generation = GameRules::latest().0;
             let puzzle_game = SinglePlayerState::new(
                 "mellite".to_string(),
                 ui.ctx(),
@@ -129,6 +133,7 @@ pub fn handle_launch_code(
                 outer.theme.clone(),
                 board,
                 Some(board_seed),
+                rules_generation,
                 true,
                 header,
                 NPCPersonality::mellite(),
@@ -139,6 +144,7 @@ pub fn handle_launch_code(
         "DEBUG_BEHEMOTH" => {
             let behemoth_board = Board::from_string(include_str!("../tutorials/test_board.txt"));
             let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
+            let rules_generation = GameRules::latest().0;
             let behemoth_game = SinglePlayerState::new(
                 "behemoth".to_string(),
                 ui.ctx(),
@@ -146,6 +152,7 @@ pub fn handle_launch_code(
                 outer.theme.clone(),
                 behemoth_board,
                 Some(seed_for_hand_tiles),
+                rules_generation,
                 true,
                 HeaderType::Timers,
                 NPCPersonality::jet(),
@@ -161,6 +168,7 @@ pub fn handle_launch_code(
         let url_segments = launch_code.chars().filter(|c| *c == ':').count();
         let has_board_generation = url_segments >= 3;
         let has_npc_id = url_segments >= 4;
+        let has_rules_generation = url_segments >= 5;
 
         let mut parts = launch_code.split(':').skip(1);
         let board_generation = if has_board_generation {
@@ -175,14 +183,23 @@ pub fn handle_launch_code(
         } else {
             Some(Some(NPCPersonality::jet()))
         };
+        let rules_generation = if has_rules_generation {
+            parts.next().map(str::parse::<u32>)
+        } else {
+            Some(Ok(0))
+        };
         let seed = parts.next().map(str::parse::<u32>);
         let player = parts
             .next()
             .map(|p| p.parse::<usize>().unwrap_or(0))
             .unwrap_or(0);
 
-        if let (Some(Ok(board_generation)), Some(Some(npc)), Some(Ok(seed))) =
-            (board_generation, npc, seed)
+        if let (
+            Some(Ok(board_generation)),
+            Some(Some(npc)),
+            Some(Ok(rules_generation)),
+            Some(Ok(seed)),
+        ) = (board_generation, npc, rules_generation, seed)
         {
             let board_seed = BoardSeed::new_with_generation(board_generation, seed);
             let board = generate_board(board_seed.clone())
@@ -202,6 +219,7 @@ pub fn handle_launch_code(
                 outer.theme.clone(),
                 board,
                 Some(board_seed),
+                rules_generation,
                 player == 0,
                 header,
                 npc,

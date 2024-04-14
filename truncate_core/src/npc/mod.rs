@@ -647,7 +647,7 @@ mod tests {
     fn test_game(board: &str, hand: &str) -> Game {
         let b = Board::from_string(board);
         let next_player = 1;
-        let mut bag = TileBag::default();
+        let mut bag = TileBag::latest(None).1;
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
             Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
@@ -659,7 +659,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             next_player,
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0) // TODO: update snapshots to rules v1
         };
         game.players[next_player].hand = Hand(hand.chars().collect());
         game.start();

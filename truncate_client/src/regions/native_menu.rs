@@ -1,7 +1,8 @@
 use eframe::egui;
 
 use truncate_core::{
-    board::Board, generation::BoardSeed, messages::LobbyPlayerMessage, npc::scoring::NPCPersonality,
+    board::Board, generation::BoardSeed, messages::LobbyPlayerMessage,
+    npc::scoring::NPCPersonality, rules::GameRules,
 };
 
 use crate::{
@@ -80,6 +81,7 @@ pub fn render_native_menu_if_required(
                 let behemoth_board =
                     Board::from_string(include_str!("../../tutorials/test_board.txt"));
                 let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
+                let rules_generation = GameRules::latest().0;
                 let behemoth_game = SinglePlayerState::new(
                     "behemoth".to_string(),
                     ui.ctx(),
@@ -87,6 +89,7 @@ pub fn render_native_menu_if_required(
                     outer.theme.clone(),
                     behemoth_board,
                     Some(seed_for_hand_tiles),
+                    rules_generation,
                     true,
                     HeaderType::Timers,
                     NPCPersonality::jet(),

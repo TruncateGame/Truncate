@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use truncate_core::{
     generation::{generate_board, get_game_verification, BoardSeed},
     npc::scoring::NPCPersonality,
+    rules::GameRules,
 };
 
 use crate::{
@@ -30,6 +31,7 @@ pub struct SeedNote {
     pub rerolls: usize,
     pub best_player: usize,
     pub board_generation: u32,
+    pub rules_generation: u32,
     pub verification: String,
 }
 
@@ -86,6 +88,12 @@ pub fn get_playable_daily_puzzle(
     let board = generate_board(board_seed.clone())
         .expect("Common seeds should always generate a board")
         .board;
+
+    let rules_generation = info
+        .as_ref()
+        .map(|(_, note)| note.rules_generation)
+        .unwrap_or_else(|| GameRules::latest().0);
+
     let mut game_state = SinglePlayerState::new(
         "daily".to_string(),
         ctx,
@@ -93,6 +101,7 @@ pub fn get_playable_daily_puzzle(
         theme.clone(),
         board,
         Some(board_seed.clone()),
+        rules_generation,
         human_starts,
         HeaderType::None, // Replaced soon with HeaderType::Summary
         NPCPersonality::jet(),

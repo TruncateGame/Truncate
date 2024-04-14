@@ -12,7 +12,7 @@ use truncate_core::{
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
     player::{Hand, Player},
-    rules::{GameRules, TileDistribution},
+    rules::GameRules,
 };
 
 use crate::{
@@ -225,7 +225,7 @@ impl TutorialState {
 
         scenario.map(|(category, scenario)| {
             let mut game = Game {
-                rules: GameRules::default(),
+                rules: GameRules::latest().1,
                 players: vec![
                     Player {
                         name: "You".into(),
@@ -259,7 +259,7 @@ impl TutorialState {
                 ],
                 board: Board::from_string(scenario.board.clone()),
                 // TODO: Use some special infinite bag?
-                bag: TileBag::new(&TileDistribution::Standard, None),
+                bag: TileBag::latest(None).1,
                 judge: Judge::new(scenario.dict.keys().cloned().collect()),
                 battle_count: 0,
                 turn_count: 0,

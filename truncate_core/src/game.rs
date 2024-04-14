@@ -30,7 +30,7 @@ pub const GAME_COLORS: [(u8, u8, u8); 5] = [
     GAME_COLOR_YELLOW,
 ];
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Game {
     pub rules: GameRules,
     pub players: Vec<Player>,
@@ -55,14 +55,14 @@ fn now() -> u64 {
 }
 
 impl Game {
-    pub fn new(width: usize, height: usize, tile_seed: Option<u64>) -> Self {
-        let rules = GameRules::default();
+    pub fn new(width: usize, height: usize, tile_seed: Option<u64>, rules_generation: u32) -> Self {
+        let rules = GameRules::generation(rules_generation);
         let mut board = Board::new(width, height);
         board.grow();
         Self {
             players: Vec::with_capacity(2),
             board,
-            bag: TileBag::new(&rules.tile_distribution, tile_seed),
+            bag: TileBag::generation(rules.tile_generation, tile_seed),
             judge: Judge::default(),
             battle_count: 0,
             turn_count: 0,
