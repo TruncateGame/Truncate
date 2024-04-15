@@ -239,11 +239,7 @@ impl ActiveGame {
                                 }
 
                                 render_tex_quad(
-                                    if self.depot.ui_state.actions_menu_open {
-                                        tiles::quad::INFO_BUTTON
-                                    } else {
-                                        tiles::quad::INFO_BUTTON
-                                    },
+                                    tiles::quad::DICT_BUTTON,
                                     dict_button_rect,
                                     &self.depot.aesthetics.map_texture,
                                     ui,

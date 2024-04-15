@@ -8,7 +8,7 @@ const fn t(tile: usize) -> Tex {
     Tex { tile, tint: None }
 }
 
-pub const MAX_TILE: usize = 229;
+pub const MAX_TILE: usize = 233;
 pub const NONE: Tex = t(0);
 pub const DEBUG: Tex = t(1);
 pub const BASE_GRASS: Tex = t(2);
@@ -222,22 +222,26 @@ pub const SKIP_PREV_BUTTON_NW: Tex = t(209);
 pub const SKIP_PREV_BUTTON_NE: Tex = t(210);
 pub const SKIP_PREV_BUTTON_SW: Tex = t(211);
 pub const SKIP_PREV_BUTTON_SE: Tex = t(212);
-pub const TOWN_BUTTON_NW: Tex = t(213);
-pub const TOWN_BUTTON_NE: Tex = t(214);
-pub const TOWN_BUTTON_SW: Tex = t(215);
-pub const TOWN_BUTTON_SE: Tex = t(216);
-pub const TOWN_BUTTON_ROOF_NW: Tex = t(217);
-pub const TOWN_BUTTON_ROOF_NE: Tex = t(218);
-pub const DOCK_BUTTON_NW: Tex = t(219);
-pub const DOCK_BUTTON_NE: Tex = t(220);
-pub const DOCK_BUTTON_SW: Tex = t(221);
-pub const DOCK_BUTTON_SE: Tex = t(222);
-pub const DOCK_BUTTON_SAIL_NW: Tex = t(223);
-pub const DOCK_BUTTON_SAIL_NE: Tex = t(224);
-pub const TERRAIN_BUTTON_NW: Tex = t(225);
-pub const TERRAIN_BUTTON_NE: Tex = t(226);
-pub const TERRAIN_BUTTON_SW: Tex = t(227);
-pub const TERRAIN_BUTTON_SE: Tex = t(228);
+pub const DICT_BUTTON_NW: Tex = t(213);
+pub const DICT_BUTTON_NE: Tex = t(214);
+pub const DICT_BUTTON_SW: Tex = t(215);
+pub const DICT_BUTTON_SE: Tex = t(216);
+pub const TOWN_BUTTON_NW: Tex = t(217);
+pub const TOWN_BUTTON_NE: Tex = t(218);
+pub const TOWN_BUTTON_SW: Tex = t(219);
+pub const TOWN_BUTTON_SE: Tex = t(220);
+pub const TOWN_BUTTON_ROOF_NW: Tex = t(221);
+pub const TOWN_BUTTON_ROOF_NE: Tex = t(222);
+pub const DOCK_BUTTON_NW: Tex = t(223);
+pub const DOCK_BUTTON_NE: Tex = t(224);
+pub const DOCK_BUTTON_SW: Tex = t(225);
+pub const DOCK_BUTTON_SE: Tex = t(226);
+pub const DOCK_BUTTON_SAIL_NW: Tex = t(227);
+pub const DOCK_BUTTON_SAIL_NE: Tex = t(228);
+pub const TERRAIN_BUTTON_NW: Tex = t(229);
+pub const TERRAIN_BUTTON_NE: Tex = t(230);
+pub const TERRAIN_BUTTON_SW: Tex = t(231);
+pub const TERRAIN_BUTTON_SE: Tex = t(232);
 
 pub mod quad {
     use super::*;
@@ -292,6 +296,7 @@ pub mod quad {
     pub const TRI_NORTH_BUTTON: TexQuad = [TRI_NORTH_BUTTON_NW, TRI_NORTH_BUTTON_NE, TRI_NORTH_BUTTON_SE, TRI_NORTH_BUTTON_SW];
     pub const TRI_SOUTH_BUTTON: TexQuad = [TRI_SOUTH_BUTTON_NW, TRI_SOUTH_BUTTON_NE, TRI_SOUTH_BUTTON_SE, TRI_SOUTH_BUTTON_SW];
     pub const SKIP_PREV_BUTTON: TexQuad = [SKIP_PREV_BUTTON_NW, SKIP_PREV_BUTTON_NE, SKIP_PREV_BUTTON_SE, SKIP_PREV_BUTTON_SW];
+    pub const DICT_BUTTON: TexQuad = [DICT_BUTTON_NW, DICT_BUTTON_NE, DICT_BUTTON_SE, DICT_BUTTON_SW];
     pub const TOWN_BUTTON: TexQuad = [TOWN_BUTTON_NW, TOWN_BUTTON_NE, TOWN_BUTTON_SE, TOWN_BUTTON_SW];
     pub const TOWN_BUTTON_ROOF: TexQuad = [TOWN_BUTTON_ROOF_NW, TOWN_BUTTON_ROOF_NE, NONE, NONE];
     pub const DOCK_BUTTON: TexQuad = [DOCK_BUTTON_NW, DOCK_BUTTON_NE, DOCK_BUTTON_SE, DOCK_BUTTON_SW];
