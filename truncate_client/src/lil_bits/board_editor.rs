@@ -179,7 +179,7 @@ impl<'a> EditorUI<'a> {
                         self.board.height() as f32 * theme.grid_size,
                     ),
                 );
-                self.mapped_board.render_to_rect(dest, ui);
+                self.mapped_board.render_to_rect(dest, None, ui);
 
                 for (rownum, row) in self.board.squares.iter().enumerate() {
                     ui.horizontal(|ui| {

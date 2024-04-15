@@ -33,6 +33,7 @@ pub struct TexLayers {
     pub checkerboard: Option<TexQuad>,
     pub structures: Option<TexQuad>,
     pub pieces: Vec<PieceLayer>,
+    pub piece_validities: Vec<PieceLayer>,
     pub fog: Option<TexQuad>,
 }
 
@@ -66,6 +67,11 @@ impl TexLayers {
     ) -> Self {
         self.pieces
             .push(PieceLayer::Character(char, color, flipped, y_offset));
+        self
+    }
+
+    pub fn into_piece_validity(mut self) -> Self {
+        self.piece_validities.extend(self.pieces.drain(..));
         self
     }
 

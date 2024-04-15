@@ -427,7 +427,7 @@ impl<'a> BoardUI<'a> {
                         Some(&depot.gameplay),
                         self.board,
                     );
-                    mapped_board.render_to_rect(board_texture_dest, ui);
+                    mapped_board.render_to_rect(board_texture_dest, Some(&depot.ui_state), ui);
                 })
             })
             .inner;

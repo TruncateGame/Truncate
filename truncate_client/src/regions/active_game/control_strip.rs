@@ -246,7 +246,8 @@ impl ActiveGame {
                                 );
 
                                 if dict_resp.clicked() {
-                                    self.dictionary_ui = Some(DictionaryUI::new());
+                                    self.depot.ui_state.dictionary_open =
+                                        !self.depot.ui_state.dictionary_open;
                                 }
                             }
 

@@ -376,7 +376,9 @@ mod tests {
              __ __ M1 __ __\n\
              __ __ D1 |1 __",
         );
-        one_v_one.set(middle, 0, 'A').unwrap();
+        one_v_one
+            .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
 
         assert_eq!(
             one_v_one.collect_combanants(0, middle),
@@ -391,7 +393,9 @@ mod tests {
              __ F1 __ T1 __\n\
              __ D1 R1 D1 |1",
         );
-        one_v_two.set(middle, 0, 'A').unwrap();
+        one_v_two
+            .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
 
         assert_eq!(
             one_v_two.collect_combanants(0, middle),
@@ -409,7 +413,9 @@ mod tests {
              __ F1 M1 T1 __\n\
              __ D1 D1 D1 |1",
         );
-        one_v_three.set(middle, 0, 'A').unwrap();
+        one_v_three
+            .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
 
         assert_eq!(
             one_v_three.collect_combanants(0, middle),
@@ -432,7 +438,9 @@ mod tests {
              __ __ M1 T1 __\n\
              __ __ D1 D1 |1",
         );
-        two_v_two.set(middle, 0, 'A').unwrap();
+        two_v_two
+            .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
         assert_eq!(
             two_v_two.collect_combanants(0, middle),
             (

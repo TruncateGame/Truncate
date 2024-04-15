@@ -7,6 +7,7 @@ use std::slice::Iter;
 use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
 use crate::bag::TileBag;
 use crate::error::GamePlayError;
+use crate::judge::WordDict;
 use crate::reporting::Change;
 use crate::rules;
 
@@ -331,6 +332,7 @@ impl Board {
         };
 
         *square = new_square;
+
         Ok(())
     }
 
@@ -339,6 +341,7 @@ impl Board {
         position: Coordinate,
         player: usize,
         tile: char,
+        ref_dict: Option<&WordDict>,
     ) -> Result<BoardChangeDetail, GamePlayError> {
         if self.docks.get(player).is_none() {
             return Err(GamePlayError::NonExistentPlayer { index: player });
@@ -355,14 +358,18 @@ impl Board {
                     tile,
                     validity: SquareValidity::Unknown,
                 };
-                Ok(BoardChangeDetail {
-                    square: square.to_owned(),
-                    coordinate: position,
-                })
+                Ok(())
             }
             Some(_) => Err(GamePlayError::InvalidPosition { position }),
             None => Err(GamePlayError::OutSideBoardDimensions { position }),
-        }
+        }?;
+
+        self.mark_validity(position, ref_dict);
+
+        Ok(BoardChangeDetail {
+            square: self.get(position).unwrap().clone(),
+            coordinate: position,
+        })
     }
 
     pub fn swap(
@@ -370,6 +377,7 @@ impl Board {
         player: usize,
         positions: [Coordinate; 2],
         swap_rules: &rules::Swapping,
+        ref_dict: Option<&WordDict>,
     ) -> Result<Vec<Change>, GamePlayError> {
         if positions[0] == positions[1] {
             return Err(GamePlayError::SelfSwap);
@@ -417,18 +425,22 @@ impl Board {
 
         Ok(vec![
             Change::Board(BoardChange {
-                detail: self.set(positions[0], player, tiles[1])?,
+                detail: self.set(positions[0], player, tiles[1], ref_dict)?,
                 action: BoardChangeAction::Swapped,
             }),
             Change::Board(BoardChange {
-                detail: self.set(positions[1], player, tiles[0])?,
+                detail: self.set(positions[1], player, tiles[0], ref_dict)?,
                 action: BoardChangeAction::Swapped,
             }),
         ])
     }
 
     // TODO: safety on index access like get and set - ideally combine error checking for all 3
-    pub fn clear(&mut self, position: Coordinate) -> Option<BoardChangeDetail> {
+    pub fn clear(
+        &mut self,
+        position: Coordinate,
+        ref_dict: Option<&WordDict>,
+    ) -> Option<BoardChangeDetail> {
         if let Some(square) = self
             .squares
             .get_mut(position.y as usize)
@@ -440,6 +452,12 @@ impl Board {
                     coordinate: position,
                 });
                 *square = Square::Land;
+
+                self.neighbouring_squares(position)
+                    .into_iter()
+                    .filter(|(_, s)| matches!(s, Square::Occupied { .. }))
+                    .for_each(|(c, _)| self.mark_validity(c, ref_dict));
+
                 return change;
             }
         }
@@ -505,7 +523,55 @@ impl Board {
 }
 
 impl Board {
-    pub fn truncate(&mut self, bag: &mut TileBag) -> Vec<Change> {
+    pub fn mark_validity(&mut self, modified_position: Coordinate, ref_dict: Option<&WordDict>) {
+        let coords = self.get_words(modified_position);
+        let Ok(words) = self.word_strings(&coords) else {
+            return;
+        };
+
+        let Some(ref_dict) = ref_dict else {
+            return;
+        };
+
+        for (coords, word) in coords.into_iter().zip(words.into_iter()) {
+            // TODO: Use the full judge here to handle, e.g., wildcards
+            let main_word_valid = ref_dict.contains_key(&word.to_ascii_lowercase());
+            let ideal_validity = if main_word_valid {
+                SquareValidity::Valid
+            } else {
+                SquareValidity::Invalid
+            };
+
+            for coord in coords {
+                let nested_coords = self.get_words(coord);
+                let mut square_validity = ideal_validity;
+                // For the tiles in the two possible "main" words,
+                // we also need to assess the other words they're a part of
+                if nested_coords.len() > 1 {
+                    let Ok(words) = self.word_strings(&nested_coords) else {
+                        return;
+                    };
+                    let valid_words: Vec<_> = words
+                        .into_iter()
+                        .map(|w| ref_dict.contains_key(&w.to_ascii_lowercase()))
+                        .collect();
+                    if main_word_valid && valid_words.contains(&false) {
+                        square_validity = SquareValidity::Partial;
+                    }
+                    if !main_word_valid && valid_words.contains(&true) {
+                        square_validity = SquareValidity::Partial;
+                    }
+                }
+
+                match self.get_mut(coord) {
+                    Ok(Square::Occupied { validity, .. }) => *validity = square_validity,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub fn truncate(&mut self, bag: &mut TileBag, ref_dict: Option<&WordDict>) -> Vec<Change> {
         let mut attatched = HashSet::new();
         for root in self.docks.iter() {
             attatched.extend(self.depth_first_search(*root));
@@ -522,7 +588,7 @@ impl Board {
                     if let Ok(Square::Occupied { tile, .. }) = self.get(c) {
                         bag.return_tile(tile);
                     }
-                    self.clear(c).map(|detail| {
+                    self.clear(c, ref_dict).map(|detail| {
                         Change::Board(BoardChange {
                             detail,
                             action: BoardChangeAction::Truncated,
@@ -1468,9 +1534,22 @@ impl BoardDistances {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::rules::SwapPenalty;
+    use crate::{judge::Judge, rules::SwapPenalty};
 
     use super::*;
+
+    pub fn short_dict() -> WordDict {
+        Judge::new(vec![
+            "BIG".into(),
+            "FAT".into(),
+            "JOLLY".into(),
+            "AND".into(),
+            "SILLY".into(),
+            "FOLK".into(),
+            "ARTS".into(),
+        ])
+        .builtin_dictionary
+    }
 
     #[test]
     fn coord_flattening() {
@@ -1646,7 +1725,7 @@ pub mod tests {
 
         let position = Coordinate { x: 1, y: 3 };
         assert_eq!(
-            b.set(position, 0, 'a'),
+            b.set(position, 0, 'a', None),
             Err(GamePlayError::OutSideBoardDimensions { position })
         );
     }
@@ -1664,7 +1743,7 @@ pub mod tests {
 
         let position = Coordinate { x: 1, y: 1 };
         assert_eq!(
-            b.set(position, 0, 'a'),
+            b.set(position, 0, 'a', None),
             Err(GamePlayError::InvalidPosition { position })
         );
     }
@@ -1682,45 +1761,45 @@ pub mod tests {
         assert_eq!(b.get(Coordinate { x: 2, y: 1 }), Ok(Square::Land));
 
         assert_eq!(
-            b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
+            b.set(Coordinate { x: 0, y: 0 }, 0, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: Coordinate { x: 0, y: 0 },
             })
         );
         assert_eq!(
-            b.set(Coordinate { x: 0, y: 1 }, 0, 'a'),
+            b.set(Coordinate { x: 0, y: 1 }, 0, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: Coordinate { x: 0, y: 1 },
             })
         );
         assert_eq!(
-            b.set(Coordinate { x: 2, y: 0 }, 0, 'a'),
+            b.set(Coordinate { x: 2, y: 0 }, 0, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: Coordinate { x: 2, y: 0 },
             })
         );
         assert_eq!(
-            b.set(Coordinate { x: 2, y: 1 }, 0, 'a'),
+            b.set(Coordinate { x: 2, y: 1 }, 0, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: Coordinate { x: 2, y: 1 },
             })
@@ -1735,37 +1814,37 @@ pub mod tests {
         );
 
         assert_eq!(
-            b.set(Coordinate { x: 0, y: 0 }, 0, 'a'),
+            b.set(Coordinate { x: 0, y: 0 }, 0, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: Coordinate { x: 0, y: 0 },
             })
         );
         assert_eq!(
-            b.set(Coordinate { x: 0, y: 1 }, 1, 'a'),
+            b.set(Coordinate { x: 0, y: 1 }, 1, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 1,
                     tile: 'a',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: Coordinate { x: 0, y: 1 },
             })
         );
         assert_eq!(
-            b.set(Coordinate { x: 2, y: 0 }, 2, 'a'),
+            b.set(Coordinate { x: 2, y: 0 }, 2, 'a', None),
             Err(GamePlayError::NonExistentPlayer { index: 2 })
         );
         assert_eq!(
-            b.set(Coordinate { x: 2, y: 0 }, 3, 'a'),
+            b.set(Coordinate { x: 2, y: 0 }, 3, 'a', None),
             Err(GamePlayError::NonExistentPlayer { index: 3 })
         );
         assert_eq!(
-            b.set(Coordinate { x: 2, y: 0 }, 100, 'a'),
+            b.set(Coordinate { x: 2, y: 0 }, 100, 'a', None),
             Err(GamePlayError::NonExistentPlayer { index: 100 })
         );
     }
@@ -1775,12 +1854,12 @@ pub mod tests {
         let mut b = Board::new(3, 3); // Note, height is 3 from home rows
         assert_eq!(b.get(Coordinate { x: 2, y: 2 }), Ok(Square::Land));
         assert_eq!(
-            b.set(Coordinate { x: 2, y: 2 }, 0, 'a'),
+            b.set(Coordinate { x: 2, y: 2 }, 0, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: Coordinate { x: 2, y: 2 },
             })
@@ -1790,7 +1869,7 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'a',
-                validity: SquareValidity::Unknown
+                validity: SquareValidity::Invalid
             })
         );
     }
@@ -1815,12 +1894,12 @@ pub mod tests {
         let parts_set = HashSet::from(parts);
         for part in parts {
             assert_eq!(
-                b.set(part, 0, 'a'),
+                b.set(part, 0, 'a', Some(&short_dict())),
                 Ok(BoardChangeDetail {
                     square: Square::Occupied {
                         player: 0,
                         tile: 'a',
-                        validity: SquareValidity::Unknown
+                        validity: SquareValidity::Invalid
                     },
                     coordinate: part,
                 })
@@ -1842,12 +1921,12 @@ pub mod tests {
             .collect::<Vec<_>>()
             .is_empty());
         assert_eq!(
-            b.set(other, 1, 'a'),
+            b.set(other, 1, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 1,
                     tile: 'a',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: other,
             })
@@ -2023,34 +2102,34 @@ pub mod tests {
         let c1_1 = Coordinate { x: 1, y: 1 };
         let c2_1 = Coordinate { x: 2, y: 1 };
         assert_eq!(
-            b.set(c0_1, 0, 'a'),
+            b.set(c0_1, 0, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: c0_1,
             })
         );
         assert_eq!(
-            b.set(c1_1, 0, 'b'),
+            b.set(c1_1, 0, 'b', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'b',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: c1_1,
             })
         );
         assert_eq!(
-            b.set(c2_1, 1, 'c'),
+            b.set(c2_1, 1, 'c', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 1,
                     tile: 'c',
-                    validity: SquareValidity::Unknown
+                    validity: SquareValidity::Invalid
                 },
                 coordinate: c2_1,
             })
@@ -2061,7 +2140,7 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'a',
-                validity: SquareValidity::Unknown
+                validity: SquareValidity::Invalid
             })
         );
         assert_eq!(
@@ -2069,14 +2148,15 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'b',
-                validity: SquareValidity::Unknown
+                validity: SquareValidity::Invalid
             })
         );
         assert_eq!(
             b.swap(
                 0,
                 [c0_1, c1_1],
-                &rules::Swapping::Contiguous(default_swap_rules())
+                &rules::Swapping::Contiguous(default_swap_rules()),
+                Some(&short_dict())
             ),
             Ok(vec![
                 Change::Board(BoardChange {
@@ -2084,7 +2164,7 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'b',
-                            validity: SquareValidity::Unknown
+                            validity: SquareValidity::Invalid
                         },
                         coordinate: c0_1,
                     },
@@ -2095,7 +2175,7 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'a',
-                            validity: SquareValidity::Unknown
+                            validity: SquareValidity::Invalid
                         },
                         coordinate: c1_1,
                     },
@@ -2108,7 +2188,7 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'b',
-                validity: SquareValidity::Unknown
+                validity: SquareValidity::Invalid
             })
         );
         assert_eq!(
@@ -2116,14 +2196,15 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'a',
-                validity: SquareValidity::Unknown
+                validity: SquareValidity::Invalid
             })
         );
         assert_eq!(
             b.swap(
                 0,
                 [c0_1, c0_1],
-                &rules::Swapping::Contiguous(default_swap_rules())
+                &rules::Swapping::Contiguous(default_swap_rules()),
+                None
             ),
             Err(GamePlayError::SelfSwap)
         );
@@ -2131,7 +2212,8 @@ pub mod tests {
             b.swap(
                 0,
                 [c0_1, c2_1],
-                &rules::Swapping::Contiguous(default_swap_rules())
+                &rules::Swapping::Contiguous(default_swap_rules()),
+                None
             ),
             Err(GamePlayError::UnownedSwap)
         );
@@ -2139,7 +2221,8 @@ pub mod tests {
             b.swap(
                 0,
                 [c0_1, c2_1],
-                &rules::Swapping::Universal(default_swap_rules())
+                &rules::Swapping::Universal(default_swap_rules()),
+                None
             ),
             Err(GamePlayError::UnownedSwap)
         );
@@ -2147,7 +2230,8 @@ pub mod tests {
             b.swap(
                 1,
                 [c0_1, c1_1],
-                &rules::Swapping::Contiguous(default_swap_rules())
+                &rules::Swapping::Contiguous(default_swap_rules()),
+                None
             ),
             Err(GamePlayError::UnownedSwap)
         );
@@ -2169,7 +2253,7 @@ pub mod tests {
         let pos2 = Coordinate { x: 4, y: 2 };
 
         assert_eq!(
-            b.swap(0, [pos1, pos2], &rules::Swapping::None),
+            b.swap(0, [pos1, pos2], &rules::Swapping::None, None),
             Err(GamePlayError::NoSwapping)
         );
 
@@ -2177,7 +2261,8 @@ pub mod tests {
             b.swap(
                 0,
                 [pos1, pos2],
-                &rules::Swapping::Contiguous(default_swap_rules())
+                &rules::Swapping::Contiguous(default_swap_rules()),
+                None
             ),
             Err(GamePlayError::DisjointSwap)
         );
@@ -2186,7 +2271,8 @@ pub mod tests {
             b.swap(
                 0,
                 [pos1, pos2],
-                &rules::Swapping::Universal(default_swap_rules())
+                &rules::Swapping::Universal(default_swap_rules()),
+                Some(&short_dict())
             ),
             Ok(vec![
                 Change::Board(BoardChange {
@@ -2194,7 +2280,7 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'O',
-                            validity: SquareValidity::Unknown
+                            validity: SquareValidity::Invalid
                         },
                         coordinate: pos1,
                     },
@@ -2205,7 +2291,7 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'R',
-                            validity: SquareValidity::Unknown
+                            validity: SquareValidity::Invalid
                         },
                         coordinate: pos2,
                     },
@@ -2232,7 +2318,8 @@ pub mod tests {
             b.swap(
                 0,
                 [a1, a2],
-                &rules::Swapping::Contiguous(default_swap_rules())
+                &rules::Swapping::Contiguous(default_swap_rules()),
+                None
             ),
             Err(GamePlayError::NoopSwap)
         );
@@ -2241,7 +2328,8 @@ pub mod tests {
             b.swap(
                 0,
                 [a1, a1],
-                &rules::Swapping::Contiguous(default_swap_rules())
+                &rules::Swapping::Contiguous(default_swap_rules()),
+                None
             ),
             Err(GamePlayError::SelfSwap)
         );
@@ -2250,7 +2338,8 @@ pub mod tests {
             b.swap(
                 0,
                 [a1, c],
-                &rules::Swapping::Contiguous(default_swap_rules())
+                &rules::Swapping::Contiguous(default_swap_rules()),
+                Some(&short_dict())
             ),
             Ok(vec![
                 Change::Board(BoardChange {
@@ -2258,7 +2347,7 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'C',
-                            validity: SquareValidity::Unknown
+                            validity: SquareValidity::Invalid
                         },
                         coordinate: a1,
                     },
@@ -2269,7 +2358,7 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'A',
-                            validity: SquareValidity::Unknown
+                            validity: SquareValidity::Invalid
                         },
                         coordinate: c,
                     },

@@ -17,9 +17,11 @@ use self::image_manipulation::alpha_blend;
 pub use self::image_manipulation::ImageMusher;
 
 use super::{
-    depot::{AestheticDepot, GameplayDepot, HoveredRegion, InteractionDepot, TimingDepot},
+    depot::{
+        AestheticDepot, GameplayDepot, HoveredRegion, InteractionDepot, TimingDepot, UIStateDepot,
+    },
     glyph_utils::Glypher,
-    tex::{self, BGTexType, Tex, TexLayers, TileDecoration},
+    tex::{self, BGTexType, PieceLayer, Tex, TexLayers, TileDecoration},
     Lighten,
 };
 
@@ -33,6 +35,7 @@ struct ResolvedTextureLayers {
     checkerboard: TextureHandle,
     structures: TextureHandle,
     pieces: TextureHandle,
+    pieces_validity: TextureHandle,
     fog: TextureHandle,
 }
 
@@ -60,6 +63,11 @@ impl ResolvedTextureLayers {
             ),
             pieces: ctx.load_texture(
                 format!("board_layer_pieces"),
+                layer_base.clone(),
+                egui::TextureOptions::NEAREST,
+            ),
+            pieces_validity: ctx.load_texture(
+                format!("board_layer_pieces_validity"),
                 layer_base.clone(),
                 egui::TextureOptions::NEAREST,
             ),
@@ -135,7 +143,7 @@ impl MappedBoard {
         mapper
     }
 
-    pub fn render_to_rect(&self, rect: Rect, ui: &mut egui::Ui) {
+    pub fn render_to_rect(&self, rect: Rect, ui_state: Option<&UIStateDepot>, ui: &mut egui::Ui) {
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
 
         let paint = |id: epaint::TextureId, color: Color32| {
@@ -145,11 +153,20 @@ impl MappedBoard {
         };
 
         if let Some(tex) = &self.resolved_textures {
-            paint(tex.terrain.id(), Color32::WHITE);
-            // This is where we make the checkerboard overlay translucent
-            paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
-            paint(tex.structures.id(), Color32::WHITE);
-            paint(tex.pieces.id(), Color32::WHITE);
+            if ui_state.is_some_and(|s| s.dictionary_open) {
+                paint(tex.terrain.id(), Color32::WHITE.gamma_multiply(0.2));
+                // This is where we make the checkerboard overlay translucent
+                paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
+                paint(tex.structures.id(), Color32::WHITE.gamma_multiply(0.2));
+                paint(tex.pieces.id(), Color32::WHITE.gamma_multiply(0.2));
+                paint(tex.pieces_validity.id(), Color32::WHITE);
+            } else {
+                paint(tex.terrain.id(), Color32::WHITE);
+                // This is where we make the checkerboard overlay translucent
+                paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
+                paint(tex.structures.id(), Color32::WHITE);
+                paint(tex.pieces.id(), Color32::WHITE);
+            }
         }
     }
 
@@ -430,7 +447,6 @@ impl MappedBoard {
         }
 
         match square {
-            // TODO: Use validity to draw onto some new validity texture
             Square::Occupied {
                 player,
                 tile,
@@ -560,6 +576,32 @@ impl MappedBoard {
                     seed_at_coord,
                 );
                 layers = layers.merge(tile_layers);
+
+                // TODO: colors
+                let validity_color = match validity {
+                    truncate_core::board::SquareValidity::Unknown => aesthetics.theme.faded,
+                    truncate_core::board::SquareValidity::Valid => {
+                        aesthetics.theme.word_valid.lighten()
+                    }
+                    truncate_core::board::SquareValidity::Invalid => {
+                        aesthetics.theme.word_invalid.lighten().lighten()
+                    }
+                    truncate_core::board::SquareValidity::Partial => {
+                        aesthetics.theme.button_primary
+                    }
+                };
+                let validity_layers = Tex::board_game_tile(
+                    MappedTileVariant::Healthy,
+                    *tile,
+                    orient(*player),
+                    Some(validity_color),
+                    None,
+                    TileDecoration::None,
+                    seed_at_coord,
+                )
+                .into_piece_validity();
+
+                layers = layers.merge(validity_layers);
             }
             Square::Land => {
                 if let Some(interactions) = interactions {
@@ -672,54 +714,65 @@ impl MappedBoard {
             }
         }
 
-        if cached.pieces != layers.pieces {
-            if !cached.pieces.is_empty() && layers.pieces.is_empty() {
-                erase(&mut resolved_textures.pieces);
-            } else if !layers.pieces.is_empty() {
-                let mut target =
-                    ColorImage::new([tile_dims[0] * 2, tile_dims[1] * 2], Color32::TRANSPARENT);
-                for piece in layers.pieces.iter() {
-                    match piece {
-                        tex::PieceLayer::Texture(texs, tint) => {
-                            for (tex, sub_loc) in texs.iter().zip([
-                                [0, 0],
-                                [tile_dims[0], 0],
-                                [tile_dims[0], tile_dims[1]],
-                                [0, tile_dims[1]],
-                            ]) {
-                                let mut image = tex.slice_as_image(tileset);
-                                if let Some(tint) = tint {
-                                    image.tint(tint);
+        let mut render_pieces = |cache: &Vec<PieceLayer>,
+                                 layer: &Vec<PieceLayer>,
+                                 target_tex: &mut TextureHandle| {
+            if cache != layer {
+                if !cache.is_empty() && layer.is_empty() {
+                    erase(target_tex);
+                } else if !layer.is_empty() {
+                    let mut target =
+                        ColorImage::new([tile_dims[0] * 2, tile_dims[1] * 2], Color32::TRANSPARENT);
+                    for piece in layer.iter() {
+                        match piece {
+                            tex::PieceLayer::Texture(texs, tint) => {
+                                for (tex, sub_loc) in texs.iter().zip([
+                                    [0, 0],
+                                    [tile_dims[0], 0],
+                                    [tile_dims[0], tile_dims[1]],
+                                    [0, tile_dims[1]],
+                                ]) {
+                                    let mut image = tex.slice_as_image(tileset);
+                                    if let Some(tint) = tint {
+                                        image.tint(tint);
+                                    }
+                                    target.hard_overlay(&image, sub_loc);
                                 }
-                                target.hard_overlay(&image, sub_loc);
                             }
-                        }
-                        tex::PieceLayer::Character(char, color, is_flipped, y_offset) => {
-                            let mut glyph = glypher.paint(*char, 16);
+                            tex::PieceLayer::Character(char, color, is_flipped, y_offset) => {
+                                let mut glyph = glypher.paint(*char, 16);
 
-                            if *is_flipped {
-                                glyph.flip_y();
+                                if *is_flipped {
+                                    glyph.flip_y();
+                                }
+
+                                let offset = [
+                                    (target.width() - glyph.width()) / 2,
+                                    ((target.height() - glyph.height()) / 2)
+                                        .saturating_add_signed(*y_offset),
+                                ];
+
+                                glyph.recolor(color);
+                                target.hard_overlay(&glyph, offset);
                             }
-
-                            let offset = [
-                                (target.width() - glyph.width()) / 2,
-                                ((target.height() - glyph.height()) / 2)
-                                    .saturating_add_signed(*y_offset),
-                            ];
-
-                            glyph.recolor(color);
-                            target.hard_overlay(&glyph, offset);
                         }
                     }
-                }
 
-                resolved_textures.pieces.set_partial(
-                    dest_pos,
-                    target,
-                    egui::TextureOptions::NEAREST,
-                );
+                    target_tex.set_partial(dest_pos, target, egui::TextureOptions::NEAREST);
+                }
             }
-        }
+        };
+
+        render_pieces(
+            &cached.pieces,
+            &layers.pieces,
+            &mut resolved_textures.pieces,
+        );
+        render_pieces(
+            &cached.piece_validities,
+            &layers.piece_validities,
+            &mut resolved_textures.pieces_validity,
+        );
 
         if cached.fog != layers.fog {
             if cached.fog.is_some() && layers.fog.is_none() {
