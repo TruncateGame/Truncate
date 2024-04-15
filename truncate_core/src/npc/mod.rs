@@ -539,7 +539,7 @@ impl Game {
 
         for (y, row) in self.board.squares.iter().enumerate() {
             for (x, sq) in row.iter().enumerate() {
-                if matches!(sq, Square::Occupied(p, _) if player == *p) {
+                if matches!(sq, Square::Occupied{ player: p, ..} if player == *p) {
                     if assessed_tiles.contains(&Coordinate { x, y }) {
                         continue;
                     }

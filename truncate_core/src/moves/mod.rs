@@ -54,7 +54,7 @@ impl PartialEq for Move {
 #[cfg(test)]
 mod tests {
     use crate::bag::TileBag;
-    use crate::board::{Board, Coordinate, Square};
+    use crate::board::{Board, Coordinate, Square, SquareValidity};
     use crate::error::GamePlayError;
     use crate::game::Game;
     use crate::judge::Judge;
@@ -161,7 +161,11 @@ mod tests {
             }),
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
-                    square: Square::Occupied(0, 'A'),
+                    square: Square::Occupied {
+                        player: 0,
+                        tile: 'A',
+                        validity: SquareValidity::Unknown
+                    },
                     coordinate: Coordinate { x: 3, y: 2 },
                 },
                 action: BoardChangeAction::Added
@@ -232,7 +236,11 @@ mod tests {
             }),
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
-                    square: Square::Occupied(0, 'B'),
+                    square: Square::Occupied {
+                        player: 0,
+                        tile: 'B',
+                        validity: SquareValidity::Unknown
+                    },
                     coordinate: Coordinate { x: 3, y: 3 },
                 },
                 action: BoardChangeAction::Added
@@ -268,14 +276,22 @@ mod tests {
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
-                        square: Square::Occupied(0, 'B'),
+                        square: Square::Occupied {
+                            player: 0,
+                            tile: 'B',
+                            validity: SquareValidity::Unknown
+                        },
                         coordinate: Coordinate { x: 3, y: 2 },
                     },
                     action: BoardChangeAction::Swapped
                 }),
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
-                        square: Square::Occupied(0, 'A'),
+                        square: Square::Occupied {
+                            player: 0,
+                            tile: 'A',
+                            validity: SquareValidity::Unknown
+                        },
                         coordinate: Coordinate { x: 3, y: 3 },
                     },
                     action: BoardChangeAction::Swapped

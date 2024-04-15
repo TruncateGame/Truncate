@@ -88,7 +88,7 @@ impl From<&Square> for BGTexType {
         use truncate_core::board::Square::*;
         match sq {
             Water | Fog | Dock(_) => Self::WaterOrFog,
-            Land | Town { .. } | Occupied(_, _) => Self::Land,
+            Land | Town { .. } | Occupied { .. } => Self::Land,
         }
     }
 }
@@ -113,7 +113,7 @@ impl From<(&Square, &Vec<Color32>)> for FGTexType {
             Square::Dock(player) => {
                 Self::Dock(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
-            Square::Occupied(_, _) => Self::None,
+            Square::Occupied { .. } => Self::None,
         }
     }
 }

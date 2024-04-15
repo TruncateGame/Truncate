@@ -26,8 +26,8 @@ impl Board {
             crate::board::Square::Land => land,
             crate::board::Square::Town { .. } => land,
             crate::board::Square::Dock(_) => water,
-            crate::board::Square::Occupied(player, _) if won == Some(*player) => tile,
-            crate::board::Square::Occupied(_, _) => land,
+            crate::board::Square::Occupied { player, .. } if won == Some(*player) => tile,
+            crate::board::Square::Occupied { .. } => land,
         };
 
         let mut grid = if player == 0 {

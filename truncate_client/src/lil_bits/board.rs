@@ -183,8 +183,11 @@ impl<'a> BoardUI<'a> {
                                                     interactions.released_tile = None;
                                                 }
                                             }
-                                        } else if let Square::Occupied(square_player, square_char) =
-                                            square
+                                        } else if let Square::Occupied {
+                                            player: square_player,
+                                            tile: square_char,
+                                            ..
+                                        } = square
                                         {
                                             let tile_rect = grid_cell.shrink(2.0);
                                             let tile_id =

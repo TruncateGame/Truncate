@@ -340,7 +340,14 @@ impl MappedBoard {
                         tile_was_victor = true;
                     }
                     BoardChangeAction::Defeated => {
-                        if let Occupied(player, char) = change.detail.square {
+                        // TODO: We could use `validity` below to show whether a tile
+                        // lost on length or lost on being invalid.
+                        if let Occupied {
+                            player,
+                            tile,
+                            validity: _,
+                        } = change.detail.square
+                        {
                             let validity_color =
                                 if base_destructo_time < aesthetics.destruction_duration {
                                     let traj = ((aesthetics.destruction_duration
@@ -362,7 +369,7 @@ impl MappedBoard {
 
                             let tile_layers = Tex::board_game_tile(
                                 variant,
-                                char,
+                                tile,
                                 orient(player),
                                 validity_color.or(color),
                                 None,
@@ -373,12 +380,19 @@ impl MappedBoard {
                         }
                     }
                     BoardChangeAction::Truncated => {
-                        if let Occupied(player, char) = change.detail.square {
+                        // TODO: We could use `validity` below to show whether a tile
+                        // lost on length or lost on being invalid.
+                        if let Occupied {
+                            player,
+                            tile,
+                            validity: _,
+                        } = change.detail.square
+                        {
                             let (variant, color) = animated_variant(player);
 
                             let tile_layers = Tex::board_game_tile(
                                 variant,
-                                char,
+                                tile,
                                 orient(player),
                                 color,
                                 None,
@@ -389,12 +403,19 @@ impl MappedBoard {
                         }
                     }
                     BoardChangeAction::Exploded => {
-                        if let Occupied(player, char) = change.detail.square {
+                        // TODO: We could use `validity` below to show whether a tile
+                        // lost on length or lost on being invalid.
+                        if let Occupied {
+                            player,
+                            tile,
+                            validity: _,
+                        } = change.detail.square
+                        {
                             let (variant, color) = animated_variant(player);
 
                             let tile_layers = Tex::board_game_tile(
                                 variant,
-                                char,
+                                tile,
                                 orient(player),
                                 color,
                                 None,
@@ -409,7 +430,12 @@ impl MappedBoard {
         }
 
         match square {
-            Square::Occupied(player, character) => {
+            // TODO: Use validity to draw onto some new validity texture
+            Square::Occupied {
+                player,
+                tile,
+                validity,
+            } => {
                 let mut highlight = None;
                 let mut being_dragged = false;
 
@@ -433,22 +459,34 @@ impl MappedBoard {
 
                     // Preview click-to-swap from this tile to another
                     if selected && !hovered {
-                        if let Some((_, Square::Occupied(hovered_player, hovered_char))) =
-                            interactions.hovered_tile_on_board
+                        if let Some((
+                            _,
+                            Square::Occupied {
+                                player: hovered_player,
+                                tile: hovered_tile,
+                                ..
+                            },
+                        )) = interactions.hovered_tile_on_board
                         {
                             if hovered_player == *player {
-                                render_as_swap = Some(hovered_char);
+                                render_as_swap = Some(hovered_tile);
                             }
                         }
                     }
 
                     // Preview click-to-swap from another tile to this one
                     if hovered && !selected {
-                        if let Some((_, Square::Occupied(selected_player, selected_char))) =
-                            interactions.selected_tile_on_board
+                        if let Some((
+                            _,
+                            Square::Occupied {
+                                player: selected_player,
+                                tile: selected_tile,
+                                ..
+                            },
+                        )) = interactions.selected_tile_on_board
                         {
                             if selected_player == *player {
-                                render_as_swap = Some(selected_char);
+                                render_as_swap = Some(selected_tile);
                             }
                         }
                     }
@@ -457,12 +495,17 @@ impl MappedBoard {
                     // (the inverse is handled in the dragging logic itself within the board)
                     if being_dragged && !hovered_occupied {
                         if let Some(HoveredRegion {
-                            square: Some(Square::Occupied(hovered_player, hovered_char)),
+                            square:
+                                Some(Square::Occupied {
+                                    player: hovered_player,
+                                    tile: hovered_tile,
+                                    ..
+                                }),
                             ..
                         }) = interactions.hovered_occupied_square_on_board
                         {
                             if hovered_player == *player {
-                                render_as_swap = Some(hovered_char);
+                                render_as_swap = Some(hovered_tile);
                             }
                         }
                     }
@@ -509,7 +552,7 @@ impl MappedBoard {
 
                 let tile_layers = Tex::board_game_tile(
                     variant,
-                    render_as_swap.unwrap_or(*character),
+                    render_as_swap.unwrap_or(*tile),
                     orient(*player),
                     color,
                     highlight,

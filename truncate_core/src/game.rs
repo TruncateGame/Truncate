@@ -304,13 +304,13 @@ impl Game {
                     &self.rules.visibility,
                 );
 
-                if let Square::Occupied(..) = self.board.get(position)? {
+                if let Square::Occupied { .. } = self.board.get(position)? {
                     return Err(GamePlayError::OccupiedPlace);
                 }
 
                 if !self.board.neighbouring_squares(position).iter().any(
                     |&(_, square)| match square {
-                        Square::Occupied(p, _) => p == player,
+                        Square::Occupied { player: p, .. } => p == player,
                         Square::Dock(p) => p == player,
                         _ => false,
                     },
@@ -462,7 +462,7 @@ impl Game {
                     let mut all_defenders_are_towns = true;
                     changes.extend(defenders.iter().flatten().map(|coordinate| {
                         let square = self.board.get(*coordinate).expect("Tile just attacked");
-                        if matches!(square, Square::Occupied(_, _)) {
+                        if matches!(square, Square::Occupied { .. }) {
                             all_defenders_are_towns = false;
                         }
                         Change::Board(BoardChange {
@@ -489,8 +489,8 @@ impl Game {
                     if remove_attackers {
                         let squares = attackers.into_iter().flat_map(|word| word.into_iter());
                         changes.extend(squares.flat_map(|square| {
-                            if let Ok(Square::Occupied(_, letter)) = self.board.get(square) {
-                                self.bag.return_tile(letter);
+                            if let Ok(Square::Occupied { tile, .. }) = self.board.get(square) {
+                                self.bag.return_tile(tile);
                             }
                             self.board.clear(square).map(|detail| {
                                 Change::Board(BoardChange {
@@ -521,8 +521,8 @@ impl Game {
                     });
                     changes.extend(squares.flat_map(|square| {
                         match self.board.get(*square) {
-                            Ok(Square::Occupied(_, letter)) => {
-                                self.bag.return_tile(letter);
+                            Ok(Square::Occupied { tile, .. }) => {
+                                self.bag.return_tile(tile);
                             }
                             Ok(Square::Town { player, .. }) => {
                                 _ = self.board.set_square(
@@ -547,9 +547,17 @@ impl Game {
                     // explode adjacent letters belonging to opponents
                     changes.extend(self.board.neighbouring_squares(position).iter().flat_map(
                         |neighbour| {
-                            if let (coordinate, Square::Occupied(owner, letter)) = neighbour {
+                            if let (
+                                coordinate,
+                                Square::Occupied {
+                                    player: owner,
+                                    tile,
+                                    ..
+                                },
+                            ) = neighbour
+                            {
                                 if *owner != player {
-                                    self.bag.return_tile(*letter);
+                                    self.bag.return_tile(*tile);
                                     return self.board.clear(*coordinate).map(|detail| {
                                         Change::Board(BoardChange {
                                             detail,
@@ -575,7 +583,7 @@ impl Game {
         }
 
         match self.board.get(position) {
-            Ok(Square::Occupied(_, tile)) if tile == '¤' => {
+            Ok(Square::Occupied { tile, .. }) if tile == '¤' => {
                 changes.push(
                     self.board
                         .clear(position)

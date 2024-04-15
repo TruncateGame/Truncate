@@ -218,7 +218,7 @@ pub(crate) fn filter_to_player(
                     rules::Visibility::Standard => Some(relative_change),
                     rules::Visibility::TileFog | rules::Visibility::LandFog => {
                         match visible_board.get(relative_coord) {
-                            Ok(Square::Occupied(_, _)) => Some(relative_change),
+                            Ok(Square::Occupied { .. }) => Some(relative_change),
                             _ => None,
                         }
                     }
