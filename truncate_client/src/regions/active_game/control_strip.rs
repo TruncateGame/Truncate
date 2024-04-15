@@ -8,7 +8,7 @@ use eframe::{
 };
 
 use crate::{
-    lil_bits::HandUI,
+    lil_bits::{DictionaryUI, HandUI},
     utils::{
         tex::{render_tex_quad, tiles},
         text::TextHelper,
@@ -150,55 +150,121 @@ impl ActiveGame {
                         }
                     }
 
+                    let menu_buttons_vertical = self.depot.ui_state.is_mobile;
+
                     let button_size = 50.0;
                     let item_spacing = 10.0;
+                    let menu_item_spacing = 5.0;
+                    let menu_area = if menu_buttons_vertical {
+                        vec2(button_size, button_size * 2.0 + menu_item_spacing)
+                    } else {
+                        vec2(button_size * 2.0 + menu_item_spacing, button_size)
+                    };
 
                     ui.allocate_ui_with_layout(
-                        vec2(ui.available_width(), 50.0),
+                        vec2(ui.available_width(), button_size),
                         Layout::right_to_left(Align::TOP),
                         |ui| {
                             ui.add_space(item_spacing);
 
-                            let (mut button_rect, _) =
-                                ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
+                            let (menu_rect, _) = ui.allocate_exact_size(menu_area, Sense::click());
 
-                            let shrink = button_size - self.depot.ui_state.hand_height_last_frame;
-                            button_rect.set_left(button_rect.left() + shrink);
-                            button_rect.set_bottom(button_rect.bottom() - shrink);
+                            let mut actions_button_rect = menu_rect.clone();
+                            if menu_buttons_vertical {
+                                actions_button_rect
+                                    .set_bottom(actions_button_rect.top() + button_size);
+                            } else {
+                                actions_button_rect
+                                    .set_left(actions_button_rect.right() - button_size);
+                            };
 
-                            let button_resp = ui.interact(
-                                button_rect,
-                                ui.id().with("action button"),
-                                Sense::click(),
-                            );
+                            let mut dict_button_rect = menu_rect.clone();
+                            if menu_buttons_vertical {
+                                dict_button_rect.set_top(dict_button_rect.bottom() - button_size);
+                            } else {
+                                dict_button_rect.set_right(dict_button_rect.left() + button_size);
+                            };
 
-                            if button_resp.hovered() {
-                                button_rect = button_rect.translate(vec2(0.0, -2.0));
-                                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                            if menu_buttons_vertical {
+                                let shrink =
+                                    button_size - self.depot.ui_state.hand_height_last_frame;
+
+                                dict_button_rect.set_left(dict_button_rect.left() + shrink);
+                                dict_button_rect.set_bottom(dict_button_rect.bottom() - shrink);
+
+                                actions_button_rect.set_left(actions_button_rect.left() + shrink);
+                                actions_button_rect.set_top(actions_button_rect.top() + shrink);
                             }
 
-                            render_tex_quad(
-                                if self.depot.ui_state.actions_menu_open {
-                                    tiles::quad::TRI_SOUTH_BUTTON
-                                } else {
-                                    tiles::quad::TRI_NORTH_BUTTON
-                                },
-                                button_rect,
-                                &self.depot.aesthetics.map_texture,
-                                ui,
-                            );
+                            {
+                                let actions_resp = ui.interact(
+                                    actions_button_rect,
+                                    ui.id().with("action button"),
+                                    Sense::click(),
+                                );
 
-                            if button_resp.clicked() {
-                                self.depot.ui_state.actions_menu_open =
-                                    !self.depot.ui_state.actions_menu_open;
+                                if actions_resp.hovered() {
+                                    actions_button_rect =
+                                        actions_button_rect.translate(vec2(0.0, -2.0));
+                                    ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                                }
+
+                                render_tex_quad(
+                                    if self.depot.ui_state.actions_menu_open {
+                                        tiles::quad::TRI_SOUTH_BUTTON
+                                    } else {
+                                        tiles::quad::TRI_NORTH_BUTTON
+                                    },
+                                    actions_button_rect,
+                                    &self.depot.aesthetics.map_texture,
+                                    ui,
+                                );
+
+                                if actions_resp.clicked() {
+                                    self.depot.ui_state.actions_menu_open =
+                                        !self.depot.ui_state.actions_menu_open;
+                                }
+                            }
+
+                            {
+                                let dict_resp = ui.interact(
+                                    dict_button_rect,
+                                    ui.id().with("dict button"),
+                                    Sense::click(),
+                                );
+
+                                if dict_resp.hovered() {
+                                    dict_button_rect = dict_button_rect.translate(vec2(0.0, -2.0));
+                                    ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                                }
+
+                                render_tex_quad(
+                                    if self.depot.ui_state.actions_menu_open {
+                                        tiles::quad::INFO_BUTTON
+                                    } else {
+                                        tiles::quad::INFO_BUTTON
+                                    },
+                                    dict_button_rect,
+                                    &self.depot.aesthetics.map_texture,
+                                    ui,
+                                );
+
+                                if dict_resp.clicked() {
+                                    self.dictionary_ui = Some(DictionaryUI::new());
+                                }
                             }
 
                             ui.add_space(item_spacing);
 
-                            let (hand_alloc, _) = ui.allocate_at_least(
-                                vec2(ui.available_width() - item_spacing, 50.0),
+                            let (mut hand_alloc, _) = ui.allocate_at_least(
+                                vec2(ui.available_width() - item_spacing, ui.available_height()),
                                 Sense::hover(),
                             );
+                            if hand_alloc.height() > button_size {
+                                hand_alloc.set_top(
+                                    hand_alloc.top() + (hand_alloc.height() - button_size),
+                                );
+                            }
                             let mut hand_ui =
                                 ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
                             let active = self.depot.gameplay.player_number
