@@ -186,7 +186,7 @@ impl GameManager {
                     .as_micros()
                     % 287520520) as u32,
                 day: None,
-                params: BoardParams::latest().1,
+                params: BoardParams::wild(),
                 current_iteration: 0,
                 width_resize_state: None,
                 height_resize_state: None,

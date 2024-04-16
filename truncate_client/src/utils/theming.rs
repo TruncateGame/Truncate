@@ -33,7 +33,7 @@ impl Theme {
     pub fn day() -> Self {
         Self {
             daytime: true,
-            water: hex_color!("#50A7E8"),
+            water: hex_color!("#000000"),
             grass: hex_color!("#7BCB69"),
             text: hex_color!("#333333"),
             faded: hex_color!("#777777"),

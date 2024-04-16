@@ -15,8 +15,32 @@ impl TileBag {
         match tile_distribution {
             rules::TileDistribution::Standard => Self::custom(
                 [
-                    // banagrams letter distribution
-                    13, 3, 3, 6, 18, 3, 4, 3, 12, 2, 2, 5, 3, 8, 11, 3, 2, 9, 6, 9, 6, 3, 3, 2, 3, 2,
+                    14, // a
+                    4,  // b
+                    5,  // c
+                    6,  // d
+                    16, // e
+                    3,  // f
+                    4,  // g
+                    4,  // h
+                    10, // i
+                    1,  // j
+                    3,  // k
+                    8,  // l
+                    4,  // m
+                    7,  // n
+                    11, // o
+                    5,  // p
+                    1,  // q
+                    9,  // r
+                    10, // s
+                    8,  // t
+                    6,  // u
+                    2,  // v
+                    3,  // w
+                    1,  // x
+                    4,  // y
+                    1,  // z
                 ],
                 seed,
             ),
