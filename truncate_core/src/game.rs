@@ -292,6 +292,15 @@ impl Game {
             Move::Swap { player, .. } => player,
         };
 
+        if let Some(turn_start) = self.players[player].turn_starts_no_sooner_than {
+            if now() > turn_start + 600 {
+                self.players[player].turn_starts_no_sooner_than = Some(now());
+                self.players[player].turn_starts_no_later_than = Some(now());
+
+                return Err("Game is now unpaused lmao".into());
+            }
+        }
+
         self.calculate_game_over(Some(player));
         if self.winner.is_some() {
             return Ok(self.winner);
