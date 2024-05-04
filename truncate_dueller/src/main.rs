@@ -6,7 +6,7 @@ use truncate_core::{
     generation::{generate_board, get_game_verification, BoardSeed},
     messages::PlayerMessage,
     moves::Move,
-    npc::scoring::NPCParams,
+    npc::scoring::{NPCParams, NPCPersonality},
     rules::GameRules,
 };
 
@@ -45,7 +45,7 @@ fn evaluate_single_seed(
     let mut game = get_game_for_seed(seed.clone(), latest_rules_generation);
 
     let verification = get_game_verification(&game);
-    let npc_params = NPCParams::default();
+    let npc_params = NPCPersonality::jet().params;
     let mut dicts = get_dicts();
 
     while game.turn_count < maximum_turns {
@@ -186,7 +186,7 @@ fn verify_note(seed: &u32, note: &SeedNote) {
 }
 
 fn main() {
-    let quantity = 50;
+    let quantity = 10;
 
     let mut current_notes = load_file();
     ensure_dicts();
