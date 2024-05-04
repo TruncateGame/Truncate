@@ -93,6 +93,7 @@ impl<'a> HandUI<'a> {
             Some(interactions),
         );
 
+        let mut started_interaction = false;
         let rearrange = None;
         let mut next_selection = None;
         let mut highlights = interactions.highlight_tiles.clone();
@@ -181,6 +182,8 @@ impl<'a> HandUI<'a> {
                                 0.0,
                                 0.0,
                             );
+
+                            started_interaction = true;
                         } else if tile_response.drag_released() && is_decidedly_dragging {
                             if let Some(HoveredRegion {
                                 coord: Some(coord), ..
@@ -281,6 +284,8 @@ impl<'a> HandUI<'a> {
                             } else {
                                 next_selection = Some(Some((i, self.hand.0[i])));
                             }
+
+                            started_interaction = true;
                         }
                     });
                 }
@@ -297,5 +302,10 @@ impl<'a> HandUI<'a> {
         }
 
         depot.aesthetics.theme = old_theme;
+
+        if started_interaction {
+            depot.ui_state.dictionary_open = false;
+            depot.ui_state.dictionary_focused = false;
+        }
     }
 }

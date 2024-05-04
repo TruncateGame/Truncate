@@ -81,21 +81,6 @@ impl ActiveGame {
                         ui.add_space(menu_spacing);
                     }
 
-                    let text = TextHelper::heavy("OPEN DICTIONARY", 14.0, None, ui);
-                    if text
-                        .button(
-                            self.depot.aesthetics.theme.button_secondary,
-                            self.depot.aesthetics.theme.text,
-                            &self.depot.aesthetics.map_texture,
-                            ui,
-                        )
-                        .clicked()
-                    {
-                        self.dictionary_ui = Some(DictionaryUI::new());
-                        self.depot.ui_state.actions_menu_open = false;
-                    }
-                    ui.add_space(menu_spacing);
-
                     let text = if self.depot.audio.muted {
                         TextHelper::heavy("UNMUTE SOUNDS", 14.0, None, ui)
                     } else {

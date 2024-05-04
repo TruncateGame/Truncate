@@ -1,7 +1,7 @@
-use eframe::egui::{self, Layout, Sense};
+use eframe::egui::{self, CursorIcon, Layout, Sense};
 use epaint::{
     emath::{Align, Align2},
-    vec2, Color32, Stroke,
+    hex_color, vec2, Color32, Stroke,
 };
 
 use std::{collections::HashMap, f32};
@@ -11,7 +11,13 @@ use truncate_core::{
     reporting::{BattleReport, BattleWord, WordMeaning},
 };
 
-use crate::utils::{depot::TruncateDepot, game_evals::get_main_dict, text::TextHelper, Lighten};
+use crate::utils::{
+    depot::TruncateDepot,
+    game_evals::get_main_dict,
+    tex::{render_tex_quad, tiles},
+    text::TextHelper,
+    Lighten,
+};
 
 use super::BattleUI;
 
@@ -46,16 +52,56 @@ impl DictionaryUI {
 
         let input_fz = 20.0;
 
-        let desired_input_width = ui.available_width().min(500.0);
-        let desired_input_height = input_fz * 2.0;
+        let desired_input_width = ui.available_width().min(550.0);
 
-        ui.add_space(20.0);
+        let desired_input_height = input_fz * 2.0;
+        let fill_height = depot
+            .regions
+            .headers_total_rect
+            .map(|r| r.height())
+            .unwrap_or(input_fz * 3.0);
+
+        let spacing = fill_height - desired_input_height;
+        if spacing > 4.0 {
+            ui.add_space(spacing - 4.0);
+        }
+
         let inset = (ui.available_width() - desired_input_width) / 2.0;
         let (input_band, _) = ui.allocate_exact_size(
             vec2(ui.available_width(), desired_input_height),
             Sense::hover(),
         );
-        let input_inner = input_band.shrink2(vec2(inset, 0.0));
+        let input_band_inner = input_band.shrink2(vec2(inset, 0.0));
+
+        let mut close_button = input_band_inner.clone();
+        close_button.set_left(close_button.right() - 48.0);
+        if close_button.height() < 48.0 {
+            close_button = close_button.expand2(vec2(0.0, (48.0 - close_button.height()) / 2.0));
+        }
+
+        let button_resp = ui.interact(close_button, ui.id().with("close"), Sense::click());
+
+        if button_resp.hovered() {
+            close_button = close_button.translate(vec2(0.0, -2.0));
+            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+        }
+        render_tex_quad(
+            tiles::quad::CLOSE_BUTTON,
+            close_button,
+            &depot.aesthetics.map_texture,
+            ui,
+        );
+
+        if button_resp.clicked() {
+            depot.ui_state.dictionary_open = false;
+            depot.ui_state.dictionary_focused = false;
+            return None;
+        }
+
+        let mut input_inner = input_band_inner.clone();
+        input_inner.set_right(close_button.left() - 16.0);
+        input_inner.set_left(input_inner.left() + 6.0);
+
         let mut input_ui = ui.child_ui(input_inner, Layout::top_down(Align::LEFT));
 
         ui.painter().rect_filled(
@@ -86,6 +132,14 @@ impl DictionaryUI {
                 egui::FontFamily::Name("Truncate-Heavy".into()),
             ))
             .show(&mut input_ui);
+
+        if (input.response.gained_focus() || input.response.has_focus())
+            && !ui.input(|i| i.pointer.any_down())
+        {
+            depot.ui_state.dictionary_focused = true;
+        } else if !input.response.has_focus() {
+            depot.ui_state.dictionary_focused = false;
+        }
 
         if input.response.changed() {
             self.current_word = self.current_word.to_ascii_lowercase();
@@ -133,7 +187,7 @@ impl DictionaryUI {
                 outcome: Outcome::DefenderWins,
             };
 
-            let desired_battle_width = ui.available_width().min(500.0);
+            let desired_battle_width = ui.available_width().min(550.0);
 
             ui.add_space(20.0);
 
@@ -147,39 +201,41 @@ impl DictionaryUI {
 
             BattleUI::new(&report, false).render(&mut battle_ui, depot);
         } else {
-            let text = TextHelper::heavy("Search", 20.0, None, ui);
-            text.paint_within(
-                input.response.rect,
-                Align2::CENTER_CENTER,
-                Color32::WHITE.gamma_multiply(0.8),
-                ui,
-            );
+            if depot.ui_state.dictionary_focused {
+                ui.add_space(20.0);
 
-            ui.add_space(20.0);
+                let (dialog_rect, _) = crate::utils::tex::paint_dialog_background(
+                    false,
+                    false,
+                    true,
+                    vec2(input_band_inner.width(), 200.0),
+                    depot.aesthetics.theme.water.lighten().lighten(),
+                    &depot.aesthetics.map_texture,
+                    ui,
+                );
 
-            let (dialog_rect, _) = crate::utils::tex::paint_dialog_background(
-                false,
-                false,
-                true,
-                vec2(input.response.rect.width(), 200.0),
-                depot.aesthetics.theme.water.lighten().lighten(),
-                &depot.aesthetics.map_texture,
-                ui,
-            );
+                let dialog_text = TextHelper::light(
+                    "Use the input above to check whether a word exists in Truncate's dictionary",
+                    32.0,
+                    Some(dialog_rect.shrink(16.0).width()),
+                    ui,
+                );
 
-            let dialog_text = TextHelper::light(
-                "Use the input above to check whether a word exists in Truncate's dictionary",
-                32.0,
-                Some(dialog_rect.shrink(16.0).width()),
-                ui,
-            );
-
-            dialog_text.paint_within(
-                dialog_rect,
-                Align2::CENTER_CENTER,
-                depot.aesthetics.theme.text,
-                ui,
-            );
+                dialog_text.paint_within(
+                    dialog_rect,
+                    Align2::CENTER_CENTER,
+                    depot.aesthetics.theme.text,
+                    ui,
+                );
+            } else {
+                let text = TextHelper::heavy("Search", 20.0, None, ui);
+                text.paint_within(
+                    input.response.rect,
+                    Align2::CENTER_CENTER,
+                    Color32::WHITE.gamma_multiply(0.8),
+                    ui,
+                );
+            }
         }
 
         msg

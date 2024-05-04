@@ -33,6 +33,7 @@ pub struct TexLayers {
     pub checkerboard: Option<TexQuad>,
     pub structures: Option<TexQuad>,
     pub pieces: Vec<PieceLayer>,
+    pub piece_validities: Vec<PieceLayer>,
     pub fog: Option<TexQuad>,
 }
 
@@ -69,6 +70,11 @@ impl TexLayers {
         self
     }
 
+    pub fn into_piece_validity(mut self) -> Self {
+        self.piece_validities.extend(self.pieces.drain(..));
+        self
+    }
+
     pub fn merge(self, mut other: TexLayers) -> Self {
         other.terrain = self.terrain.or(other.terrain);
         other.structures = self.structures.or(other.structures);
@@ -88,7 +94,7 @@ impl From<&Square> for BGTexType {
         use truncate_core::board::Square::*;
         match sq {
             Water | Fog | Dock(_) => Self::WaterOrFog,
-            Land | Town { .. } | Occupied(_, _) => Self::Land,
+            Land | Town { .. } | Occupied { .. } => Self::Land,
         }
     }
 }
@@ -113,7 +119,7 @@ impl From<(&Square, &Vec<Color32>)> for FGTexType {
             Square::Dock(player) => {
                 Self::Dock(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
-            Square::Occupied(_, _) => Self::None,
+            Square::Occupied { .. } => Self::None,
         }
     }
 }
