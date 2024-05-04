@@ -13,7 +13,7 @@ use crate::{app_inner, utils::glyph_utils::Glypher};
 use eframe::egui::{self, Frame, Margin, TextureOptions};
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::JsValue;
-use epaint::TextureHandle;
+use epaint::{Color32, Stroke, TextureHandle};
 use truncate_core::{
     board::Board,
     messages::{GameMessage, PlayerMessage},
@@ -241,6 +241,7 @@ impl OuterApplication {
             let mut visuals = egui::Visuals::light();
             visuals.window_fill = theme.water;
             visuals.panel_fill = theme.water;
+            visuals.text_cursor = Stroke::new(2.0, Color32::WHITE);
             style.visuals = visuals;
             style.spacing.window_margin = Margin::same(0.0);
 

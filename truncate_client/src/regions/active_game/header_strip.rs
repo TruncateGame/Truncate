@@ -27,6 +27,10 @@ impl ActiveGame {
             return (None, None);
         }
 
+        if self.depot.ui_state.dictionary_open {
+            return (self.depot.regions.headers_total_rect, None);
+        }
+
         let timer_area = ui.available_rect_before_wrap();
         let avail_width = ui.available_width();
         let msg = None;
@@ -63,6 +67,7 @@ impl ActiveGame {
                         ui.add_space(item_spacing);
                         let (mut sidebar_button_rect, sidebar_button_resp) =
                             ui.allocate_exact_size(Vec2::splat(button_size), Sense::click());
+
                         if sidebar_button_resp.hovered() {
                             sidebar_button_rect = sidebar_button_rect.translate(vec2(0.0, -2.0));
                             ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);

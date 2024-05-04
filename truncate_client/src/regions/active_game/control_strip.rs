@@ -246,8 +246,15 @@ impl ActiveGame {
                                 );
 
                                 if dict_resp.clicked() {
-                                    self.depot.ui_state.dictionary_open =
-                                        !self.depot.ui_state.dictionary_open;
+                                    if self.depot.ui_state.dictionary_open {
+                                        self.depot.ui_state.dictionary_open = false;
+                                        self.depot.ui_state.dictionary_focused = false;
+                                        self.dictionary_ui = None;
+                                    } else {
+                                        self.depot.ui_state.dictionary_open = true;
+                                        self.depot.ui_state.dictionary_focused = false;
+                                        self.dictionary_ui = Some(DictionaryUI::new());
+                                    }
                                 }
                             }
 

@@ -55,6 +55,7 @@ pub struct UIStateDepot {
     pub game_header: HeaderType,
     pub actions_menu_open: bool,
     pub dictionary_open: bool,
+    pub dictionary_focused: bool,
     pub hand_height_last_frame: f32,
 }
 
