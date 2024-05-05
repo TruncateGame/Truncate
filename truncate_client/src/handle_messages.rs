@@ -171,6 +171,9 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                             dict_ui.load_definitions(definitions);
                         }
                     }
+                    GameStatus::Tutorial(tut) => {
+                        tut.load_definitions(definitions);
+                    }
                     _ => { /* Soft unreachable */ }
                 }
             }

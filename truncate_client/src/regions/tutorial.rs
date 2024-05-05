@@ -12,12 +12,14 @@ use truncate_core::{
     messages::{GameStateMessage, PlayerMessage},
     moves::Move,
     player::{Hand, Player},
+    reporting::WordMeaning,
     rules::GameRules,
 };
 
 use crate::{
     app_outer::EventDispatcher,
     utils::{
+        game_evals::get_main_dict,
         includes::{Scenario, ScenarioStep, Tutorial},
         tex::{render_tex_quad, tiles},
         text::TextHelper,
@@ -140,7 +142,10 @@ impl TutorialStage {
             self.game.bag = TileBag::explicit(vec![*next_tile], None);
         }
 
-        match self.game.play_turn(next_move, None, None, None) {
+        let dict_lock = get_main_dict();
+        let dict = dict_lock.as_ref().unwrap();
+
+        match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
             Ok(possible_winner) => {
                 let changes = self
                     .game
@@ -205,6 +210,14 @@ impl TutorialState {
         }
     }
 
+    pub fn load_definitions(&mut self, definitions: Vec<(String, Option<Vec<WordMeaning>>)>) {
+        if let Some(stage) = &mut self.stage {
+            if let Some(dict_ui) = &mut stage.active_game.dictionary_ui {
+                dict_ui.load_definitions(definitions);
+            }
+        }
+    }
+
     fn get_nth_scenario(tutorial: &Tutorial, index: usize) -> Option<(&String, &Scenario)> {
         tutorial
             .rules
@@ -224,6 +237,12 @@ impl TutorialState {
         let scenario = TutorialState::get_nth_scenario(tutorial, index);
 
         scenario.map(|(category, scenario)| {
+            let mut board = Board::from_string(scenario.board.clone());
+
+            let dict_lock = get_main_dict();
+            let dict = dict_lock.as_ref().unwrap();
+            board.mark_all_validity(Some(dict));
+
             let mut game = Game {
                 rules: GameRules::latest().1,
                 players: vec![
@@ -257,10 +276,10 @@ impl TutorialState {
                         color: GAME_COLOR_RED,
                     },
                 ],
-                board: Board::from_string(scenario.board.clone()),
+                board,
                 // TODO: Use some special infinite bag?
                 bag: TileBag::latest(None).1,
-                judge: Judge::new(scenario.dict.keys().cloned().collect()),
+                judge: Judge::new(vec![]),
                 battle_count: 0,
                 turn_count: 0,
                 player_turn_count: vec![0, 0],
@@ -329,7 +348,9 @@ impl TutorialState {
         map_texture: TextureHandle,
         theme: &Theme,
         current_time: Duration,
-    ) {
+    ) -> Vec<PlayerMessage> {
+        let mut msgs_to_server = vec![];
+
         if self.stage_changed_at.is_zero() {
             self.stage_changed_at = current_time;
         }
@@ -371,7 +392,7 @@ impl TutorialState {
 
         let Some(current_stage) = self.stage.as_mut() else {
             ui.label("Tutorial is over!!!!!!!!!!!!!!!!!!!!!!!!");
-            return;
+            return msgs_to_server;
         };
 
         current_stage.highlight_interactions();
@@ -392,93 +413,104 @@ impl TutorialState {
 
         let header_x_padding = (ui.available_width() - header_content_width) / 2.0;
 
-        area.show(ui.ctx(), |ui| {
-            let header_rect = Rect::from_min_size(
-                ui.next_widget_position(),
-                vec2(ui.available_width(), heading_height),
-            );
+        let paint_header = !current_stage.active_game.depot.ui_state.dictionary_open;
 
-            ui.painter()
-                .clone()
-                .rect_filled(header_rect, 0.0, theme.water.gamma_multiply(0.9));
+        if paint_header {
+            area.show(ui.ctx(), |ui| {
+                let header_rect = Rect::from_min_size(
+                    ui.next_widget_position(),
+                    vec2(ui.available_width(), heading_height),
+                );
 
-            ui.allocate_ui_with_layout(
-                vec2(ui.available_width(), heading_height),
-                Layout::left_to_right(Align::TOP),
-                |ui| {
-                    ui.expand_to_include_rect(header_rect);
-                    ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+                ui.painter()
+                    .clone()
+                    .rect_filled(header_rect, 0.0, theme.water.gamma_multiply(0.9));
 
-                    ui.add_space(header_x_padding);
+                ui.allocate_ui_with_layout(
+                    vec2(ui.available_width(), heading_height),
+                    Layout::left_to_right(Align::TOP),
+                    |ui| {
+                        ui.expand_to_include_rect(header_rect);
+                        ui.spacing_mut().item_spacing = Vec2::splat(0.0);
 
-                    ui.add_space(item_spacing);
+                        ui.add_space(header_x_padding);
 
-                    if can_decrement_stage {
-                        let (prev_stage_rect, _) = ui
-                            .allocate_exact_size(vec2(button_size, heading_height), Sense::hover());
-                        let mut prev_stage_rect = prev_stage_rect.shrink2(vec2(0.0, button_offset));
-                        let prev_stage_resp = ui.allocate_rect(prev_stage_rect, Sense::click());
-                        if prev_stage_resp.hovered() {
-                            prev_stage_rect = prev_stage_rect.translate(vec2(0.0, -2.0));
-                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-                        }
-
-                        render_tex_quad(
-                            tiles::quad::SKIP_PREV_BUTTON,
-                            prev_stage_rect,
-                            &map_texture,
-                            ui,
-                        );
-
-                        if prev_stage_resp.clicked() {
-                            self.change_stage_next_frame = ChangeStage::Previous;
-                        }
-                    } else {
-                        ui.add_space(button_size);
-                    }
-
-                    ui.add_space(item_spacing);
-
-                    let (title_rect, _) = ui.allocate_exact_size(
-                        vec2(header_text_width, heading_height),
-                        Sense::hover(),
-                    );
-
-                    let mut fz = 14.0;
-                    let mut title_text =
-                        TextHelper::heavy(&current_stage.scenario.name, fz, None, ui);
-                    while title_text.mesh_size().x > title_rect.width() {
-                        fz -= 1.0;
-                        title_text = TextHelper::heavy(&current_stage.scenario.name, fz, None, ui);
-                    }
-                    title_text.paint_within(title_rect, Align2::CENTER_CENTER, theme.text, ui);
-
-                    if can_increment_stage {
                         ui.add_space(item_spacing);
 
-                        let (next_stage_rect, _) = ui
-                            .allocate_exact_size(vec2(button_size, heading_height), Sense::hover());
-                        let mut next_stage_rect = next_stage_rect.shrink2(vec2(0.0, button_offset));
-                        let next_stage_resp = ui.allocate_rect(next_stage_rect, Sense::click());
-                        if next_stage_resp.hovered() {
-                            next_stage_rect = next_stage_rect.translate(vec2(0.0, -2.0));
-                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        if can_decrement_stage {
+                            let (prev_stage_rect, _) = ui.allocate_exact_size(
+                                vec2(button_size, heading_height),
+                                Sense::hover(),
+                            );
+                            let mut prev_stage_rect =
+                                prev_stage_rect.shrink2(vec2(0.0, button_offset));
+                            let prev_stage_resp = ui.allocate_rect(prev_stage_rect, Sense::click());
+                            if prev_stage_resp.hovered() {
+                                prev_stage_rect = prev_stage_rect.translate(vec2(0.0, -2.0));
+                                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                            }
+
+                            render_tex_quad(
+                                tiles::quad::SKIP_PREV_BUTTON,
+                                prev_stage_rect,
+                                &map_texture,
+                                ui,
+                            );
+
+                            if prev_stage_resp.clicked() {
+                                self.change_stage_next_frame = ChangeStage::Previous;
+                            }
+                        } else {
+                            ui.add_space(button_size);
                         }
 
-                        render_tex_quad(
-                            tiles::quad::SKIP_NEXT_BUTTON,
-                            next_stage_rect,
-                            &map_texture,
-                            ui,
+                        ui.add_space(item_spacing);
+
+                        let (title_rect, _) = ui.allocate_exact_size(
+                            vec2(header_text_width, heading_height),
+                            Sense::hover(),
                         );
 
-                        if next_stage_resp.clicked() {
-                            self.change_stage_next_frame = ChangeStage::Next;
+                        let mut fz = 14.0;
+                        let mut title_text =
+                            TextHelper::heavy(&current_stage.scenario.name, fz, None, ui);
+                        while title_text.mesh_size().x > title_rect.width() {
+                            fz -= 1.0;
+                            title_text =
+                                TextHelper::heavy(&current_stage.scenario.name, fz, None, ui);
                         }
-                    }
-                },
-            );
-        });
+                        title_text.paint_within(title_rect, Align2::CENTER_CENTER, theme.text, ui);
+
+                        if can_increment_stage {
+                            ui.add_space(item_spacing);
+
+                            let (next_stage_rect, _) = ui.allocate_exact_size(
+                                vec2(button_size, heading_height),
+                                Sense::hover(),
+                            );
+                            let mut next_stage_rect =
+                                next_stage_rect.shrink2(vec2(0.0, button_offset));
+                            let next_stage_resp = ui.allocate_rect(next_stage_rect, Sense::click());
+                            if next_stage_resp.hovered() {
+                                next_stage_rect = next_stage_rect.translate(vec2(0.0, -2.0));
+                                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                            }
+
+                            render_tex_quad(
+                                tiles::quad::SKIP_NEXT_BUTTON,
+                                next_stage_rect,
+                                &map_texture,
+                                ui,
+                            );
+
+                            if next_stage_resp.clicked() {
+                                self.change_stage_next_frame = ChangeStage::Next;
+                            }
+                        }
+                    },
+                );
+            });
+        }
 
         ui.add_space(heading_height);
 
@@ -487,6 +519,10 @@ impl TutorialState {
 
         // Standard game helper
         if let Some(msg) = current_stage.render_game(ui, current_time) {
+            if let PlayerMessage::RequestDefinitions(words) = &msg {
+                msgs_to_server.push(PlayerMessage::RequestDefinitions(words.clone()));
+            }
+
             let Some(game_move) = (match msg {
                 PlayerMessage::Place(position, tile) => Some(Move::Place {
                     player: 0,
@@ -499,11 +535,11 @@ impl TutorialState {
                 }),
                 _ => None,
             }) else {
-                return;
+                return msgs_to_server;
             };
 
             let Some(step) = current_step.as_ref() else {
-                return;
+                return msgs_to_server;
             };
 
             if step == &game_move {
@@ -748,5 +784,7 @@ impl TutorialState {
         if let Some(pending_event) = pending_event {
             self.sub_event(pending_event);
         }
+
+        msgs_to_server
     }
 }
