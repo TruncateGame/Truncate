@@ -29,14 +29,6 @@ rules:
       player_hand: ERTYELU
       computer_hand: R
 
-      dict:
-        ENOUGH: |-
-          det: Sufficient; all that is required, needed, or appropriate.
-        FOUR: |-
-          num: A numerical value equal to 4; the number after 3 and before 5; two plus two. This many dots (????)
-        EEL: |-
-          noun: Any freshwater or marine fish of the order Anguilliformes, which are elongated and resemble snakes.
-
       steps:
         - message: |-
             Rule change: Allow invalid secondary attackers

@@ -252,7 +252,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             generator.render(ui, &outer.theme, current_time);
         }
         GameStatus::Tutorial(tutorial) => {
-            tutorial.render(ui, outer.map_texture.clone(), &outer.theme, current_time);
+            for msg in tutorial.render(ui, outer.map_texture.clone(), &outer.theme, current_time) {
+                send(msg);
+            }
         }
         GameStatus::PendingSinglePlayer(editor_state) => {
             if let Some(msg) = editor_state.render(ui, &outer.theme) {
