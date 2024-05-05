@@ -88,7 +88,7 @@ impl From<&Square> for BGTexType {
         use truncate_core::board::Square::*;
         match sq {
             Water | Fog | Dock(_) => Self::WaterOrFog,
-            Land | Town { .. } | Occupied(_, _) => Self::Land,
+            Land | Town { .. } | Obelisk | Occupied(_, _) => Self::Land,
         }
     }
 }
@@ -98,6 +98,7 @@ pub enum FGTexType {
     None,
     Town(Color32),
     Dock(Color32),
+    Obelisk,
     Fog,
 }
 
@@ -107,6 +108,7 @@ impl From<(&Square, &Vec<Color32>)> for FGTexType {
             Square::Water => Self::None,
             Square::Fog => Self::Fog,
             Square::Land => Self::None,
+            Square::Obelisk => Self::Obelisk,
             Square::Town { player, .. } => {
                 Self::Town(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
@@ -678,6 +680,9 @@ impl Tex {
             }
             FGTexType::Dock(color) => {
                 layers = layers.merge(Tex::dock(color, neighbors, wind_at_coord))
+            }
+            FGTexType::Obelisk => {
+                layers = layers.merge(TexLayers::default().with_structures(tiles::quad::DIALOG))
             }
             FGTexType::Fog => unreachable!(),
             FGTexType::None => {}

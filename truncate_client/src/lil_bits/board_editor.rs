@@ -266,9 +266,9 @@ impl<'a> EditorUI<'a> {
                                                 Square::Water | Square::Dock(_) => {
                                                     EditorDrag::MakeLand
                                                 }
-                                                Square::Land | Square::Town { .. } => {
-                                                    EditorDrag::RemoveLand
-                                                }
+                                                Square::Land
+                                                | Square::Town { .. }
+                                                | Square::Obelisk => EditorDrag::RemoveLand,
                                                 Square::Occupied(_, _) => unreachable!(),
                                                 Square::Fog => unreachable!(),
                                             },
@@ -325,7 +325,7 @@ impl<'a> EditorUI<'a> {
 
                     // TODO: Player mirroring won't work for >2 players
                     let mirrored_state = match new_state {
-                        Square::Water | Square::Land => new_state,
+                        Square::Water | Square::Land | Square::Obelisk => new_state,
                         Square::Town { player: p, .. } => {
                             if p == 0 {
                                 Square::Town {

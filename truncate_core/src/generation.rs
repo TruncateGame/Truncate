@@ -74,15 +74,15 @@ impl BoardParams {
 
     pub fn wild() -> Self {
         Self {
-            land_dimensions: [250, 250],
+            land_dimensions: [180, 180],
             dispersion: [13.51, 13.51],
             island_influence: 0.23,
             maximum_town_density: 0.2,
             maximum_town_distance: 0.1,
-            minimum_choke: 3,
+            minimum_choke: 4,
             board_type: BoardType::Continental,
-            ideal_dock_radius: 0.3,
-            ideal_dock_separation: 0.1,
+            ideal_dock_radius: 0.2,
+            ideal_dock_separation: 0.2,
         }
     }
 }
@@ -337,17 +337,21 @@ pub fn generate_board(
         return retry_with(board_seed, board);
     };
 
-    if board
-        .generate_towns(
-            seed,
-            &shortest_attack_path,
-            maximum_town_density,
-            maximum_town_distance,
-        )
-        .is_err()
-    {
+    // if board
+    //     .generate_towns(
+    //         seed,
+    //         &shortest_attack_path,
+    //         maximum_town_density,
+    //         maximum_town_distance,
+    //     )
+    //     .is_err()
+    // {
+    //     return retry_with(board_seed, board);
+    // };
+
+    if board.generate_obelisk(&shortest_attack_path).is_err() {
         return retry_with(board_seed, board);
-    };
+    }
 
     Ok(BoardGenerationResult {
         board,
@@ -376,6 +380,8 @@ trait BoardGenerator {
         maximum_town_density: f64,
         maximum_town_distance: f64,
     ) -> Result<(), ()>;
+
+    fn generate_obelisk(&mut self, main_road: &Vec<Coordinate>) -> Result<(), ()>;
 }
 
 impl BoardGenerator for Board {
@@ -889,6 +895,12 @@ impl BoardGenerator for Board {
         } else {
             Err(())
         }
+    }
+
+    fn generate_obelisk(&mut self, main_road: &Vec<Coordinate>) -> Result<(), ()> {
+        _ = self.set_square(main_road[main_road.len() / 2], Square::Obelisk);
+
+        Ok(())
     }
 }
 

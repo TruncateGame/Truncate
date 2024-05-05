@@ -204,10 +204,15 @@ impl Game {
 
         if self.game_is_overtime() {
             match &self.rules.win_metric {
-                rules::WinMetric::TownProximity => {
-                    let mut scores: Vec<_> = (0..self.players.len())
-                        .map(|p| self.board.proximity_to_enemy_town(p))
-                        .collect();
+                rules::WinMetric::TownProximity | rules::WinMetric::ObeliskProximity => {
+                    let mut scores: Vec<_> = match &self.rules.win_metric {
+                        rules::WinMetric::TownProximity => (0..self.players.len())
+                            .map(|p| self.board.proximity_to_enemy_town(p))
+                            .collect(),
+                        rules::WinMetric::ObeliskProximity => (0..self.players.len())
+                            .map(|p| self.board.proximity_to_obelisk(p))
+                            .collect(),
+                    };
 
                     let mut remaining_players: Vec<_> = (0..self.players.len()).collect();
 

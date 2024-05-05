@@ -62,6 +62,7 @@ pub struct Board {
     pub squares: Vec<Vec<Square>>,
     pub docks: Vec<Coordinate>,
     pub towns: Vec<Coordinate>,
+    pub obelisks: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
                                   // TODO: Move orientations off the Board and have them tagged against specific players
 }
@@ -101,7 +102,8 @@ impl Board {
         let mut board = Board {
             squares,
             docks: vec![],
-            towns: vec![], // TODO: populate
+            towns: vec![],
+            obelisks: vec![],
             orientations: vec![Direction::North, Direction::South],
         };
 
@@ -281,6 +283,7 @@ impl Board {
         for coord in coords {
             match self.get(coord) {
                 Ok(Square::Water | Square::Land | Square::Occupied(_, _) | Square::Fog) => {}
+                Ok(Square::Obelisk) => self.obelisks.push(coord),
                 Ok(Square::Town { .. }) => self.towns.push(coord),
                 Ok(Square::Dock(_)) => self.docks.push(coord),
                 Err(e) => {
@@ -382,7 +385,7 @@ impl Board {
                     }
                     tiles[i] = tile;
                 }
-                Water | Land | Fog | Town { .. } | Dock(_) => {
+                Water | Land | Fog | Town { .. } | Obelisk | Dock(_) => {
                     return Err(GamePlayError::UnoccupiedSwap)
                 }
             };
@@ -864,6 +867,35 @@ impl Board {
         proximities
     }
 
+    pub fn proximity_to_obelisk(&self, player_index: usize) -> Vec<usize> {
+        let rows = self.height();
+        let cols = self.width();
+
+        assert_eq!(
+            self.obelisks.len(),
+            1,
+            "We only support one obelisk right now"
+        );
+
+        let ob = self.obelisks[0];
+        let distances = self.flood_fill(&ob);
+        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
+
+        let mut proximities: Vec<_> = squares
+            .flat_map(|(x, y)| {
+                let c = Coordinate { x, y };
+                if matches!(self.get(c), Ok(Square::Occupied(p, _)) if p == player_index) {
+                    distances.direct_distance(&c)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        proximities.sort_by_cached_key(|p| (*p as isize) * -1);
+
+        proximities
+    }
+
     pub fn get_shape(&self) -> Vec<u64> {
         let width = self.width();
         let num_buckets = Coordinate {
@@ -976,7 +1008,7 @@ impl Board {
                 word.iter()
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
-                            Water | Land | Fog | Dock(_) => {
+                            Water | Land | Fog | Dock(_) | Obelisk => {
                                 debug_assert!(false);
                                 err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
@@ -1124,6 +1156,9 @@ impl Board {
                             }
                         }
                     }
+                }
+                Ok(Square::Obelisk) => {
+                    visible_coords.insert(coord);
                 }
                 _ => {}
             }
@@ -1329,6 +1364,7 @@ impl Board {
             squares,
             towns: vec![],
             docks: vec![],
+            obelisks: vec![],
             orientations: vec![Direction::North, Direction::South],
         };
         board.cache_special_squares();
@@ -1447,6 +1483,7 @@ pub enum Square {
     Water,
     Land,
     Town { player: usize, defeated: bool },
+    Obelisk,
     Dock(usize),
     Occupied(usize, char),
     Fog,
@@ -1458,6 +1495,7 @@ impl fmt::Display for Square {
             Square::Water => write!(f, "~~"),
             Square::Fog => write!(f, "░░"),
             Square::Land => write!(f, "__"),
+            Square::Obelisk => write!(f, "^^"),
             Square::Town {
                 player: p,
                 defeated: false,

@@ -20,6 +20,7 @@ pub enum WinCondition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WinMetric {
     TownProximity,
+    ObeliskProximity,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,7 +140,7 @@ impl GameRules {
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
             },
-            win_metric: WinMetric::TownProximity,
+            win_metric: WinMetric::ObeliskProximity,
             visibility: Visibility::LandFog,
             truncation: Truncation::None,
             timing: Timing::PerPlayer {
