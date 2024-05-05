@@ -21,7 +21,6 @@ pub struct Scenario {
     pub board: String,
     pub player_hand: String,
     pub computer_hand: String,
-    pub dict: HashMap<String, String>,
     pub steps: Vec<ScenarioStep>,
 }
 

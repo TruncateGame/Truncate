@@ -19,15 +19,6 @@ rules:
         player_hand: ALIFIRM
         computer_hand: D
 
-        dict:
-          TRAIL: "To follow behind (someone or something)"
-          IT: "The third-person singular personal pronoun used to refer to an inanimate object, abstract entity, or non-human living thing"
-          STRAIN: "A particular variety of a microbe, virus, or other organism"
-          TONERS: "Powder used in laser printers and photocopiers to form the text and images on the printed paper"
-          HERD: "A number of domestic animals assembled together under the watch or ownership of a keeper"
-          HIT: "To administer a blow to, directly or with a weapon or missile"
-          PIN: "A needle without an eye (usually) made of drawn-out steel wire with one end sharpened and the other flattened or rounded into a head, used for fastening"
-
         steps:
 
           - message: |-

@@ -17,8 +17,6 @@ rules:
       player_hand: ALIFIRM
       computer_hand: D
 
-      dict: {}
-
       steps:
         - message: |-
             Welcome to Truncate!
@@ -45,8 +43,6 @@ rules:
 
       player_hand: ALIFIRM
       computer_hand: D
-
-      dict: {}
 
       steps:
         - message: |-
@@ -97,9 +93,6 @@ rules:
       player_hand: GSUYIFZ
       computer_hand: D
 
-      dict:
-        GROWING: present past participle of grow
-
       steps:
         - message: |-
             To win, touch your opponent's town with a valid word.
@@ -132,9 +125,6 @@ rules:
       player_hand: RTUYIL
       computer_hand: D
 
-      dict:
-        YOUR: Belonging to you; of you; related to you
-
       steps:
         - description: |-
             To win, the word touching your opponent's town has to be valid, but the rest of your words don't.
@@ -162,8 +152,6 @@ rules:
       player_hand: RTUYIL
       computer_hand: D
 
-      dict: {}
-
       steps:
         - message: |-
             Your words are written left to right and top to bottom as normal, but your opponent's words are reversed.
@@ -186,8 +174,6 @@ rules:
 
       player_hand: KFAGUMI
       computer_hand: D
-
-      dict: {}
 
       steps:
         - message: |-
@@ -222,9 +208,6 @@ rules:
       player_hand: UMSIKQU
       computer_hand: D
 
-      dict:
-        POPS: Father, dad.
-
       steps:
         - message: |-
             When your tiles and the opponent's tiles touch, they battle.
@@ -257,9 +240,6 @@ rules:
       player_hand: YTIGHUI
       computer_hand: D
 
-      dict:
-        TO: A particle used for marking the following verb as an infinitive.
-
       steps:
         - message: |-
             Only words touching another player's words are involved in a battle. This means you can win battles even though your board contains invalid words.
@@ -287,9 +267,6 @@ rules:
       player_hand: ETHRYUF
       computer_hand: D
 
-      dict:
-        ENORMOUS: Deviating from the norm; unusual, extraordinary.
-
       steps:
         - description: |-
             Long valid words beat short words in a battle. "ENORMOUS" is significantly longer than "PUNY" and would win in a battle.
@@ -316,13 +293,6 @@ rules:
 
       player_hand: TYUIGII
       computer_hand: H
-
-      dict:
-        SHORT: Having a small distance from one end or edge to another, either horizontally or vertically.
-        LONGER: |-
-          adj; comparative form of long: more long
-        CAPS: |-
-          noun: plural of cap.
 
       steps:
         - message: |-
@@ -362,16 +332,6 @@ rules:
 
       player_hand: PLTGHYY
       computer_hand: R
-
-      dict:
-        ERA: |- 
-          noun: A time period of indeterminate length, usually more than a year.
-        TRAP: |- 
-          noun: A machine designed to catch and (and sometimes kill) animals, either by holding them in a container or catching hold of part of their body.
-        PAIR: |- 
-          noun: Two similar or identical things taken together; often followed by of.
-        CALF: |- 
-          noun: A young cow or bull.
 
       steps:
         - message: |-
@@ -428,14 +388,6 @@ rules:
       player_hand: ERTYELU
       computer_hand: R
 
-      dict:
-        ENOUGH: |-
-          det: Sufficient; all that is required, needed, or appropriate.
-        FOUR: |-
-          num: A numerical value equal to 4; the number after 3 and before 5; two plus two. This many dots (????)
-        EEL: |-
-          noun: Any freshwater or marine fish of the order Anguilliformes, which are elongated and resemble snakes.
-
       steps:
         - description: |-
             When there are multiple attackers, the strongest attacker determines the outcome of the battle.
@@ -464,12 +416,6 @@ rules:
       player_hand: ERTYELU
       computer_hand: R
 
-      dict:
-        RESTATE: |-
-          verb: to state again (without chaning)
-        NOT: |-
-          adv: Negates the meaning of the modified verb
-
       steps:
         - description: |-
             When a battle is lost and some tiles become disconnected from their dock, they are removed ("Truncated").
@@ -495,10 +441,6 @@ rules:
 
       player_hand: ""
       computer_hand: R
-
-      dict:
-        DONE: |-
-          done
 
       steps:
         - message: |-

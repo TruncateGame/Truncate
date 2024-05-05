@@ -523,6 +523,16 @@ impl Board {
 }
 
 impl Board {
+    pub fn mark_all_validity(&mut self, ref_dict: Option<&WordDict>) {
+        let rows = self.height();
+        let cols = self.width();
+        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
+
+        for (x, y) in squares {
+            self.mark_validity(Coordinate::new(x, y), ref_dict);
+        }
+    }
+
     pub fn mark_validity(&mut self, modified_position: Coordinate, ref_dict: Option<&WordDict>) {
         let coords = self.get_words(modified_position);
         let Ok(words) = self.word_strings(&coords) else {
