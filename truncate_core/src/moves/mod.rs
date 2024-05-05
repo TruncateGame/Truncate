@@ -54,7 +54,7 @@ impl PartialEq for Move {
 #[cfg(test)]
 mod tests {
     use crate::bag::TileBag;
-    use crate::board::{Board, Coordinate, Square};
+    use crate::board::{Board, Coordinate, Square, SquareValidity};
     use crate::error::GamePlayError;
     use crate::game::Game;
     use crate::judge::Judge;
@@ -99,7 +99,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3, None)
+            ..Game::new(3, 3, None, 0)
         };
         assert_eq!(
             game.make_move(out_of_bounds, None, None, None),
@@ -139,7 +139,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3, None)
+            ..Game::new(3, 3, None, 0)
         };
 
         // Places beside dock
@@ -161,7 +161,11 @@ mod tests {
             }),
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
-                    square: Square::Occupied(0, 'A'),
+                    square: Square::Occupied {
+                        player: 0,
+                        tile: 'A',
+                        validity: SquareValidity::Unknown
+                    },
                     coordinate: Coordinate { x: 3, y: 2 },
                 },
                 action: BoardChangeAction::Added
@@ -232,7 +236,11 @@ mod tests {
             }),
             Ok(vec![Change::Board(BoardChange {
                 detail: BoardChangeDetail {
-                    square: Square::Occupied(0, 'B'),
+                    square: Square::Occupied {
+                        player: 0,
+                        tile: 'B',
+                        validity: SquareValidity::Unknown
+                    },
                     coordinate: Coordinate { x: 3, y: 3 },
                 },
                 action: BoardChangeAction::Added
@@ -268,14 +276,22 @@ mod tests {
             Ok(vec![
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
-                        square: Square::Occupied(0, 'B'),
+                        square: Square::Occupied {
+                            player: 0,
+                            tile: 'B',
+                            validity: SquareValidity::Unknown
+                        },
                         coordinate: Coordinate { x: 3, y: 2 },
                     },
                     action: BoardChangeAction::Swapped
                 }),
                 Change::Board(BoardChange {
                     detail: BoardChangeDetail {
-                        square: Square::Occupied(0, 'A'),
+                        square: Square::Occupied {
+                            player: 0,
+                            tile: 'A',
+                            validity: SquareValidity::Unknown
+                        },
                         coordinate: Coordinate { x: 3, y: 3 },
                     },
                     action: BoardChangeAction::Swapped
@@ -286,7 +302,7 @@ mod tests {
 
     #[test]
     fn invalid_player_or_tile() {
-        let mut bag = TileBag::default();
+        let mut bag = TileBag::latest(None).1;
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
             Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),
@@ -297,7 +313,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3, None)
+            ..Game::new(3, 3, None, 0)
         };
 
         assert_eq!(
@@ -360,7 +376,9 @@ mod tests {
              __ __ M1 __ __\n\
              __ __ D1 |1 __",
         );
-        one_v_one.set(middle, 0, 'A').unwrap();
+        one_v_one
+            .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
 
         assert_eq!(
             one_v_one.collect_combanants(0, middle),
@@ -375,7 +393,9 @@ mod tests {
              __ F1 __ T1 __\n\
              __ D1 R1 D1 |1",
         );
-        one_v_two.set(middle, 0, 'A').unwrap();
+        one_v_two
+            .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
 
         assert_eq!(
             one_v_two.collect_combanants(0, middle),
@@ -393,7 +413,9 @@ mod tests {
              __ F1 M1 T1 __\n\
              __ D1 D1 D1 |1",
         );
-        one_v_three.set(middle, 0, 'A').unwrap();
+        one_v_three
+            .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
 
         assert_eq!(
             one_v_three.collect_combanants(0, middle),
@@ -416,7 +438,9 @@ mod tests {
              __ __ M1 T1 __\n\
              __ __ D1 D1 |1",
         );
-        two_v_two.set(middle, 0, 'A').unwrap();
+        two_v_two
+            .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
         assert_eq!(
             two_v_two.collect_combanants(0, middle),
             (
@@ -447,7 +471,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1, None)
+            ..Game::new(1, 1, None, 0)
         };
 
         game.make_move(
@@ -493,7 +517,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
 
         game.make_move(
@@ -549,7 +573,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
 
         game.make_move(
@@ -603,7 +627,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
 
         game.make_move(
@@ -653,7 +677,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -711,7 +735,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -769,7 +793,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -827,7 +851,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -885,7 +909,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -942,7 +966,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
         game.start();
 
@@ -997,7 +1021,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None)
+            ..Game::new(3, 1, None, 0)
         };
 
         game.make_move(
@@ -1045,7 +1069,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1, None)
+            ..Game::new(1, 1, None, 0)
         };
 
         game.make_move(
@@ -1095,7 +1119,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1, None)
+            ..Game::new(1, 1, None, 0)
         };
 
         game.make_move(

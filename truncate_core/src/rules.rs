@@ -55,11 +55,6 @@ pub enum Timing {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TileDistribution {
-    Standard,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TileBagBehaviour {
     Standard,
     Infinite, // TODO: Implement
@@ -90,33 +85,65 @@ pub enum SwapPenalty {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameRules {
+    pub generation: Option<u32>,
     pub win_condition: WinCondition,
     pub visibility: Visibility,
     pub truncation: Truncation,
     pub timing: Timing,
     pub hand_size: usize,
-    pub tile_distribution: TileDistribution,
+    pub tile_generation: u32,
     pub tile_bag_behaviour: TileBagBehaviour,
     pub battle_rules: BattleRules,
     pub swapping: Swapping,
     pub battle_delay: u64,
 }
 
-impl Default for GameRules {
-    fn default() -> Self {
-        Self {
-            win_condition: WinCondition::Destination {
-                town_defense: TownDefense::BeatenWithDefenseStrength(0),
-            },
-            visibility: Visibility::Standard,
-            truncation: Truncation::Root,
-            timing: Timing::None,
-            hand_size: 7,
-            tile_distribution: TileDistribution::Standard,
-            tile_bag_behaviour: TileBagBehaviour::Standard,
-            battle_rules: BattleRules { length_delta: 2 },
-            swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
-            battle_delay: 2,
-        }
+const RULE_GENERATIONS: [GameRules; 2] = [
+    GameRules {
+        generation: None, // hydrated on fetch
+        win_condition: WinCondition::Destination {
+            town_defense: TownDefense::BeatenWithDefenseStrength(0),
+        },
+        visibility: Visibility::Standard,
+        truncation: Truncation::Root,
+        timing: Timing::None,
+        hand_size: 7,
+        tile_generation: 0,
+        tile_bag_behaviour: TileBagBehaviour::Standard,
+        battle_rules: BattleRules { length_delta: 2 },
+        swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
+        battle_delay: 2,
+    },
+    GameRules {
+        generation: None, // hydrated on fetch
+        win_condition: WinCondition::Destination {
+            town_defense: TownDefense::BeatenWithDefenseStrength(0),
+        },
+        visibility: Visibility::Standard,
+        truncation: Truncation::Root,
+        timing: Timing::None,
+        hand_size: 7,
+        tile_generation: 1,
+        tile_bag_behaviour: TileBagBehaviour::Standard,
+        battle_rules: BattleRules { length_delta: 2 },
+        swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
+        battle_delay: 2,
+    },
+];
+
+impl GameRules {
+    pub fn generation(gen: u32) -> Self {
+        let mut rules = RULE_GENERATIONS
+            .get(gen as usize)
+            .expect("rule generation should exist")
+            .clone();
+        rules.generation = Some(gen);
+        rules
+    }
+
+    pub fn latest() -> (u32, Self) {
+        assert!(!RULE_GENERATIONS.is_empty());
+        let generation = (RULE_GENERATIONS.len() - 1) as u32;
+        (generation, GameRules::generation(generation))
     }
 }

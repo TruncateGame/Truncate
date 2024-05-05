@@ -7,7 +7,7 @@ use noise::{NoiseFn, Simplex};
 use oorandom::Rand32;
 
 use crate::{
-    board::{Board, BoardDistances, Coordinate, Square},
+    board::{Board, BoardDistances, Coordinate, Square, SquareValidity},
     game::Game,
 };
 
@@ -507,12 +507,19 @@ impl BoardGenerator for Board {
 
         if debug {
             for (pt, dist) in measurements {
-                let char = if dist < 10 {
+                let tile = if dist < 10 {
                     dist.to_string().chars().next().unwrap()
                 } else {
                     '+'
                 };
-                _ = self.set_square(pt, Square::Occupied(0, char));
+                _ = self.set_square(
+                    pt,
+                    Square::Occupied {
+                        player: 0,
+                        tile,
+                        validity: SquareValidity::Unknown,
+                    },
+                );
             }
         }
 

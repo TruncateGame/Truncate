@@ -40,6 +40,14 @@ module.exports = function () {
         "author_url": "http://opengameart.org/users/DualR",
         "license": "CC BY 3.0",
         "license_url": "https://creativecommons.org/licenses/by/3.0/"
+      },
+      {
+        "name": "Roguelike/RPG Items",
+        "url": "https://opengameart.org/content/roguelikerpg-items",
+        "author": "JoeCreates",
+        "author_url": "https://twitter.com/joecreates",
+        "license": "CC BY-SA 3.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/3.0/"
       }
     ],
     audio_assets: [

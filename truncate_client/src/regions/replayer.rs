@@ -241,6 +241,6 @@ impl ReplayerState {
             board_space = board_space.shrink2(vec2(diff, 0.0));
         }
 
-        self.mapped_board.render_to_rect(board_space, ui);
+        self.mapped_board.render_to_rect(board_space, None, ui);
     }
 }

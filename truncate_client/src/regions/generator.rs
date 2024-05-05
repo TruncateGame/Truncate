@@ -4,6 +4,7 @@ use instant::Duration;
 use truncate_core::{
     game::Game,
     generation::{generate_board, BoardGenerationResult, BoardParams, BoardSeed},
+    rules::GameRules,
 };
 
 use crate::utils::{Lighten, Theme};
@@ -27,7 +28,8 @@ pub struct GeneratorState {
 
 impl GeneratorState {
     pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: Theme) -> Self {
-        let mut game = Game::new(10, 10, None);
+        let rules_gen = GameRules::latest().0;
+        let mut game = Game::new(10, 10, None, rules_gen);
         game.add_player("p1".into());
         let mut active_game = ActiveGame::new(
             ctx,

@@ -179,7 +179,7 @@ impl<'a> EditorUI<'a> {
                         self.board.height() as f32 * theme.grid_size,
                     ),
                 );
-                self.mapped_board.render_to_rect(dest, ui);
+                self.mapped_board.render_to_rect(dest, None, ui);
 
                 for (rownum, row) in self.board.squares.iter().enumerate() {
                     ui.horizontal(|ui| {
@@ -269,7 +269,7 @@ impl<'a> EditorUI<'a> {
                                                 Square::Land | Square::Town { .. } => {
                                                     EditorDrag::RemoveLand
                                                 }
-                                                Square::Occupied(_, _) => unreachable!(),
+                                                Square::Occupied { .. } => unreachable!(),
                                                 Square::Fog => unreachable!(),
                                             },
                                             BoardEditingMode::Town(editing_player) => {
@@ -346,7 +346,7 @@ impl<'a> EditorUI<'a> {
                                 Square::Dock(0)
                             }
                         }
-                        Square::Occupied(_, _) => {
+                        Square::Occupied { .. } => {
                             unreachable!("Board editor should not contain occupied tiles")
                         }
                         Square::Fog => {

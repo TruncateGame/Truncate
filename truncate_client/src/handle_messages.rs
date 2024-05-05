@@ -2,6 +2,7 @@ use eframe::egui;
 use truncate_core::{
     game::{self, GAME_COLOR_BLUE, GAME_COLOR_RED},
     generation,
+    rules::GameRules,
 };
 
 use crate::{
@@ -252,8 +253,12 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
             GameMessage::LoadDailyReplay(puzzle_state) => {
                 let (seed, info) = get_raw_daily_puzzle(puzzle_state.puzzle_day);
                 let human_starts = info.as_ref().map(|(h, _)| *h).unwrap_or(true);
+                let rules_generation = info
+                    .as_ref()
+                    .map(|(_, i)| i.rules_generation)
+                    .unwrap_or_else(|| GameRules::latest().0);
 
-                let mut game = game::Game::new(9, 9, Some(seed.seed as u64));
+                let mut game = game::Game::new(9, 9, Some(seed.seed as u64), rules_generation);
                 if human_starts {
                     game.add_player("You".into());
                     game.add_player("Computer".into());

@@ -11,6 +11,7 @@ pub struct SeedNote {
     pub rerolls: usize,
     pub best_player: usize,
     pub board_generation: u32,
+    pub rules_generation: u32,
     pub verification: String,
 }
 

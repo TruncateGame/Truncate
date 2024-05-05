@@ -30,7 +30,7 @@ pub const GAME_COLORS: [(u8, u8, u8); 5] = [
     GAME_COLOR_YELLOW,
 ];
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Game {
     pub rules: GameRules,
     pub players: Vec<Player>,
@@ -55,14 +55,14 @@ fn now() -> u64 {
 }
 
 impl Game {
-    pub fn new(width: usize, height: usize, tile_seed: Option<u64>) -> Self {
-        let rules = GameRules::default();
+    pub fn new(width: usize, height: usize, tile_seed: Option<u64>, rules_generation: u32) -> Self {
+        let rules = GameRules::generation(rules_generation);
         let mut board = Board::new(width, height);
         board.grow();
         Self {
             players: Vec::with_capacity(2),
             board,
-            bag: TileBag::new(&rules.tile_distribution, tile_seed),
+            bag: TileBag::generation(rules.tile_generation, tile_seed),
             judge: Judge::default(),
             battle_count: 0,
             turn_count: 0,
@@ -304,13 +304,13 @@ impl Game {
                     &self.rules.visibility,
                 );
 
-                if let Square::Occupied(..) = self.board.get(position)? {
+                if let Square::Occupied { .. } = self.board.get(position)? {
                     return Err(GamePlayError::OccupiedPlace);
                 }
 
                 if !self.board.neighbouring_squares(position).iter().any(
                     |&(_, square)| match square {
-                        Square::Occupied(p, _) => p == player,
+                        Square::Occupied { player: p, .. } => p == player,
                         Square::Dock(p) => p == player,
                         _ => false,
                     },
@@ -320,7 +320,9 @@ impl Game {
 
                 changes.push(self.players[player].use_tile(tile, &mut self.bag)?);
                 changes.push(Change::Board(BoardChange {
-                    detail: self.board.set(position, player, tile)?,
+                    detail: self
+                        .board
+                        .set(position, player, tile, attacker_dictionary)?,
                     action: BoardChangeAction::Added,
                 }));
                 self.resolve_attack(
@@ -375,9 +377,12 @@ impl Game {
                     _ => {}
                 }
 
-                let mut swap_result =
-                    self.board
-                        .swap(player_index, positions, &self.rules.swapping)?;
+                let mut swap_result = self.board.swap(
+                    player_index,
+                    positions,
+                    &self.rules.swapping,
+                    attacker_dictionary,
+                )?;
 
                 player.swap_count += 1;
 
@@ -462,7 +467,7 @@ impl Game {
                     let mut all_defenders_are_towns = true;
                     changes.extend(defenders.iter().flatten().map(|coordinate| {
                         let square = self.board.get(*coordinate).expect("Tile just attacked");
-                        if matches!(square, Square::Occupied(_, _)) {
+                        if matches!(square, Square::Occupied { .. }) {
                             all_defenders_are_towns = false;
                         }
                         Change::Board(BoardChange {
@@ -489,10 +494,10 @@ impl Game {
                     if remove_attackers {
                         let squares = attackers.into_iter().flat_map(|word| word.into_iter());
                         changes.extend(squares.flat_map(|square| {
-                            if let Ok(Square::Occupied(_, letter)) = self.board.get(square) {
-                                self.bag.return_tile(letter);
+                            if let Ok(Square::Occupied { tile, .. }) = self.board.get(square) {
+                                self.bag.return_tile(tile);
                             }
-                            self.board.clear(square).map(|detail| {
+                            self.board.clear(square, attacker_dictionary).map(|detail| {
                                 Change::Board(BoardChange {
                                     detail,
                                     action: BoardChangeAction::Defeated,
@@ -521,8 +526,8 @@ impl Game {
                     });
                     changes.extend(squares.flat_map(|square| {
                         match self.board.get(*square) {
-                            Ok(Square::Occupied(_, letter)) => {
-                                self.bag.return_tile(letter);
+                            Ok(Square::Occupied { tile, .. }) => {
+                                self.bag.return_tile(tile);
                             }
                             Ok(Square::Town { player, .. }) => {
                                 _ = self.board.set_square(
@@ -536,26 +541,38 @@ impl Game {
                             _ => {}
                         }
 
-                        self.board.clear(*square).map(|detail| {
-                            Change::Board(BoardChange {
-                                detail,
-                                action: BoardChangeAction::Defeated,
+                        self.board
+                            .clear(*square, attacker_dictionary)
+                            .map(|detail| {
+                                Change::Board(BoardChange {
+                                    detail,
+                                    action: BoardChangeAction::Defeated,
+                                })
                             })
-                        })
                     }));
 
                     // explode adjacent letters belonging to opponents
                     changes.extend(self.board.neighbouring_squares(position).iter().flat_map(
                         |neighbour| {
-                            if let (coordinate, Square::Occupied(owner, letter)) = neighbour {
+                            if let (
+                                coordinate,
+                                Square::Occupied {
+                                    player: owner,
+                                    tile,
+                                    ..
+                                },
+                            ) = neighbour
+                            {
                                 if *owner != player {
-                                    self.bag.return_tile(*letter);
-                                    return self.board.clear(*coordinate).map(|detail| {
-                                        Change::Board(BoardChange {
-                                            detail,
-                                            action: BoardChangeAction::Exploded,
-                                        })
-                                    });
+                                    self.bag.return_tile(*tile);
+                                    return self.board.clear(*coordinate, attacker_dictionary).map(
+                                        |detail| {
+                                            Change::Board(BoardChange {
+                                                detail,
+                                                action: BoardChangeAction::Exploded,
+                                            })
+                                        },
+                                    );
                                 }
                             }
                             None
@@ -567,18 +584,20 @@ impl Game {
         }
 
         match self.rules.truncation {
-            rules::Truncation::Root => {
-                changes.extend(self.board.truncate(&mut self.bag).into_iter())
-            }
+            rules::Truncation::Root => changes.extend(
+                self.board
+                    .truncate(&mut self.bag, attacker_dictionary)
+                    .into_iter(),
+            ),
             rules::Truncation::Larger => unimplemented!(),
             rules::Truncation::None => {}
         }
 
         match self.board.get(position) {
-            Ok(Square::Occupied(_, tile)) if tile == '¤' => {
+            Ok(Square::Occupied { tile, .. }) if tile == '¤' => {
                 changes.push(
                     self.board
-                        .clear(position)
+                        .clear(position, attacker_dictionary)
                         .map(|detail| {
                             Change::Board(BoardChange {
                                 detail,

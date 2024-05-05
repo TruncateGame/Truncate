@@ -202,9 +202,12 @@ impl ShareMessageMock {
         };
 
         let share_link = format!(
-            "Play Puzzle: https://truncate.town/puzzle/?j=PUZZLE:{}:{}:{}:{}",
+            "Play Puzzle: https://truncate.town/puzzle/?j=PUZZLE:{}:{}:{}:{}:{}",
             seed.generation,
             npc.name.to_ascii_uppercase(),
+            game.rules
+                .generation
+                .expect("puzzles should always use a generational ruleset"),
             seed.seed,
             player
         );
