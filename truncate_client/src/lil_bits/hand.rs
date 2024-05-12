@@ -306,6 +306,8 @@ impl<'a> HandUI<'a> {
         if started_interaction {
             depot.ui_state.dictionary_open = false;
             depot.ui_state.dictionary_focused = false;
+            depot.interactions.selected_square_on_board = None;
+            depot.interactions.selected_tile_on_board = None;
         }
     }
 }

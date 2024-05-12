@@ -37,6 +37,10 @@ pub fn handle_input(
         if let Some((coord, _)) = depot.interactions.selected_square_on_board {
             return coord;
         }
+        if let Some((coord, sq)) = depot.interactions.previous_selected_square_on_board {
+            depot.interactions.selected_square_on_board = Some((coord.clone(), sq));
+            return coord;
+        }
         let dock = board.docks.iter().find(|d| {
             board.get(**d).is_ok_and(
                 |s| matches!(s, Square::Dock(p) if p == depot.gameplay.player_number as usize),
@@ -72,6 +76,7 @@ pub fn handle_input(
 
         if let Ok(sq) = board.get(new_coord) {
             depot.interactions.selected_square_on_board = Some((new_coord, sq));
+            depot.interactions.previous_selected_square_on_board = Some((new_coord, sq));
         }
     };
 

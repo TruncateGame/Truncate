@@ -632,6 +632,22 @@ impl MappedBoard {
                             );
                             layers = tile_layers.merge(layers);
                         }
+                    } else if !ctx.memory(|m| m.is_anything_being_dragged())
+                        && interactions
+                            .hovered_unoccupied_square_on_board
+                            .is_some_and(|s| s.coord == Some(coord))
+                    {
+                        layers = layers.merge(TexLayers {
+                            terrain: None,
+                            structures: None,
+                            checkerboard: None,
+                            piece_validities: vec![],
+                            fog: None,
+                            pieces: vec![PieceLayer::Texture(
+                                tex::tiles::quad::CHECKERBOARD,
+                                Some(aesthetics.theme.grass.slighten()),
+                            )],
+                        });
                     }
                 }
 
