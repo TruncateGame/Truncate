@@ -7,13 +7,29 @@ use eframe::{
     emath::Align,
 };
 
-use crate::utils::tex::{render_tex_quad, tiles};
+use crate::{
+    lil_bits::DictionaryUI,
+    utils::tex::{render_tex_quad, tiles},
+};
 
 use super::ActiveGame;
 
 impl ActiveGame {
     pub fn render_dictionary(&mut self, ui: &mut egui::Ui) -> Option<PlayerMessage> {
         let mut msg = None;
+
+        // Guard for dictionary being closed (since it can't destroy itself)
+        if !self.depot.ui_state.dictionary_open {
+            self.depot.ui_state.dictionary_focused = false;
+            self.depot.ui_state.dictionary_opened_by_keyboard = false;
+            self.dictionary_ui = None;
+        }
+
+        if self.depot.ui_state.dictionary_open && self.dictionary_ui.is_none() {
+            self.dictionary_ui = Some(DictionaryUI::new(
+                self.depot.ui_state.dictionary_opened_by_keyboard,
+            ));
+        }
 
         if let Some(dict_ui) = self.dictionary_ui.as_mut() {
             let area = egui::Area::new(egui::Id::new("dict_layer"))
@@ -29,7 +45,7 @@ impl ActiveGame {
             let button_size = 48.0;
 
             area.show(ui.ctx(), |ui| {
-                if self.depot.ui_state.dictionary_focused {
+                if self.depot.ui_state.dictionary_showing_definition {
                     ui.painter().clone().rect_filled(
                         dict_alloc,
                         0.0,
@@ -50,6 +66,7 @@ impl ActiveGame {
         // Guard for dictionary being closed (since it can't destroy itself)
         if !self.depot.ui_state.dictionary_open {
             self.depot.ui_state.dictionary_focused = false;
+            self.depot.ui_state.dictionary_opened_by_keyboard = false;
             self.dictionary_ui = None;
         }
 

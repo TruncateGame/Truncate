@@ -18,6 +18,7 @@ use hashbrown::HashMap;
 use crate::{
     lil_bits::{BoardUI, DictionaryUI},
     utils::{
+        control_devices,
         depot::{
             AestheticDepot, AudioDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot,
             TimingDepot, TruncateDepot, UIStateDepot,
@@ -161,6 +162,13 @@ impl ActiveGame {
             self.depot.aesthetics.qs_tick = cur_tick;
         }
 
+        let kb_msg = control_devices::keyboard::handle_input(
+            ui.ctx(),
+            &self.board,
+            &self.hand,
+            &mut self.depot,
+        );
+
         if !self.depot.ui_state.is_touch {
             // If we ever receive any touch event,
             // irrevocably put Truncate into touch mode.
@@ -237,7 +245,7 @@ impl ActiveGame {
             .or(dict_player_message)
             .or(sidebar_player_message);
 
-        player_message
+        kb_msg.or(player_message)
     }
 
     pub fn apply_new_state(&mut self, state_message: GameStateMessage) {
