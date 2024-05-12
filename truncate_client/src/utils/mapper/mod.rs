@@ -84,7 +84,8 @@ impl ResolvedTextureLayers {
 struct MapState {
     prev_board: Board,
     prev_tick: u64,
-    prev_selected: Option<(Coordinate, Square)>,
+    prev_selected_tile: Option<(Coordinate, Square)>,
+    prev_selected_square: Option<(Coordinate, Square)>,
     prev_tile_hover: Option<(Coordinate, Square)>,
     prev_dragging: Option<(Coordinate, Square)>,
     prev_occupied_hover: Option<HoveredRegion>,
@@ -631,6 +632,22 @@ impl MappedBoard {
                             );
                             layers = tile_layers.merge(layers);
                         }
+                    } else if !ctx.memory(|m| m.is_anything_being_dragged())
+                        && interactions
+                            .hovered_unoccupied_square_on_board
+                            .is_some_and(|s| s.coord == Some(coord))
+                    {
+                        layers = layers.merge(TexLayers {
+                            terrain: None,
+                            structures: None,
+                            checkerboard: None,
+                            piece_validities: vec![],
+                            fog: None,
+                            pieces: vec![PieceLayer::Texture(
+                                tex::tiles::quad::CHECKERBOARD,
+                                Some(aesthetics.theme.grass.slighten()),
+                            )],
+                        });
                     }
                 }
 
@@ -648,6 +665,25 @@ impl MappedBoard {
                 }
             }
             _ => {}
+        }
+
+        if let Some(interactions) = interactions {
+            if interactions
+                .selected_square_on_board
+                .is_some_and(|(c, _)| c == coord)
+            {
+                layers = layers.merge(TexLayers {
+                    terrain: None,
+                    structures: None,
+                    checkerboard: None,
+                    piece_validities: vec![],
+                    fog: None,
+                    pieces: vec![PieceLayer::Texture(
+                        tex::tiles::quad::HIGHLIGHT,
+                        Some(Color32::GOLD),
+                    )],
+                });
+            }
         }
 
         let cached = self
@@ -797,7 +833,8 @@ impl MappedBoard {
         board: &Board,
     ) {
         let mut tick_eq = true;
-        let selected = interactions.map(|i| i.selected_tile_on_board).flatten();
+        let selected_tile = interactions.map(|i| i.selected_tile_on_board).flatten();
+        let selected_square = interactions.map(|i| i.selected_square_on_board).flatten();
         let tile_hover = interactions.map(|i| i.hovered_tile_on_board).flatten();
         let dragging = interactions.map(|i| i.dragging_tile_on_board).flatten();
         let occupied_hover = interactions
@@ -810,7 +847,8 @@ impl MappedBoard {
 
         if let Some(memory) = self.state_memory.as_mut() {
             let board_eq = memory.prev_board == *board;
-            let selected_eq = memory.prev_selected == selected;
+            let selected_tile_eq = memory.prev_selected_tile == selected_tile;
+            let selected_square_eq = memory.prev_selected_square == selected_square;
             let tile_hover_eq = memory.prev_tile_hover == tile_hover;
             let dragging_eq = memory.prev_dragging == dragging;
             let occupied_hover_eq = memory.prev_occupied_hover == occupied_hover;
@@ -822,7 +860,8 @@ impl MappedBoard {
 
             if board_eq
                 && tick_eq
-                && selected_eq
+                && selected_tile_eq
+                && selected_square_eq
                 && tile_hover_eq
                 && dragging_eq
                 && occupied_hover_eq
@@ -835,8 +874,11 @@ impl MappedBoard {
             if !board_eq {
                 memory.prev_board = board.clone();
             }
-            if !selected_eq {
-                memory.prev_selected = selected;
+            if !selected_tile_eq {
+                memory.prev_selected_tile = selected_tile;
+            }
+            if !selected_square_eq {
+                memory.prev_selected_square = selected_square;
             }
             if !tile_hover_eq {
                 memory.prev_tile_hover = tile_hover;
@@ -860,7 +902,8 @@ impl MappedBoard {
             self.state_memory = Some(MapState {
                 prev_board: board.clone(),
                 prev_tick: aesthetics.qs_tick,
-                prev_selected: selected,
+                prev_selected_tile: selected_tile,
+                prev_selected_square: selected_square,
                 prev_tile_hover: tile_hover,
                 prev_dragging: dragging,
                 prev_occupied_hover: occupied_hover,

@@ -28,6 +28,8 @@ pub struct InteractionDepot {
     pub dragging_tile_on_board: Option<(Coordinate, Square)>,
     pub selected_tile_on_board: Option<(Coordinate, Square)>,
     pub hovered_tile_on_board: Option<(Coordinate, Square)>,
+    pub selected_square_on_board: Option<(Coordinate, Square)>,
+    pub previous_selected_square_on_board: Option<(Coordinate, Square)>,
     pub hovered_unoccupied_square_on_board: Option<HoveredRegion>,
     pub hovered_occupied_square_on_board: Option<HoveredRegion>,
     pub playing_tile: Option<char>,
@@ -56,6 +58,8 @@ pub struct UIStateDepot {
     pub actions_menu_open: bool,
     pub dictionary_open: bool,
     pub dictionary_focused: bool,
+    pub dictionary_opened_by_keyboard: bool,
+    pub dictionary_showing_definition: bool,
     pub hand_height_last_frame: f32,
 }
 

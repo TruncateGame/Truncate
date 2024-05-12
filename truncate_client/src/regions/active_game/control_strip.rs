@@ -253,7 +253,6 @@ impl ActiveGame {
                                     } else {
                                         self.depot.ui_state.dictionary_open = true;
                                         self.depot.ui_state.dictionary_focused = false;
-                                        self.dictionary_ui = Some(DictionaryUI::new());
                                     }
                                 }
                             }
