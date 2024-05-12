@@ -630,7 +630,7 @@ impl MappedBoard {
                                 TileDecoration::None,
                                 seed_at_coord,
                             );
-                            layers = tile_layers.merge_above_self(layers);
+                            layers = layers.merge_above_self(tile_layers);
                         }
                     } else if !ctx.memory(|m| m.is_anything_being_dragged())
                         && interactions
