@@ -53,6 +53,14 @@ pub fn handle_input(
     };
 
     let move_selection = |depot: &mut TruncateDepot, mut movement: [isize; 2]| {
+        // If nothing is selected, the first interaction shouldn't move the cursor.
+        // At the start of the game, it should select the dock,
+        // and otherwise it should select the previously selected square.
+        if depot.interactions.selected_square_on_board.is_none() {
+            ensure_board_selection(depot);
+            return;
+        }
+
         let current_selection = ensure_board_selection(depot);
 
         if depot.gameplay.player_number == 0 {

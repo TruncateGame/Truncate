@@ -394,7 +394,7 @@ impl MappedBoard {
                                 TileDecoration::Grass,
                                 seed_at_coord,
                             );
-                            layers = layers.merge(tile_layers);
+                            layers = layers.merge_below_self(tile_layers);
                         }
                     }
                     BoardChangeAction::Truncated => {
@@ -417,7 +417,7 @@ impl MappedBoard {
                                 TileDecoration::Grass,
                                 seed_at_coord,
                             );
-                            layers = layers.merge(tile_layers);
+                            layers = layers.merge_below_self(tile_layers);
                         }
                     }
                     BoardChangeAction::Exploded => {
@@ -440,7 +440,7 @@ impl MappedBoard {
                                 TileDecoration::Grass,
                                 seed_at_coord,
                             );
-                            layers = layers.merge(tile_layers);
+                            layers = layers.merge_below_self(tile_layers);
                         }
                     }
                 }
@@ -576,7 +576,7 @@ impl MappedBoard {
                     TileDecoration::Grass,
                     seed_at_coord,
                 );
-                layers = layers.merge(tile_layers);
+                layers = layers.merge_above_self(tile_layers);
 
                 // TODO: colors
                 let validity_color = match validity {
@@ -602,7 +602,7 @@ impl MappedBoard {
                 )
                 .into_piece_validity();
 
-                layers = layers.merge(validity_layers);
+                layers = layers.merge_above_self(validity_layers);
             }
             Square::Land => {
                 if let Some(interactions) = interactions {
@@ -630,14 +630,14 @@ impl MappedBoard {
                                 TileDecoration::None,
                                 seed_at_coord,
                             );
-                            layers = tile_layers.merge(layers);
+                            layers = tile_layers.merge_above_self(layers);
                         }
                     } else if !ctx.memory(|m| m.is_anything_being_dragged())
                         && interactions
                             .hovered_unoccupied_square_on_board
                             .is_some_and(|s| s.coord == Some(coord))
                     {
-                        layers = layers.merge(TexLayers {
+                        layers = layers.merge_below_self(TexLayers {
                             terrain: None,
                             structures: None,
                             checkerboard: None,
@@ -661,7 +661,7 @@ impl MappedBoard {
                         TileDecoration::Grass,
                         seed_at_coord,
                     );
-                    layers = layers.merge(tile_layers);
+                    layers = layers.merge_above_self(tile_layers);
                 }
             }
             _ => {}
@@ -672,16 +672,23 @@ impl MappedBoard {
                 .selected_square_on_board
                 .is_some_and(|(c, _)| c == coord)
             {
-                layers = layers.merge(TexLayers {
+                let spinner = match tick % 4 {
+                    0 => tex::tiles::quad::SELECTION_SPINNER_1,
+                    1 => tex::tiles::quad::SELECTION_SPINNER_2,
+                    2 => tex::tiles::quad::SELECTION_SPINNER_3,
+                    3.. => tex::tiles::quad::SELECTION_SPINNER_4,
+                };
+                let color = gameplay
+                    .map(|g| player_colors.get(g.player_number as usize))
+                    .flatten()
+                    .unwrap_or(&Color32::GOLD);
+                layers = layers.merge_above_self(TexLayers {
                     terrain: None,
                     structures: None,
                     checkerboard: None,
                     piece_validities: vec![],
                     fog: None,
-                    pieces: vec![PieceLayer::Texture(
-                        tex::tiles::quad::HIGHLIGHT,
-                        Some(Color32::GOLD),
-                    )],
+                    pieces: vec![PieceLayer::Texture(spinner, Some(*color))],
                 });
             }
         }
