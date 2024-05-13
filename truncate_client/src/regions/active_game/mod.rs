@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use epaint::{Color32, TextureHandle};
 use instant::Duration;
 use truncate_core::{
@@ -18,7 +20,7 @@ use hashbrown::HashMap;
 use crate::{
     lil_bits::{BoardUI, DictionaryUI},
     utils::{
-        control_devices,
+        control_devices::{self, gamepad::GamepadInput},
         depot::{
             AestheticDepot, AudioDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot,
             TimingDepot, TruncateDepot, UIStateDepot,
@@ -68,6 +70,7 @@ pub struct ActiveGame {
     pub turn_reports: Vec<Vec<Change>>,
     pub location: GameLocation,
     pub dictionary_ui: Option<DictionaryUI>,
+    pub gamepad_input: Arc<Mutex<GamepadInput>>,
 }
 
 impl ActiveGame {
@@ -145,6 +148,7 @@ impl ActiveGame {
             turn_reports: vec![],
             location,
             dictionary_ui: None,
+            gamepad_input: Arc::new(Mutex::new(GamepadInput::new())),
         }
     }
 }
@@ -163,6 +167,13 @@ impl ActiveGame {
         }
 
         let kb_msg = control_devices::keyboard::handle_input(
+            ui.ctx(),
+            &self.board,
+            &self.hand,
+            &mut self.depot,
+        );
+
+        let pad_msg = self.gamepad_input.lock().unwrap().handle_input(
             ui.ctx(),
             &self.board,
             &self.hand,
@@ -245,7 +256,7 @@ impl ActiveGame {
             .or(dict_player_message)
             .or(sidebar_player_message);
 
-        kb_msg.or(player_message)
+        kb_msg.or(pad_msg).or(player_message)
     }
 
     pub fn apply_new_state(&mut self, state_message: GameStateMessage) {

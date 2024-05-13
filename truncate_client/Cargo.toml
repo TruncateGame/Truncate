@@ -34,6 +34,7 @@ tracing = "0.1.40"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.18"
 tungstenite = { version = "0.18", default-features = false }
+gilrs = "0.10"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]

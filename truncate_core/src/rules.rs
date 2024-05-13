@@ -122,7 +122,7 @@ const RULE_GENERATIONS: [GameRules; 2] = [
         visibility: Visibility::Standard,
         truncation: Truncation::Root,
         timing: Timing::None,
-        hand_size: 7,
+        hand_size: 4,
         tile_generation: 1,
         tile_bag_behaviour: TileBagBehaviour::Standard,
         battle_rules: BattleRules { length_delta: 2 },

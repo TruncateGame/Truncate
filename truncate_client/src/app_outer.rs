@@ -397,7 +397,7 @@ fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread::Jo
         // so we try to repaint around that tick to keep them looking consistent.
         // (Adding an extra millisecond so we don't have to worry about `> 250` vs `>= 250`)
         let next_tick = 251 - (subsec % 250);
-        std::thread::sleep(instant::Duration::from_millis(next_tick as u64));
+        // std::thread::sleep(instant::Duration::from_millis(next_tick as u64));
         egui_ctx.request_repaint();
     })
 }
