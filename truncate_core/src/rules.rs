@@ -144,8 +144,8 @@ impl GameRules {
             visibility: Visibility::LandFog,
             truncation: Truncation::None,
             timing: Timing::PerPlayer {
-                time_allowance: 60 * 60,
-                overtime_rule: OvertimeRule::Bomb { period: 30 },
+                time_allowance: 75 * 60,
+                overtime_rule: OvertimeRule::Elimination,
             },
             hand_size: 7,
             tile_distribution: TileDistribution::Standard,

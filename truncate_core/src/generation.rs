@@ -82,7 +82,7 @@ impl BoardParams {
             minimum_choke: 4,
             board_type: BoardType::Continental,
             ideal_dock_radius: 0.2,
-            ideal_dock_separation: 0.2,
+            ideal_dock_separation: 0.4,
         }
     }
 }
