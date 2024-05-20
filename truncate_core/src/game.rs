@@ -56,8 +56,7 @@ fn now() -> u64 {
 }
 
 impl Game {
-    pub fn new(width: usize, height: usize, tile_seed: Option<u64>, rules_generation: u32) -> Self {
-        let rules = GameRules::generation(rules_generation);
+    pub fn new(width: usize, height: usize, tile_seed: Option<u64>, rules: GameRules) -> Self {
         let mut board = Board::new(width, height);
         board.grow();
 

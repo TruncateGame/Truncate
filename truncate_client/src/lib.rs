@@ -146,9 +146,8 @@ pub fn backchannel(msg: String) -> String {
             next_player,
             npc_params,
         } => {
-            let mut game = truncate_core::game::Game::new(3, 3, None, 0);
+            let mut game = truncate_core::game::Game::new(3, 3, None, rules);
             game.board = board;
-            game.rules = rules;
             game.player_turn_count = vec![0; players.len()];
             game.players = players;
             game.next_player = Some(next_player);

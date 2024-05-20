@@ -34,8 +34,7 @@ pub struct GeneratorState {
 
 impl GeneratorState {
     pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: Theme) -> Self {
-        let rules_gen = GameRules::latest().0;
-        let mut game = Game::new(10, 10, None, rules_gen);
+        let mut game = Game::new(10, 10, None, GameRules::latest().1);
         game.add_player("p1".into());
         let mut active_game = ActiveGame::new(
             ctx,

@@ -597,7 +597,7 @@ impl Game {
 mod tests {
     use super::*;
 
-    use crate::{bag::TileBag, board::Board, judge::WordData, player::Player};
+    use crate::{bag::TileBag, board::Board, judge::WordData, player::Player, rules::GameRules};
 
     pub static TESTING_DICT: &str = include_str!("../../../dict_builder/final_wordlist.txt");
 
@@ -665,7 +665,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             next_player: Some(next_player),
-            ..Game::new(3, 1, None, 0) // TODO: update snapshots to rules v1
+            ..Game::new(3, 1, None, GameRules::generation(0)) // TODO: update snapshots to rules v1
         };
         game.players[next_player].hand = Hand(hand.chars().collect());
         game.start();

@@ -268,7 +268,12 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                     .map(|(_, i)| i.rules_generation)
                     .unwrap_or_else(|| GameRules::latest().0);
 
-                let mut game = game::Game::new(9, 9, Some(seed.seed as u64), rules_generation);
+                let mut game = game::Game::new(
+                    9,
+                    9,
+                    Some(seed.seed as u64),
+                    GameRules::generation(rules_generation),
+                );
                 if human_starts {
                     game.add_player("You".into());
                     game.add_player("Computer".into());

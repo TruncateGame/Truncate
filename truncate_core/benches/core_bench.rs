@@ -7,7 +7,7 @@ use truncate_core::{
     judge::{Judge, WordData, WordDict},
     npc::{scoring::NPCParams, Caches},
     player::{Hand, Player},
-    rules,
+    rules::{self, GameRules},
 };
 
 pub static TESTING_DICT: &str = include_str!("../../dict_builder/final_wordlist.txt");
@@ -53,7 +53,7 @@ fn test_game(board: &str, hand: &str) -> Game {
         bag,
         players,
         next_player: Some(next_player),
-        ..Game::new(3, 1, None, 0)
+        ..Game::new(3, 1, None, GameRules::generation(0))
     };
     game.players[next_player].hand = Hand(hand.chars().collect());
     game.start();

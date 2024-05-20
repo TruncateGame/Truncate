@@ -9,6 +9,7 @@ use truncate_core::{
     moves::Move,
     npc::scoring::NPCPersonality,
     reporting::WordMeaning,
+    rules::GameRules,
 };
 
 use crate::{
@@ -66,7 +67,12 @@ impl SinglePlayerState {
     ) -> Self {
         event_dispatcher.event(format!("single_player_{name}"));
 
-        let mut game = Game::new(9, 9, seed.clone().map(|s| s.seed as u64), rules_generation);
+        let mut game = Game::new(
+            9,
+            9,
+            seed.clone().map(|s| s.seed as u64),
+            GameRules::generation(rules_generation),
+        );
         if human_starts {
             game.add_player("You".into());
             game.add_player("Computer".into());
@@ -161,7 +167,12 @@ impl SinglePlayerState {
     }
 
     pub fn reset_to(&mut self, seed: BoardSeed, human_starts: bool, ctx: &egui::Context) {
-        let mut game = Game::new(9, 9, Some(seed.seed as u64), self.rules_generation);
+        let mut game = Game::new(
+            9,
+            9,
+            Some(seed.seed as u64),
+            GameRules::generation(self.rules_generation),
+        );
         self.human_starts = human_starts;
         if self.human_starts {
             game.add_player("You".into());

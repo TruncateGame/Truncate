@@ -33,8 +33,8 @@ pub struct GameManager {
 
 impl GameManager {
     pub fn new(game_id: String) -> Self {
-        let latest_rules = GameRules::latest().0;
-        let game = Game::new(9, 11, None, latest_rules);
+        // let game = Game::new(9, 11, None, GameRules::latest().1);
+        let game = Game::new(9, 11, None, GameRules::tuesday());
 
         Self {
             game_id,

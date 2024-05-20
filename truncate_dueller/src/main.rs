@@ -133,7 +133,12 @@ fn get_game_for_seed(seed: BoardSeed, rules_generation: u32) -> Game {
         .board;
     board.cache_special_squares();
 
-    let mut game = Game::new(9, 9, Some(seed.seed as u64), rules_generation);
+    let mut game = Game::new(
+        9,
+        9,
+        Some(seed.seed as u64),
+        GameRules::generation(rules_generation),
+    );
     game.add_player("P1".into());
     game.add_player("P2".into());
 
