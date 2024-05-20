@@ -269,7 +269,11 @@ impl Game {
                 true
             }
         }) {
-            if self.board.playable_positions(player_index).is_empty() {
+            if self
+                .board
+                .playable_positions(player_index, &self.rules.truncation)
+                .is_empty()
+            {
                 self.board.defeat_player(player_index);
                 self.winner = Some((player_index + 1) % 2);
             }

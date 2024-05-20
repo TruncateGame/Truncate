@@ -1033,23 +1033,53 @@ impl Board {
     }
 
     // TODO: This needs to look at all tiles to work in no truncation mode
-    pub fn playable_positions(&self, for_player: usize) -> HashSet<Coordinate> {
+    pub fn playable_positions(
+        &self,
+        for_player: usize,
+        truncation: &rules::Truncation,
+    ) -> HashSet<Coordinate> {
         let mut playable_squares = HashSet::new();
-        for dock in &self.docks {
-            let sq = self.get(*dock).unwrap();
-            if !matches!(sq, Square::Dock(p) if p == for_player) {
-                continue;
-            }
+        match truncation {
+            rules::Truncation::Root => {
+                for dock in &self.docks {
+                    let sq = self.get(*dock).unwrap();
+                    if !matches!(sq, Square::Dock(p) if p == for_player) {
+                        continue;
+                    }
 
-            playable_squares.extend(
-                self.depth_first_search(*dock)
-                    .iter()
-                    .flat_map(|sq| sq.neighbors_4())
-                    .filter(|sq| matches!(self.get(*sq), Ok(Square::Land)))
-                    .collect::<HashSet<_>>(),
-            );
+                    playable_squares.extend(
+                        self.depth_first_search(*dock)
+                            .iter()
+                            .flat_map(|sq| sq.neighbors_4())
+                            .collect::<HashSet<_>>(),
+                    );
+                }
+            }
+            rules::Truncation::None => {
+                let rows = self.height();
+                let cols = self.width();
+
+                let all_squares = (0..rows)
+                    .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+                    .map(|(x, y)| Coordinate { x, y });
+
+                playable_squares.extend(
+                    all_squares
+                        .filter(|c| {
+                            matches!(
+                                self.get(*c),
+                                Ok(Square::Occupied(player, _) | Square::Town { player, .. }) if player == for_player
+                            )
+                        })
+                        .flat_map(|sq| sq.neighbors_4()),
+                );
+            }
+            rules::Truncation::Larger => unimplemented!(),
         }
         playable_squares
+            .into_iter()
+            .filter(|sq| matches!(self.get(*sq), Ok(Square::Land)))
+            .collect()
     }
 
     pub fn fog_of_war(

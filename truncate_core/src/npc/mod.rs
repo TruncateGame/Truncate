@@ -317,7 +317,9 @@ impl Game {
 
         playable_tiles.sort();
 
-        let playable_squares = self.board.playable_positions(self.next_player.unwrap());
+        let playable_squares = self
+            .board
+            .playable_positions(self.next_player.unwrap(), &self.rules.truncation);
 
         let mut coords: Vec<_> = playable_squares
             .into_iter()
