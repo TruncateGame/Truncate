@@ -1,6 +1,6 @@
 use std::{
     collections::{BinaryHeap, HashSet, VecDeque},
-    ops::Div,
+    ops::{Add, Div, Mul},
 };
 
 use noise::{NoiseFn, Simplex};
@@ -11,15 +11,31 @@ use crate::{
     game::Game,
 };
 
+#[derive(Debug, Clone, Copy)]
+pub enum BoardType {
+    Island,
+    Continental,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BoardElements {
+    pub docks: bool,
+    pub towns: bool,
+    pub obelisk: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct BoardParams {
     pub land_dimensions: [usize; 2],
     pub dispersion: [f64; 2],
-    pub isolation: f64,
     pub island_influence: f64,
     pub maximum_town_density: f64,
     pub maximum_town_distance: f64,
     pub minimum_choke: usize,
+    pub board_type: BoardType,
+    pub ideal_dock_radius: f64,
+    pub ideal_dock_separation: f64,
+    pub elements: BoardElements,
 }
 
 // Do not modify any numbered generations.
@@ -29,20 +45,34 @@ const BOARD_GENERATIONS: [BoardParams; 2] = [
     BoardParams {
         land_dimensions: [10, 10],
         dispersion: [5.0, 5.0],
-        isolation: 2.0,
         maximum_town_density: 0.2,
         maximum_town_distance: 0.15,
         island_influence: 0.0,
         minimum_choke: 3,
+        board_type: BoardType::Island,
+        ideal_dock_radius: 1.0,
+        ideal_dock_separation: 0.7,
+        elements: BoardElements {
+            docks: true,
+            towns: true,
+            obelisk: false,
+        },
     },
     BoardParams {
         land_dimensions: [9, 10],
         dispersion: [5.0, 5.0],
-        isolation: 2.0,
         maximum_town_density: 0.2,
         maximum_town_distance: 0.15,
         island_influence: 0.0,
         minimum_choke: 3,
+        board_type: BoardType::Island,
+        ideal_dock_radius: 1.0,
+        ideal_dock_separation: 0.7,
+        elements: BoardElements {
+            docks: true,
+            towns: true,
+            obelisk: false,
+        },
     },
 ];
 
@@ -58,6 +88,25 @@ impl BoardParams {
         assert!(!BOARD_GENERATIONS.is_empty());
         let generation = (BOARD_GENERATIONS.len() - 1) as u32;
         (generation, BoardParams::generation(generation as u32))
+    }
+
+    pub fn wild() -> Self {
+        Self {
+            land_dimensions: [180, 180],
+            dispersion: [13.51, 13.51],
+            island_influence: 0.23,
+            maximum_town_density: 0.2,
+            maximum_town_distance: 0.1,
+            minimum_choke: 4,
+            board_type: BoardType::Continental,
+            ideal_dock_radius: 0.2,
+            ideal_dock_separation: 0.4,
+            elements: BoardElements {
+                docks: true,
+                towns: false,
+                obelisk: true,
+            },
+        }
     }
 }
 
@@ -103,35 +152,6 @@ impl BoardSeed {
             seed,
             day: None,
             params,
-            current_iteration: 0,
-            width_resize_state: None,
-            height_resize_state: None,
-            water_level: 0.5,
-            max_attempts: 10000, // Default to trying for a very long time (try not to panic for a user)
-        }
-    }
-
-    pub fn new_random(seed: u32) -> Self {
-        let mut rng = Rand32::new(seed as u64);
-
-        let disper = ((rng.rand_float() * 7.0) + 4.0) as f64;
-
-        Self {
-            generation: 9999,
-            seed,
-            day: None,
-            params: BoardParams {
-                land_dimensions: [
-                    rng.rand_range(10..39) as usize,
-                    rng.rand_range(10..39) as usize,
-                ],
-                dispersion: [disper, disper],
-                isolation: (rng.rand_float() * 2.0 + 1.0) as f64,
-                island_influence: (rng.rand_float() * 0.7) as f64,
-                maximum_town_density: (rng.rand_float() * 0.6 + 0.1) as f64,
-                maximum_town_distance: (rng.rand_float() * 0.2 + 0.1) as f64,
-                minimum_choke: 4,
-            },
             current_iteration: 0,
             width_resize_state: None,
             height_resize_state: None,
@@ -194,11 +214,14 @@ pub fn generate_board(
             BoardParams {
                 land_dimensions: ideal_land_dimensions,
                 dispersion,
-                isolation,
                 maximum_town_density,
                 maximum_town_distance,
                 island_influence: jitter,
                 minimum_choke,
+                board_type,
+                ideal_dock_radius,
+                ideal_dock_separation,
+                elements,
             },
     } = board_seed;
 
@@ -217,9 +240,13 @@ pub fn generate_board(
     let simplex = Simplex::new(seed);
 
     let mut board = Board::new(3, 3);
+    let canvas_multiplier = match board_type {
+        BoardType::Island => 2.0,
+        BoardType::Continental => 1.0,
+    };
     let canvas_size = [
-        (ideal_land_dimensions[0] as f64 * isolation) as usize,
-        (ideal_land_dimensions[1] as f64 * isolation) as usize,
+        (ideal_land_dimensions[0] as f64 * canvas_multiplier) as usize,
+        (ideal_land_dimensions[1] as f64 * canvas_multiplier) as usize,
     ];
     // Expand the canvas when creating board squares to avoid setting anything in the outermost ring
     board.squares = vec![vec![crate::board::Square::Water; canvas_size[0] + 2]; canvas_size[1] + 2];
@@ -307,8 +334,22 @@ pub fn generate_board(
         }
     }
 
-    if board.drop_island_docks(seed).is_err() {
-        return retry_with(board_seed, board);
+    if elements.docks {
+        match board_type {
+            BoardType::Island => {
+                if board.drop_island_docks(seed).is_err() {
+                    return retry_with(board_seed, board);
+                }
+            }
+            BoardType::Continental => {
+                if board
+                    .drop_continental_docks(seed, ideal_dock_radius, ideal_dock_separation)
+                    .is_err()
+                {
+                    return retry_with(board_seed, board);
+                }
+            }
+        }
     }
 
     if board.expand_choke_points(minimum_choke, false).is_err() {
@@ -322,17 +363,25 @@ pub fn generate_board(
         return retry_with(board_seed, board);
     };
 
-    if board
-        .generate_towns(
-            seed,
-            &shortest_attack_path,
-            maximum_town_density,
-            maximum_town_distance,
-        )
-        .is_err()
-    {
-        return retry_with(board_seed, board);
-    };
+    if elements.towns {
+        if board
+            .generate_towns(
+                seed,
+                &shortest_attack_path,
+                maximum_town_density,
+                maximum_town_distance,
+            )
+            .is_err()
+        {
+            return retry_with(board_seed, board);
+        };
+    }
+
+    if elements.obelisk {
+        if board.generate_obelisk(&shortest_attack_path).is_err() {
+            return retry_with(board_seed, board);
+        }
+    }
 
     Ok(BoardGenerationResult {
         board,
@@ -347,6 +396,13 @@ trait BoardGenerator {
 
     fn drop_island_docks(&mut self, seed: u32) -> Result<(), ()>;
 
+    fn drop_continental_docks(
+        &mut self,
+        seed: u32,
+        ideal_dock_radius: f64,
+        ideal_dock_separation: f64,
+    ) -> Result<(), ()>;
+
     fn generate_towns(
         &mut self,
         seed: u32,
@@ -354,6 +410,8 @@ trait BoardGenerator {
         maximum_town_density: f64,
         maximum_town_distance: f64,
     ) -> Result<(), ()>;
+
+    fn generate_obelisk(&mut self, main_road: &Vec<Coordinate>) -> Result<(), ()>;
 }
 
 impl BoardGenerator for Board {
@@ -651,6 +709,130 @@ impl BoardGenerator for Board {
         Ok(())
     }
 
+    fn drop_continental_docks(
+        &mut self,
+        seed: u32,
+        ideal_dock_radius: f64,
+        ideal_dock_separation: f64,
+    ) -> Result<(), ()> {
+        let mut rng = Rand32::new(seed as u64);
+
+        let mut center_point = Coordinate {
+            x: self.width() / 2,
+            y: self.height() / 2,
+        };
+        while self.get(center_point) != Ok(Square::Land) {
+            if self.get(center_point).is_err() {
+                return Err(());
+            }
+            let neighbors = center_point.neighbors_8();
+            center_point = neighbors
+                .iter()
+                .find(|p| self.get(**p) == Ok(Square::Land))
+                .unwrap_or_else(|| &neighbors[0])
+                .clone();
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct DistanceToCoord {
+            coord: Coordinate,
+            distance: usize,
+        }
+
+        impl Ord for DistanceToCoord {
+            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                match self.distance.cmp(&other.distance) {
+                    std::cmp::Ordering::Equal => self.coord.to_1d(100).cmp(&other.coord.to_1d(100)),
+                    o => o,
+                }
+            }
+        }
+        impl PartialOrd for DistanceToCoord {
+            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        let distances = self.flood_fill(&center_point);
+        let mut candidates = distances
+            .direct
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, d)| {
+                d.map(|d| DistanceToCoord {
+                    coord: Coordinate::from_1d(idx, self.width()),
+                    distance: d,
+                })
+            })
+            .filter_map(|DistanceToCoord { coord, distance }| {
+                if matches!(self.get(coord), Ok(Square::Land)) {
+                    coord
+                        .neighbors_4()
+                        .iter()
+                        .find(|p| matches!(self.get(**p), Ok(Square::Water)))
+                        .cloned()
+                        .map(|c| (distance, c))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if candidates.is_empty() {
+            return Err(());
+        }
+
+        let radius_target = (self.width().max(self.height()) as f64)
+            .div(2.0)
+            .mul(ideal_dock_radius)
+            .round() as usize;
+
+        let zero_candidates = candidates
+            .iter()
+            .filter(|(d, _)| d.abs_diff(radius_target) < 5)
+            .cloned()
+            .collect::<Vec<_>>();
+        let (_, dock_zero) = if zero_candidates.is_empty() {
+            *candidates.get(0).unwrap()
+        } else {
+            *zero_candidates
+                .get(rng.rand_range(0..zero_candidates.len() as u32) as usize)
+                .unwrap()
+        };
+
+        candidates.iter_mut().for_each(|(dist, coord)| {
+            *dist = coord.distance_to(&dock_zero);
+        });
+
+        let separation_target = (self.width().max(self.height()) as f64)
+            .div(2.0)
+            .mul(ideal_dock_separation)
+            .round() as usize;
+
+        let one_candidates = candidates
+            .iter()
+            .filter(|(d, _)| d.abs_diff(separation_target) < 5)
+            .cloned()
+            .collect::<Vec<_>>();
+        let (_, dock_one) = if one_candidates.is_empty() {
+            *candidates.get(0).unwrap()
+        } else {
+            *one_candidates
+                .get(rng.rand_range(0..one_candidates.len() as u32) as usize)
+                .unwrap()
+        };
+
+        self.set_square(dock_zero, Square::Dock(0))
+            .expect("Board position should be settable");
+
+        self.set_square(dock_one, Square::Dock(1))
+            .expect("Board position should be settable");
+
+        self.cache_special_squares();
+
+        Ok(())
+    }
+
     fn generate_towns(
         &mut self,
         seed: u32,
@@ -737,6 +919,12 @@ impl BoardGenerator for Board {
         } else {
             Err(())
         }
+    }
+
+    fn generate_obelisk(&mut self, main_road: &Vec<Coordinate>) -> Result<(), ()> {
+        _ = self.set_square(main_road[main_road.len() / 2], Square::Obelisk);
+
+        Ok(())
     }
 }
 

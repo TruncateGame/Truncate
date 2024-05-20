@@ -86,18 +86,20 @@ impl Default for BoardDepot {
 pub struct TimingDepot {
     pub current_time: Duration,
     pub last_turn_change: Duration,
+    pub game_ends_at: Option<u64>,
 }
 
 #[derive(Clone)]
 pub struct GameplayDepot {
     pub room_code: RoomCode,
     pub player_number: u64,
-    pub next_player_number: u64,
+    pub next_player_number: Option<u64>,
     pub error_msg: Option<String>,
     pub winner: Option<usize>,
     pub changes: Vec<Change>,
     pub last_battle_origin: Option<Coordinate>,
     pub npc: Option<NPCPersonality>,
+    pub remaining_turns: Option<u64>,
 }
 
 #[derive(Clone)]

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     board::{Board, Coordinate},
+    game::Game,
     moves::Move,
     player::{Hand, Player},
     reporting::{Change, WordMeaning},
@@ -125,8 +126,8 @@ pub struct GamePlayerMessage {
     pub turn_starts_no_later_than: Option<u64>,
 }
 
-impl From<&Player> for GamePlayerMessage {
-    fn from(p: &Player) -> Self {
+impl GamePlayerMessage {
+    pub fn new(p: &Player, _game: &Game) -> Self {
         Self {
             name: p.name.clone(),
             index: p.index,
@@ -143,17 +144,19 @@ pub struct GameStateMessage {
     pub room_code: RoomCode,
     pub players: Vec<GamePlayerMessage>,
     pub player_number: PlayerNumber,
-    pub next_player_number: PlayerNumber,
+    pub next_player_number: Option<PlayerNumber>,
     pub board: Board,
     pub hand: Hand,
     pub changes: Vec<Change>,
+    pub game_ends_at: Option<u64>,
+    pub remaining_turns: Option<u64>,
 }
 
 impl fmt::Display for GameStateMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "• Game {}, next up {}\n• Board:\n{}\n• Hand: {}\n• Just changed:\n{}",
+            "• Game {}, next up {:?}\n• Board:\n{}\n• Hand: {}\n• Just changed:\n{}",
             self.room_code,
             self.next_player_number,
             self.board,
