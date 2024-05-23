@@ -9,7 +9,7 @@ use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::judge::WordDict;
 use crate::reporting::Change;
-use crate::rules;
+use crate::{player, rules};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -1126,7 +1126,6 @@ impl Board {
         }
     }
 
-    // TODO: This needs to look at all tiles to work in no truncation mode
     pub fn playable_positions(
         &self,
         for_player: usize,
@@ -1162,7 +1161,7 @@ impl Board {
                         .filter(|c| {
                             matches!(
                                 self.get(*c),
-                                Ok(Square::Occupied{ player, .. } | Square::Town { player, .. }) if player == for_player
+                                Ok(Square::Occupied{ player, .. } | Square::Dock (player)) if player == for_player
                             )
                         })
                         .flat_map(|sq| sq.neighbors_4()),

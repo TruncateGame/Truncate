@@ -273,6 +273,7 @@ impl Game {
                 .playable_positions(player_index, &self.rules.truncation)
                 .is_empty()
             {
+                println!("{player_index} loses on being blocked!");
                 self.board.defeat_player(player_index);
                 self.winner = Some((player_index + 1) % 2);
             }
