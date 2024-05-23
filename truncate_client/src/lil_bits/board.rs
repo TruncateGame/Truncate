@@ -155,7 +155,17 @@ impl<'a> BoardUI<'a> {
                                                 }
                                             }
 
+                                            if square_response.hovered() {
+                                                ui.output_mut(|o| {
+                                                    o.cursor_icon = egui::CursorIcon::PointingHand
+                                                });
+                                            }
+
                                             if square_response.clicked() {
+                                                if interactions.selected_tile_on_board.is_some() {
+                                                    interactions.selected_tile_on_board = None;
+                                                }
+
                                                 if let Some((tile, _)) =
                                                     interactions.selected_tile_in_hand
                                                 {
@@ -165,10 +175,18 @@ impl<'a> BoardUI<'a> {
                                                     ));
 
                                                     interactions.selected_tile_in_hand = None;
-                                                }
-
-                                                if interactions.selected_tile_on_board.is_some() {
-                                                    interactions.selected_tile_on_board = None;
+                                                    interactions.selected_square_on_board = None;
+                                                } else {
+                                                    if interactions
+                                                        .selected_square_on_board
+                                                        .is_some_and(|(c, _)| c == coord)
+                                                    {
+                                                        interactions.selected_square_on_board =
+                                                            None;
+                                                    } else {
+                                                        interactions.selected_square_on_board =
+                                                            Some((coord, square.clone()));
+                                                    }
                                                 }
                                             }
 
@@ -234,6 +252,8 @@ impl<'a> BoardUI<'a> {
                                                     interactions.selected_tile_on_board =
                                                         Some((coord, *square));
                                                 }
+
+                                                interactions.selected_square_on_board = None;
                                             }
                                             let mut is_being_dragged =
                                                 ui.memory(|mem| mem.is_being_dragged(tile_id));
@@ -248,6 +268,8 @@ impl<'a> BoardUI<'a> {
                                             }
 
                                             if tile_response.drag_started() {
+                                                interactions.selected_square_on_board = None;
+
                                                 if let Some(pointer_pos) =
                                                     ui.ctx().pointer_interact_pos()
                                                 {

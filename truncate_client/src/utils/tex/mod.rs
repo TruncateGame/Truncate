@@ -75,10 +75,22 @@ impl TexLayers {
         self
     }
 
-    pub fn merge(self, mut other: TexLayers) -> Self {
-        other.terrain = self.terrain.or(other.terrain);
-        other.structures = self.structures.or(other.structures);
+    pub fn merge_above_self(mut self, other: TexLayers) -> Self {
+        self.terrain = self.terrain.or(other.terrain);
+        self.structures = self.structures.or(other.structures);
+        self.pieces.extend(other.pieces.into_iter());
+        self.piece_validities
+            .extend(other.piece_validities.into_iter());
+        self
+    }
+
+    pub fn merge_below_self(self, mut other: TexLayers) -> Self {
+        other.terrain = other.terrain.or(self.terrain);
+        other.structures = other.structures.or(self.structures);
         other.pieces.extend(self.pieces.into_iter());
+        other
+            .piece_validities
+            .extend(self.piece_validities.into_iter());
         other
     }
 }
@@ -680,10 +692,10 @@ impl Tex {
 
         match layer_type {
             FGTexType::Town(color) => {
-                layers = layers.merge(Tex::town(color, seed, tick, wind_at_coord))
+                layers = layers.merge_above_self(Tex::town(color, seed, tick, wind_at_coord))
             }
             FGTexType::Dock(color) => {
-                layers = layers.merge(Tex::dock(color, neighbors, wind_at_coord))
+                layers = layers.merge_above_self(Tex::dock(color, neighbors, wind_at_coord))
             }
             FGTexType::Fog => unreachable!(),
             FGTexType::None => {}

@@ -25,14 +25,16 @@ use super::BattleUI;
 pub struct DictionaryUI {
     current_word: String,
     is_valid: bool,
+    focus_in_n_frames: usize,
     definitions: HashMap<String, Option<Vec<WordMeaning>>>,
 }
 
 impl DictionaryUI {
-    pub fn new() -> Self {
+    pub fn new(initial_focus: bool) -> Self {
         Self {
             current_word: String::new(),
             is_valid: false,
+            focus_in_n_frames: if initial_focus { 2 } else { 0 },
             definitions: HashMap::new(),
         }
     }
@@ -133,6 +135,15 @@ impl DictionaryUI {
             ))
             .show(&mut input_ui);
 
+        if self.focus_in_n_frames > 0 {
+            if self.focus_in_n_frames == 1 {
+                input.response.request_focus();
+                self.focus_in_n_frames = 0;
+            } else {
+                self.focus_in_n_frames -= 1;
+            }
+        }
+
         if (input.response.gained_focus() || input.response.has_focus())
             && !ui.input(|i| i.pointer.any_down())
         {
@@ -157,6 +168,8 @@ impl DictionaryUI {
         }
 
         if !self.current_word.is_empty() {
+            depot.ui_state.dictionary_showing_definition = true;
+
             let meanings = if self.is_valid {
                 let loading_meaning = if !self.definitions.contains_key(&self.current_word) {
                     Some(vec![WordMeaning {
@@ -201,33 +214,9 @@ impl DictionaryUI {
 
             BattleUI::new(&report, false).render(&mut battle_ui, depot);
         } else {
-            if depot.ui_state.dictionary_focused {
-                ui.add_space(20.0);
+            depot.ui_state.dictionary_showing_definition = false;
 
-                let (dialog_rect, _) = crate::utils::tex::paint_dialog_background(
-                    false,
-                    false,
-                    true,
-                    vec2(input_band_inner.width(), 200.0),
-                    depot.aesthetics.theme.water.lighten().lighten(),
-                    &depot.aesthetics.map_texture,
-                    ui,
-                );
-
-                let dialog_text = TextHelper::light(
-                    "Use the input above to check whether a word exists in Truncate's dictionary",
-                    32.0,
-                    Some(dialog_rect.shrink(16.0).width()),
-                    ui,
-                );
-
-                dialog_text.paint_within(
-                    dialog_rect,
-                    Align2::CENTER_CENTER,
-                    depot.aesthetics.theme.text,
-                    ui,
-                );
-            } else {
+            if !depot.ui_state.dictionary_focused && self.focus_in_n_frames == 0 {
                 let text = TextHelper::heavy("Search", 20.0, None, ui);
                 text.paint_within(
                     input.response.rect,
