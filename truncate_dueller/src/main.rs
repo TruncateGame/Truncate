@@ -50,7 +50,7 @@ fn evaluate_single_seed(
 
     while game.turn_count < maximum_turns {
         let best_move_for_next_player = best_move(&game, &npc_params, &dicts);
-        let next_player = game.next_player;
+        let next_player = game.next_player.unwrap();
 
         let next_move = match best_move_for_next_player {
             PlayerMessage::Place(position, tile) => Move::Place {
@@ -133,7 +133,12 @@ fn get_game_for_seed(seed: BoardSeed, rules_generation: u32) -> Game {
         .board;
     board.cache_special_squares();
 
-    let mut game = Game::new(9, 9, Some(seed.seed as u64), rules_generation);
+    let mut game = Game::new(
+        9,
+        9,
+        Some(seed.seed as u64),
+        GameRules::generation(rules_generation),
+    );
     game.add_player("P1".into());
     game.add_player("P2".into());
 
