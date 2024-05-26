@@ -168,6 +168,7 @@ impl GameManager {
             hand,
             changes,
             game_ends_at: self.core_game.game_ends_at,
+            paused: self.core_game.paused,
             remaining_turns,
         }
     }
@@ -340,5 +341,37 @@ impl GameManager {
         } else {
             todo!("Handle missing player");
         }
+    }
+
+    pub fn pause(&mut self, words: Arc<Mutex<WordDB>>) -> Vec<(&Player, GameMessage)> {
+        self.core_game.pause();
+
+        let words_db = words.lock();
+        self.players
+            .iter()
+            .enumerate()
+            .map(|(player_index, player)| {
+                (
+                    player,
+                    GameMessage::GameTimingUpdate(self.game_msg(player_index, Some(&words_db))),
+                )
+            })
+            .collect()
+    }
+
+    pub fn unpause(&mut self, words: Arc<Mutex<WordDB>>) -> Vec<(&Player, GameMessage)> {
+        self.core_game.unpause();
+
+        let words_db = words.lock();
+        self.players
+            .iter()
+            .enumerate()
+            .map(|(player_index, player)| {
+                (
+                    player,
+                    GameMessage::GameTimingUpdate(self.game_msg(player_index, Some(&words_db))),
+                )
+            })
+            .collect()
     }
 }

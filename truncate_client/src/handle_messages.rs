@@ -86,6 +86,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 hand,
                 changes: _,
                 game_ends_at,
+                paused,
                 remaining_turns,
             }) => {
                 // If we're already in a game, treat this as a game update
@@ -101,6 +102,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                             hand,
                             changes: vec![], // TODO: Try get latest changes on reconnect without dupes
                             game_ends_at,
+                            paused,
                             remaining_turns,
                         };
                         game.apply_new_state(update);
@@ -128,6 +130,18 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
             GameMessage::GameUpdate(state_message) => match &mut outer.game_status {
                 GameStatus::Active(game) => {
                     game.apply_new_state(state_message);
+                }
+                _ => {
+                    outer.game_status = GameStatus::HardError(vec![
+                        "Game hit unknown case".into(),
+                        "Received game message".into(),
+                        "while not in a game".into(),
+                    ])
+                }
+            },
+            GameMessage::GameTimingUpdate(state_message) => match &mut outer.game_status {
+                GameStatus::Active(game) => {
+                    game.apply_new_timing(state_message);
                 }
                 _ => {
                     outer.game_status = GameStatus::HardError(vec![

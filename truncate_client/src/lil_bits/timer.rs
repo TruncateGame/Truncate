@@ -110,7 +110,11 @@ impl<'a> TimerUI<'a> {
                 }
             }
             None => {
-                if let Some(time) = self.player.time_remaining {
+                if let Some(mut time) = self.player.time_remaining {
+                    if let Some(paused_time_delta) = self.player.paused_turn_delta {
+                        time = time.saturating_add(Duration::seconds(paused_time_delta));
+                    }
+
                     self.time = time;
                     format!("{}", TimerUI::human_time(self.time.whole_seconds(), false))
                 } else {
@@ -130,6 +134,10 @@ impl<'a> TimerUI<'a> {
             }
             _ => {}
         };
+
+        if self.depot.timing.paused {
+            return format!("Game is paused!");
+        }
 
         match self.player.turn_starts_no_later_than {
             Some(next_turn) => {
@@ -171,9 +179,14 @@ impl<'a> TimerUI<'a> {
 
         let full_bar = bar.clone();
 
-        if let (Some(time_remaining), Some(allotted_time)) =
+        if let (Some(mut time_remaining), Some(allotted_time)) =
             (self.player.time_remaining, self.player.allotted_time)
         {
+            if let Some(paused_time_delta) = self.player.paused_turn_delta {
+                time_remaining =
+                    time_remaining.saturating_add(Duration::seconds(paused_time_delta));
+            }
+
             // Paint time remaining sector of bar
             let remaining_time_proportion = (self.time / allotted_time) as f32;
             if self.right_align {

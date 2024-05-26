@@ -87,6 +87,7 @@ pub struct TimingDepot {
     pub current_time: Duration,
     pub last_turn_change: Duration,
     pub game_ends_at: Option<u64>,
+    pub paused: bool,
 }
 
 #[derive(Clone)]

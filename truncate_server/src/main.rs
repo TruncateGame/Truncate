@@ -562,6 +562,34 @@ async fn handle_player_msg(
                 }
             }
         }
+        Pause => {
+            if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let mut game_manager = existing_game.lock();
+                for (player, message) in game_manager.pause(server_state.words()) {
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
+                    server_state.send_to_player(&socket, message).unwrap();
+                }
+                // TODO: Error handling flow
+            } else {
+                todo!("Handle player not being enrolled in a game");
+            }
+        }
+        Unpause => {
+            if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let mut game_manager = existing_game.lock();
+                for (player, message) in game_manager.unpause(server_state.words()) {
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
+                    server_state.send_to_player(&socket, message).unwrap();
+                }
+                // TODO: Error handling flow
+            } else {
+                todo!("Handle player not being enrolled in a game");
+            }
+        }
         RequestDefinitions(words) => {
             let word_db = server_state.word_db.lock();
             let definitions: Vec<_> = words
@@ -782,6 +810,12 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
             .map(|msg| {
                 match &msg {
                     GameMessage::GameUpdate(GameStateMessage {
+                        room_code,
+                        players,
+                        next_player_number,
+                        ..
+                    })
+                    | GameMessage::GameTimingUpdate(GameStateMessage {
                         room_code,
                         players,
                         next_player_number,

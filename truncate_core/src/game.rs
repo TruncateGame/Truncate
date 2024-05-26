@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Sub;
 
 use time::Duration;
 use xxhash_rust::xxh3;
@@ -44,6 +45,7 @@ pub struct Game {
     pub started_at: Option<u64>,
     pub game_ends_at: Option<u64>,
     pub next_player: Option<usize>,
+    pub paused: bool,
     pub winner: Option<usize>,
 }
 
@@ -77,6 +79,7 @@ impl Game {
             started_at: None,
             game_ends_at: None,
             next_player,
+            paused: false,
             winner: None,
             rules,
         }
@@ -283,6 +286,54 @@ impl Game {
     pub fn resign_player(&mut self, resigning_player: usize) {
         self.board.defeat_player(resigning_player);
         self.winner = Some((resigning_player + 1) % 2);
+    }
+
+    pub fn pause(&mut self) {
+        self.paused = true;
+
+        for player in self.players.iter_mut() {
+            let turn_delta = player
+                .turn_starts_no_later_than
+                .or(player.turn_starts_no_sooner_than)
+                .expect("Player played without the time running")
+                as i64
+                - (now() as i64);
+
+            player.paused_turn_delta = Some(turn_delta);
+
+            player.turn_starts_no_sooner_than = None;
+            player.turn_starts_no_later_than = None;
+        }
+    }
+
+    pub fn unpause(&mut self) {
+        self.paused = false;
+
+        match self.rules.timing {
+            rules::Timing::PerPlayer { .. } => {
+                if let Some(next_player_index) = self.next_player {
+                    let next_player = &mut self.players[next_player_index];
+                    let paused_turn_delta = next_player.paused_turn_delta.unwrap_or_default();
+
+                    next_player.turn_starts_no_later_than =
+                        Some(now().saturating_add_signed(paused_turn_delta));
+                    next_player.turn_starts_no_sooner_than =
+                        Some(now().saturating_add_signed(paused_turn_delta));
+                }
+            }
+            rules::Timing::Periodic { .. } => {
+                for player in self.players.iter_mut() {
+                    let paused_turn_delta = player.paused_turn_delta.unwrap_or_default();
+
+                    player.turn_starts_no_later_than =
+                        Some(now().saturating_add_signed(paused_turn_delta));
+                    player.turn_starts_no_sooner_than =
+                        Some(now().saturating_add_signed(paused_turn_delta));
+                }
+            }
+            rules::Timing::PerTurn { time_allowance } => unimplemented!(),
+            rules::Timing::None => { /* no-op */ }
+        }
     }
 
     pub fn play_turn(

@@ -260,6 +260,26 @@ impl ActiveGame {
         kb_msg.or(player_message)
     }
 
+    pub fn apply_new_timing(&mut self, state_message: GameStateMessage) {
+        let GameStateMessage {
+            room_code: _,
+            players,
+            player_number: _,
+            next_player_number: _,
+            board: _,
+            hand: _,
+            changes: _,
+            game_ends_at,
+            paused,
+            remaining_turns: _,
+        } = state_message;
+
+        self.players = players;
+        self.depot.timing.game_ends_at = game_ends_at;
+
+        self.depot.timing.paused = paused;
+    }
+
     pub fn apply_new_state(&mut self, state_message: GameStateMessage) {
         let GameStateMessage {
             room_code: _,
@@ -270,6 +290,7 @@ impl ActiveGame {
             hand: _,
             changes,
             game_ends_at,
+            paused,
             remaining_turns,
         } = state_message;
 
@@ -298,6 +319,7 @@ impl ActiveGame {
         self.depot.gameplay.next_player_number = next_player_number;
         self.depot.timing.last_turn_change = self.depot.timing.current_time;
         self.depot.timing.game_ends_at = game_ends_at;
+        self.depot.timing.paused = paused;
         self.depot.gameplay.remaining_turns = remaining_turns;
 
         self.depot.gameplay.changes = changes.clone();

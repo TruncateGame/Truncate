@@ -351,6 +351,7 @@ impl SinglePlayerState {
                     hand: self.game.players[human_player].hand.clone(),
                     changes,
                     game_ends_at: None,
+                    paused: false,
                     remaining_turns: None,
                 };
                 self.active_game.apply_new_state(state_message);

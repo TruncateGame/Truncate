@@ -177,6 +177,7 @@ impl TutorialStage {
                     hand: self.game.players[0].hand.clone(),
                     changes,
                     game_ends_at: None,
+                    paused: false,
                     remaining_turns: None,
                 };
                 self.active_game.apply_new_state(state_message);
@@ -269,6 +270,7 @@ impl TutorialState {
                         time_remaining: None,
                         turn_starts_no_later_than: now,
                         turn_starts_no_sooner_than: now,
+                        paused_turn_delta: None,
                         swap_count: 0,
                         penalties_incurred: 0,
                         color: GAME_COLOR_BLUE,
@@ -282,6 +284,7 @@ impl TutorialState {
                         time_remaining: None,
                         turn_starts_no_later_than: None,
                         turn_starts_no_sooner_than: None,
+                        paused_turn_delta: None,
                         swap_count: 0,
                         penalties_incurred: 0,
                         color: GAME_COLOR_RED,
@@ -298,6 +301,7 @@ impl TutorialState {
                 started_at: None,
                 game_ends_at: None,
                 next_player: Some(0),
+                paused: false,
                 winner: None,
             };
 
