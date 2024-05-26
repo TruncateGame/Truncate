@@ -2,6 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::{
+    board::Board,
+    generation::{BoardElements, BoardParams, BoardSeed, BoardType},
+};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TownDefense {
     BeatenByContact,
@@ -93,6 +98,14 @@ pub enum SwapPenalty {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BoardGenesis {
+    Passthrough,
+    SpecificBoard(Board),
+    Classic(usize, usize),
+    Random(BoardParams),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameRules {
     pub generation: Option<u32>,
     pub win_condition: WinCondition,
@@ -107,6 +120,7 @@ pub struct GameRules {
     pub swapping: Swapping,
     pub battle_delay: u64,
     pub max_turns: Option<u64>,
+    pub board_genesis: BoardGenesis,
 }
 
 const RULE_GENERATIONS: [GameRules; 2] = [
@@ -126,6 +140,7 @@ const RULE_GENERATIONS: [GameRules; 2] = [
         swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
         battle_delay: 2,
         max_turns: None,
+        board_genesis: BoardGenesis::Passthrough,
     },
     GameRules {
         generation: None, // hydrated on fetch
@@ -143,6 +158,7 @@ const RULE_GENERATIONS: [GameRules; 2] = [
         swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
         battle_delay: 2,
         max_turns: None,
+        board_genesis: BoardGenesis::Passthrough,
     },
 ];
 
@@ -182,6 +198,22 @@ impl GameRules {
             swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
             battle_delay: 2,
             max_turns: Some(1050),
+            board_genesis: BoardGenesis::Random(BoardParams {
+                land_dimensions: [180, 180],
+                dispersion: [13.51, 13.51],
+                island_influence: 0.23,
+                maximum_town_density: 0.2,
+                maximum_town_distance: 0.1,
+                minimum_choke: 4,
+                board_type: BoardType::Continental,
+                ideal_dock_radius: 0.2,
+                ideal_dock_separation: 0.4,
+                elements: BoardElements {
+                    docks: true,
+                    towns: false,
+                    obelisk: true,
+                },
+            }),
         }
     }
 }

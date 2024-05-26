@@ -33,8 +33,8 @@ pub struct GameManager {
 
 impl GameManager {
     pub fn new(game_id: String) -> Self {
-        // let game = Game::new(9, 11, None, GameRules::latest().1);
-        let game = Game::new(9, 11, None, GameRules::tuesday());
+        let game = Game::new(9, 11, None, GameRules::latest().1);
+        // let game = Game::new(9, 11, None, GameRules::tuesday());
 
         Self {
             game_id,
@@ -176,23 +176,31 @@ impl GameManager {
     pub fn start(&mut self) -> Vec<(Player, GameMessage)> {
         // TODO: Check correct # of players
 
-        let rand_board =
-            truncate_core::generation::generate_board(truncate_core::generation::BoardSeed {
-                generation: 9999,
-                seed: (instant::SystemTime::now()
-                    .duration_since(instant::SystemTime::UNIX_EPOCH)
-                    .expect("Please don't play Truncate earlier than 1970")
-                    .as_micros()
-                    % 287520520) as u32,
-                day: None,
-                params: BoardParams::wild(),
-                current_iteration: 0,
-                width_resize_state: None,
-                height_resize_state: None,
-                water_level: 0.5,
-                max_attempts: 10000,
-            });
-        self.core_game.board = rand_board.expect("Board can be resolved").board;
+        match &self.core_game.rules.board_genesis {
+            truncate_core::rules::BoardGenesis::Passthrough => { /* no-op */ }
+            truncate_core::rules::BoardGenesis::SpecificBoard(_) => unimplemented!(),
+            truncate_core::rules::BoardGenesis::Classic(_, _) => unimplemented!(),
+            truncate_core::rules::BoardGenesis::Random(params) => {
+                let rand_board = truncate_core::generation::generate_board(
+                    truncate_core::generation::BoardSeed {
+                        generation: 9999,
+                        seed: (instant::SystemTime::now()
+                            .duration_since(instant::SystemTime::UNIX_EPOCH)
+                            .expect("Please don't play Truncate earlier than 1970")
+                            .as_micros()
+                            % 287520520) as u32,
+                        day: None,
+                        params: params.clone(),
+                        current_iteration: 0,
+                        width_resize_state: None,
+                        height_resize_state: None,
+                        water_level: 0.5,
+                        max_attempts: 10000,
+                    },
+                );
+                self.core_game.board = rand_board.expect("Board can be resolved").board;
+            }
+        }
 
         // Trim off all edges and add one back for our land edges to show in the gui
         self.core_game.board.trim();

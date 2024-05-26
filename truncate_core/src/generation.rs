@@ -5,26 +5,27 @@ use std::{
 
 use noise::{NoiseFn, Simplex};
 use oorandom::Rand32;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     board::{Board, BoardDistances, Coordinate, Square, SquareValidity},
     game::Game,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum BoardType {
     Island,
     Continental,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BoardElements {
     pub docks: bool,
     pub towns: bool,
     pub obelisk: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoardParams {
     pub land_dimensions: [usize; 2],
     pub dispersion: [f64; 2],
@@ -88,25 +89,6 @@ impl BoardParams {
         assert!(!BOARD_GENERATIONS.is_empty());
         let generation = (BOARD_GENERATIONS.len() - 1) as u32;
         (generation, BoardParams::generation(generation as u32))
-    }
-
-    pub fn wild() -> Self {
-        Self {
-            land_dimensions: [180, 180],
-            dispersion: [13.51, 13.51],
-            island_influence: 0.23,
-            maximum_town_density: 0.2,
-            maximum_town_distance: 0.1,
-            minimum_choke: 4,
-            board_type: BoardType::Continental,
-            ideal_dock_radius: 0.2,
-            ideal_dock_separation: 0.4,
-            elements: BoardElements {
-                docks: true,
-                towns: false,
-                obelisk: true,
-            },
-        }
     }
 }
 
