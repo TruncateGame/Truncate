@@ -422,16 +422,15 @@ impl BoardGenerator for Board {
             while !pts.is_empty() {
                 let pt = pts.pop_front().unwrap();
                 for neighbor in pt
-                    .neighbors_4()
-                    .iter()
+                    .neighbors_4_iter()
                     .filter(|coord| !visited.contains(&coord))
                     .collect::<Vec<_>>()
                 {
-                    match self.get(*neighbor) {
+                    match self.get(neighbor) {
                         Ok(Square::Land) => {
-                            pts.push_back(*neighbor);
-                            visited.insert(*neighbor);
-                            this_search.insert(*neighbor);
+                            pts.push_back(neighbor);
+                            visited.insert(neighbor);
+                            this_search.insert(neighbor);
                         }
                         _ => {}
                     }
@@ -475,8 +474,7 @@ impl BoardGenerator for Board {
                 }
 
                 let choke_distance = pt
-                    .neighbors_8()
-                    .iter()
+                    .neighbors_8_iter()
                     .map(|n| self.distance_to_closest_obstruction(&n, &shortest_attack_path))
                     .max()
                     .unwrap();
@@ -576,18 +574,17 @@ impl BoardGenerator for Board {
         while !pts.is_empty() {
             let pt = pts.pop_front().unwrap();
             for neighbor in pt
-                .neighbors_4()
-                .iter()
+                .neighbors_4_iter()
                 .filter(|coord| !visited.contains(&coord))
                 .collect::<Vec<_>>()
             {
-                match self.get(*neighbor) {
+                match self.get(neighbor) {
                     Ok(Square::Water) => {
-                        pts.push_back(*neighbor);
-                        visited.insert(*neighbor);
+                        pts.push_back(neighbor);
+                        visited.insert(neighbor);
                     }
                     Ok(Square::Land) => {
-                        visited.insert(*neighbor);
+                        visited.insert(neighbor);
                         coastal_water.insert(pt);
                     }
                     _ => {}
@@ -605,11 +602,11 @@ impl BoardGenerator for Board {
             if self.get(center_point).is_err() {
                 return Err(());
             }
-            let neighbors = center_point.neighbors_8();
-            center_point = neighbors
-                .iter()
-                .find(|p| self.get(**p) == Ok(Square::Land))
-                .unwrap_or_else(|| &neighbors[0])
+            let mut neighbors = center_point.neighbors_8_iter();
+            center_point = center_point
+                .neighbors_8_iter()
+                .find(|p| self.get(*p) == Ok(Square::Land))
+                .unwrap_or_else(|| neighbors.next().unwrap())
                 .clone();
         }
 
@@ -707,11 +704,11 @@ impl BoardGenerator for Board {
             if self.get(center_point).is_err() {
                 return Err(());
             }
-            let neighbors = center_point.neighbors_8();
-            center_point = neighbors
-                .iter()
-                .find(|p| self.get(**p) == Ok(Square::Land))
-                .unwrap_or_else(|| &neighbors[0])
+            let mut neighbors = center_point.neighbors_8_iter();
+            center_point = center_point
+                .neighbors_8_iter()
+                .find(|p| self.get(*p) == Ok(Square::Land))
+                .unwrap_or_else(|| neighbors.next().unwrap())
                 .clone();
         }
 
@@ -749,10 +746,8 @@ impl BoardGenerator for Board {
             .filter_map(|DistanceToCoord { coord, distance }| {
                 if matches!(self.get(coord), Ok(Square::Land)) {
                     coord
-                        .neighbors_4()
-                        .iter()
-                        .find(|p| matches!(self.get(**p), Ok(Square::Water)))
-                        .cloned()
+                        .neighbors_4_iter()
+                        .find(|p| matches!(self.get(*p), Ok(Square::Water)))
                         .map(|c| (distance, c))
                 } else {
                     None

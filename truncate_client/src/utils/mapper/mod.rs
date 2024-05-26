@@ -267,7 +267,7 @@ impl MappedBoard {
         let mut neighbor_squares: Vec<_> = coord
             .neighbors_8()
             .into_iter()
-            .map(|pos| board.get(pos).ok())
+            .map(|pos| pos.map(|p| board.get(p).ok()).flatten())
             .collect();
 
         if self.inverted {

@@ -1,7 +1,9 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::array::IntoIter;
 use std::collections::{HashSet, VecDeque};
 use std::fmt;
+use std::iter::{FilterMap, Flatten};
 use std::slice::Iter;
 
 use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
@@ -512,8 +514,7 @@ impl Board {
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
         position
-            .neighbors_4()
-            .into_iter()
+            .neighbors_4_iter()
             .filter_map(|pos| {
                 if let Ok(square) = self.get(pos) {
                     Some((pos, square))
@@ -1032,16 +1033,22 @@ impl Board {
                 let fowards = direction == Direction::South || direction == Direction::East;
                 let mut location = position.add(direction);
 
-                while let Ok(Square::Occupied { player, .. }) = self.get(location) {
-                    if player != owner {
-                        break;
+                if let Some(location) = location.as_mut() {
+                    while let Ok(Square::Occupied { player, .. }) = self.get(*location) {
+                        if player != owner {
+                            break;
+                        }
+                        if fowards {
+                            word.push(*location);
+                        } else {
+                            word.insert(0, *location);
+                        }
+                        if let Some(next_location) = location.add(direction) {
+                            *location = next_location;
+                        } else {
+                            break;
+                        }
                     }
-                    if fowards {
-                        word.push(location);
-                    } else {
-                        word.insert(0, location);
-                    }
-                    location = location.add(direction);
                 }
             }
             words.push(word);
@@ -1143,7 +1150,7 @@ impl Board {
                     playable_squares.extend(
                         self.depth_first_search(*dock)
                             .iter()
-                            .flat_map(|sq| sq.neighbors_4())
+                            .flat_map(|sq| sq.neighbors_4_iter())
                             .collect::<HashSet<_>>(),
                     );
                 }
@@ -1164,7 +1171,7 @@ impl Board {
                                 Ok(Square::Occupied{ player, .. } | Square::Dock (player)) if player == for_player
                             )
                         })
-                        .flat_map(|sq| sq.neighbors_4()),
+                        .flat_map(|sq| sq.neighbors_4_iter()),
                 );
             }
             rules::Truncation::Larger => unimplemented!(),
@@ -1200,7 +1207,7 @@ impl Board {
                     for _ in 0..6 {
                         let pts = sqs.iter().cloned().collect::<Vec<_>>();
                         for pt in pts {
-                            sqs.extend(pt.neighbors_4());
+                            sqs.extend(pt.neighbors_4_iter());
                         }
                     }
 
@@ -1249,7 +1256,7 @@ impl Board {
                     for _ in 0..vision_dist {
                         let pts = sqs.iter().cloned().collect::<Vec<_>>();
                         for pt in pts {
-                            sqs.extend(pt.neighbors_4());
+                            sqs.extend(pt.neighbors_4_iter());
                         }
                     }
 
@@ -1509,21 +1516,21 @@ impl Coordinate {
         Self { x, y }
     }
 
-    pub fn add(self, direction: Direction) -> Coordinate {
+    pub fn add(self, direction: Direction) -> Option<Coordinate> {
         use Direction::*;
 
-        Coordinate {
+        Some(Coordinate {
             x: match direction {
-                West | NorthWest | SouthWest => usize::wrapping_sub(self.x, 1),
-                East | NorthEast | SouthEast => self.x + 1,
+                West | NorthWest | SouthWest => usize::checked_sub(self.x, 1)?,
+                East | NorthEast | SouthEast => usize::checked_add(self.x, 1)?,
                 North | South => self.x,
             },
             y: match direction {
-                North | NorthEast | NorthWest => usize::wrapping_sub(self.y, 1),
-                South | SouthEast | SouthWest => self.y + 1,
+                North | NorthEast | NorthWest => usize::checked_sub(self.y, 1)?,
+                South | SouthEast | SouthWest => usize::checked_add(self.y, 1)?,
                 East | West => self.y,
             },
-        }
+        })
     }
 
     pub fn to_1d(&self, width: usize) -> usize {
@@ -1537,8 +1544,12 @@ impl Coordinate {
         }
     }
 
+    pub fn neighbors_4_iter(&self) -> Flatten<IntoIter<Option<Coordinate>, 4>> {
+        self.neighbors_4().into_iter().flatten()
+    }
+
     /// Return coordinates of the horizontal and vertical neighbors, from north clockwise
-    pub fn neighbors_4(&self) -> [Coordinate; 4] {
+    pub fn neighbors_4(&self) -> [Option<Coordinate>; 4] {
         use Direction::*;
 
         [
@@ -1549,8 +1560,12 @@ impl Coordinate {
         ]
     }
 
+    pub fn neighbors_8_iter(&self) -> Flatten<IntoIter<Option<Coordinate>, 8>> {
+        self.neighbors_8().into_iter().flatten()
+    }
+
     /// Return coordinates of the horizontal, vertical, and diagonal neighbors, from northwest clockwise
-    pub fn neighbors_8(&self) -> [Coordinate; 8] {
+    pub fn neighbors_8(&self) -> [Option<Coordinate>; 8] {
         use Direction::*;
 
         [
