@@ -11,8 +11,6 @@ pre-build = [
     "apt-get install --assume-yes libudev-dev:$CROSS_DEB_ARCH",
 ]
 [target.arm-unknown-linux-gnueabihf]
-# For https://github.com/cross-rs/cross/pull/1317
-image = "ghcr.io/cross-rs/arm-unknown-linux-gnueabihf:edge"
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt-get update",
@@ -22,4 +20,7 @@ pre-build = [
     "PKG_CONFIG_ALLOW_SYSTEM_LIBS=1 PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1 pkg-config --libs --cflags libudev || true",
     "ldconfig -p | grep libudev",
     "dpkg -L libudev-dev",
+]
+env.passthrough = [
+    "PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig:${PKG_CONFIG_PATH}",
 ]
