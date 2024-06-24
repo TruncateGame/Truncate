@@ -2,5 +2,5 @@
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt-get update",
-    "apt-get install --assume-yes pkg-config:$CROSS_DEB_ARCH libudev-dev:$CROSS_DEB_ARCH",
+    "apt-get install --assume-yes libudev-dev:$CROSS_DEB_ARCH",
 ]
