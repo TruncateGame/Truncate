@@ -6,6 +6,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  PKG_CONFIG_SYSROOT_DIR: "/"
 
 jobs:
   build:
@@ -15,6 +16,7 @@ jobs:
       run:
         shell: bash
     strategy:
+      fail-fast: false
       matrix:
         include:
           - build: linux
