@@ -7,7 +7,7 @@ use truncate_core::{
     npc::scoring::{NPCParams, NPCVocab},
 };
 
-pub static TRUNCATE_DICT: &str = include_str!("../../../dict_builder/final_wordlist.txt");
+pub static TRUNCATE_DICT: &str = include_str!("../../final_wordlist.txt");
 
 static TOTAL_DICT: Mutex<Option<WordDict>> = Mutex::new(None);
 static SMALL_VOCAB_DICT_SAFE: Mutex<Option<WordDict>> = Mutex::new(None);

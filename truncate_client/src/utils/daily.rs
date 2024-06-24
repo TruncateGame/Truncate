@@ -18,7 +18,7 @@ use crate::{
 
 use super::Theme;
 
-const SEED_NOTES: &[u8] = include_bytes!("../../../truncate_dueller/seed_notes.yml");
+const SEED_NOTES: &[u8] = include_bytes!("../../seed_notes.yml");
 // January 29, 2023
 pub const DAILY_PUZZLE_DAY_ZERO: usize = 19751;
 
