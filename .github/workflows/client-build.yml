@@ -79,7 +79,7 @@ jobs:
       
       - name: Build
         working-directory: ./truncate_client
-        run: RUSTFLAGS="-Ctarget-feature=+crt-static" cargo build --crate-type=bin --release --target ${{ matrix.target }}
+        run: RUSTFLAGS="-Ctarget-feature=+crt-static" cargo build --release --target ${{ matrix.target }}
 
       - name: Create Standard Release
         run: |
