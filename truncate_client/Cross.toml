@@ -11,6 +11,8 @@ pre-build = [
     "apt-get install --assume-yes libudev-dev:$CROSS_DEB_ARCH",
 ]
 [target.arm-unknown-linux-gnueabihf]
+# For https://github.com/cross-rs/cross/pull/1317
+image = "ghcr.io/cross-rs/arm-unknown-linux-gnueabihf:edge"
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt-get update",
