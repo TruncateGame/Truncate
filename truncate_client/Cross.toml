@@ -15,9 +15,14 @@ pre-build = [
 image = "ghcr.io/cross-rs/arm-unknown-linux-gnueabihf:edge"
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get clean",
     "apt-get update",
+    "apt-get clean",
+    "apt-get update",
+    "apt-get clean",
+    "cat /etc/apt/sources.list",
     "ldd --version",
-    "apt-cache madison libudev-dev:armhf",
+    "apt-cache madison libudev-dev:$CROSS_DEB_ARCH",
     "apt-get install --assume-yes libudev-dev:$CROSS_DEB_ARCH",
     "find / -name libudev.pc",
     "echo $PKG_CONFIG_PATH",
