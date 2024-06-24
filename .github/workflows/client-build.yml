@@ -1,0 +1,129 @@
+name: Build Client Binaries
+
+on:
+  push:
+    branches: ["feat/gamepad"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{matrix.os}}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      matrix:
+        include:
+          - build: linux
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-musl
+          - build: linux
+            os: ubuntu-latest
+            rust: stable
+            target: aarch64-unknown-linux-musl
+          - build: macos
+            os: macos-latest
+            rust: stable
+            target: x86_64-apple-darwin
+            humane_target: x86_64-apple-darwin
+          - build: macos-m1
+            os: macos-latest
+            rust: stable
+            target: aarch64-apple-darwin
+            humane_target: x86_64-apple-darwin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.rustup
+            target
+          key: ${{ runner.os }}-${{ matrix.rust }}
+      
+      - name: Install MUSL Tooling
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update -y
+          sudo apt install -y musl-tools musl-dev
+      - name: Install aarch64 Tooling
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          sudo apt update -y
+          sudo apt install -y clang gcc-aarch64-linux-gnu         
+          echo "TARGET_CC=clang" >> $GITHUB_ENV
+          echo "CFLAGS_aarch64_unknown_linux_musl=--sysroot=/usr/aarch64-linux-gnu" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=/usr/aarch64-linux-gnu/bin/ld" >> $GITHUB_ENV
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ matrix.rust }}
+            target: ${{ matrix.target }}
+            override: true
+            default: true
+            components: rustfmt, clippy
+      
+      - name: Build
+        working-directory: ./truncate_client
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Create Standard Release
+        run: |
+          EXEC_NAME="truncate_client"
+          ASSET_PATH="$EXEC_NAME-v$GIT_VERSION-${{ matrix.target }}.tar.gz"
+          CHECKSUM_PATH="$ASSET_PATH.sha256"
+
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            EXEC_NAME="truncate_client.exe"
+          fi
+
+          tar czf $ASSET_PATH -C target/${{ matrix.target }}/release $EXEC_NAME
+
+          if command -v gtar &> /dev/null; then
+            echo "Using gtar"
+            gtar czf $ASSET_PATH -C target/${{ matrix.target }}/release $EXEC_NAME
+          else
+            echo "Using system tar"
+            tar czf $ASSET_PATH -C target/${{ matrix.target }}/release $EXEC_NAME
+          fi
+
+          case $RUNNER_OS in
+              Windows)
+                  sha256sum $ASSET_PATH > $CHECKSUM_PATH
+                  ;;
+              Linux)
+                  sha256sum $ASSET_PATH > $CHECKSUM_PATH
+                  ;;
+              macOS)
+                  shasum -a 256 $ASSET_PATH > $CHECKSUM_PATH
+                  ;;
+          esac
+
+          echo "ASSET_PATH=$ASSET_PATH" >> $GITHUB_ENV
+          echo "CHECKSUM_PATH=$CHECKSUM_PATH" >> $GITHUB_ENV
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release
+          path: |
+            ${{ env.ASSET_PATH }}
+            ${{ env.CHECKSUM_PATH }}
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-checksums
+          path: |
+            ${{ env.CHECKSUM_PATH }}
