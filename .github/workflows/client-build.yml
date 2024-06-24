@@ -54,11 +54,11 @@ jobs:
             target
           key: ${{ runner.os }}-${{ matrix.rust }}
       
-      - name: Install MUSL Tooling
+      - name: Install Linux Tooling
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update -y
-          sudo apt install -y musl-tools musl-dev
+          sudo apt install -y musl-tools musl-dev libudev-dev
       - name: Install aarch64 Tooling
         if: matrix.target == 'aarch64-unknown-linux-musl'
         run: |
