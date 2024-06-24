@@ -84,14 +84,14 @@ jobs:
             EXEC_NAME="truncate_client.exe"
           fi
 
-          tar czf $ASSET_PATH -C target/${{ matrix.platform.target }}/release $EXEC_NAME
+          tar czf $ASSET_PATH -C truncate_client/target/${{ matrix.platform.target }}/release $EXEC_NAME
 
           if command -v gtar &> /dev/null; then
             echo "Using gtar"
-            gtar czf $ASSET_PATH -C target/${{ matrix.platform.target }}/release $EXEC_NAME
+            gtar czf $ASSET_PATH -C truncate_client/target/${{ matrix.platform.target }}/release $EXEC_NAME
           else
             echo "Using system tar"
-            tar czf $ASSET_PATH -C target/${{ matrix.platform.target }}/release $EXEC_NAME
+            tar czf $ASSET_PATH -C truncate_client/target/${{ matrix.platform.target }}/release $EXEC_NAME
           fi
 
           case $RUNNER_OS in
