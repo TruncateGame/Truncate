@@ -176,7 +176,7 @@ impl<'a> BoardUI<'a> {
 
                                                     interactions.selected_tile_in_hand = None;
                                                     interactions.selected_square_on_board = None;
-                                                } else {
+                                                } else if !depot.ui_state.is_touch {
                                                     if interactions
                                                         .selected_square_on_board
                                                         .is_some_and(|(c, _)| c == coord)
