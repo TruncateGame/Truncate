@@ -2,6 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::{
+    board::Board,
+    generation::{BoardElements, BoardParams, BoardSeed, BoardType},
+};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TownDefense {
     BeatenByContact,
@@ -9,10 +14,18 @@ pub enum TownDefense {
     BeatenWithDefenseStrength(usize),
 }
 
+/// Conditions which, when hit, end the game and mark a winner
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WinCondition {
     Destination { town_defense: TownDefense },
     Elimination, // TODO: Implement
+}
+
+/// Metrics to used to assign a winner when no condition was hit
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WinMetric {
+    TownProximity,
+    ObeliskProximity,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +33,7 @@ pub enum Visibility {
     Standard,
     TileFog,
     LandFog,
+    OnlyHouseFog,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,8 +62,8 @@ pub enum Timing {
         time_allowance: usize,
     },
     Periodic {
-        // TODO: Implement
         turn_delay: usize,
+        total_time_allowance: usize,
     },
     None,
 }
@@ -84,9 +98,18 @@ pub enum SwapPenalty {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BoardGenesis {
+    Passthrough,
+    SpecificBoard(Board),
+    Classic(usize, usize),
+    Random(BoardParams),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameRules {
     pub generation: Option<u32>,
     pub win_condition: WinCondition,
+    pub win_metric: WinMetric,
     pub visibility: Visibility,
     pub truncation: Truncation,
     pub timing: Timing,
@@ -96,6 +119,8 @@ pub struct GameRules {
     pub battle_rules: BattleRules,
     pub swapping: Swapping,
     pub battle_delay: u64,
+    pub max_turns: Option<u64>,
+    pub board_genesis: BoardGenesis,
 }
 
 const RULE_GENERATIONS: [GameRules; 2] = [
@@ -104,6 +129,7 @@ const RULE_GENERATIONS: [GameRules; 2] = [
         win_condition: WinCondition::Destination {
             town_defense: TownDefense::BeatenWithDefenseStrength(0),
         },
+        win_metric: WinMetric::TownProximity,
         visibility: Visibility::Standard,
         truncation: Truncation::Root,
         timing: Timing::None,
@@ -113,12 +139,15 @@ const RULE_GENERATIONS: [GameRules; 2] = [
         battle_rules: BattleRules { length_delta: 2 },
         swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
         battle_delay: 2,
+        max_turns: None,
+        board_genesis: BoardGenesis::Passthrough,
     },
     GameRules {
         generation: None, // hydrated on fetch
         win_condition: WinCondition::Destination {
             town_defense: TownDefense::BeatenWithDefenseStrength(0),
         },
+        win_metric: WinMetric::TownProximity,
         visibility: Visibility::Standard,
         truncation: Truncation::Root,
         timing: Timing::None,
@@ -128,6 +157,8 @@ const RULE_GENERATIONS: [GameRules; 2] = [
         battle_rules: BattleRules { length_delta: 2 },
         swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
         battle_delay: 2,
+        max_turns: None,
+        board_genesis: BoardGenesis::Passthrough,
     },
 ];
 
@@ -145,5 +176,44 @@ impl GameRules {
         assert!(!RULE_GENERATIONS.is_empty());
         let generation = (RULE_GENERATIONS.len() - 1) as u32;
         (generation, GameRules::generation(generation))
+    }
+
+    pub fn tuesday() -> Self {
+        Self {
+            generation: None, // hydrated on fetch
+            win_condition: WinCondition::Destination {
+                town_defense: TownDefense::BeatenWithDefenseStrength(0),
+            },
+            win_metric: WinMetric::ObeliskProximity,
+            visibility: Visibility::LandFog,
+            truncation: Truncation::None,
+            timing: Timing::PerPlayer {
+                time_allowance: 75 * 60,
+                overtime_rule: OvertimeRule::Elimination,
+            },
+            hand_size: 7,
+            tile_generation: 1,
+            tile_bag_behaviour: TileBagBehaviour::Standard,
+            battle_rules: BattleRules { length_delta: 1 },
+            swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
+            battle_delay: 2,
+            max_turns: Some(1050),
+            board_genesis: BoardGenesis::Random(BoardParams {
+                land_dimensions: [180, 180],
+                dispersion: [13.51, 13.51],
+                island_influence: 0.23,
+                maximum_town_density: 0.2,
+                maximum_town_distance: 0.1,
+                minimum_choke: 4,
+                board_type: BoardType::Continental,
+                ideal_dock_radius: 0.2,
+                ideal_dock_separation: 0.4,
+                elements: BoardElements {
+                    docks: true,
+                    towns: false,
+                    obelisk: true,
+                },
+            }),
+        }
     }
 }

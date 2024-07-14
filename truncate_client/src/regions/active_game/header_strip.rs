@@ -127,8 +127,12 @@ impl ActiveGame {
                                 TimerUI::new(player, &self.depot, &self.time_changes)
                                     .friend(true)
                                     .active(
-                                        player.index
-                                            == self.depot.gameplay.next_player_number as usize,
+                                        self.depot.gameplay.next_player_number.is_none()
+                                            || self
+                                                .depot
+                                                .gameplay
+                                                .next_player_number
+                                                .is_some_and(|n| n == player.index as u64),
                                     )
                                     .render(Some(timer_width), false, ui);
                             }
@@ -143,8 +147,12 @@ impl ActiveGame {
                                 TimerUI::new(opponent, &self.depot, &self.time_changes)
                                     .friend(false)
                                     .active(
-                                        opponent.index
-                                            == self.depot.gameplay.next_player_number as usize,
+                                        self.depot.gameplay.next_player_number.is_none()
+                                            || self
+                                                .depot
+                                                .gameplay
+                                                .next_player_number
+                                                .is_some_and(|n| n == opponent.index as u64),
                                     )
                                     .right_align()
                                     .render(Some(timer_width), false, ui);

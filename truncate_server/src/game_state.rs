@@ -1,10 +1,12 @@
+use instant::Duration;
 use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
-    messages::{GameMessage, GameStateMessage, LobbyPlayerMessage},
+    generation::{BoardParams, BoardType},
+    messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
     moves::Move,
     reporting::Change,
     rules::GameRules,
@@ -31,8 +33,8 @@ pub struct GameManager {
 
 impl GameManager {
     pub fn new(game_id: String) -> Self {
-        let latest_rules = GameRules::latest().0;
-        let game = Game::new(9, 11, None, latest_rules);
+        let game = Game::new(9, 11, None, GameRules::latest().1);
+        // let game = Game::new(9, 11, None, GameRules::tuesday());
 
         Self {
             game_id,
@@ -146,19 +148,59 @@ impl GameManager {
             .hand
             .clone();
 
+        let remaining_turns = self
+            .core_game
+            .rules
+            .max_turns
+            .map(|max| max.saturating_sub(self.core_game.turn_count as u64));
+
         GameStateMessage {
             room_code: self.game_id.clone(),
-            players: self.core_game.players.iter().map(Into::into).collect(),
+            players: self
+                .core_game
+                .players
+                .iter()
+                .map(|p| GamePlayerMessage::new(p, &self.core_game))
+                .collect(),
             player_number: player_index as u64,
-            next_player_number: self.core_game.next() as u64,
+            next_player_number: self.core_game.next().map(|n| n as u64),
             board,
             hand,
             changes,
+            game_ends_at: self.core_game.game_ends_at,
+            paused: self.core_game.paused,
+            remaining_turns,
         }
     }
 
-    pub fn start(&mut self) -> Vec<(&Player, GameMessage)> {
+    pub fn start(&mut self) -> Vec<(Player, GameMessage)> {
         // TODO: Check correct # of players
+
+        match &self.core_game.rules.board_genesis {
+            truncate_core::rules::BoardGenesis::Passthrough => { /* no-op */ }
+            truncate_core::rules::BoardGenesis::SpecificBoard(_) => unimplemented!(),
+            truncate_core::rules::BoardGenesis::Classic(_, _) => unimplemented!(),
+            truncate_core::rules::BoardGenesis::Random(params) => {
+                let rand_board = truncate_core::generation::generate_board(
+                    truncate_core::generation::BoardSeed {
+                        generation: 9999,
+                        seed: (instant::SystemTime::now()
+                            .duration_since(instant::SystemTime::UNIX_EPOCH)
+                            .expect("Please don't play Truncate earlier than 1970")
+                            .as_micros()
+                            % 287520520) as u32,
+                        day: None,
+                        params: params.clone(),
+                        current_iteration: 0,
+                        width_resize_state: None,
+                        height_resize_state: None,
+                        water_level: 0.5,
+                        max_attempts: 10000,
+                    },
+                );
+                self.core_game.board = rand_board.expect("Board can be resolved").board;
+            }
+        }
 
         // Trim off all edges and add one back for our land edges to show in the gui
         self.core_game.board.trim();
@@ -170,7 +212,7 @@ impl GameManager {
         // For cases where players reconnect and game.hands[0] is players[1] etc
         for (player_index, player) in self.players.iter().enumerate() {
             messages.push((
-                player,
+                player.clone(),
                 GameMessage::StartedGame(self.game_msg(player_index, None)),
             ));
         }
@@ -307,5 +349,37 @@ impl GameManager {
         } else {
             todo!("Handle missing player");
         }
+    }
+
+    pub fn pause(&mut self, words: Arc<Mutex<WordDB>>) -> Vec<(&Player, GameMessage)> {
+        self.core_game.pause();
+
+        let words_db = words.lock();
+        self.players
+            .iter()
+            .enumerate()
+            .map(|(player_index, player)| {
+                (
+                    player,
+                    GameMessage::GameTimingUpdate(self.game_msg(player_index, Some(&words_db))),
+                )
+            })
+            .collect()
+    }
+
+    pub fn unpause(&mut self, words: Arc<Mutex<WordDB>>) -> Vec<(&Player, GameMessage)> {
+        self.core_game.unpause();
+
+        let words_db = words.lock();
+        self.players
+            .iter()
+            .enumerate()
+            .map(|(player_index, player)| {
+                (
+                    player,
+                    GameMessage::GameTimingUpdate(self.game_msg(player_index, Some(&words_db))),
+                )
+            })
+            .collect()
     }
 }

@@ -270,9 +270,14 @@ impl ActiveGame {
                             }
                             let mut hand_ui =
                                 ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
-                            let active = self.depot.gameplay.player_number
-                                == self.depot.gameplay.next_player_number;
-                            HandUI::new(&mut self.hand).active(active).render(
+                            let active_hand = self.depot.gameplay.next_player_number.is_none()
+                                || self
+                                    .depot
+                                    .gameplay
+                                    .next_player_number
+                                    .is_some_and(|n| n == self.depot.gameplay.player_number);
+
+                            HandUI::new(&mut self.hand).active(active_hand).render(
                                 &mut hand_ui,
                                 &mut self.depot,
                                 &mut self.mapped_hand,

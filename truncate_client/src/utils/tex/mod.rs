@@ -106,7 +106,7 @@ impl From<&Square> for BGTexType {
         use truncate_core::board::Square::*;
         match sq {
             Water | Fog | Dock(_) => Self::WaterOrFog,
-            Land | Town { .. } | Occupied { .. } => Self::Land,
+            Land | Town { .. } | Obelisk | Occupied { .. } => Self::Land,
         }
     }
 }
@@ -116,6 +116,7 @@ pub enum FGTexType {
     None,
     Town(Color32),
     Dock(Color32),
+    Obelisk,
     Fog,
 }
 
@@ -125,6 +126,7 @@ impl From<(&Square, &Vec<Color32>)> for FGTexType {
             Square::Water => Self::None,
             Square::Fog => Self::Fog,
             Square::Land => Self::None,
+            Square::Obelisk => Self::Obelisk,
             Square::Town { player, .. } => {
                 Self::Town(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
@@ -605,7 +607,7 @@ impl Tex {
         }
 
         if matches!(layer_type, FGTexType::Fog) {
-            return TexLayers::default().with_fog([tiles::DEBUG; 4]);
+            return TexLayers::default().with_fog([tiles::BASE_WATER; 4]);
         }
 
         let grasses = match wind_at_coord {
@@ -696,6 +698,10 @@ impl Tex {
             }
             FGTexType::Dock(color) => {
                 layers = layers.merge_above_self(Tex::dock(color, neighbors, wind_at_coord))
+            }
+            FGTexType::Obelisk => {
+                layers = layers
+                    .merge_above_self(TexLayers::default().with_structures(tiles::quad::DIALOG))
             }
             FGTexType::Fog => unreachable!(),
             FGTexType::None => {}
