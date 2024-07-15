@@ -917,6 +917,45 @@ mod tests {
     }
 
     #[test]
+    fn test_npc_determinism() {
+        let dict = dict();
+
+        let eval = || {
+            let game = test_game(
+                r###"
+                ~~ ~~ |0 ~~
+                ~~ S0 O0 ~~
+                ~~ T0 A0 Y0
+                ~~ A0 ~~ ~~
+                ~~ R0 __ ~~
+                ~~ __ A1 |1
+                ~~ ~~ |1 ~~
+                ~~ ~~ ~~ ~~
+                "###,
+                "XZF",
+            );
+            let mut pruned_arbor = Arborist::pruning();
+            let (pruned_best_move, _) = Game::best_move(
+                &game,
+                Some(&dict),
+                Some(&dict),
+                2,
+                Some(&mut pruned_arbor),
+                false,
+                &NPCParams::default(),
+            );
+
+            pruned_best_move
+        };
+
+        let base = eval();
+        println!("{:#?}", base);
+        for _ in 0..200 {
+            assert_eq!(eval(), base);
+        }
+    }
+
+    #[test]
     fn generic_npc_tests() {
         let dict = dict();
 
