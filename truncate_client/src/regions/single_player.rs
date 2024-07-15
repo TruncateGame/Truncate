@@ -18,7 +18,7 @@ use crate::{
         ResultModalUI,
     },
     utils::{
-        game_evals::{client_best_move, get_main_dict, remember},
+        game_evals::{client_best_move, forget, get_main_dict, remember},
         text::TextHelper,
         Theme,
     },
@@ -133,7 +133,12 @@ impl SinglePlayerState {
             .event(format!("single_player_{}_{}", self.name, event));
     }
 
-    pub fn reset(&mut self, current_time: Duration, ctx: &egui::Context) {
+    pub fn reset(
+        &mut self,
+        current_time: Duration,
+        ctx: &egui::Context,
+        backchannel: &Backchannel,
+    ) {
         if let Some(seed) = &self.active_game.depot.board_info.board_seed {
             if seed.day.is_some() {
                 match &mut self.header {
@@ -145,17 +150,23 @@ impl SinglePlayerState {
                     }
                     _ => {}
                 };
-                return self.reset_to(seed.clone(), self.human_starts, ctx);
+                return self.reset_to(seed.clone(), self.human_starts, ctx, backchannel);
             }
         }
 
         let next_seed = (current_time.as_micros() % 243985691) as u32;
         let next_board_seed = BoardSeed::new(next_seed);
 
-        self.reset_to(next_board_seed, !self.human_starts, ctx);
+        self.reset_to(next_board_seed, !self.human_starts, ctx, backchannel);
     }
 
-    pub fn reset_to(&mut self, seed: BoardSeed, human_starts: bool, ctx: &egui::Context) {
+    pub fn reset_to(
+        &mut self,
+        seed: BoardSeed,
+        human_starts: bool,
+        ctx: &egui::Context,
+        backchannel: &Backchannel,
+    ) {
         let mut game = Game::new(9, 9, Some(seed.seed as u64), self.rules_generation);
         self.human_starts = human_starts;
         if self.human_starts {
@@ -207,6 +218,12 @@ impl SinglePlayerState {
         self.winner = None;
         self.move_sequence = vec![];
         self.event_dispatcher = self.event_dispatcher.clone();
+
+        if backchannel.is_open() {
+            backchannel.send_msg(crate::app_outer::BackchannelMsg::Forget);
+        } else {
+            forget();
+        }
     }
 
     /// If the server sent through some new word definitions,
@@ -389,7 +406,7 @@ impl SinglePlayerState {
             .map(|msg| (human_player, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
-            self.reset(current_time, ui.ctx());
+            self.reset(current_time, ui.ctx(), backchannel);
             return msgs_to_server;
         } else if matches!(next_msg, Some((_, PlayerMessage::Resign))) {
             if self.hide_splash {
@@ -427,15 +444,15 @@ impl SinglePlayerState {
                 match splash_msg {
                     Some(ResultModalAction::NewPuzzle) => {
                         self.splash = None;
-                        self.reset(current_time, ui.ctx());
+                        self.reset(current_time, ui.ctx(), backchannel);
                     }
                     Some(ResultModalAction::TryAgain) => {
                         self.splash = None;
 
                         if let Some(seed) = &self.active_game.depot.board_info.board_seed {
-                            self.reset_to(seed.clone(), self.human_starts, ui.ctx());
+                            self.reset_to(seed.clone(), self.human_starts, ui.ctx(), backchannel);
                         } else {
-                            self.reset(current_time, ui.ctx());
+                            self.reset(current_time, ui.ctx(), backchannel);
                         }
                     }
                     Some(ResultModalAction::Dismiss) => {
