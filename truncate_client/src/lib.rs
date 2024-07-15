@@ -167,6 +167,10 @@ pub fn backchannel(msg: String) -> String {
             utils::game_evals::remember(&word);
             return String::new();
         }
+        BackchannelMsg::Forget => {
+            utils::game_evals::forget();
+            return String::new();
+        }
         BackchannelMsg::QueryFor { .. } => {
             unreachable!("Backchannel should not be passing through QueryFor")
         }
