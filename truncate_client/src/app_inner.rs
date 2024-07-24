@@ -239,7 +239,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
     }
 
     if new_game_status.is_none() {
-        render_native_menu_if_required(outer, ui);
+        new_game_status = render_native_menu_if_required(outer, ui);
     }
 
     let mut send = |msg| {
