@@ -292,14 +292,15 @@ impl Game {
         self.paused = true;
 
         for player in self.players.iter_mut() {
-            let turn_delta = player
+            let current_player_turn = player
                 .turn_starts_no_later_than
-                .or(player.turn_starts_no_sooner_than)
-                .expect("Player played without the time running")
-                as i64
-                - (now() as i64);
+                .or(player.turn_starts_no_sooner_than);
 
-            player.paused_turn_delta = Some(turn_delta);
+            if let Some(current_player_turn) = current_player_turn {
+                let turn_delta = current_player_turn as i64 - (now() as i64);
+
+                player.paused_turn_delta = Some(turn_delta);
+            }
 
             player.turn_starts_no_sooner_than = None;
             player.turn_starts_no_later_than = None;
