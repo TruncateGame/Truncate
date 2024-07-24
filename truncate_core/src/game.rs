@@ -320,6 +320,8 @@ impl Game {
                         Some(now().saturating_add_signed(paused_turn_delta));
                     next_player.turn_starts_no_sooner_than =
                         Some(now().saturating_add_signed(paused_turn_delta));
+
+                    next_player.paused_turn_delta = None;
                 }
             }
             rules::Timing::Periodic { .. } => {
@@ -330,6 +332,8 @@ impl Game {
                         Some(now().saturating_add_signed(paused_turn_delta));
                     player.turn_starts_no_sooner_than =
                         Some(now().saturating_add_signed(paused_turn_delta));
+
+                    player.paused_turn_delta = None;
                 }
             }
             rules::Timing::PerTurn { time_allowance } => unimplemented!(),
@@ -352,16 +356,6 @@ impl Game {
             Move::Place { player, .. } => player,
             Move::Swap { player, .. } => player,
         };
-
-        // TODO: Remove this "pause" feature
-        if let Some(turn_start) = self.players[player].turn_starts_no_sooner_than {
-            if now() > turn_start + 600 {
-                self.players[player].turn_starts_no_sooner_than = Some(now());
-                self.players[player].turn_starts_no_later_than = Some(now());
-
-                return Err("Game is now unpaused lmao".into());
-            }
-        }
 
         self.calculate_game_over(Some(player));
         if self.winner.is_some() {
