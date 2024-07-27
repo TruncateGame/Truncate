@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use eframe::egui::Context;
@@ -46,12 +47,18 @@ pub async fn connect(
         WsMessage::Text(serde_json::to_string(&msg.clone()).unwrap())
     });
 
+    let mut pending_messages = VecDeque::new();
+
     loop {
+        tracing::debug!("Starting to connect to websocket");
+
         let Ok(wsio) = websocket_connect(&connect_addr).await else {
             console::log_1(&"Failed, waiting 2000ms".into());
             gloo_timers::future::TimeoutFuture::new(2000).await;
             continue;
         };
+
+        tracing::debug!("Connected to websocket");
 
         let (mut outgoing, incoming) = wsio.split();
 
@@ -96,13 +103,26 @@ pub async fn connect(
 
         let player_messages = async {
             loop {
-                let msg = outgoing_msg_stream.next().await;
-                if let Some(msg) = msg {
-                    if outgoing.send(msg).await.is_err() {
-                        continue;
-                    };
-                } else {
-                    panic!("Internal stream closed");
+                if pending_messages.is_empty() {
+                    match outgoing_msg_stream.next().await {
+                        Some(msg) => {
+                            pending_messages.push_back(msg);
+                        }
+                        None => {
+                            panic!("Internal stream closed");
+                        }
+                    }
+                };
+
+                if let Some(msg) = pending_messages.get(0).cloned() {
+                    match outgoing.send(msg).await {
+                        Ok(()) => {
+                            pending_messages.pop_front();
+                        }
+                        Err(err) => {
+                            tracing::debug!("Send err: {err:?}");
+                        }
+                    }
                 }
             }
         };
