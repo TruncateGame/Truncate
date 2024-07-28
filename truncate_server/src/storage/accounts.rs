@@ -7,7 +7,7 @@ use woothee::parser::Parser as UAParser;
 
 use crate::{errors::TruncateServerError, ServerState};
 
-#[derive(Clone)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct AuthedTruncateToken {
     token: TruncateToken,
     player_id: Uuid,
@@ -160,8 +160,8 @@ pub async fn login(
 
     sqlx::query!(
         "UPDATE players
-            SET 
-                last_login = CURRENT_TIMESTAMP, 
+            SET
+                last_login = CURRENT_TIMESTAMP,
                 last_screen_width = $2,
                 last_screen_height = $3,
                 last_browser_name = $4,
@@ -220,7 +220,7 @@ pub async fn mark_changelogs_read(
 
     sqlx::query!(
         "UPDATE players
-            SET 
+            SET
                 last_known_changelog = CURRENT_TIMESTAMP
             WHERE player_id = $1",
         player_id,

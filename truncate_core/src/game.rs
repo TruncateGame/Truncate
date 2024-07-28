@@ -47,7 +47,7 @@ pub struct Game {
 }
 
 // TODO: Move this to a helper file somewhere
-fn now() -> u64 {
+pub fn now() -> u64 {
     instant::SystemTime::now()
         .duration_since(instant::SystemTime::UNIX_EPOCH)
         .expect("Please don't play Truncate before 1970")

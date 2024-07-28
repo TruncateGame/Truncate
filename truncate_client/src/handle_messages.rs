@@ -31,7 +31,8 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
 
     while let Ok(msg) = recv() {
         match msg {
-            GameMessage::Ping => {}
+            GameMessage::Ping | GameMessage::Ack(_) | GameMessage::PleaseLogin => { /* handled at comms layer */
+            }
             GameMessage::JoinedLobby(player_index, id, players, board, token) => {
                 // If we're already in a lobby, treat this as a lobby update
                 // (the websocket probably dropped and reconnected)
