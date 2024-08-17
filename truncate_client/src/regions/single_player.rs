@@ -534,6 +534,15 @@ impl SinglePlayerState {
                         ));
                     }
                 }
+
+                if self.splash.is_none() {
+                    // TODO: Add a special splash screen for somehow having no token / not being logged in
+                    self.splash = Some(ResultModalUI::new_loading(&mut ui));
+
+                    if let Some(token) = logged_in_as {
+                        msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
+                    }
+                }
             } else {
                 if self.splash.is_none() {
                     self.splash = Some(ResultModalUI::new_unique(
@@ -637,7 +646,9 @@ impl SinglePlayerState {
                                 moves: self.move_sequence.clone(),
                                 won: self.winner == Some(human_player),
                             });
-                            msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
+
+                            // Ensure we never pull up an old splash screen without this move
+                            self.daily_stats = None;
                         }
                     }
                 }

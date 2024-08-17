@@ -47,7 +47,7 @@ pub struct Game {
 }
 
 // TODO: Move this to a helper file somewhere
-fn now() -> u64 {
+pub fn now() -> u64 {
     instant::SystemTime::now()
         .duration_since(instant::SystemTime::UNIX_EPOCH)
         .expect("Please don't play Truncate before 1970")
@@ -318,13 +318,18 @@ impl Game {
                     return Err(GamePlayError::NonAdjacentPlace);
                 }
 
-                changes.push(self.players[player].use_tile(tile, &mut self.bag)?);
+                if !self.players[player].has_tile(tile) {
+                    return Err(GamePlayError::PlayerDoesNotHaveTile { player, tile });
+                }
+
                 changes.push(Change::Board(BoardChange {
                     detail: self
                         .board
                         .set(position, player, tile, attacker_dictionary)?,
                     action: BoardChangeAction::Added,
                 }));
+                changes.push(self.players[player].use_tile(tile, &mut self.bag)?);
+
                 self.resolve_attack(
                     player,
                     position,

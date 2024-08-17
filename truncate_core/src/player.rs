@@ -100,6 +100,10 @@ impl Player {
         }
     }
 
+    pub fn has_tile(&self, tile: char) -> bool {
+        self.hand.0.contains(&tile)
+    }
+
     pub fn use_tile(&mut self, tile: char, bag: &mut TileBag) -> Result<Change, GamePlayError> {
         match self.hand.iter().position(|t| t == &tile) {
             None => Err(GamePlayError::PlayerDoesNotHaveTile {

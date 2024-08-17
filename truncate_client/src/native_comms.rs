@@ -6,6 +6,10 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 use truncate_core::messages::{GameMessage, PlayerMessage};
 
+/*
+ TODO: Implement the pending_messages retry flow from web_comms
+*/
+
 pub async fn connect(
     connect_addr: String,
     tx_game: mpsc::Sender<GameMessage>,
