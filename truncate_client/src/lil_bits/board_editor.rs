@@ -303,7 +303,8 @@ impl<'a> EditorUI<'a> {
                                 ui.ctx()
                                     .memory_mut(|mem| mem.data.remove::<EditorDrag>(Id::NULL));
                             } else if response.clicked() {
-                                unreachable!("Maybe unreachable? Duplicate above state if not...");
+                                ui.ctx()
+                                    .memory_mut(|mem| mem.data.remove::<EditorDrag>(Id::NULL));
                             };
                         }
                     });

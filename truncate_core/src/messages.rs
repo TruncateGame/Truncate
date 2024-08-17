@@ -18,6 +18,18 @@ pub type RoomCode = String;
 pub type PlayerNumber = u64;
 pub type TruncateToken = String;
 
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+pub struct Nonce {
+    pub generated_at: u64,
+    pub id: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NoncedPlayerMessage {
+    pub nonce: Nonce,
+    pub message: PlayerMessage,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PlayerMessage {
     Ping,
@@ -234,6 +246,8 @@ impl DailyStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
     Ping,
+    Ack(Nonce),
+    PleaseLogin,
     JoinedLobby(
         PlayerNumber,
         RoomCode,
@@ -262,6 +276,8 @@ impl fmt::Display for GameMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             GameMessage::Ping => write!(f, "Game ping"),
+            GameMessage::Ack(_) => write!(f, "ACK"),
+            GameMessage::PleaseLogin => write!(f, "Server is requesting player to login"),
             GameMessage::JoinedLobby(player, room, players, board, _token) => write!(
                 f,
                 "Joined lobby {} as player {} with players {}. Board is:\n{}",
