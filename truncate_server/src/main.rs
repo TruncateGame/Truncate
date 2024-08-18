@@ -365,6 +365,8 @@ async fn handle_player_msg(
                 room_code,
             } = claims.custom;
 
+            let words_db = server_state.words();
+
             let code = room_code.to_ascii_lowercase();
             if let Some(existing_game) = server_state.get_game_by_code(&code) {
                 let mut game_manager = existing_game.lock();
@@ -378,7 +380,7 @@ async fn handle_player_msg(
                                 .send_to_player(
                                     &player_addr,
                                     GameMessage::StartedGame(
-                                        game_manager.game_msg(player_index, None),
+                                        game_manager.game_msg(player_index, Some(&words_db.lock())),
                                     ),
                                 )
                                 .unwrap();
@@ -497,6 +499,23 @@ async fn handle_player_msg(
                     let Some(socket) = player.socket else {
                         continue;
                     };
+
+                    let room_code = game_manager.game_id.clone();
+
+                    match &game_manager.core_game.rules.timing {
+                        truncate_core::rules::Timing::Periodic {
+                            total_time_allowance,
+                            ..
+                        } => {
+                            tokio::spawn(check_game_over(
+                                room_code,
+                                (*total_time_allowance + 1) as i128 * 1000,
+                                server_state.clone(),
+                            ));
+                        }
+                        _ => {}
+                    };
+
                     server_state.send_to_player(&socket, message).unwrap();
                 }
             } else {
@@ -620,6 +639,34 @@ async fn handle_player_msg(
                             .unwrap();
                     }
                 }
+            }
+        }
+        Pause => {
+            if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let mut game_manager = existing_game.lock();
+                for (player, message) in game_manager.pause(server_state.words()) {
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
+                    server_state.send_to_player(&socket, message).unwrap();
+                }
+                // TODO: Error handling flow
+            } else {
+                todo!("Handle player not being enrolled in a game");
+            }
+        }
+        Unpause => {
+            if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let mut game_manager = existing_game.lock();
+                for (player, message) in game_manager.unpause(server_state.words()) {
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
+                    server_state.send_to_player(&socket, message).unwrap();
+                }
+                // TODO: Error handling flow
+            } else {
+                todo!("Handle player not being enrolled in a game");
             }
         }
         RequestDefinitions(words) => {
@@ -847,19 +894,28 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
                         next_player_number,
                         ..
                     })
+                    | GameMessage::GameTimingUpdate(GameStateMessage {
+                        room_code,
+                        players,
+                        next_player_number,
+                        ..
+                    })
                     | GameMessage::StartedGame(GameStateMessage {
                         room_code,
                         players,
                         next_player_number,
                         ..
                     }) => {
-                        let next_player = &players[*next_player_number as usize];
-                        if let Some(time_remaining) = next_player.time_remaining {
-                            tokio::spawn(check_game_over(
-                                room_code.clone(),
-                                time_remaining.whole_milliseconds(),
-                                server_state.clone(),
-                            ));
+                        if let Some(next_player) = next_player_number {
+                            let next_player = &players[*next_player as usize];
+                            if let Some(time_remaining) = next_player.time_remaining {
+                                println!("Some player has {time_remaining} time left");
+                                tokio::spawn(check_game_over(
+                                    room_code.clone(),
+                                    time_remaining.whole_milliseconds(),
+                                    server_state.clone(),
+                                ));
+                            }
                         }
                     }
                     _ => {}
@@ -890,12 +946,14 @@ async fn check_game_over(game_id: String, check_in_ms: i128, server_state: Serve
     let mut game_manager = existing_game.lock();
     game_manager.core_game.calculate_game_over(None);
 
+    let words_db = server_state.words();
+
     if let Some(winner) = game_manager.core_game.winner {
         for (player_index, player) in game_manager.players.iter().enumerate() {
             let Some(socket) = player.socket else {
                 continue;
             };
-            let mut end_game_msg = game_manager.game_msg(player_index, None);
+            let mut end_game_msg = game_manager.game_msg(player_index, Some(&words_db.lock()));
             // Don't send any of the latest battles or hand changes
             end_game_msg.changes = vec![];
             server_state

@@ -86,6 +86,9 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 board,
                 hand,
                 changes: _,
+                game_ends_at,
+                paused,
+                remaining_turns,
             }) => {
                 // If we're already in a game, treat this as a game update
                 // (the websocket probably dropped and reconnected)
@@ -99,6 +102,9 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                             board,
                             hand,
                             changes: vec![], // TODO: Try get latest changes on reconnect without dupes
+                            game_ends_at,
+                            paused,
+                            remaining_turns,
                         };
                         game.apply_new_state(update);
                         continue;
@@ -118,11 +124,25 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                     outer.map_texture.clone(),
                     outer.theme.clone(),
                     GameLocation::Online,
+                    game_ends_at,
+                    remaining_turns,
                 ));
             }
             GameMessage::GameUpdate(state_message) => match &mut outer.game_status {
                 GameStatus::Active(game) => {
                     game.apply_new_state(state_message);
+                }
+                _ => {
+                    outer.game_status = GameStatus::HardError(vec![
+                        "Game hit unknown case".into(),
+                        "Received game message".into(),
+                        "while not in a game".into(),
+                    ])
+                }
+            },
+            GameMessage::GameTimingUpdate(state_message) => match &mut outer.game_status {
+                GameStatus::Active(game) => {
+                    game.apply_new_timing(state_message);
                 }
                 _ => {
                     outer.game_status = GameStatus::HardError(vec![
@@ -143,6 +163,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 match &mut outer.game_status {
                     GameStatus::Active(game) => {
                         game.apply_new_state(state_message);
+                        game.depot.gameplay.winner = Some(winner as usize);
                         outer.game_status = GameStatus::Concluded(game.clone(), winner);
                     }
                     _ => {}
@@ -262,7 +283,12 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                     .map(|(_, i)| i.rules_generation)
                     .unwrap_or_else(|| GameRules::latest().0);
 
-                let mut game = game::Game::new(9, 9, Some(seed.seed as u64), rules_generation);
+                let mut game = game::Game::new(
+                    9,
+                    9,
+                    Some(seed.seed as u64),
+                    GameRules::generation(rules_generation),
+                );
                 if human_starts {
                     game.add_player("You".into());
                     game.add_player("Computer".into());
