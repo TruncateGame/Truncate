@@ -602,11 +602,17 @@ impl BoardGenerator for Board {
             if self.get(center_point).is_err() {
                 return Err(());
             }
-            let mut neighbors = center_point.neighbors_8_iter();
+            let neighbors = center_point.neighbors_8_iter().collect::<Vec<_>>();
+
+            // If we have fewer than 8 valid neighboring coordinates,
+            // we have hit some edge of the board and bail out
+            if neighbors.len() != 8 {
+                return Err(());
+            }
             center_point = center_point
                 .neighbors_8_iter()
                 .find(|p| self.get(*p) == Ok(Square::Land))
-                .unwrap_or_else(|| neighbors.next().unwrap())
+                .unwrap_or_else(|| neighbors[0])
                 .clone();
         }
 
