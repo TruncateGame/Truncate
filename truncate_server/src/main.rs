@@ -27,8 +27,42 @@ use crate::storage::events::create_event;
 use game_state::GameManager;
 use storage::accounts::{self, AuthedTruncateToken};
 use truncate_core::messages::{
-    DailyStateMessage, GameMessage, GameStateMessage, LobbyPlayerMessage, PlayerMessage,
+    DailyStateMessage, GameMessage, GameStateMessage, LobbyPlayerMessage, Nonce,
+    NoncedPlayerMessage, PlayerMessage,
 };
+
+// TODO: Also find a way to include this in the database to prevent replay if reconnecting to a different backend
+#[derive(Default)]
+pub struct NonceTracker {
+    map: HashMap<AuthedTruncateToken, HashSet<Nonce>>,
+}
+
+impl NonceTracker {
+    fn burn_nonce(&mut self, user: AuthedTruncateToken, nonce: Nonce) -> Result<(), ()> {
+        let set = self.map.entry(user).or_default();
+
+        let current_time = truncate_core::game::now();
+
+        // Reject all nonces older than an hour.
+        if nonce.generated_at < current_time.saturating_sub(60 * 60) {
+            return Err(());
+        }
+
+        if set.insert(nonce) {
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    fn cleanup(&mut self, minutes: u64) {
+        let current_time = truncate_core::game::now();
+
+        self.map.values_mut().for_each(|set| {
+            set.retain(|n| n.generated_at > current_time.saturating_sub(60 * minutes));
+        })
+    }
+}
 
 #[derive(Clone)]
 pub struct ServerState {
@@ -36,6 +70,7 @@ pub struct ServerState {
     assignments: Arc<Mutex<HashMap<SocketAddr, String>>>,
     peers: Arc<Mutex<HashMap<SocketAddr, UnboundedSender<GameMessage>>>>,
     word_db: Arc<Mutex<WordDB>>,
+    nonces: Arc<Mutex<NonceTracker>>,
     truncate_db: Option<PgPool>,
     jwt_key: HS256Key,
 }
@@ -106,10 +141,54 @@ async fn handle_player_msg(
     server_state: ServerState,
     connection_info_mutex: Arc<Mutex<ConnectionInfo>>,
 ) -> Result<(), tungstenite::Error> {
-    let Ok(mut parsed_msg): Result<PlayerMessage, _> = serde_json::from_str(msg.to_text().unwrap())
-    else {
-        return Ok(());
+    let (nonce, mut parsed_msg) = {
+        if let Ok(nonced_msg) = serde_json::from_str::<NoncedPlayerMessage>(msg.to_text().unwrap())
+        {
+            (Some(nonced_msg.nonce), nonced_msg.message)
+        } else if let Ok(bare_msg) = serde_json::from_str::<PlayerMessage>(msg.to_text().unwrap()) {
+            (None, bare_msg)
+        } else {
+            return Ok(());
+        }
     };
+
+    if let Some(nonce) = nonce {
+        let Some(connection_player) = connection_info_mutex.lock().player.clone() else {
+            // Prevent processing any nonces unless the player is logged in.
+            // The player will have to re-send this message after logging in.
+            // PleaseLogin tells the client to login prior to re-sending their messages,
+            // otherwise they'll thrash waiting for an ack on this message.
+            server_state
+                .send_to_player(&player_addr, GameMessage::PleaseLogin)
+                .unwrap();
+
+            return Ok(());
+        };
+
+        // Pre-acknowledge this message as "handled".
+        // If the server panics, we don't want the client to keep thrashing on this message.
+        server_state
+            .send_to_player(&player_addr, GameMessage::Ack(nonce.clone()))
+            .unwrap();
+
+        let mut nm = server_state.nonces.lock();
+
+        if nm.burn_nonce(connection_player, nonce).is_err() {
+            // Allow some information-retrieval messages to be replayed,
+            // since duplicate replies can be handled by the client,
+            // and if the response from the server was lost in a disconnect
+            // they may be stuck waiting for the info (e.g. waiting for DailyStats to show splash screen)
+            let replayable = matches!(
+                parsed_msg,
+                RequestDefinitions(_) | RequestStats(_) | LoadReplay(_)
+            );
+
+            if !replayable {
+                // Silently fail on nonce replay, since this message has been handled.
+                return Ok(());
+            }
+        }
+    }
 
     use PlayerMessage::*;
     // If player is joining a room that they have a token for,
@@ -286,6 +365,8 @@ async fn handle_player_msg(
                 room_code,
             } = claims.custom;
 
+            let words_db = server_state.words();
+
             let code = room_code.to_ascii_lowercase();
             if let Some(existing_game) = server_state.get_game_by_code(&code) {
                 let mut game_manager = existing_game.lock();
@@ -299,7 +380,7 @@ async fn handle_player_msg(
                                 .send_to_player(
                                     &player_addr,
                                     GameMessage::StartedGame(
-                                        game_manager.game_msg(player_index, None),
+                                        game_manager.game_msg(player_index, Some(&words_db.lock())),
                                     ),
                                 )
                                 .unwrap();
@@ -418,6 +499,23 @@ async fn handle_player_msg(
                     let Some(socket) = player.socket else {
                         continue;
                     };
+
+                    let room_code = game_manager.game_id.clone();
+
+                    match &game_manager.core_game.rules.timing {
+                        truncate_core::rules::Timing::Periodic {
+                            total_time_allowance,
+                            ..
+                        } => {
+                            tokio::spawn(check_game_over(
+                                room_code,
+                                (*total_time_allowance + 1) as i128 * 1000,
+                                server_state.clone(),
+                            ));
+                        }
+                        _ => {}
+                    };
+
                     server_state.send_to_player(&socket, message).unwrap();
                 }
             } else {
@@ -541,6 +639,34 @@ async fn handle_player_msg(
                             .unwrap();
                     }
                 }
+            }
+        }
+        Pause => {
+            if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let mut game_manager = existing_game.lock();
+                for (player, message) in game_manager.pause(server_state.words()) {
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
+                    server_state.send_to_player(&socket, message).unwrap();
+                }
+                // TODO: Error handling flow
+            } else {
+                todo!("Handle player not being enrolled in a game");
+            }
+        }
+        Unpause => {
+            if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let mut game_manager = existing_game.lock();
+                for (player, message) in game_manager.unpause(server_state.words()) {
+                    let Some(socket) = player.socket else {
+                        continue;
+                    };
+                    server_state.send_to_player(&socket, message).unwrap();
+                }
+                // TODO: Error handling flow
+            } else {
+                todo!("Handle player not being enrolled in a game");
             }
         }
         RequestDefinitions(words) => {
@@ -768,19 +894,28 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
                         next_player_number,
                         ..
                     })
+                    | GameMessage::GameTimingUpdate(GameStateMessage {
+                        room_code,
+                        players,
+                        next_player_number,
+                        ..
+                    })
                     | GameMessage::StartedGame(GameStateMessage {
                         room_code,
                         players,
                         next_player_number,
                         ..
                     }) => {
-                        let next_player = &players[*next_player_number as usize];
-                        if let Some(time_remaining) = next_player.time_remaining {
-                            tokio::spawn(check_game_over(
-                                room_code.clone(),
-                                time_remaining.whole_milliseconds(),
-                                server_state.clone(),
-                            ));
+                        if let Some(next_player) = next_player_number {
+                            let next_player = &players[*next_player as usize];
+                            if let Some(time_remaining) = next_player.time_remaining {
+                                println!("Some player has {time_remaining} time left");
+                                tokio::spawn(check_game_over(
+                                    room_code.clone(),
+                                    time_remaining.whole_milliseconds(),
+                                    server_state.clone(),
+                                ));
+                            }
                         }
                     }
                     _ => {}
@@ -811,18 +946,30 @@ async fn check_game_over(game_id: String, check_in_ms: i128, server_state: Serve
     let mut game_manager = existing_game.lock();
     game_manager.core_game.calculate_game_over(None);
 
+    let words_db = server_state.words();
+
     if let Some(winner) = game_manager.core_game.winner {
         for (player_index, player) in game_manager.players.iter().enumerate() {
             let Some(socket) = player.socket else {
                 continue;
             };
-            let mut end_game_msg = game_manager.game_msg(player_index, None);
+            let mut end_game_msg = game_manager.game_msg(player_index, Some(&words_db.lock()));
             // Don't send any of the latest battles or hand changes
             end_game_msg.changes = vec![];
             server_state
                 .send_to_player(&socket, GameMessage::GameEnd(end_game_msg, winner as u64))
                 .unwrap();
         }
+    }
+}
+
+async fn clean_nonces(server_state: ServerState) {
+    loop {
+        // Clean all old nonces every five minutes
+        tokio::time::sleep(Duration::from_mins(5).into()).await;
+
+        let mut nonce_manager = server_state.nonces.lock();
+        nonce_manager.cleanup(90);
     }
 }
 
@@ -873,6 +1020,7 @@ async fn main() -> Result<(), IoError> {
         assignments: Arc::new(Mutex::new(HashMap::new())),
         peers: Arc::new(Mutex::new(HashMap::new())),
         word_db: Arc::new(Mutex::new(read_defs())),
+        nonces: Arc::new(Mutex::new(NonceTracker::default())),
         truncate_db: None,
         jwt_key,
     };
@@ -905,6 +1053,7 @@ async fn main() -> Result<(), IoError> {
     println!("Listening on: {}", addr);
 
     tokio::spawn(ping_peers(server_state.clone()));
+    tokio::spawn(clean_nonces(server_state.clone()));
 
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(10));

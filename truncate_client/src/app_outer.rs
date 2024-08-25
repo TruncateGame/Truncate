@@ -223,7 +223,7 @@ impl OuterApplication {
             }
         }
 
-        let theme = Theme::default();
+        let theme = Theme::day();
 
         {
             use egui::FontFamily;

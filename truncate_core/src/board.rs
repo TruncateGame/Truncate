@@ -1,7 +1,9 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::array::IntoIter;
 use std::collections::{HashSet, VecDeque};
 use std::fmt;
+use std::iter::{FilterMap, Flatten};
 use std::slice::Iter;
 
 use super::reporting::{BoardChange, BoardChangeAction, BoardChangeDetail};
@@ -9,7 +11,7 @@ use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::judge::WordDict;
 use crate::reporting::Change;
-use crate::rules;
+use crate::{player, rules};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -62,6 +64,7 @@ pub struct Board {
     pub squares: Vec<Vec<Square>>,
     pub docks: Vec<Coordinate>,
     pub towns: Vec<Coordinate>,
+    pub obelisks: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
                                   // TODO: Move orientations off the Board and have them tagged against specific players
 }
@@ -101,7 +104,8 @@ impl Board {
         let mut board = Board {
             squares,
             docks: vec![],
-            towns: vec![], // TODO: populate
+            towns: vec![],
+            obelisks: vec![],
             orientations: vec![Direction::North, Direction::South],
         };
 
@@ -281,6 +285,7 @@ impl Board {
         for coord in coords {
             match self.get(coord) {
                 Ok(Square::Water | Square::Land | Square::Occupied { .. } | Square::Fog) => {}
+                Ok(Square::Obelisk) => self.obelisks.push(coord),
                 Ok(Square::Town { .. }) => self.towns.push(coord),
                 Ok(Square::Dock(_)) => self.docks.push(coord),
                 Err(e) => {
@@ -397,7 +402,7 @@ impl Board {
                     }
                     tiles[i] = tile;
                 }
-                Water | Land | Fog | Town { .. } | Dock(_) => {
+                Water | Land | Fog | Town { .. } | Obelisk | Dock(_) => {
                     return Err(GamePlayError::UnoccupiedSwap)
                 }
             };
@@ -509,8 +514,7 @@ impl Board {
 
     pub fn neighbouring_squares(&self, position: Coordinate) -> Vec<(Coordinate, Square)> {
         position
-            .neighbors_4()
-            .into_iter()
+            .neighbors_4_iter()
             .filter_map(|pos| {
                 if let Ok(square) = self.get(pos) {
                     Some((pos, square))
@@ -790,6 +794,57 @@ impl Board {
         self.flood_fill(&outermost_attacker)
     }
 
+    pub fn flood_fill_from_towns(&self, player_index: usize) -> BoardDistances {
+        let mut distances = BoardDistances::new(self);
+
+        let starting_pos = self
+            .towns
+            .iter()
+            .find(|t| matches!(self.get(**t), Ok(Square::Town { player, .. }) if player == player_index))
+            .expect("Given player should have a town");
+
+        distances.set_direct(starting_pos, 0);
+        let initial_neighbors = self.neighbouring_squares(*starting_pos);
+        let mut direct_pts: VecDeque<_> = initial_neighbors.iter().map(|n| (n.0, 0)).collect();
+
+        while !direct_pts.is_empty() {
+            let (pt, dist) = direct_pts.pop_front().unwrap();
+
+            match distances.direct_distance_mut(&pt) {
+                Some(Some(visited_dist)) => {
+                    if *visited_dist > dist {
+                        // We have now found a better path to this point, so we will reprocess it
+                        *visited_dist = dist;
+                    } else {
+                        // We have previously found a better (or equal) path to this point, move to the next
+                        continue;
+                    }
+                }
+                _ => {
+                    distances.set_direct(&pt, dist);
+                }
+            }
+
+            match self.get(pt) {
+                Ok(Square::Water) => continue,
+                Ok(Square::Town { player, .. }) if player == player_index => {
+                    let neighbors = self.neighbouring_squares(pt);
+
+                    // We found another one of our towns — search its neighbors with a new starting distance
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, 0)));
+                    distances.set_direct(&pt, 0);
+                }
+                Ok(_) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                _ => continue,
+            }
+        }
+
+        distances
+    }
+
     /// Find the shortest land path between any two points on a board.
     /// Does NOT take into account tiles defended by either player,
     /// so isn't strictly correct once gameplay has begun.
@@ -882,6 +937,57 @@ impl Board {
         return last_processed_distance;
     }
 
+    pub fn proximity_to_enemy_town(&self, player_index: usize) -> Vec<usize> {
+        let distances = self.flood_fill_from_towns((player_index + 1) % 2);
+
+        let rows = self.height();
+        let cols = self.width();
+        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
+
+        let mut proximities: Vec<_> = squares
+            .flat_map(|(x, y)| {
+                let c = Coordinate { x, y };
+                if matches!(self.get(c), Ok(Square::Occupied{ player, .. }) if player == player_index) {
+                    distances.direct_distance(&c)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        proximities.sort_by_cached_key(|p| (*p as isize) * -1);
+
+        proximities
+    }
+
+    pub fn proximity_to_obelisk(&self, player_index: usize) -> Vec<usize> {
+        let rows = self.height();
+        let cols = self.width();
+
+        assert_eq!(
+            self.obelisks.len(),
+            1,
+            "We only support one obelisk right now"
+        );
+
+        let ob = self.obelisks[0];
+        let distances = self.flood_fill(&ob);
+        let squares = (0..rows).flat_map(|y| (0..cols).zip(std::iter::repeat(y)));
+
+        let mut proximities: Vec<_> = squares
+            .flat_map(|(x, y)| {
+                let c = Coordinate { x, y };
+                if matches!(self.get(c), Ok(Square::Occupied{ player, .. }) if player == player_index) {
+                    distances.direct_distance(&c)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        proximities.sort_by_cached_key(|p| (*p as isize) * -1);
+
+        proximities
+    }
+
     pub fn get_shape(&self) -> Vec<u64> {
         let width = self.width();
         let num_buckets = Coordinate {
@@ -927,16 +1033,22 @@ impl Board {
                 let fowards = direction == Direction::South || direction == Direction::East;
                 let mut location = position.add(direction);
 
-                while let Ok(Square::Occupied { player, .. }) = self.get(location) {
-                    if player != owner {
-                        break;
+                if let Some(location) = location.as_mut() {
+                    while let Ok(Square::Occupied { player, .. }) = self.get(*location) {
+                        if player != owner {
+                            break;
+                        }
+                        if fowards {
+                            word.push(*location);
+                        } else {
+                            word.insert(0, *location);
+                        }
+                        if let Some(next_location) = location.add(direction) {
+                            *location = next_location;
+                        } else {
+                            break;
+                        }
                     }
-                    if fowards {
-                        word.push(location);
-                    } else {
-                        word.insert(0, location);
-                    }
-                    location = location.add(direction);
                 }
             }
             words.push(word);
@@ -997,7 +1109,7 @@ impl Board {
                 word.iter()
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
-                            Water | Land | Fog | Dock(_) => {
+                            Water | Land | Fog | Dock(_) | Obelisk => {
                                 debug_assert!(false);
                                 err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
@@ -1021,28 +1133,58 @@ impl Board {
         }
     }
 
-    // TODO: This needs to look at all tiles to work in no truncation mode
-    pub fn playable_positions(&self, for_player: usize) -> HashSet<Coordinate> {
+    pub fn playable_positions(
+        &self,
+        for_player: usize,
+        truncation: &rules::Truncation,
+    ) -> HashSet<Coordinate> {
         let mut playable_squares = HashSet::new();
-        for dock in &self.docks {
-            let sq = self.get(*dock).unwrap();
-            if !matches!(sq, Square::Dock(p) if p == for_player) {
-                continue;
-            }
+        match truncation {
+            rules::Truncation::Root => {
+                for dock in &self.docks {
+                    let sq = self.get(*dock).unwrap();
+                    if !matches!(sq, Square::Dock(p) if p == for_player) {
+                        continue;
+                    }
 
-            playable_squares.extend(
-                self.depth_first_search(*dock)
-                    .iter()
-                    .flat_map(|sq| sq.neighbors_4())
-                    .filter(|sq| matches!(self.get(*sq), Ok(Square::Land)))
-                    .collect::<HashSet<_>>(),
-            );
+                    playable_squares.extend(
+                        self.depth_first_search(*dock)
+                            .iter()
+                            .flat_map(|sq| sq.neighbors_4_iter())
+                            .collect::<HashSet<_>>(),
+                    );
+                }
+            }
+            rules::Truncation::None => {
+                let rows = self.height();
+                let cols = self.width();
+
+                let all_squares = (0..rows)
+                    .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+                    .map(|(x, y)| Coordinate { x, y });
+
+                playable_squares.extend(
+                    all_squares
+                        .filter(|c| {
+                            matches!(
+                                self.get(*c),
+                                Ok(Square::Occupied{ player, .. } | Square::Dock (player)) if player == for_player
+                            )
+                        })
+                        .flat_map(|sq| sq.neighbors_4_iter()),
+                );
+            }
+            rules::Truncation::Larger => unimplemented!(),
         }
         playable_squares
+            .into_iter()
+            .filter(|sq| matches!(self.get(*sq), Ok(Square::Land)))
+            .collect()
     }
 
     pub fn fog_of_war(&self, player_index: usize, visibility: &rules::Visibility) -> Self {
         let mut visible_coords: HashSet<Coordinate> = HashSet::new();
+        let mut all_towns: HashSet<Coordinate> = HashSet::new();
 
         let rows = self.height();
         let cols = self.width();
@@ -1051,39 +1193,85 @@ impl Board {
         for (coord, square) in
             squares.map(|(x, y)| (Coordinate { x, y }, self.get(Coordinate { x, y })))
         {
+            if matches!(square, Ok(Square::Town { .. })) {
+                all_towns.insert(coord);
+            }
+
             match square {
-                Ok(Square::Occupied { player, .. })
-                | Ok(Square::Dock(player))
-                | Ok(Square::Town { player, .. })
+                Ok(Square::Dock(player)) | Ok(Square::Town { player, .. })
                     if player == player_index =>
                 {
-                    visible_coords.insert(coord);
+                    let mut sqs = HashSet::new();
+                    sqs.insert(coord);
+
+                    for _ in 0..6 {
+                        let pts = sqs.iter().cloned().collect::<Vec<_>>();
+                        for pt in pts {
+                            sqs.extend(pt.neighbors_4_iter());
+                        }
+                    }
+
+                    for pt in sqs.iter() {
+                        visible_coords.insert(*pt);
+                        match self.get(*pt) {
+                            Ok(Square::Occupied { player, .. }) if player != player_index => {
+                                visible_coords.extend(self.get_words(*pt).iter().flatten());
+                            }
+                            _ => {}
+                        }
+                    }
 
                     for (coord, square) in self.neighbouring_squares(coord) {
                         visible_coords.insert(coord);
-                        match square {
-                            Square::Occupied { player, .. } if player != player_index => {
-                                visible_coords.extend(self.get_words(coord).iter().flatten());
-                            }
-                            _ => {}
+                    }
+                }
+                Ok(Square::Occupied {
+                    player, validity, ..
+                }) if player == player_index => {
+                    let word_coords = self.get_words(coord);
+                    let valid = word_coords
+                        .iter()
+                        .filter(|w| {
+                            w.iter().all(|c| {
+                                matches!(
+                                    self.get(*c),
+                                    Ok(Square::Occupied {
+                                        validity: SquareValidity::Partial | SquareValidity::Valid,
+                                        ..
+                                    })
+                                )
+                            })
+                        })
+                        .max_by_key(|w| w.len());
+
+                    let vision_dist = if let Some(valid) = valid {
+                        valid.len().saturating_sub(4) + 3
+                    } else {
+                        2
+                    };
+
+                    let mut sqs = HashSet::new();
+                    sqs.insert(coord);
+
+                    for _ in 0..vision_dist {
+                        let pts = sqs.iter().cloned().collect::<Vec<_>>();
+                        for pt in pts {
+                            sqs.extend(pt.neighbors_4_iter());
                         }
                     }
 
-                    // TODO: Enumerate squares a given manhattan distance away, as this double counts
-                    for (coord, square) in self
-                        .neighbouring_squares(coord)
-                        .iter()
-                        .flat_map(|(c, _)| self.neighbouring_squares(*c))
-                        .collect::<Vec<_>>()
-                    {
-                        visible_coords.insert(coord);
-                        match square {
-                            Square::Occupied { player, .. } if player != player_index => {
-                                visible_coords.extend(self.get_words(coord).iter().flatten());
+                    for pt in sqs.iter() {
+                        visible_coords.insert(*pt);
+                        match self.get(*pt) {
+                            Ok(Square::Occupied { player, .. }) if player != player_index => {
+                                visible_coords.extend(self.get_words(*pt).iter().flatten());
                             }
                             _ => {}
                         }
                     }
+                }
+                Ok(Square::Obelisk) => {
+                    visible_coords.insert(coord);
                 }
                 _ => {}
             }
@@ -1114,6 +1302,17 @@ impl Board {
                     }
                 }
             }
+            rules::Visibility::OnlyHouseFog => {
+                for (x, y) in squares {
+                    let c = Coordinate { x, y };
+                    if all_towns.contains(&c) {
+                        continue;
+                    }
+                    if !visible_coords.contains(&c) {
+                        _ = new_board.set_square(c, Square::Fog);
+                    }
+                }
+            }
         }
 
         new_board
@@ -1133,7 +1332,9 @@ impl Board {
                 // In these modes, the player knows the full coordinate space, so no remapping is required.
                 return player_coordinate;
             }
-            rules::Visibility::LandFog => self.fog_of_war(player_index, visibility),
+            rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
+                self.fog_of_war(player_index, visibility)
+            }
         };
 
         let redundant_player = foggy_board.redundant_edges();
@@ -1158,7 +1359,9 @@ impl Board {
                 // In these modes, the player knows the full coordinate space, so no remapping is required.
                 return Some(game_coordinate);
             }
-            rules::Visibility::LandFog => self.fog_of_war(player_index, visibility),
+            rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
+                self.fog_of_war(player_index, visibility)
+            }
         };
 
         let redundant_player = foggy_board.redundant_edges();
@@ -1193,7 +1396,9 @@ impl Board {
 
         match visibility {
             rules::Visibility::Standard => self.clone(),
-            rules::Visibility::TileFog | rules::Visibility::LandFog => {
+            rules::Visibility::TileFog
+            | rules::Visibility::LandFog
+            | rules::Visibility::OnlyHouseFog => {
                 let mut foggy = self.fog_of_war(player_index, visibility);
                 // Remove extraneous water, so the client doesn't know the dimensions of the play area
                 foggy.trim();
@@ -1270,6 +1475,7 @@ impl Board {
             squares,
             towns: vec![],
             docks: vec![],
+            obelisks: vec![],
             orientations: vec![Direction::North, Direction::South],
         };
         board.cache_special_squares();
@@ -1310,21 +1516,21 @@ impl Coordinate {
         Self { x, y }
     }
 
-    pub fn add(self, direction: Direction) -> Coordinate {
+    pub fn add(self, direction: Direction) -> Option<Coordinate> {
         use Direction::*;
 
-        Coordinate {
+        Some(Coordinate {
             x: match direction {
-                West | NorthWest | SouthWest => usize::wrapping_sub(self.x, 1),
-                East | NorthEast | SouthEast => self.x + 1,
+                West | NorthWest | SouthWest => usize::checked_sub(self.x, 1)?,
+                East | NorthEast | SouthEast => usize::checked_add(self.x, 1)?,
                 North | South => self.x,
             },
             y: match direction {
-                North | NorthEast | NorthWest => usize::wrapping_sub(self.y, 1),
-                South | SouthEast | SouthWest => self.y + 1,
+                North | NorthEast | NorthWest => usize::checked_sub(self.y, 1)?,
+                South | SouthEast | SouthWest => usize::checked_add(self.y, 1)?,
                 East | West => self.y,
             },
-        }
+        })
     }
 
     pub fn to_1d(&self, width: usize) -> usize {
@@ -1338,8 +1544,12 @@ impl Coordinate {
         }
     }
 
+    pub fn neighbors_4_iter(&self) -> Flatten<IntoIter<Option<Coordinate>, 4>> {
+        self.neighbors_4().into_iter().flatten()
+    }
+
     /// Return coordinates of the horizontal and vertical neighbors, from north clockwise
-    pub fn neighbors_4(&self) -> [Coordinate; 4] {
+    pub fn neighbors_4(&self) -> [Option<Coordinate>; 4] {
         use Direction::*;
 
         [
@@ -1350,8 +1560,12 @@ impl Coordinate {
         ]
     }
 
+    pub fn neighbors_8_iter(&self) -> Flatten<IntoIter<Option<Coordinate>, 8>> {
+        self.neighbors_8().into_iter().flatten()
+    }
+
     /// Return coordinates of the horizontal, vertical, and diagonal neighbors, from northwest clockwise
-    pub fn neighbors_8(&self) -> [Coordinate; 8] {
+    pub fn neighbors_8(&self) -> [Option<Coordinate>; 8] {
         use Direction::*;
 
         [
@@ -1399,6 +1613,7 @@ pub enum Square {
         player: usize,
         defeated: bool,
     },
+    Obelisk,
     Dock(usize),
     Occupied {
         player: usize,
@@ -1414,6 +1629,7 @@ impl fmt::Display for Square {
             Square::Water => write!(f, "~~"),
             Square::Fog => write!(f, "░░"),
             Square::Land => write!(f, "__"),
+            Square::Obelisk => write!(f, "^^"),
             Square::Town {
                 player: p,
                 defeated: false,
@@ -2055,6 +2271,59 @@ pub mod tests {
         );
         // Which is also the best we could do anyway
         assert_eq!(dists.direct_distance(&Coordinate { x: 7, y: 6 }), Some(6));
+    }
+
+    #[test]
+    fn flood_fill_towns() {
+        let board = Board::from_string(
+            r###"
+            ~~ ~~ |0 ~~ ~~
+            __ #0 R0 __ __
+            __ __ A0 __ #0
+            __ G1 __ __ __
+            B1 A1 #1 __ __
+            __ T1 N1 X1 __
+            ~~ ~~ |1 ~~ ~~
+            "###,
+        );
+
+        let zero_dists = board.flood_fill_from_towns(0);
+        let one_dists = board.flood_fill_from_towns(1);
+
+        let zd = |x: usize, y: usize| zero_dists.direct_distance(&Coordinate { x, y });
+        let od = |x: usize, y: usize| one_dists.direct_distance(&Coordinate { x, y });
+
+        assert_eq!(zd(0, 1), Some(0));
+        assert_eq!(zd(0, 2), Some(1));
+        assert_eq!(zd(4, 1), Some(0));
+        assert_eq!(zd(4, 5), Some(2));
+        assert_eq!(zd(3, 5), Some(3));
+        assert_eq!(zd(2, 5), Some(4));
+        assert_eq!(zd(1, 5), Some(3));
+
+        assert_eq!(od(0, 1), Some(4));
+        assert_eq!(od(2, 3), Some(0));
+    }
+
+    #[test]
+    fn proximity_scores() {
+        let board = Board::from_string(
+            r###"
+            ~~ ~~ |0 ~~ ~~
+            __ #0 R0 __ __
+            __ __ A0 __ #0
+            __ G1 __ __ __
+            B1 A1 #1 __ __
+            __ T1 N1 X1 __
+            ~~ ~~ |1 ~~ ~~
+            "###,
+        );
+
+        let zero_prox = board.proximity_to_enemy_town(0);
+        let one_prox = board.proximity_to_enemy_town(1);
+
+        assert_eq!(zero_prox, vec![2, 1]);
+        assert_eq!(one_prox, vec![4, 3, 3, 3, 2, 1]);
     }
 
     #[test]

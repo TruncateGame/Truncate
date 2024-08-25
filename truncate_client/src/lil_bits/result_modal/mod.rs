@@ -50,10 +50,14 @@ pub struct ResultModalResigning {
 }
 
 #[derive(Clone)]
+pub struct ResultModalLoading {}
+
+#[derive(Clone)]
 pub enum ResultModalVariant {
     Daily(ResultModalDaily),
     Unique(ResultModalUnique),
     Resigning(ResultModalResigning),
+    Loading(ResultModalLoading),
 }
 
 #[derive(Clone)]
@@ -134,11 +138,20 @@ impl ResultModalUI {
             }),
         }
     }
+
     pub fn new_resigning(ui: &mut egui::Ui, msg: String) -> Self {
         ResultModalUI::seed_animations(ui);
 
         Self {
             contents: ResultModalVariant::Resigning(ResultModalResigning { msg }),
+        }
+    }
+
+    pub fn new_loading(ui: &mut egui::Ui) -> Self {
+        ResultModalUI::seed_animations(ui);
+
+        Self {
+            contents: ResultModalVariant::Loading(ResultModalLoading {}),
         }
     }
 }
@@ -374,6 +387,25 @@ impl ResultModalUI {
                             ui,
                         );
                     }
+                    ResultModalVariant::Loading(_l) => {
+                        let summary_text = TextHelper::heavy("Loading", 12.0, None, &mut ui);
+
+                        summary_text.paint_within(
+                            heading_rect.translate(vec2(0.0, -(heading_rect.height() / 2.0 + 8.0))),
+                            Align2::CENTER_BOTTOM,
+                            Color32::WHITE,
+                            ui,
+                        );
+
+                        let summary_text = TextHelper::heavy("Statistics", 12.0, None, &mut ui);
+
+                        summary_text.paint_within(
+                            heading_rect.translate(vec2(0.0, heading_rect.height() / 2.0 + 8.0)),
+                            Align2::CENTER_TOP,
+                            Color32::WHITE,
+                            ui,
+                        );
+                    }
                 }
 
                 // Wait for the main text to move out of the way before showing details
@@ -503,6 +535,18 @@ impl ResultModalUI {
                         if new_puzzle_button.clicked() {
                             msg = Some(ResultModalAction::Dismiss);
                         }
+                    }
+                    ResultModalVariant::Loading(_l) => {
+                        ui.add_space(50.0);
+
+                        let summary_text = TextHelper::heavy("Waiting for", 10.0, None, &mut ui);
+
+                        summary_text.paint(Color32::WHITE, ui, true);
+
+                        let summary_text =
+                            TextHelper::heavy("network connection", 10.0, None, &mut ui);
+
+                        summary_text.paint(Color32::WHITE, ui, true);
                     }
                 };
 

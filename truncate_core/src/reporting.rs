@@ -216,12 +216,12 @@ pub(crate) fn filter_to_player(
                 }
                 match visibility {
                     rules::Visibility::Standard => Some(relative_change),
-                    rules::Visibility::TileFog | rules::Visibility::LandFog => {
-                        match visible_board.get(relative_coord) {
-                            Ok(Square::Occupied { .. }) => Some(relative_change),
-                            _ => None,
-                        }
-                    }
+                    rules::Visibility::TileFog
+                    | rules::Visibility::LandFog
+                    | rules::Visibility::OnlyHouseFog => match visible_board.get(relative_coord) {
+                        Ok(Square::Occupied { .. }) => Some(relative_change),
+                        _ => None,
+                    },
                 }
             }
             Change::Battle(_) => Some(change.clone()),

@@ -108,6 +108,32 @@ impl ActiveGame {
                         }
                     }
 
+                    if matches!(self.location, GameLocation::Online) {
+                        ui.add_space(menu_spacing);
+
+                        let text = if self.depot.timing.paused {
+                            TextHelper::heavy("UNPAUSE", 14.0, None, ui)
+                        } else {
+                            TextHelper::heavy("PAUSE", 14.0, None, ui)
+                        };
+
+                        if text
+                            .button(
+                                self.depot.aesthetics.theme.button_primary,
+                                self.depot.aesthetics.theme.text,
+                                &self.depot.aesthetics.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            msg = if self.depot.timing.paused {
+                                Some(PlayerMessage::Unpause)
+                            } else {
+                                Some(PlayerMessage::Pause)
+                            };
+                        }
+                    }
+
                     // TODO: Resigning is largely implented for multiplayer games as well, but we need to:
                     // - Resolve why the update isn't being sent from the server
                     // - Show the confirmation modal inside active_game (we only show it in single player)
