@@ -174,7 +174,7 @@ impl MappedBoard {
                 }
                 paint(tex.structures.id(), Color32::WHITE.gamma_multiply(0.2));
                 paint(tex.pieces.id(), Color32::WHITE.gamma_multiply(0.2));
-                paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.5));
+                paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.7));
                 paint(tex.pieces_validity.id(), Color32::WHITE);
             } else {
                 paint(tex.terrain.id(), Color32::WHITE);
@@ -186,7 +186,7 @@ impl MappedBoard {
                 }
                 paint(tex.structures.id(), Color32::WHITE);
                 paint(tex.pieces.id(), Color32::WHITE);
-                paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.5));
+                paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.7));
                 paint(tex.fog.id(), Color32::BLACK);
             }
         }

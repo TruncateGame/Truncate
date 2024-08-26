@@ -1314,7 +1314,7 @@ impl Board {
                     }
                     if !visible_coords.contains(&c) {
                         if seen_tiles.contains(&c) {
-                            let make_land = match new_board.get(c).as_mut().unwrap() {
+                            let make_land = match &mut new_board.squares[y][x] {
                                 Square::Water { foggy }
                                 | Square::Land { foggy }
                                 | Square::Obelisk { foggy }
