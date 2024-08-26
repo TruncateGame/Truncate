@@ -165,7 +165,8 @@ mod tests {
                     square: Square::Occupied {
                         player: 0,
                         tile: 'A',
-                        validity: SquareValidity::Unknown
+                        validity: SquareValidity::Unknown,
+                        foggy: false
                     },
                     coordinate: Coordinate { x: 3, y: 2 },
                 },
@@ -240,7 +241,8 @@ mod tests {
                     square: Square::Occupied {
                         player: 0,
                         tile: 'B',
-                        validity: SquareValidity::Unknown
+                        validity: SquareValidity::Unknown,
+                        foggy: false
                     },
                     coordinate: Coordinate { x: 3, y: 3 },
                 },
@@ -280,7 +282,8 @@ mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'B',
-                            validity: SquareValidity::Unknown
+                            validity: SquareValidity::Unknown,
+                            foggy: false
                         },
                         coordinate: Coordinate { x: 3, y: 2 },
                     },
@@ -291,7 +294,8 @@ mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'A',
-                            validity: SquareValidity::Unknown
+                            validity: SquareValidity::Unknown,
+                            foggy: false
                         },
                         coordinate: Coordinate { x: 3, y: 3 },
                     },
@@ -707,7 +711,8 @@ mod tests {
             game.board.get(Coordinate { x: 0, y: 6 }).unwrap(),
             Square::Town {
                 player: 1,
-                defeated: true
+                defeated: true,
+                foggy: false
             }
         );
         assert_eq!(game.winner, Some(0));
@@ -765,7 +770,8 @@ mod tests {
             game.board.get(Coordinate { x: 0, y: 6 }).unwrap(),
             Square::Town {
                 player: 1,
-                defeated: false
+                defeated: false,
+                foggy: false
             }
         );
         assert_eq!(game.winner, None);
@@ -823,7 +829,8 @@ mod tests {
             game.board.get(Coordinate { x: 0, y: 6 }).unwrap(),
             Square::Town {
                 player: 1,
-                defeated: false
+                defeated: false,
+                foggy: false
             }
         );
         assert_eq!(game.winner, None);
@@ -881,7 +888,8 @@ mod tests {
             game.board.get(Coordinate { x: 0, y: 6 }).unwrap(),
             Square::Town {
                 player: 1,
-                defeated: true
+                defeated: true,
+                foggy: false
             }
         );
         assert_eq!(game.winner, Some(0));
@@ -939,7 +947,8 @@ mod tests {
             game.board.get(Coordinate { x: 2, y: 6 }).unwrap(),
             Square::Town {
                 player: 1,
-                defeated: true
+                defeated: true,
+                foggy: false
             }
         );
         assert_eq!(game.winner, Some(0));
@@ -995,7 +1004,8 @@ mod tests {
             game.board.get(Coordinate { x: 0, y: 1 }).unwrap(),
             Square::Town {
                 player: 1,
-                defeated: true
+                defeated: true,
+                foggy: false
             }
         );
         assert_eq!(game.winner, Some(0));

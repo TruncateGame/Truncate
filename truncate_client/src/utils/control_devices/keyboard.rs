@@ -43,7 +43,7 @@ pub fn handle_input(
         }
         let dock = board.docks.iter().find(|d| {
             board.get(**d).is_ok_and(
-                |s| matches!(s, Square::Dock(p) if p == depot.gameplay.player_number as usize),
+                |s| matches!(s, Square::Dock{player: p, ..} if p == depot.gameplay.player_number as usize),
             )
         });
         let coord = dock.cloned().unwrap_or_else(|| Coordinate::new(0, 0));

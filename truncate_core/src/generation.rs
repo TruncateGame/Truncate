@@ -234,8 +234,10 @@ pub fn generate_board(
 
     let mut board = Board::new(3, 3);
     // Expand the canvas when creating board squares to avoid setting anything in the outermost ring
-    board.squares =
-        vec![vec![crate::board::Square::Water; canvas_dimensions[0] + 2]; canvas_dimensions[1] + 2];
+    board.squares = vec![
+        vec![crate::board::Square::water(); canvas_dimensions[0] + 2];
+        canvas_dimensions[1] + 2
+    ];
 
     for i in 1..=canvas_dimensions[0] {
         for j in 1..=canvas_dimensions[1] {
@@ -255,7 +257,7 @@ pub fn generate_board(
 
             if value > water_level {
                 board
-                    .set_square(Coordinate { x: i, y: j }, crate::board::Square::Land)
+                    .set_square(Coordinate { x: i, y: j }, crate::board::Square::land())
                     .expect("Board position should be settable");
             }
         }
@@ -311,8 +313,8 @@ pub fn generate_board(
                 let removed = board.squares.remove(row);
                 // Overlay this row on a neighbor to avoid cutting the island
                 for (i, sq) in removed.into_iter().enumerate() {
-                    if sq == Square::Land {
-                        board.squares[row][i] = Square::Land;
+                    if matches!(sq, Square::Land { .. }) {
+                        board.squares[row][i] = Square::land();
                     }
                 }
                 height_diff -= 1;
@@ -383,9 +385,10 @@ pub fn generate_board(
                     let recip_square = board.get(recip).expect("symmetric point should exist");
 
                     match (square, recip_square) {
-                        (Square::Water, Square::Land) | (Square::Land, Square::Water) => {
-                            board.squares[coord.y][coord.x] = Square::Land;
-                            board.squares[recip.y][recip.x] = Square::Land;
+                        (Square::Water { .. }, Square::Land { .. })
+                        | (Square::Land { .. }, Square::Water { .. }) => {
+                            board.squares[coord.y][coord.x] = Square::land();
+                            board.squares[recip.y][recip.x] = Square::land();
                         }
                         _ => {}
                     }
@@ -467,7 +470,7 @@ impl BoardGenerator for Board {
         let sqs = || {
             self.squares.iter().enumerate().flat_map(|(y, row)| {
                 row.iter().enumerate().flat_map(move |(x, sq)| {
-                    if matches!(sq, Square::Land) {
+                    if matches!(sq, Square::Land { .. }) {
                         Some(Coordinate { x, y })
                     } else {
                         None
@@ -493,7 +496,7 @@ impl BoardGenerator for Board {
                     .collect::<Vec<_>>()
                 {
                     match self.get(neighbor) {
-                        Ok(Square::Land) => {
+                        Ok(Square::Land { .. }) => {
                             pts.push_back(neighbor);
                             visited.insert(neighbor);
                             this_search.insert(neighbor);
@@ -515,7 +518,7 @@ impl BoardGenerator for Board {
                 let coord = Coordinate { x: i, y: j };
 
                 if !largest.contains(&coord) {
-                    self.set_square(coord, Square::Water)
+                    self.set_square(coord, Square::water())
                         .expect("Board position should be settable");
                 }
             }
@@ -588,7 +591,7 @@ impl BoardGenerator for Board {
                         }
 
                         match self.get(c) {
-                            Ok(Square::Land | Square::Dock(_)) => {}
+                            Ok(Square::Land { .. } | Square::Dock { .. }) => {}
                             Err(_) => {}
                             Ok(_) => {
                                 if debug {
@@ -597,10 +600,11 @@ impl BoardGenerator for Board {
                                         Square::Town {
                                             player: 0,
                                             defeated: false,
+                                            foggy: false,
                                         },
                                     );
                                 } else {
-                                    _ = self.set_square(c, Square::Land);
+                                    _ = self.set_square(c, Square::land());
                                 }
                             }
                         }
@@ -622,6 +626,7 @@ impl BoardGenerator for Board {
                         player: 0,
                         tile,
                         validity: SquareValidity::Unknown,
+                        foggy: false,
                     },
                 );
             }
@@ -647,11 +652,11 @@ impl BoardGenerator for Board {
                 .collect::<Vec<_>>()
             {
                 match self.get(neighbor) {
-                    Ok(Square::Water) => {
+                    Ok(Square::Water { .. }) => {
                         pts.push_back(neighbor);
                         visited.insert(neighbor);
                     }
-                    Ok(Square::Land) => {
+                    Ok(Square::Land { .. }) => {
                         visited.insert(neighbor);
                         coastal_water.insert(pt);
                     }
@@ -664,7 +669,7 @@ impl BoardGenerator for Board {
             x: self.width() / 2,
             y: self.height() / 2,
         };
-        while self.get(center_point) != Ok(Square::Land) {
+        while !matches!(self.get(center_point), Ok(Square::Land { .. })) {
             if self.get(center_point).is_err() {
                 return Err(());
             }
@@ -677,7 +682,7 @@ impl BoardGenerator for Board {
             }
             center_point = center_point
                 .neighbors_8_iter()
-                .find(|p| self.get(*p) == Ok(Square::Land))
+                .find(|p| matches!(self.get(*p), Ok(Square::Land { .. })))
                 .unwrap_or_else(|| neighbors[0])
                 .clone();
         }
@@ -730,7 +735,7 @@ impl BoardGenerator for Board {
             return Err(());
         };
 
-        self.set_square(dock_zero, Square::Dock(0))
+        self.set_square(dock_zero, Square::dock(0))
             .expect("Board position should be settable");
 
         let mut antipodes: BinaryHeap<_> = coastal_water
@@ -752,7 +757,7 @@ impl BoardGenerator for Board {
             return Err(());
         };
 
-        self.set_square(dock_one, Square::Dock(1))
+        self.set_square(dock_one, Square::dock(1))
             .expect("Board position should be settable");
 
         self.cache_special_squares();
@@ -784,11 +789,11 @@ impl BoardGenerator for Board {
                         .collect::<Vec<_>>()
                     {
                         match self.get(neighbor) {
-                            Ok(Square::Water) => {
+                            Ok(Square::Water { .. }) => {
                                 pts.push_back(neighbor);
                                 visited.insert(neighbor);
                             }
-                            Ok(Square::Land) => {
+                            Ok(Square::Land { .. }) => {
                                 visited.insert(neighbor);
                                 viable_water.insert(pt);
                             }
@@ -803,10 +808,10 @@ impl BoardGenerator for Board {
                     .flat_map(|y| (0..self.width()).zip(std::iter::repeat(y)))
                     .map(|(x, y)| Coordinate::new(x, y));
                 for pt in all_pts {
-                    if matches!(self.get(pt), Ok(Square::Water))
+                    if matches!(self.get(pt), Ok(Square::Water { .. }))
                         && pt
                             .neighbors_4_iter()
-                            .any(|p| matches!(self.get(p), Ok(Square::Land)))
+                            .any(|p| matches!(self.get(p), Ok(Square::Land { .. })))
                     {
                         viable_water.insert(pt);
                     }
@@ -825,7 +830,7 @@ impl BoardGenerator for Board {
             .map(|(x, y)| Coordinate::new(x, y));
 
         let Some(center_point) = all_pts
-            .filter(|p| matches!(self.get(*p), Ok(Square::Land)))
+            .filter(|p| matches!(self.get(*p), Ok(Square::Land { .. })))
             .min_by_key(|p| p.distance_to(&ideal_center_point))
         else {
             return Err(());
@@ -848,13 +853,13 @@ impl BoardGenerator for Board {
 
         let dock_zero = *viable_water.get(start + offset as usize).unwrap();
 
-        self.set_square(dock_zero, Square::Dock(0))
+        self.set_square(dock_zero, Square::dock(0))
             .expect("Board position should be settable");
 
         match symmetric {
             Symmetry::TwoFoldRotational => {
                 let dock_one = self.reciprocal_coordinate(dock_zero);
-                self.set_square(dock_one, Square::Dock(1))
+                self.set_square(dock_one, Square::dock(1))
                     .expect("Board position should be settable");
             }
             Symmetry::Asymmetric => {
@@ -882,10 +887,17 @@ impl BoardGenerator for Board {
         symmetric: Symmetry,
     ) -> Result<(), ()> {
         let docks = &self.docks;
-        let Some(Ok(Square::Dock(player_zero))) = docks.get(0).map(|d| self.get(*d)) else {
+        let Some(Ok(Square::Dock {
+            player: player_zero,
+            ..
+        })) = docks.get(0).map(|d| self.get(*d))
+        else {
             return Err(());
         };
-        let Some(Ok(Square::Dock(player_one))) = docks.get(1).map(|d| self.get(*d)) else {
+        let Some(Ok(Square::Dock {
+            player: player_one, ..
+        })) = docks.get(1).map(|d| self.get(*d))
+        else {
             return Err(());
         };
 
@@ -900,7 +912,7 @@ impl BoardGenerator for Board {
             let mut candies: Vec<_> = dists
                 .iter_direct()
                 .filter_map(|(coord, distance)| {
-                    let is_land = matches!(self.get(coord), Ok(Square::Land));
+                    let is_land = matches!(self.get(coord), Ok(Square::Land { .. }));
                     let is_near_dock = distance <= town_distance;
                     let is_on_critical_path = main_road.contains(&coord);
 
@@ -932,33 +944,15 @@ impl BoardGenerator for Board {
                 break;
             };
 
-            _ = self.set_square(
-                town_zero,
-                Square::Town {
-                    player: player_zero,
-                    defeated: false,
-                },
-            );
+            _ = self.set_square(town_zero, Square::town(player_zero));
 
             match symmetric {
                 Symmetry::TwoFoldRotational => {
                     let recip = self.reciprocal_coordinate(town_zero);
-                    _ = self.set_square(
-                        recip,
-                        Square::Town {
-                            player: player_one,
-                            defeated: false,
-                        },
-                    );
+                    _ = self.set_square(recip, Square::town(player_one));
                 }
                 Symmetry::Asymmetric => {
-                    _ = self.set_square(
-                        town_one,
-                        Square::Town {
-                            player: player_one,
-                            defeated: false,
-                        },
-                    );
+                    _ = self.set_square(town_one, Square::town(player_one));
                 }
             }
         }
@@ -985,7 +979,7 @@ impl BoardGenerator for Board {
         match symmetric {
             Symmetry::Asymmetric => {
                 // For an asymmetric board, the center of the shortest path becomes the obelisk
-                _ = self.set_square(main_road[main_road.len() / 2], Square::Obelisk);
+                _ = self.set_square(main_road[main_road.len() / 2], Square::obelisk());
             }
             Symmetry::TwoFoldRotational => {
                 // For a symmetric board, the dead center of the map can become the obelisk
@@ -993,14 +987,14 @@ impl BoardGenerator for Board {
 
                 let square = self.get(board_mid).unwrap();
                 // TODO: Gracefully add land for the obelisk, or add multiple, or something
-                if !matches!(square, Square::Land) {
+                if !matches!(square, Square::Land { .. }) {
                     return Err(());
                 }
 
-                _ = self.set_square(board_mid, Square::Obelisk);
+                _ = self.set_square(board_mid, Square::obelisk());
 
                 for pt in board_mid.neighbors_8_iter() {
-                    _ = self.set_square(pt, Square::Land);
+                    _ = self.set_square(pt, Square::land());
                 }
             }
         }

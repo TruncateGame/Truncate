@@ -143,7 +143,7 @@ impl<'a> BoardUI<'a> {
                                             ..
                                         } = depot;
 
-                                        if matches!(square, Square::Land) {
+                                        if matches!(square, Square::Land { .. }) {
                                             if let Some(drag_pos) = drag_pos {
                                                 if grid_cell.contains(drag_pos) {
                                                     unoccupied_square_is_hovered =

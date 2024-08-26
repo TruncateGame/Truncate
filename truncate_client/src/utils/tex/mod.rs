@@ -105,8 +105,8 @@ impl From<&Square> for BGTexType {
     fn from(sq: &Square) -> Self {
         use truncate_core::board::Square::*;
         match sq {
-            Water | Fog | Dock(_) => Self::WaterOrFog,
-            Land | Town { .. } | Obelisk | Occupied { .. } => Self::Land,
+            Water { .. } | Fog { .. } | Dock { .. } => Self::WaterOrFog,
+            Land { .. } | Town { .. } | Obelisk { .. } | Occupied { .. } => Self::Land,
         }
     }
 }
@@ -123,14 +123,14 @@ pub enum FGTexType {
 impl From<(&Square, &Vec<Color32>)> for FGTexType {
     fn from((sq, player_colors): (&Square, &Vec<Color32>)) -> Self {
         match sq {
-            Square::Water => Self::None,
-            Square::Fog => Self::Fog,
-            Square::Land => Self::None,
-            Square::Obelisk => Self::Obelisk,
+            Square::Water { .. } => Self::None,
+            Square::Fog { .. } => Self::Fog,
+            Square::Land { .. } => Self::None,
+            Square::Obelisk { .. } => Self::Obelisk,
             Square::Town { player, .. } => {
                 Self::Town(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
-            Square::Dock(player) => {
+            Square::Dock { player, .. } => {
                 Self::Dock(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
             Square::Occupied { .. } => Self::None,
@@ -721,11 +721,11 @@ impl Tex {
         match (action, from) {
             (
                 BoardEditingMode::Land | BoardEditingMode::Town(_),
-                Square::Water | Square::Dock(_),
+                Square::Water { .. } | Square::Dock { .. },
             ) => Some(tiles::quad::ISLAND),
             (
                 BoardEditingMode::Land | BoardEditingMode::Dock(_),
-                Square::Land | Square::Town { .. },
+                Square::Land { .. } | Square::Town { .. },
             ) => Some(tiles::quad::LAKE),
             _ => None,
         }

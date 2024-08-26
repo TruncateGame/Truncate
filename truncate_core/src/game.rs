@@ -511,7 +511,7 @@ impl Game {
                 if !self.board.neighbouring_squares(position).iter().any(
                     |&(_, square)| match square {
                         Square::Occupied { player: p, .. } => p == player,
-                        Square::Dock(p) => p == player,
+                        Square::Dock { player: p, .. } => p == player,
                         _ => false,
                     },
                 ) {
@@ -740,6 +740,7 @@ impl Game {
                                     Square::Town {
                                         player,
                                         defeated: true,
+                                        foggy: false,
                                     },
                                 );
                             }

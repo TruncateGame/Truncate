@@ -377,6 +377,7 @@ impl MappedBoard {
                             player,
                             tile,
                             validity: _,
+                            ..
                         } = change.detail.square
                         {
                             let validity_color =
@@ -417,6 +418,7 @@ impl MappedBoard {
                             player,
                             tile,
                             validity: _,
+                            ..
                         } = change.detail.square
                         {
                             let (variant, color) = animated_variant(player);
@@ -440,6 +442,7 @@ impl MappedBoard {
                             player,
                             tile,
                             validity: _,
+                            ..
                         } = change.detail.square
                         {
                             let (variant, color) = animated_variant(player);
@@ -465,6 +468,7 @@ impl MappedBoard {
                 player,
                 tile,
                 validity,
+                ..
             } => {
                 let mut highlight = None;
                 let mut being_dragged = false;
@@ -617,7 +621,7 @@ impl MappedBoard {
 
                 layers = layers.merge_above_self(validity_layers);
             }
-            Square::Land => {
+            Square::Land { .. } => {
                 if let Some(interactions) = interactions {
                     if let Some((_, tile_char)) = interactions.selected_tile_in_hand {
                         // Don't show preview tiles if anything is being dragged (i.e. a tile from the hand)
