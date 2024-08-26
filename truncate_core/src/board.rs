@@ -1187,7 +1187,12 @@ impl Board {
             .collect()
     }
 
-    pub fn fog_of_war(&self, player_index: usize, visibility: &rules::Visibility) -> Self {
+    pub fn fog_of_war(
+        &self,
+        player_index: usize,
+        visibility: &rules::Visibility,
+        seen_tiles: &HashSet<Coordinate>,
+    ) -> Self {
         let mut visible_coords: HashSet<Coordinate> = HashSet::new();
         let mut all_towns: HashSet<Coordinate> = HashSet::new();
 
@@ -1299,22 +1304,34 @@ impl Board {
                     }
                 }
             }
-            rules::Visibility::LandFog => {
+            rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
                 for (x, y) in squares {
                     let c = Coordinate { x, y };
-                    if !visible_coords.contains(&c) {
-                        _ = new_board.set_square(c, Square::fog());
-                    }
-                }
-            }
-            rules::Visibility::OnlyHouseFog => {
-                for (x, y) in squares {
-                    let c = Coordinate { x, y };
-                    if all_towns.contains(&c) {
-                        continue;
+                    if matches!(visibility, rules::Visibility::OnlyHouseFog) {
+                        if all_towns.contains(&c) {
+                            continue;
+                        }
                     }
                     if !visible_coords.contains(&c) {
-                        _ = new_board.set_square(c, Square::fog());
+                        if seen_tiles.contains(&c) {
+                            let make_land = match new_board.get(c).as_mut().unwrap() {
+                                Square::Water { foggy }
+                                | Square::Land { foggy }
+                                | Square::Obelisk { foggy }
+                                | Square::Town { foggy, .. }
+                                | Square::Dock { foggy, .. } => {
+                                    *foggy = true;
+                                    false
+                                }
+                                Square::Occupied { .. } => true,
+                                Square::Fog {} => false,
+                            };
+                            if make_land {
+                                _ = new_board.set_square(c, Square::Land { foggy: true });
+                            }
+                        } else {
+                            _ = new_board.set_square(c, Square::fog());
+                        }
                     }
                 }
             }
@@ -1331,6 +1348,7 @@ impl Board {
         player_index: usize,
         player_coordinate: Coordinate,
         visibility: &rules::Visibility,
+        seen_tiles: &HashSet<Coordinate>,
     ) -> Coordinate {
         let foggy_board = match visibility {
             rules::Visibility::Standard | rules::Visibility::TileFog => {
@@ -1338,7 +1356,7 @@ impl Board {
                 return player_coordinate;
             }
             rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
-                self.fog_of_war(player_index, visibility)
+                self.fog_of_war(player_index, visibility, seen_tiles)
             }
         };
 
@@ -1358,6 +1376,7 @@ impl Board {
         player_index: usize,
         game_coordinate: Coordinate,
         visibility: &rules::Visibility,
+        seen_tiles: &HashSet<Coordinate>,
     ) -> Option<Coordinate> {
         let foggy_board = match visibility {
             rules::Visibility::Standard | rules::Visibility::TileFog => {
@@ -1365,7 +1384,7 @@ impl Board {
                 return Some(game_coordinate);
             }
             rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
-                self.fog_of_war(player_index, visibility)
+                self.fog_of_war(player_index, visibility, seen_tiles)
             }
         };
 
@@ -1393,6 +1412,8 @@ impl Board {
         player_index: usize,
         visibility: &rules::Visibility,
         winner: &Option<usize>,
+        seen_tiles: &HashSet<Coordinate>,
+        trim_coords: bool,
     ) -> Self {
         // All visibility is restored when the game ends
         if winner.is_some() {
@@ -1404,9 +1425,12 @@ impl Board {
             rules::Visibility::TileFog
             | rules::Visibility::LandFog
             | rules::Visibility::OnlyHouseFog => {
-                let mut foggy = self.fog_of_war(player_index, visibility);
-                // Remove extraneous water, so the client doesn't know the dimensions of the play area
-                foggy.trim();
+                let mut foggy = self.fog_of_war(player_index, visibility, seen_tiles);
+
+                if trim_coords {
+                    // Remove extraneous water, so the client doesn't know the dimensions of the play area
+                    foggy.trim();
+                }
 
                 foggy
             }
@@ -1668,6 +1692,18 @@ impl Square {
         Self::Dock {
             player,
             foggy: false,
+        }
+    }
+
+    pub fn is_foggy(&self) -> bool {
+        match self {
+            Square::Water { foggy }
+            | Square::Land { foggy }
+            | Square::Town { foggy, .. }
+            | Square::Obelisk { foggy }
+            | Square::Dock { foggy, .. }
+            | Square::Occupied { foggy, .. } => *foggy,
+            Square::Fog {} => true,
         }
     }
 }
@@ -2819,7 +2855,7 @@ pub mod tests {
              ~~ ~~ B1 ~~ ~~",
         );
 
-        let foggy = board.fog_of_war(1, &rules::Visibility::TileFog);
+        let foggy = board.fog_of_war(1, &rules::Visibility::TileFog, &HashSet::new());
         assert_eq!(
             foggy.to_string(),
             "~~ ~~ __ ~~ ~~\n\
@@ -2844,7 +2880,7 @@ pub mod tests {
              ~~ ~~ B1 ~~ ~~",
         );
 
-        let foggy = board.fog_of_war(0, &rules::Visibility::TileFog);
+        let foggy = board.fog_of_war(0, &rules::Visibility::TileFog, &HashSet::new());
         assert_eq!(
             foggy.to_string(),
             "~~ ~~ A0 ~~ ~~\n\
@@ -2871,7 +2907,7 @@ pub mod tests {
              ~~ ~~ B1 ~~ ~~ ~~ ~~ ~~ ~~ ~~",
         );
 
-        let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog);
+        let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog, &HashSet::new());
         foggy.trim();
         assert_eq!(
             foggy.to_string(),
@@ -2902,7 +2938,7 @@ pub mod tests {
              __ __ __ __ ~~ ~~ B1 ~~ ~~ ~~ ~~",
         );
         {
-            let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog);
+            let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog, &HashSet::new());
             foggy.trim();
             assert_eq!(
                 foggy.to_string(),
@@ -2917,16 +2953,25 @@ pub mod tests {
             );
 
             let source_coord = Coordinate { x: 4, y: 3 };
-            let game_coord =
-                board.map_player_coord_to_game(0, source_coord, &rules::Visibility::LandFog);
+            let game_coord = board.map_player_coord_to_game(
+                0,
+                source_coord,
+                &rules::Visibility::LandFog,
+                &HashSet::new(),
+            );
             assert_eq!(game_coord, Coordinate { x: 5, y: 5 });
             assert_eq!(
-                board.map_game_coord_to_player(0, game_coord, &rules::Visibility::LandFog),
+                board.map_game_coord_to_player(
+                    0,
+                    game_coord,
+                    &rules::Visibility::LandFog,
+                    &HashSet::new()
+                ),
                 Some(source_coord)
             );
         }
         {
-            let mut foggy = board.fog_of_war(1, &rules::Visibility::LandFog);
+            let mut foggy = board.fog_of_war(1, &rules::Visibility::LandFog, &HashSet::new());
             foggy.trim();
             assert_eq!(
                 foggy.to_string(),
@@ -2942,11 +2987,20 @@ pub mod tests {
             );
 
             let source_coord = Coordinate { x: 6, y: 4 };
-            let game_coord =
-                board.map_player_coord_to_game(1, source_coord, &rules::Visibility::LandFog);
+            let game_coord = board.map_player_coord_to_game(
+                1,
+                source_coord,
+                &rules::Visibility::LandFog,
+                &HashSet::new(),
+            );
             assert_eq!(game_coord, Coordinate { x: 8, y: 7 });
             assert_eq!(
-                board.map_game_coord_to_player(1, game_coord, &rules::Visibility::LandFog),
+                board.map_game_coord_to_player(
+                    1,
+                    game_coord,
+                    &rules::Visibility::LandFog,
+                    &HashSet::new()
+                ),
                 Some(source_coord)
             );
         }

@@ -36,6 +36,7 @@ struct ResolvedTextureLayers {
     structures: TextureHandle,
     pieces: TextureHandle,
     pieces_validity: TextureHandle,
+    mist: TextureHandle,
     fog: TextureHandle,
 }
 
@@ -68,6 +69,11 @@ impl ResolvedTextureLayers {
             ),
             pieces_validity: ctx.load_texture(
                 format!("board_layer_pieces_validity"),
+                layer_base.clone(),
+                egui::TextureOptions::NEAREST,
+            ),
+            mist: ctx.load_texture(
+                format!("board_layer_mist"),
                 layer_base.clone(),
                 egui::TextureOptions::NEAREST,
             ),
@@ -168,6 +174,7 @@ impl MappedBoard {
                 }
                 paint(tex.structures.id(), Color32::WHITE.gamma_multiply(0.2));
                 paint(tex.pieces.id(), Color32::WHITE.gamma_multiply(0.2));
+                paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.5));
                 paint(tex.pieces_validity.id(), Color32::WHITE);
             } else {
                 paint(tex.terrain.id(), Color32::WHITE);
@@ -179,6 +186,7 @@ impl MappedBoard {
                 }
                 paint(tex.structures.id(), Color32::WHITE);
                 paint(tex.pieces.id(), Color32::WHITE);
+                paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.5));
                 paint(tex.fog.id(), Color32::BLACK);
             }
         }
@@ -303,6 +311,10 @@ impl MappedBoard {
             wind_at_coord,
             coord,
         );
+
+        if square.is_foggy() {
+            layers.mist = Some([tex::tiles::BASE_WATER; 4]);
+        }
 
         let orient = |player: usize| {
             if player == self.for_player {
@@ -659,6 +671,7 @@ impl MappedBoard {
                             structures: None,
                             checkerboard: None,
                             piece_validities: vec![],
+                            mist: None,
                             fog: None,
                             pieces: vec![PieceLayer::Texture(
                                 tex::tiles::quad::CHECKERBOARD,
@@ -704,6 +717,7 @@ impl MappedBoard {
                     structures: None,
                     checkerboard: None,
                     piece_validities: vec![],
+                    mist: None,
                     fog: None,
                     pieces: vec![PieceLayer::Texture(spinner, Some(*color))],
                 });
@@ -833,6 +847,14 @@ impl MappedBoard {
             &layers.piece_validities,
             &mut resolved_textures.pieces_validity,
         );
+
+        if cached.mist != layers.mist {
+            if cached.mist.is_some() && layers.mist.is_none() {
+                erase(&mut resolved_textures.mist);
+            } else if let Some(mist) = layers.mist {
+                paint_quad(mist, &mut resolved_textures.mist);
+            }
+        }
 
         if cached.fog != layers.fog {
             if cached.fog.is_some() && layers.fog.is_none() {

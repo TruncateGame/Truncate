@@ -34,6 +34,7 @@ pub struct TexLayers {
     pub structures: Option<TexQuad>,
     pub pieces: Vec<PieceLayer>,
     pub piece_validities: Vec<PieceLayer>,
+    pub mist: Option<TexQuad>,
     pub fog: Option<TexQuad>,
 }
 
@@ -45,6 +46,11 @@ impl TexLayers {
 
     fn with_structures(mut self, quad: TexQuad) -> Self {
         self.structures = Some(quad);
+        self
+    }
+
+    fn with_mist(mut self, quad: TexQuad) -> Self {
+        self.mist = Some(quad);
         self
     }
 
