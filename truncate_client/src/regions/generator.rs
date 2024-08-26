@@ -5,10 +5,10 @@ use truncate_core::{
     game::Game,
     generation::{
         self, generate_board, BoardElements, BoardGenerationResult, BoardParams, BoardSeed,
-        BoardType,
+        DockType, Symmetry,
     },
     messages::GamePlayerMessage,
-    rules::GameRules,
+    rules::{BoardGenesis, GameRules},
 };
 
 use crate::utils::{Lighten, Theme};
@@ -21,14 +21,16 @@ pub struct GeneratorState {
     infinite: bool,
     width: usize,
     height: usize,
+    canvas_width: usize,
+    canvas_height: usize,
     dispersion: f64,
+    symmetric: Symmetry,
     maximum_town_density: f64,
     maximum_town_distance: f64,
     island_influence: f64,
     minimum_choke: usize,
-    board_type: BoardType,
-    ideal_dock_radius: f64,
-    ideal_dock_separation: f64,
+    dock_type: DockType,
+    ideal_dock_extremity: f64,
     generation_result: Option<Result<BoardGenerationResult, BoardGenerationResult>>,
 }
 
@@ -60,7 +62,10 @@ impl GeneratorState {
         active_game.depot.ui_state.sidebar_hidden = true;
         active_game.depot.interactions.view_only = true;
 
-        let (_, default) = BoardParams::latest();
+        // let (_, default) = BoardParams::latest();
+        let BoardGenesis::Random(default) = GameRules::tuesday().board_genesis else {
+            panic!("ack");
+        };
 
         Self {
             active_game,
@@ -68,14 +73,16 @@ impl GeneratorState {
             infinite: false,
             width: default.land_dimensions[0],
             height: default.land_dimensions[1],
+            canvas_width: default.canvas_dimensions[0],
+            canvas_height: default.canvas_dimensions[1],
             dispersion: default.dispersion[0],
+            symmetric: default.symmetric,
             maximum_town_density: default.maximum_town_density,
             maximum_town_distance: default.maximum_town_distance,
             island_influence: default.island_influence,
             minimum_choke: default.minimum_choke,
-            board_type: default.board_type,
-            ideal_dock_radius: default.ideal_dock_radius,
-            ideal_dock_separation: default.ideal_dock_separation,
+            dock_type: default.dock_type,
+            ideal_dock_extremity: default.ideal_dock_extremity,
             generation_result: None,
         }
     }
@@ -121,6 +128,28 @@ impl GeneratorState {
                 ui.label(RichText::new("Height").color(Color32::WHITE));
                 let r = ui.add(
                     DragValue::new(&mut self.height)
+                        .clamp_range(4..=1000)
+                        .speed(0.05),
+                );
+                if r.changed() {
+                    changed = true;
+                }
+                ui.end_row();
+
+                ui.label(RichText::new("Canvas Width").color(Color32::WHITE));
+                let r = ui.add(
+                    DragValue::new(&mut self.canvas_width)
+                        .clamp_range(4..=1000)
+                        .speed(0.05),
+                );
+                if r.changed() {
+                    changed = true;
+                }
+                ui.end_row();
+
+                ui.label(RichText::new("Canvas Height").color(Color32::WHITE));
+                let r = ui.add(
+                    DragValue::new(&mut self.canvas_height)
                         .clamp_range(4..=1000)
                         .speed(0.05),
                 );
@@ -184,34 +213,34 @@ impl GeneratorState {
                 }
                 ui.end_row();
 
-                ui.label(RichText::new("Board Type").color(Color32::WHITE));
-                if ui.button(format!("{:?}", self.board_type)).clicked() {
-                    self.board_type = match self.board_type {
-                        BoardType::Island => BoardType::Continental,
-                        BoardType::Continental => BoardType::Island,
+                ui.label(RichText::new("Dock Type").color(Color32::WHITE));
+                if ui.button(format!("{:?}", self.dock_type)).clicked() {
+                    self.dock_type = match self.dock_type {
+                        DockType::IslandV1 => DockType::Coastal,
+                        DockType::Coastal => DockType::Continental,
+                        DockType::Continental => DockType::IslandV1,
                     };
                     changed = true;
                 }
                 ui.end_row();
 
-                ui.label(RichText::new("Ideal Dock Radius").color(Color32::WHITE));
+                ui.label(RichText::new("ideal_dock_extremity").color(Color32::WHITE));
                 let r = ui.add(
-                    DragValue::new(&mut self.ideal_dock_radius)
+                    DragValue::new(&mut self.ideal_dock_extremity)
                         .clamp_range(0.0..=1.0)
-                        .speed(0.005),
+                        .speed(0.01),
                 );
                 if r.changed() {
                     changed = true;
                 }
                 ui.end_row();
 
-                ui.label(RichText::new("Ideal Dock Separation").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.ideal_dock_separation)
-                        .clamp_range(0.0..=1.0)
-                        .speed(0.005),
-                );
-                if r.changed() {
+                ui.label(RichText::new("Symmetric").color(Color32::WHITE));
+                if ui.button(format!("{:?}", self.symmetric)).clicked() {
+                    self.symmetric = match self.symmetric {
+                        Symmetry::TwoFoldRotational => Symmetry::Asymmetric,
+                        Symmetry::Asymmetric => Symmetry::TwoFoldRotational,
+                    };
                     changed = true;
                 }
                 ui.end_row();
@@ -234,14 +263,15 @@ impl GeneratorState {
                 max_attempts,
                 params: BoardParams {
                     land_dimensions: [self.width, self.height],
+                    canvas_dimensions: [self.canvas_width, self.canvas_height],
                     dispersion: [self.dispersion, self.dispersion],
+                    symmetric: self.symmetric,
                     maximum_town_density: self.maximum_town_density,
                     maximum_town_distance: self.maximum_town_distance,
                     island_influence: self.island_influence,
                     minimum_choke: self.minimum_choke,
-                    board_type: self.board_type,
-                    ideal_dock_radius: self.ideal_dock_radius,
-                    ideal_dock_separation: self.ideal_dock_separation,
+                    dock_type: self.dock_type,
+                    ideal_dock_extremity: self.ideal_dock_extremity,
                     elements: BoardElements {
                         docks: true,
                         towns: true,

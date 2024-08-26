@@ -317,12 +317,7 @@ impl<'a> EditorUI<'a> {
 
                 // TODO: Put board mirroring behind a flag
                 {
-                    let board_mid = (
-                        self.board.width() as isize / 2,
-                        self.board.height() as isize / 2,
-                    );
-                    let recip_x = board_mid.0 - (coord.x as isize - board_mid.0);
-                    let recip_y = board_mid.1 - (coord.y as isize - board_mid.1);
+                    let recip = self.board.reciprocal_coordinate(coord);
 
                     // TODO: Player mirroring won't work for >2 players
                     let mirrored_state = match new_state {
@@ -355,7 +350,7 @@ impl<'a> EditorUI<'a> {
                         }
                     };
 
-                    self.board.squares[recip_y as usize][recip_x as usize] = mirrored_state;
+                    self.board.squares[recip.y][recip.x] = mirrored_state;
                 }
 
                 edited = true;

@@ -524,6 +524,13 @@ impl Board {
             })
             .collect()
     }
+
+    pub fn reciprocal_coordinate(&self, input: Coordinate) -> Coordinate {
+        Coordinate {
+            x: self.width() - 1 - input.x,
+            y: self.height() - 1 - input.y,
+        }
+    }
 }
 
 impl Board {
