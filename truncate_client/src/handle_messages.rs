@@ -117,10 +117,10 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                     None,
                     None,
                     players,
-                    player_number,
+                    vec![player_number],
                     next_player_number,
                     board,
-                    hand,
+                    vec![hand],
                     outer.map_texture.clone(),
                     outer.theme.clone(),
                     GameLocation::Online,
@@ -173,7 +173,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 GameStatus::Active(game) => {
                     // assert_eq!(game.room_code, id);
                     // assert_eq!(game.player_number, num);
-                    game.depot.gameplay.error_msg = Some(err);
+                    game.depot.interactions[0].error_msg = Some(err);
                 }
                 _ => {}
             },

@@ -17,6 +17,8 @@ use crate::{
 
 use truncate_core::messages::PlayerMessage;
 
+use super::arcade_pvp::ArcadeState;
+
 pub fn render_native_menu_if_required(
     outer: &mut OuterApplication,
     ui: &mut egui::Ui,
@@ -75,6 +77,19 @@ pub fn render_native_menu_if_required(
                     0,
                     board,
                     outer.map_texture.clone(),
+                )));
+            }
+            if ui.button("Arcade PVP").clicked() {
+                let mut board = Board::new(9, 9);
+                board.grow();
+                return Some(GameStatus::ArcadePVP(ArcadeState::new(
+                    "tmp".into(),
+                    ui.ctx(),
+                    outer.map_texture.clone(),
+                    outer.theme.clone(),
+                    Board::new(9, 9),
+                    None,
+                    GameRules::latest().0,
                 )));
             }
             if ui.button("Behemoth").clicked() {

@@ -21,6 +21,7 @@ impl ActiveGame {
     pub fn render_control_strip(
         &mut self,
         ui: &mut egui::Ui,
+        for_player_index: usize,
     ) -> (Option<Rect>, Option<PlayerMessage>) {
         if self.depot.ui_state.hand_hidden {
             return (None, None);
@@ -58,7 +59,7 @@ impl ActiveGame {
                 ),
             );
         error_area.show(ui.ctx(), |ui| {
-            if let Some(error) = &self.depot.gameplay.error_msg {
+            if let Some(error) = &self.depot.interactions[for_player_index].error_msg {
                 let error_fz = if avail_width < 550.0 { 24.0 } else { 32.0 };
                 let max_width = f32::min(600.0, avail_width - 100.0);
                 let text = TextHelper::light(error, error_fz, Some(max_width), ui);
@@ -88,7 +89,7 @@ impl ActiveGame {
             }
 
             if ui.input_mut(|i| i.pointer.any_click()) {
-                self.depot.gameplay.error_msg = None;
+                self.depot.interactions[for_player_index].error_msg = None;
             }
         });
 
@@ -271,17 +272,13 @@ impl ActiveGame {
                             let mut hand_ui =
                                 ui.child_ui(hand_alloc, Layout::top_down(Align::LEFT));
                             let active_hand = self.depot.gameplay.next_player_number.is_none()
-                                || self
-                                    .depot
-                                    .gameplay
-                                    .next_player_number
-                                    .is_some_and(|n| n == self.depot.gameplay.player_number);
+                                || self.depot.gameplay.next_player_number.is_some_and(|n| {
+                                    n == self.depot.gameplay.player_numbers[for_player_index]
+                                });
 
-                            HandUI::new(&mut self.hand).active(active_hand).render(
-                                &mut hand_ui,
-                                &mut self.depot,
-                                &mut self.mapped_hand,
-                            );
+                            HandUI::new(&mut self.hands[for_player_index], for_player_index)
+                                .active(active_hand)
+                                .render(&mut hand_ui, &mut self.depot, &mut self.mapped_hand);
                         },
                     );
 

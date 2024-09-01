@@ -64,7 +64,7 @@ impl DailyActions {
                 DailyAttempt {
                     id: "UNAVAILABLE".to_string(),
                     moves: player_move_count,
-                    won: game.winner == Some(depot.gameplay.player_number as usize),
+                    won: game.winner == Some(depot.gameplay.player_numbers[0] as usize),
                 },
             )
         });

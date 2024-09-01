@@ -13,6 +13,7 @@ use crate::{
     lil_bits::{ChangelogSplashUI, SplashUI},
     regions::{
         active_game::{ActiveGame, HeaderType},
+        arcade_pvp::ArcadeState,
         generator::GeneratorState,
         lobby::Lobby,
         native_menu::render_native_menu_if_required,
@@ -35,6 +36,7 @@ pub enum GameStatus {
     Tutorial(TutorialState),
     PendingSinglePlayer(Lobby),
     SinglePlayer(SinglePlayerState),
+    ArcadePVP(ArcadeState),
     PendingDaily,
     PendingJoin(RoomCode),
     PendingCreate,
@@ -290,6 +292,18 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
 
             // Single player can talk to the server, e.g. to ask for word definitions and to persist data
             for msg in sp.render(
+                ui,
+                &outer.theme,
+                current_time,
+                &outer.backchannel,
+                &outer.logged_in_as,
+            ) {
+                send(msg);
+            }
+        }
+        GameStatus::ArcadePVP(arcade) => {
+            // Single player can talk to the server, e.g. to ask for word definitions and to persist data
+            for msg in arcade.render(
                 ui,
                 &outer.theme,
                 current_time,

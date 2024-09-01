@@ -38,7 +38,7 @@ impl<'a> BoardUI<'a> {
     // TODO: Refactor board
     pub fn render(
         self,
-        hand: &Hand,
+        hands: &Vec<Hand>,
         _board_changes: &HashMap<Coordinate, BoardChange>,
         ui: &mut egui::Ui,
         mapped_board: &mut MappedBoard,
@@ -51,8 +51,22 @@ impl<'a> BoardUI<'a> {
         let mut tile_is_hovered = None;
         let mut drag_underway = false;
 
+        let interaction_player = {
+            let player_position = if let Some(next_player) = depot.gameplay.next_player_number {
+                depot
+                    .gameplay
+                    .player_numbers
+                    .iter()
+                    .position(|p| *p == next_player)
+            } else {
+                None
+            };
+
+            player_position.unwrap_or(0)
+        };
+
         // TODO: Do something better for this
-        let invert = depot.gameplay.player_number == 0;
+        let invert = depot.gameplay.player_numbers[0] == 0;
 
         let game_area = ui.available_rect_before_wrap();
         ui.set_clip_rect(game_area);
@@ -143,6 +157,9 @@ impl<'a> BoardUI<'a> {
                                             ..
                                         } = depot;
 
+                                        let player_interactions =
+                                            &mut interactions[interaction_player];
+
                                         if matches!(square, Square::Land) {
                                             if let Some(drag_pos) = drag_pos {
                                                 if grid_cell.contains(drag_pos) {
@@ -162,43 +179,56 @@ impl<'a> BoardUI<'a> {
                                             }
 
                                             if square_response.clicked() {
-                                                if interactions.selected_tile_on_board.is_some() {
-                                                    interactions.selected_tile_on_board = None;
+                                                if player_interactions
+                                                    .selected_tile_on_board
+                                                    .is_some()
+                                                {
+                                                    player_interactions.selected_tile_on_board =
+                                                        None;
                                                 }
 
                                                 if let Some((tile, _)) =
-                                                    interactions.selected_tile_in_hand
+                                                    player_interactions.selected_tile_in_hand
                                                 {
                                                     msg = Some(PlayerMessage::Place(
                                                         coord,
-                                                        *hand.get(tile).unwrap(),
+                                                        *hands[interaction_player]
+                                                            .get(tile)
+                                                            .unwrap(),
                                                     ));
 
-                                                    interactions.selected_tile_in_hand = None;
-                                                    interactions.selected_square_on_board = None;
+                                                    player_interactions.selected_tile_in_hand =
+                                                        None;
+                                                    player_interactions.selected_square_on_board =
+                                                        None;
                                                 } else if !depot.ui_state.is_touch {
-                                                    if interactions
+                                                    if player_interactions
                                                         .selected_square_on_board
                                                         .is_some_and(|(c, _)| c == coord)
                                                     {
-                                                        interactions.selected_square_on_board =
-                                                            None;
+                                                        player_interactions
+                                                            .selected_square_on_board = None;
                                                     } else {
-                                                        interactions.selected_square_on_board =
+                                                        player_interactions
+                                                            .selected_square_on_board =
                                                             Some((coord, square.clone()));
                                                     }
                                                 }
                                             }
 
-                                            if let Some(tile) = interactions.released_tile {
+                                            if let Some(tile) = player_interactions.released_tile {
                                                 if tile.1 == coord {
                                                     msg = Some(PlayerMessage::Place(
                                                         coord,
-                                                        *hand.get(tile.0).unwrap(),
+                                                        *hands[interaction_player]
+                                                            .get(tile.0)
+                                                            .unwrap(),
                                                     ));
-                                                    interactions.selected_tile_in_hand = None;
-                                                    interactions.selected_tile_on_board = None;
-                                                    interactions.released_tile = None;
+                                                    player_interactions.selected_tile_in_hand =
+                                                        None;
+                                                    player_interactions.selected_tile_on_board =
+                                                        None;
+                                                    player_interactions.released_tile = None;
                                                 }
                                             }
                                         } else if let Square::Occupied {
@@ -235,25 +265,28 @@ impl<'a> BoardUI<'a> {
                                             }
                                             if tile_response.clicked() {
                                                 if matches!(
-                                                    interactions.selected_tile_on_board,
+                                                    player_interactions.selected_tile_on_board,
                                                     Some((c, _)) if c == coord
                                                 ) {
-                                                    interactions.selected_tile_on_board = None;
+                                                    player_interactions.selected_tile_on_board =
+                                                        None;
                                                 } else if let Some((selected_coord, _)) =
-                                                    interactions.selected_tile_on_board
+                                                    player_interactions.selected_tile_on_board
                                                 {
                                                     msg = Some(PlayerMessage::Swap(
                                                         coord,
                                                         selected_coord,
                                                     ));
-                                                    interactions.selected_tile_on_board = None;
-                                                    interactions.selected_tile_in_hand = None;
+                                                    player_interactions.selected_tile_on_board =
+                                                        None;
+                                                    player_interactions.selected_tile_in_hand =
+                                                        None;
                                                 } else {
-                                                    interactions.selected_tile_on_board =
+                                                    player_interactions.selected_tile_on_board =
                                                         Some((coord, *square));
                                                 }
 
-                                                interactions.selected_square_on_board = None;
+                                                player_interactions.selected_square_on_board = None;
                                             }
                                             let mut is_being_dragged =
                                                 ui.memory(|mem| mem.is_being_dragged(tile_id));
@@ -268,7 +301,7 @@ impl<'a> BoardUI<'a> {
                                             }
 
                                             if tile_response.drag_started() {
-                                                interactions.selected_square_on_board = None;
+                                                player_interactions.selected_square_on_board = None;
 
                                                 if let Some(pointer_pos) =
                                                     ui.ctx().pointer_interact_pos()
@@ -303,7 +336,7 @@ impl<'a> BoardUI<'a> {
                                                         ),
                                                         highlight: None,
                                                         orientation: if *square_player
-                                                            == gameplay.player_number as usize
+                                                            == gameplay.player_numbers[0] as usize
                                                         {
                                                             Direction::North
                                                         } else {
@@ -311,12 +344,12 @@ impl<'a> BoardUI<'a> {
                                                         },
                                                     }],
                                                     aesthetics,
-                                                    Some(interactions),
+                                                    Some(player_interactions),
                                                 );
                                             } else if tile_response.drag_released()
                                                 && is_decidedly_dragging
                                             {
-                                                let drop_coord = interactions
+                                                let drop_coord = player_interactions
                                                     .hovered_occupied_square_on_board
                                                     .as_ref()
                                                     .map(|region| region.coord)
@@ -326,14 +359,19 @@ impl<'a> BoardUI<'a> {
                                                     msg = Some(PlayerMessage::Swap(
                                                         coord, drop_coord,
                                                     ));
-                                                    interactions.selected_tile_on_board = None;
-                                                    interactions.selected_tile_in_hand = None;
+                                                    player_interactions.selected_tile_on_board =
+                                                        None;
+                                                    player_interactions.selected_tile_in_hand =
+                                                        None;
                                                 }
                                             }
 
                                             if is_being_dragged {
                                                 drag_underway = true;
-                                                interactions.dragging_tile_on_board =
+
+                                                let player_interactions =
+                                                    &mut interactions[interaction_player];
+                                                player_interactions.dragging_tile_on_board =
                                                     Some((coord, *square));
 
                                                 let drag_id: Duration = ui
@@ -348,8 +386,7 @@ impl<'a> BoardUI<'a> {
                                                 .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
 
                                                 area.show(ui.ctx(), |ui| {
-                                                    let snap_to_rect = depot
-                                                        .interactions
+                                                    let snap_to_rect = player_interactions
                                                         .hovered_occupied_square_on_board
                                                         .as_ref()
                                                         .map(|region| region.rect);
@@ -435,11 +472,13 @@ impl<'a> BoardUI<'a> {
                         render(Box::new(self.board.squares.iter().enumerate()));
                     }
 
-                    depot.interactions.hovered_unoccupied_square_on_board =
+                    let player_interactions = &mut depot.interactions[interaction_player];
+
+                    player_interactions.hovered_unoccupied_square_on_board =
                         unoccupied_square_is_hovered;
-                    depot.interactions.hovered_occupied_square_on_board =
+                    player_interactions.hovered_occupied_square_on_board =
                         occupied_square_is_hovered;
-                    depot.interactions.hovered_tile_on_board = tile_is_hovered;
+                    player_interactions.hovered_tile_on_board = tile_is_hovered;
 
                     mapped_board.remap_texture(
                         ui.ctx(),
@@ -455,7 +494,10 @@ impl<'a> BoardUI<'a> {
             .inner;
 
         if !drag_underway {
-            depot.interactions.dragging_tile_on_board = None;
+            depot
+                .interactions
+                .iter_mut()
+                .for_each(|i| i.dragging_tile_on_board = None);
         }
 
         if !self.interactive {

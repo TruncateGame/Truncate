@@ -69,7 +69,7 @@ impl Lobby {
         Self {
             room_code,
             board_seed: None,
-            mapped_board: MappedBoard::new(ctx, &aesthetics, &board, 1, true),
+            mapped_board: MappedBoard::new(ctx, &aesthetics, &board, vec![1], true),
             players,
             player_index,
             board,

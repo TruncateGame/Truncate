@@ -107,17 +107,17 @@ impl TutorialStage {
             let m = action_to_move(0, you);
             match m {
                 Move::Place { tile, position, .. } => {
-                    self.active_game.depot.interactions.highlight_tiles = Some(vec![tile]);
-                    self.active_game.depot.interactions.highlight_squares = Some(vec![position]);
+                    self.active_game.depot.interactions[0].highlight_tiles = Some(vec![tile]);
+                    self.active_game.depot.interactions[0].highlight_squares = Some(vec![position]);
                 }
                 Move::Swap { positions, .. } => {
-                    self.active_game.depot.interactions.highlight_squares =
+                    self.active_game.depot.interactions[0].highlight_squares =
                         Some(positions.to_vec());
                 }
             }
         } else {
-            self.active_game.depot.interactions.highlight_tiles = None;
-            self.active_game.depot.interactions.highlight_squares = None;
+            self.active_game.depot.interactions[0].highlight_tiles = None;
+            self.active_game.depot.interactions[0].highlight_squares = None;
         }
     }
 
@@ -314,10 +314,10 @@ impl TutorialState {
                     .iter()
                     .map(|p| GamePlayerMessage::new(p, &game))
                     .collect(),
-                0,
+                vec![0],
                 Some(0),
                 game.board.clone(),
-                game.players[0].hand.clone(),
+                vec![game.players[0].hand.clone()],
                 map_texture,
                 theme.clone(),
                 GameLocation::Tutorial,

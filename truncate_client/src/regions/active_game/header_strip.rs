@@ -22,6 +22,7 @@ impl ActiveGame {
         &mut self,
         ui: &mut egui::Ui,
         game_ref: Option<&truncate_core::game::Game>,
+        for_player_index: usize,
     ) -> (Option<Rect>, Option<PlayerMessage>) {
         if matches!(self.depot.ui_state.game_header, HeaderType::None) {
             return (None, None);
@@ -119,11 +120,10 @@ impl ActiveGame {
 
                             let timer_width = (total_width - item_spacing * 3.0) / 2.0;
 
-                            if let Some(player) = self
-                                .players
-                                .iter()
-                                .find(|p| p.index == self.depot.gameplay.player_number as usize)
-                            {
+                            if let Some(player) = self.players.iter().find(|p| {
+                                p.index
+                                    == self.depot.gameplay.player_numbers[for_player_index] as usize
+                            }) {
                                 TimerUI::new(player, &self.depot, &self.time_changes)
                                     .friend(true)
                                     .active(
@@ -139,11 +139,10 @@ impl ActiveGame {
 
                             ui.add_space(item_spacing);
 
-                            if let Some(opponent) = self
-                                .players
-                                .iter()
-                                .find(|p| p.index != self.depot.gameplay.player_number as usize)
-                            {
+                            if let Some(opponent) = self.players.iter().find(|p| {
+                                p.index
+                                    != self.depot.gameplay.player_numbers[for_player_index] as usize
+                            }) {
                                 TimerUI::new(opponent, &self.depot, &self.time_changes)
                                     .friend(false)
                                     .active(
@@ -169,7 +168,8 @@ impl ActiveGame {
                             );
                             let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
-                            let active_player = self.depot.gameplay.player_number;
+                            let active_player =
+                                self.depot.gameplay.player_numbers[for_player_index];
                             let summary = if let Some(game) = game_ref {
                                 format!(
                                     "{} move{}",

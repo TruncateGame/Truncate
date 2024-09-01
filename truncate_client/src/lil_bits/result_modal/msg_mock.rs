@@ -37,7 +37,7 @@ impl ShareMessageMock {
             ShareMessageMock::daily_share_message(day, first_win, best_win, latest_attempt);
         let emoji_board = game
             .board
-            .emojify(depot.gameplay.player_number as usize, game.winner);
+            .emojify(depot.gameplay.player_numbers[0] as usize, game.winner);
         let share_text = format!("{share_prefix}\n{emoji_board}");
 
         let _this_attempt = stats
@@ -56,7 +56,7 @@ impl ShareMessageMock {
         let share_prefix = ShareMessageMock::unique_share_message(game, depot);
         let emoji_board = game
             .board
-            .emojify(depot.gameplay.player_number as usize, game.winner);
+            .emojify(depot.gameplay.player_numbers[0] as usize, game.winner);
         let share_text = format!("{share_prefix}\n{emoji_board}");
 
         Self {
@@ -187,7 +187,7 @@ impl ShareMessageMock {
     }
 
     pub fn unique_share_message(game: &Game, depot: &TruncateDepot) -> String {
-        let player = depot.gameplay.player_number as usize;
+        let player = depot.gameplay.player_numbers[0] as usize;
         let won = game.winner;
 
         let player_won = won == Some(player);

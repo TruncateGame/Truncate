@@ -5,36 +5,51 @@ use super::depot::TruncateDepot;
 pub mod gamepad;
 pub mod keyboard;
 
-fn ensure_board_selection(depot: &mut TruncateDepot, board: &Board) -> Coordinate {
-    if let Some((coord, _)) = depot.interactions.selected_square_on_board {
+fn ensure_board_selection(
+    depot: &mut TruncateDepot,
+    local_player_index: usize,
+    board: &Board,
+) -> Coordinate {
+    if let Some((coord, _)) = depot.interactions[local_player_index].selected_square_on_board {
         return coord;
     }
-    if let Some((coord, sq)) = depot.interactions.previous_selected_square_on_board {
-        depot.interactions.selected_square_on_board = Some((coord.clone(), sq));
+    if let Some((coord, sq)) =
+        depot.interactions[local_player_index].previous_selected_square_on_board
+    {
+        depot.interactions[local_player_index].selected_square_on_board = Some((coord.clone(), sq));
         return coord;
     }
     let dock = board.docks.iter().find(|d| {
         board.get(**d).is_ok_and(
-            |s| matches!(s, Square::Dock(p) if p == depot.gameplay.player_number as usize),
+            |s| matches!(s, Square::Dock(p) if p == depot.gameplay.player_numbers[local_player_index] as usize),
         )
     });
     let coord = dock.cloned().unwrap_or_else(|| Coordinate::new(0, 0));
-    depot.interactions.selected_square_on_board = Some((coord.clone(), board.get(coord).unwrap()));
+    depot.interactions[local_player_index].selected_square_on_board =
+        Some((coord.clone(), board.get(coord).unwrap()));
     coord
 }
 
-fn move_selection(depot: &mut TruncateDepot, mut movement: [isize; 2], board: &Board) {
+fn move_selection(
+    depot: &mut TruncateDepot,
+    local_player_index: usize,
+    mut movement: [isize; 2],
+    board: &Board,
+) {
     // If nothing is selected, the first interaction shouldn't move the cursor.
     // At the start of the game, it should select the dock,
     // and otherwise it should select the previously selected square.
-    if depot.interactions.selected_square_on_board.is_none() {
-        ensure_board_selection(depot, board);
+    if depot.interactions[local_player_index]
+        .selected_square_on_board
+        .is_none()
+    {
+        ensure_board_selection(depot, local_player_index, board);
         return;
     }
 
-    let current_selection = ensure_board_selection(depot, board);
+    let current_selection = ensure_board_selection(depot, local_player_index, board);
 
-    if depot.gameplay.player_number == 0 {
+    if depot.gameplay.player_numbers[local_player_index] == 0 {
         movement[0] *= -1;
         movement[1] *= -1;
     }
@@ -54,7 +69,8 @@ fn move_selection(depot: &mut TruncateDepot, mut movement: [isize; 2], board: &B
     };
 
     if let Ok(sq) = board.get(new_coord) {
-        depot.interactions.selected_square_on_board = Some((new_coord, sq));
-        depot.interactions.previous_selected_square_on_board = Some((new_coord, sq));
+        depot.interactions[local_player_index].selected_square_on_board = Some((new_coord, sq));
+        depot.interactions[local_player_index].previous_selected_square_on_board =
+            Some((new_coord, sq));
     }
 }

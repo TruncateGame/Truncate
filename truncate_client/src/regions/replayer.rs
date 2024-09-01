@@ -79,13 +79,13 @@ impl ReplayerState {
             destruction_tick: 0.05,
             destruction_duration: 0.6,
         };
-        let mapped_board = MappedBoard::new(ctx, &aesthetics, &game.board, as_player, true);
+        let mapped_board =
+            MappedBoard::new(ctx, &aesthetics, &game.board, vec![as_player as u64], true);
 
         let gameplay = GameplayDepot {
             room_code: "REPLAY".into(),
-            player_number: as_player as u64,
+            player_numbers: vec![as_player as u64],
             next_player_number: game.next_player.map(|p| p as u64),
-            error_msg: None,
             winner: None,
             changes: vec![],
             last_battle_origin: None,

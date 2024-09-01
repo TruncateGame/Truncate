@@ -24,6 +24,7 @@ pub struct HoveredRegion {
 #[derive(Clone, Default)]
 pub struct InteractionDepot {
     pub view_only: bool,
+    pub error_msg: Option<String>,
     pub released_tile: Option<(usize, Coordinate)>,
     pub dragging_tile_on_board: Option<(Coordinate, Square)>,
     pub selected_tile_on_board: Option<(Coordinate, Square)>,
@@ -32,7 +33,6 @@ pub struct InteractionDepot {
     pub previous_selected_square_on_board: Option<(Coordinate, Square)>,
     pub hovered_unoccupied_square_on_board: Option<HoveredRegion>,
     pub hovered_occupied_square_on_board: Option<HoveredRegion>,
-    pub playing_tile: Option<char>,
     pub hovered_tile_in_hand: Option<(usize, char)>,
     pub selected_tile_in_hand: Option<(usize, char)>,
     pub highlight_tiles: Option<Vec<char>>,
@@ -93,9 +93,8 @@ pub struct TimingDepot {
 #[derive(Clone)]
 pub struct GameplayDepot {
     pub room_code: RoomCode,
-    pub player_number: u64,
+    pub player_numbers: Vec<u64>,
     pub next_player_number: Option<u64>,
-    pub error_msg: Option<String>,
     pub winner: Option<usize>,
     pub changes: Vec<Change>,
     pub last_battle_origin: Option<Coordinate>,
@@ -120,7 +119,7 @@ pub struct AudioDepot {
 
 #[derive(Clone)]
 pub struct TruncateDepot {
-    pub interactions: InteractionDepot,
+    pub interactions: Vec<InteractionDepot>,
     pub regions: RegionDepot,
     pub ui_state: UIStateDepot,
     pub board_info: BoardDepot,

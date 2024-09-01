@@ -63,9 +63,8 @@ pub struct ActiveGame {
     pub mapped_board: MappedBoard,
     pub mapped_hand: MappedTiles,
     pub mapped_overlay: MappedTiles,
-    pub hand: Hand,
+    pub hands: Vec<Hand>,
     pub board_changes: HashMap<Coordinate, BoardChange>,
-    pub new_hand_tiles: Vec<usize>,
     pub time_changes: Vec<TimeChange>,
     pub turn_reports: Vec<Vec<Change>>,
     pub location: GameLocation,
@@ -80,10 +79,10 @@ impl ActiveGame {
         game_seed: Option<BoardSeed>,
         npc: Option<NPCPersonality>,
         players: Vec<GamePlayerMessage>,
-        player_number: u64,
+        player_numbers: Vec<u64>,
         next_player_number: Option<u64>,
         board: Board,
-        hand: Hand,
+        hands: Vec<Hand>,
         map_texture: TextureHandle,
         theme: Theme,
         location: GameLocation,
@@ -96,7 +95,10 @@ impl ActiveGame {
             .collect::<Vec<_>>();
 
         let mut depot = TruncateDepot {
-            interactions: InteractionDepot::default(),
+            interactions: player_numbers
+                .iter()
+                .map(|_| InteractionDepot::default())
+                .collect(),
             regions: RegionDepot::default(),
             ui_state: UIStateDepot::default(),
             board_info: BoardDepot {
@@ -109,9 +111,8 @@ impl ActiveGame {
             },
             gameplay: GameplayDepot {
                 room_code,
-                player_number,
+                player_numbers: player_numbers.clone(),
                 next_player_number,
-                error_msg: None,
                 winner: None,
                 changes: Vec::new(),
                 last_battle_origin: None,
@@ -145,7 +146,7 @@ impl ActiveGame {
                 ctx,
                 &depot.aesthetics,
                 &board,
-                player_number as usize,
+                player_numbers,
                 theme.daytime,
             ),
             mapped_hand: MappedTiles::new(ctx, 7),
@@ -153,9 +154,8 @@ impl ActiveGame {
             depot,
             players,
             board,
-            hand,
+            hands,
             board_changes: HashMap::new(),
-            new_hand_tiles: vec![],
             time_changes: vec![],
             turn_reports: vec![],
             location,
@@ -181,14 +181,14 @@ impl ActiveGame {
         let kb_msg = control_devices::keyboard::handle_input(
             ui.ctx(),
             &self.board,
-            &self.hand,
+            &self.hands,
             &mut self.depot,
         );
 
         let pad_msg = self.gamepad_input.lock().unwrap().handle_input(
             ui.ctx(),
             &self.board,
-            &self.hand,
+            &self.hands,
             &mut self.depot,
         );
 
@@ -227,11 +227,11 @@ impl ActiveGame {
 
         let mut control_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (control_strip_rect, control_player_message) =
-            self.render_control_strip(&mut control_strip_ui);
+            self.render_control_strip(&mut control_strip_ui, 0);
 
         let mut timer_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (timer_strip_rect, timer_player_message) =
-            self.render_header_strip(&mut timer_strip_ui, game_ref);
+            self.render_header_strip(&mut timer_strip_ui, game_ref, 0);
 
         let mut sidebar_space_ui = ui.child_ui(sidebar_space, Layout::top_down(Align::LEFT));
         let sidebar_player_message = self.render_sidebar(&mut sidebar_space_ui);
@@ -242,6 +242,7 @@ impl ActiveGame {
         if let Some(control_strip_rect) = control_strip_rect {
             game_space.set_bottom(control_strip_rect.top());
         }
+
         let mut game_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
         let actions_player_message = if self.depot.ui_state.actions_menu_open {
@@ -253,9 +254,9 @@ impl ActiveGame {
         let dict_player_message = self.render_dictionary(ui);
 
         let player_message = BoardUI::new(&self.board)
-            .interactive(!self.depot.interactions.view_only)
+            .interactive(!self.depot.interactions[0].view_only)
             .render(
-                &self.hand,
+                &self.hands,
                 &self.board_changes,
                 &mut game_space_ui,
                 &mut self.mapped_board,
@@ -295,7 +296,7 @@ impl ActiveGame {
         let GameStateMessage {
             room_code: _,
             players,
-            player_number: _,
+            player_number: this_player_number,
             next_player_number,
             board,
             hand: _,
@@ -348,14 +349,22 @@ impl ActiveGame {
             Change::Hand(change) => Some(change),
             _ => None,
         }) {
-            for removed in &hand_change.removed {
-                if let Some(pos) = self.hand.iter().position(|t| t == removed) {
-                    self.hand.remove(pos);
+            let player_index = self
+                .depot
+                .gameplay
+                .player_numbers
+                .iter()
+                .position(|p| *p == hand_change.player as u64);
+
+            if let Some(player_index) = player_index {
+                for removed in &hand_change.removed {
+                    if let Some(pos) = self.hands[player_index].iter().position(|t| t == removed) {
+                        self.hands[player_index].remove(pos);
+                    }
                 }
+                let reduced_length = self.hands[player_index].len();
+                self.hands[player_index].0.extend(&hand_change.added);
             }
-            let reduced_length = self.hand.len();
-            self.hand.0.extend(&hand_change.added);
-            self.new_hand_tiles = (reduced_length..self.hand.len()).collect();
         }
 
         self.time_changes = changes
@@ -389,7 +398,8 @@ impl ActiveGame {
 
         // TODO: Verify that our modified hand matches the actual hand in GameStateMessage
 
-        self.depot.interactions.playing_tile = None;
-        self.depot.gameplay.error_msg = None;
+        if let Some(ints) = self.depot.interactions.get_mut(this_player_number as usize) {
+            ints.error_msg = None;
+        }
     }
 }

@@ -85,12 +85,12 @@ struct MapState {
     prev_board: Board,
     prev_tick: u64,
     prev_winner: Option<usize>,
-    prev_selected_tile: Option<(Coordinate, Square)>,
-    prev_selected_square: Option<(Coordinate, Square)>,
-    prev_tile_hover: Option<(Coordinate, Square)>,
-    prev_dragging: Option<(Coordinate, Square)>,
-    prev_occupied_hover: Option<HoveredRegion>,
-    prev_square_hover: Option<HoveredRegion>,
+    prev_selected_tile: Option<Vec<(Coordinate, Square)>>,
+    prev_selected_square: Option<Vec<(Coordinate, Square)>>,
+    prev_tile_hover: Option<Vec<(Coordinate, Square)>>,
+    prev_dragging: Option<Vec<(Coordinate, Square)>>,
+    prev_occupied_hover: Option<Vec<HoveredRegion>>,
+    prev_square_hover: Option<Vec<HoveredRegion>>,
     prev_changes: Vec<Change>,
     generic_tick: u32,
 }
@@ -104,7 +104,7 @@ pub struct MappedBoard {
     resolved_textures: Option<ResolvedTextureLayers>,
     map_seed: usize,
     inverted: bool,
-    for_player: usize,
+    for_players: Vec<usize>,
     daytime: bool,
     last_tick: u64,
     forecasted_wind: u8,
@@ -117,7 +117,7 @@ impl MappedBoard {
         ctx: &egui::Context,
         aesthetics: &AestheticDepot,
         board: &Board,
-        for_player: usize,
+        for_players: Vec<u64>,
         daytime: bool,
     ) -> Self {
         let secs = instant::SystemTime::now()
@@ -134,8 +134,8 @@ impl MappedBoard {
             generic_repaint_tick: 0,
             resolved_textures: None,
             map_seed: (secs % 100000) as usize,
-            inverted: for_player == 0,
-            for_player,
+            inverted: for_players[0] == 0,
+            for_players: for_players.into_iter().map(|p| p as usize).collect(),
             daytime,
             last_tick: 0,
             forecasted_wind: 0,
@@ -255,7 +255,7 @@ impl MappedBoard {
         measures: &TextureMeasurement,
         tileset: &ColorImage,
         glypher: &Glypher,
-        interactions: Option<&InteractionDepot>,
+        interactions: Option<&Vec<InteractionDepot>>,
         gameplay: Option<&GameplayDepot>,
         aesthetics: &AestheticDepot,
         timing: &TimingDepot,
@@ -305,17 +305,21 @@ impl MappedBoard {
         );
 
         let orient = |player: usize| {
-            if player == self.for_player {
+            if player == self.for_players[0] {
                 Direction::North
             } else {
                 Direction::South
             }
         };
 
-        let square_is_highlighted = interactions.is_some_and(|i| {
-            i.highlight_squares
-                .as_ref()
-                .is_some_and(|s| s.contains(&coord))
+        let square_highlights: Option<Vec<bool>> = interactions.map(|is| {
+            is.iter()
+                .map(|i| {
+                    i.highlight_squares
+                        .as_ref()
+                        .is_some_and(|s| s.contains(&coord))
+                })
+                .collect()
         });
 
         let mut tile_was_added = false;
@@ -471,71 +475,70 @@ impl MappedBoard {
 
                 let mut render_as_swap = None;
 
-                if let Some(interactions) = interactions {
-                    let selected =
-                        matches!(interactions.selected_tile_on_board, Some((c, _)) if c == coord);
-                    let hovered =
-                        matches!(interactions.hovered_tile_on_board, Some((c, _)) if c == coord);
-                    let hovered_occupied = matches!(interactions.hovered_occupied_square_on_board, Some(HoveredRegion { coord: Some(c), .. }) if c == coord);
-                    being_dragged =
-                        matches!(interactions.dragging_tile_on_board, Some((c, _)) if c == coord);
+                if let Some(all_interactions) = interactions {
+                    for interactions in all_interactions {
+                        let selected = matches!(interactions.selected_tile_on_board, Some((c, _)) if c == coord);
+                        let hovered = matches!(interactions.hovered_tile_on_board, Some((c, _)) if c == coord);
+                        let hovered_occupied = matches!(interactions.hovered_occupied_square_on_board, Some(HoveredRegion { coord: Some(c), .. }) if c == coord);
+                        being_dragged = matches!(interactions.dragging_tile_on_board, Some((c, _)) if c == coord);
 
-                    highlight = match (selected, hovered) {
-                        (true, true) => Some(aesthetics.theme.ring_selected_hovered),
-                        (true, false) => Some(aesthetics.theme.ring_selected),
-                        (false, true) => Some(aesthetics.theme.ring_hovered),
-                        (false, false) => None,
-                    };
+                        highlight = match (selected, hovered) {
+                            (true, true) => Some(aesthetics.theme.ring_selected_hovered),
+                            (true, false) => Some(aesthetics.theme.ring_selected),
+                            (false, true) => Some(aesthetics.theme.ring_hovered),
+                            (false, false) => None,
+                        };
 
-                    // Preview click-to-swap from this tile to another
-                    if selected && !hovered {
-                        if let Some((
-                            _,
-                            Square::Occupied {
-                                player: hovered_player,
-                                tile: hovered_tile,
-                                ..
-                            },
-                        )) = interactions.hovered_tile_on_board
-                        {
-                            if hovered_player == *player {
-                                render_as_swap = Some(hovered_tile);
-                            }
-                        }
-                    }
-
-                    // Preview click-to-swap from another tile to this one
-                    if hovered && !selected {
-                        if let Some((
-                            _,
-                            Square::Occupied {
-                                player: selected_player,
-                                tile: selected_tile,
-                                ..
-                            },
-                        )) = interactions.selected_tile_on_board
-                        {
-                            if selected_player == *player {
-                                render_as_swap = Some(selected_tile);
-                            }
-                        }
-                    }
-
-                    // Preview drag-to-swap from this tile to another
-                    // (the inverse is handled in the dragging logic itself within the board)
-                    if being_dragged && !hovered_occupied {
-                        if let Some(HoveredRegion {
-                            square:
-                                Some(Square::Occupied {
+                        // Preview click-to-swap from this tile to another
+                        if selected && !hovered {
+                            if let Some((
+                                _,
+                                Square::Occupied {
                                     player: hovered_player,
                                     tile: hovered_tile,
                                     ..
-                                }),
-                            ..
-                        }) = interactions.hovered_occupied_square_on_board
-                        {
-                            if hovered_player == *player {
-                                render_as_swap = Some(hovered_tile);
+                                },
+                            )) = interactions.hovered_tile_on_board
+                            {
+                                if hovered_player == *player {
+                                    render_as_swap = Some(hovered_tile);
+                                }
+                            }
+                        }
+
+                        // Preview click-to-swap from another tile to this one
+                        if hovered && !selected {
+                            if let Some((
+                                _,
+                                Square::Occupied {
+                                    player: selected_player,
+                                    tile: selected_tile,
+                                    ..
+                                },
+                            )) = interactions.selected_tile_on_board
+                            {
+                                if selected_player == *player {
+                                    render_as_swap = Some(selected_tile);
+                                }
+                            }
+                        }
+
+                        // Preview drag-to-swap from this tile to another
+                        // (the inverse is handled in the dragging logic itself within the board)
+                        if being_dragged && !hovered_occupied {
+                            if let Some(HoveredRegion {
+                                square:
+                                    Some(Square::Occupied {
+                                        player: hovered_player,
+                                        tile: hovered_tile,
+                                        ..
+                                    }),
+                                ..
+                            }) = interactions.hovered_occupied_square_on_board
+                            {
+                                if hovered_player == *player {
+                                    render_as_swap = Some(hovered_tile);
+                                }
                             }
                         }
                     }
@@ -564,7 +567,7 @@ impl MappedBoard {
                     color = color.map(|c| alpha_blend(c, aesthetics.theme.word_valid, Some(traj)));
                 }
 
-                if square_is_highlighted && (tick % 4 < 2) {
+                if square_highlights.is_some_and(|h| h.contains(&true)) && (tick % 4 < 2) {
                     color = Some(aesthetics.theme.ring_selected_hovered);
                 }
 
@@ -618,53 +621,59 @@ impl MappedBoard {
                 layers = layers.merge_above_self(validity_layers);
             }
             Square::Land => {
-                if let Some(interactions) = interactions {
-                    if let Some((_, tile_char)) = interactions.selected_tile_in_hand {
-                        // Don't show preview tiles if anything is being dragged (i.e. a tile from the hand)
-                        if !ctx.memory(|m| m.is_anything_being_dragged())
+                if let Some(all_interactions) = interactions {
+                    for (interaction_index, interactions) in all_interactions.iter().enumerate() {
+                        if let Some((_, tile_char)) = interactions.selected_tile_in_hand {
+                            // Don't show preview tiles if anything is being dragged (i.e. a tile from the hand)
+                            if !ctx.memory(|m| m.is_anything_being_dragged())
+                                && interactions
+                                    .hovered_unoccupied_square_on_board
+                                    .as_ref()
+                                    .is_some_and(|h| h.coord == Some(coord))
+                            {
+                                let self_color = gameplay
+                                    .map(|gameplay| {
+                                        player_colors
+                                            .get(
+                                                gameplay.player_numbers[interaction_index] as usize,
+                                            )
+                                            .cloned()
+                                    })
+                                    .flatten()
+                                    .unwrap_or(aesthetics.theme.ring_selected);
+
+                                let tile_layers = Tex::board_game_tile(
+                                    MappedTileVariant::Healthy,
+                                    tile_char,
+                                    Direction::North,
+                                    Some(self_color.lighten()),
+                                    None,
+                                    TileDecoration::None,
+                                    seed_at_coord,
+                                );
+                                layers = layers.merge_above_self(tile_layers);
+                            }
+                        } else if !ctx.memory(|m| m.is_anything_being_dragged())
                             && interactions
                                 .hovered_unoccupied_square_on_board
-                                .as_ref()
-                                .is_some_and(|h| h.coord == Some(coord))
+                                .is_some_and(|s| s.coord == Some(coord))
                         {
-                            let self_color = gameplay
-                                .map(|gameplay| {
-                                    player_colors.get(gameplay.player_number as usize).cloned()
-                                })
-                                .flatten()
-                                .unwrap_or(aesthetics.theme.ring_selected);
-
-                            let tile_layers = Tex::board_game_tile(
-                                MappedTileVariant::Healthy,
-                                tile_char,
-                                Direction::North,
-                                Some(self_color.lighten()),
-                                None,
-                                TileDecoration::None,
-                                seed_at_coord,
-                            );
-                            layers = layers.merge_above_self(tile_layers);
+                            layers = layers.merge_below_self(TexLayers {
+                                terrain: None,
+                                structures: None,
+                                checkerboard: None,
+                                piece_validities: vec![],
+                                fog: None,
+                                pieces: vec![PieceLayer::Texture(
+                                    tex::tiles::quad::CHECKERBOARD,
+                                    Some(aesthetics.theme.grass.slighten()),
+                                )],
+                            });
                         }
-                    } else if !ctx.memory(|m| m.is_anything_being_dragged())
-                        && interactions
-                            .hovered_unoccupied_square_on_board
-                            .is_some_and(|s| s.coord == Some(coord))
-                    {
-                        layers = layers.merge_below_self(TexLayers {
-                            terrain: None,
-                            structures: None,
-                            checkerboard: None,
-                            piece_validities: vec![],
-                            fog: None,
-                            pieces: vec![PieceLayer::Texture(
-                                tex::tiles::quad::CHECKERBOARD,
-                                Some(aesthetics.theme.grass.slighten()),
-                            )],
-                        });
                     }
                 }
 
-                if square_is_highlighted && tick % 4 < 2 {
+                if square_highlights.is_some_and(|h| h.contains(&true)) && (tick % 4 < 2) {
                     let tile_layers = Tex::board_game_tile(
                         MappedTileVariant::Healthy,
                         ' ',
@@ -680,29 +689,34 @@ impl MappedBoard {
             _ => {}
         }
 
-        if let Some(interactions) = interactions {
-            if interactions
-                .selected_square_on_board
-                .is_some_and(|(c, _)| c == coord)
-            {
-                let spinner = match tick % 4 {
-                    0 => tex::tiles::quad::SELECTION_SPINNER_1,
-                    1 => tex::tiles::quad::SELECTION_SPINNER_2,
-                    2 => tex::tiles::quad::SELECTION_SPINNER_3,
-                    3.. => tex::tiles::quad::SELECTION_SPINNER_4,
-                };
-                let color = gameplay
-                    .map(|g| player_colors.get(g.player_number as usize))
-                    .flatten()
-                    .unwrap_or(&Color32::GOLD);
-                layers = layers.merge_above_self(TexLayers {
-                    terrain: None,
-                    structures: None,
-                    checkerboard: None,
-                    piece_validities: vec![],
-                    fog: None,
-                    pieces: vec![PieceLayer::Texture(spinner, Some(*color))],
-                });
+        if let Some(all_interactions) = interactions {
+            for (interaction_index, interactions) in all_interactions.iter().enumerate() {
+                if interactions
+                    .selected_square_on_board
+                    .is_some_and(|(c, _)| c == coord)
+                {
+                    let spinner = match tick % 4 {
+                        0 => tex::tiles::quad::SELECTION_SPINNER_1,
+                        1 => tex::tiles::quad::SELECTION_SPINNER_2,
+                        2 => tex::tiles::quad::SELECTION_SPINNER_3,
+                        3.. => tex::tiles::quad::SELECTION_SPINNER_4,
+                    };
+                    let color = gameplay
+                        .map(|g| {
+                            let player_number = g.player_numbers[interaction_index];
+                            player_colors.get(player_number as usize)
+                        })
+                        .flatten()
+                        .unwrap_or(&Color32::GOLD);
+                    layers = layers.merge_above_self(TexLayers {
+                        terrain: None,
+                        structures: None,
+                        checkerboard: None,
+                        piece_validities: vec![],
+                        fog: None,
+                        pieces: vec![PieceLayer::Texture(spinner, Some(*color))],
+                    });
+                }
             }
         }
 
@@ -848,20 +862,37 @@ impl MappedBoard {
         ctx: &egui::Context,
         aesthetics: &AestheticDepot,
         timing: &TimingDepot,
-        interactions: Option<&InteractionDepot>,
+        interactions: Option<&Vec<InteractionDepot>>,
         gameplay: Option<&GameplayDepot>,
         board: &Board,
     ) {
         let mut tick_eq = true;
-        let selected_tile = interactions.map(|i| i.selected_tile_on_board).flatten();
-        let selected_square = interactions.map(|i| i.selected_square_on_board).flatten();
-        let tile_hover = interactions.map(|i| i.hovered_tile_on_board).flatten();
-        let dragging = interactions.map(|i| i.dragging_tile_on_board).flatten();
+        let selected_tile = interactions
+            .map(|i| i.iter().map(|i| i.selected_tile_on_board).collect())
+            .flatten();
+        let selected_square = interactions
+            .map(|i| i.iter().map(|i| i.selected_square_on_board).collect())
+            .flatten();
+        let tile_hover = interactions
+            .map(|i| i.iter().map(|i| i.hovered_tile_on_board).collect())
+            .flatten();
+        let dragging = interactions
+            .map(|i| i.iter().map(|i| i.dragging_tile_on_board).collect())
+            .flatten();
         let occupied_hover = interactions
-            .map(|i| i.hovered_occupied_square_on_board)
+            .map(|i| {
+                i.iter()
+                    .map(|i| i.hovered_occupied_square_on_board)
+                    .collect()
+            })
             .flatten();
         let square_hover = interactions
-            .map(|i| i.hovered_unoccupied_square_on_board.clone())
+            .map(|i| {
+                i.iter()
+                    .map(|i| i.hovered_unoccupied_square_on_board)
+                    .clone()
+                    .collect()
+            })
             .flatten();
         let generic_repaint_tick = self.generic_repaint_tick;
         let winner = gameplay.map(|g| g.winner).flatten();

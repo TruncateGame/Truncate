@@ -20,61 +20,62 @@ impl GamepadInput {
         &mut self,
         ctx: &egui::Context,
         board: &Board,
-        hand: &Hand,
+        hands: &Vec<Hand>,
         depot: &mut TruncateDepot,
     ) -> Option<PlayerMessage> {
         let mut msg = None;
 
         while let Some(event) = self.mgr.next_event() {
+            let player: usize = event.id.into();
             match event.event {
                 // Tile slot 0
                 EventType::ButtonPressed(Button::Start, _) => {
-                    let current_selection = ensure_board_selection(depot, board);
+                    let current_selection = ensure_board_selection(depot, player, board);
 
-                    if let Some(char) = hand.get(0) {
+                    if let Some(char) = hands[player].get(0) {
                         msg = Some(PlayerMessage::Place(current_selection, *char))
                     }
                 }
                 // Tile slot 1
                 EventType::ButtonPressed(Button::LeftTrigger2, _) => {
-                    let current_selection = ensure_board_selection(depot, board);
+                    let current_selection = ensure_board_selection(depot, player, board);
 
-                    if let Some(char) = hand.get(1) {
+                    if let Some(char) = hands[player].get(1) {
                         msg = Some(PlayerMessage::Place(current_selection, *char))
                     }
                 }
                 // Tile slot 2
                 EventType::ButtonPressed(Button::RightTrigger, _) => {
-                    let current_selection = ensure_board_selection(depot, board);
+                    let current_selection = ensure_board_selection(depot, player, board);
 
-                    if let Some(char) = hand.get(2) {
+                    if let Some(char) = hands[player].get(2) {
                         msg = Some(PlayerMessage::Place(current_selection, *char))
                     }
                 }
                 // Tile slot 3
                 EventType::ButtonPressed(Button::South, _) => {
-                    let current_selection = ensure_board_selection(depot, board);
+                    let current_selection = ensure_board_selection(depot, player, board);
 
-                    if let Some(char) = hand.get(3) {
+                    if let Some(char) = hands[player].get(3) {
                         msg = Some(PlayerMessage::Place(current_selection, *char))
                     }
                 }
                 EventType::AxisChanged(dir, amt, _) => {
                     match dir {
                         gilrs::Axis::LeftStickX if amt < 0.0 => {
-                            move_selection(depot, [-1, 0], board);
+                            move_selection(depot, player, [-1, 0], board);
                             ctx.request_repaint();
                         }
                         gilrs::Axis::LeftStickX if amt > 0.0 => {
-                            move_selection(depot, [1, 0], board);
+                            move_selection(depot, player, [1, 0], board);
                             ctx.request_repaint();
                         }
                         gilrs::Axis::LeftStickY if amt < 0.0 => {
-                            move_selection(depot, [0, 1], board);
+                            move_selection(depot, player, [0, 1], board);
                             ctx.request_repaint();
                         }
                         gilrs::Axis::LeftStickY if amt > 0.0 => {
-                            move_selection(depot, [0, -1], board);
+                            move_selection(depot, player, [0, -1], board);
                             ctx.request_repaint();
                         }
                         _ => { /* ignored */ }

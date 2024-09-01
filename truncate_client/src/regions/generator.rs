@@ -45,10 +45,10 @@ impl GeneratorState {
                 .iter()
                 .map(|p| GamePlayerMessage::new(p, &game))
                 .collect(),
-            0,
+            vec![0],
             Some(0),
             game.board.clone(),
-            game.players[0].hand.clone(),
+            vec![game.players[0].hand.clone()],
             map_texture.clone(),
             theme.clone(),
             GameLocation::Local,
@@ -58,7 +58,7 @@ impl GeneratorState {
         active_game.depot.ui_state.game_header = HeaderType::None;
         active_game.depot.ui_state.hand_hidden = true;
         active_game.depot.ui_state.sidebar_hidden = true;
-        active_game.depot.interactions.view_only = true;
+        active_game.depot.interactions[0].view_only = true;
 
         let (_, default) = BoardParams::latest();
 

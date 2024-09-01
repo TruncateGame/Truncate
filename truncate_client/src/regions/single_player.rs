@@ -103,10 +103,10 @@ impl SinglePlayerState {
                 .iter()
                 .map(|p| GamePlayerMessage::new(p, &game))
                 .collect(),
-            if human_starts { 0 } else { 1 },
+            vec![if human_starts { 0 } else { 1 }],
             Some(0),
             filtered_board.clone(),
-            game.players[if human_starts { 0 } else { 1 }].hand.clone(),
+            vec![game.players[if human_starts { 0 } else { 1 }].hand.clone()],
             map_texture.clone(),
             theme.clone(),
             GameLocation::Local,
@@ -216,12 +216,12 @@ impl SinglePlayerState {
                 .iter()
                 .map(|p| GamePlayerMessage::new(p, &game))
                 .collect(),
-            if self.human_starts { 0 } else { 1 },
+            vec![if self.human_starts { 0 } else { 1 }],
             Some(0),
             game.board.clone(),
-            game.players[if self.human_starts { 0 } else { 1 }]
+            vec![game.players[if self.human_starts { 0 } else { 1 }]
                 .hand
-                .clone(),
+                .clone()],
             self.map_texture.clone(),
             self.theme.clone(),
             GameLocation::Local,
@@ -376,7 +376,7 @@ impl SinglePlayerState {
                 return Ok(battle_words);
             }
             Err(msg) => {
-                self.active_game.depot.gameplay.error_msg = Some(msg);
+                self.active_game.depot.interactions[0].error_msg = Some(msg);
                 return Err(());
             }
         }
