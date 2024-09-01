@@ -164,3 +164,12 @@ pub fn remember(word: &String) {
         }
     }
 }
+
+/// Forgets all words learned via remember()
+/// (For now, this just wipes all dicts and relies on them being recreated)
+pub fn forget() {
+    *TOTAL_DICT.lock().unwrap() = None;
+    *SMALL_VOCAB_DICT_SAFE.lock().unwrap() = None;
+    *MEDIUM_VOCAB_DICT_SAFE.lock().unwrap() = None;
+    *LARGE_VOCAB_DICT_UNSAFE.lock().unwrap() = None;
+}

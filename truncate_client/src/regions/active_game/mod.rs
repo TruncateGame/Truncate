@@ -81,12 +81,14 @@ impl ActiveGame {
         npc: Option<NPCPersonality>,
         players: Vec<GamePlayerMessage>,
         player_number: u64,
-        next_player_number: u64,
+        next_player_number: Option<u64>,
         board: Board,
         hand: Hand,
         map_texture: TextureHandle,
         theme: Theme,
         location: GameLocation,
+        game_ends_at: Option<u64>,
+        remaining_turns: Option<u64>,
     ) -> Self {
         let player_colors = players
             .iter()
@@ -101,7 +103,10 @@ impl ActiveGame {
                 board_seed: game_seed,
                 ..BoardDepot::default()
             },
-            timing: TimingDepot::default(),
+            timing: TimingDepot {
+                game_ends_at,
+                ..TimingDepot::default()
+            },
             gameplay: GameplayDepot {
                 room_code,
                 player_number,
@@ -111,9 +116,10 @@ impl ActiveGame {
                 changes: Vec::new(),
                 last_battle_origin: None,
                 npc,
+                remaining_turns,
             },
             aesthetics: AestheticDepot {
-                theme,
+                theme: theme.clone(),
                 qs_tick: 0,
                 map_texture,
                 player_colors,
@@ -135,7 +141,13 @@ impl ActiveGame {
         }
 
         Self {
-            mapped_board: MappedBoard::new(ctx, &depot.aesthetics, &board, player_number as usize),
+            mapped_board: MappedBoard::new(
+                ctx,
+                &depot.aesthetics,
+                &board,
+                player_number as usize,
+                theme.daytime,
+            ),
             mapped_hand: MappedTiles::new(ctx, 7),
             mapped_overlay: MappedTiles::new(ctx, 1),
             depot,
@@ -259,6 +271,26 @@ impl ActiveGame {
         kb_msg.or(pad_msg).or(player_message)
     }
 
+    pub fn apply_new_timing(&mut self, state_message: GameStateMessage) {
+        let GameStateMessage {
+            room_code: _,
+            players,
+            player_number: _,
+            next_player_number: _,
+            board: _,
+            hand: _,
+            changes: _,
+            game_ends_at,
+            paused,
+            remaining_turns: _,
+        } = state_message;
+
+        self.players = players;
+        self.depot.timing.game_ends_at = game_ends_at;
+
+        self.depot.timing.paused = paused;
+    }
+
     pub fn apply_new_state(&mut self, state_message: GameStateMessage) {
         let GameStateMessage {
             room_code: _,
@@ -268,6 +300,9 @@ impl ActiveGame {
             board,
             hand: _,
             changes,
+            game_ends_at,
+            paused,
+            remaining_turns,
         } = state_message;
 
         // assert_eq!(self.room_code, room_code);
@@ -293,13 +328,10 @@ impl ActiveGame {
         }
 
         self.depot.gameplay.next_player_number = next_player_number;
-        if let Some(GamePlayerMessage {
-            turn_starts_no_later_than: Some(_time),
-            ..
-        }) = self.players.get(next_player_number as usize)
-        {
-            self.depot.timing.last_turn_change = self.depot.timing.current_time;
-        }
+        self.depot.timing.last_turn_change = self.depot.timing.current_time;
+        self.depot.timing.game_ends_at = game_ends_at;
+        self.depot.timing.paused = paused;
+        self.depot.gameplay.remaining_turns = remaining_turns;
 
         self.depot.gameplay.changes = changes.clone();
 
@@ -317,12 +349,9 @@ impl ActiveGame {
             _ => None,
         }) {
             for removed in &hand_change.removed {
-                self.hand.remove(
-                    self.hand
-                        .iter()
-                        .position(|t| t == removed)
-                        .expect("Player doesn't have tile being removed"),
-                );
+                if let Some(pos) = self.hand.iter().position(|t| t == removed) {
+                    self.hand.remove(pos);
+                }
             }
             let reduced_length = self.hand.len();
             self.hand.0.extend(&hand_change.added);

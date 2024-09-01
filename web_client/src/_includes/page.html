@@ -502,9 +502,11 @@
                         this.multiStage();
                     });
 
-                    this.button("Tutorials", () => {
-                        this.learnStage();
-                    });
+                    if (has_played_tut) {
+                      this.button("Tutorials", () => {
+                          this.learnStage();
+                      });
+                    }
                 }
 
                 learnStage() {

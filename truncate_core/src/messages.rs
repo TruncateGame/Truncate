@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     board::{Board, Coordinate},
+    game::Game,
     moves::Move,
     player::{Hand, Player},
     reporting::{Change, WordMeaning},
@@ -16,6 +17,18 @@ use crate::{
 pub type RoomCode = String;
 pub type PlayerNumber = u64;
 pub type TruncateToken = String;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+pub struct Nonce {
+    pub generated_at: u64,
+    pub id: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NoncedPlayerMessage {
+    pub nonce: Nonce,
+    pub message: PlayerMessage,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PlayerMessage {
@@ -30,6 +43,8 @@ pub enum PlayerMessage {
     Place(Coordinate, char),
     Swap(Coordinate, Coordinate),
     Rematch,
+    Pause,
+    Unpause,
     RequestDefinitions(Vec<String>),
     CreateAnonymousPlayer {
         screen_width: u32,
@@ -81,6 +96,8 @@ impl fmt::Display for PlayerMessage {
             PlayerMessage::Place(coord, tile) => write!(f, "Place {} at {}", tile, coord),
             PlayerMessage::Swap(a, b) => write!(f, "Swap the tiles at {} and {}", a, b),
             PlayerMessage::Rematch => write!(f, "Rematch!"),
+            PlayerMessage::Pause => write!(f, "Pause!"),
+            PlayerMessage::Unpause => write!(f, "Unpause!"),
             PlayerMessage::RequestDefinitions(words) => write!(f, "Get definition of {words:?}"),
             PlayerMessage::CreateAnonymousPlayer { .. } => {
                 write!(f, "Create a new anonymous player in the database")
@@ -123,10 +140,11 @@ pub struct GamePlayerMessage {
     pub allotted_time: Option<Duration>,
     pub time_remaining: Option<Duration>,
     pub turn_starts_no_later_than: Option<u64>,
+    pub paused_turn_delta: Option<i64>,
 }
 
-impl From<&Player> for GamePlayerMessage {
-    fn from(p: &Player) -> Self {
+impl GamePlayerMessage {
+    pub fn new(p: &Player, _game: &Game) -> Self {
         Self {
             name: p.name.clone(),
             index: p.index,
@@ -134,6 +152,7 @@ impl From<&Player> for GamePlayerMessage {
             allotted_time: p.allotted_time,
             time_remaining: p.time_remaining,
             turn_starts_no_later_than: p.turn_starts_no_later_than,
+            paused_turn_delta: p.paused_turn_delta,
         }
     }
 }
@@ -143,17 +162,20 @@ pub struct GameStateMessage {
     pub room_code: RoomCode,
     pub players: Vec<GamePlayerMessage>,
     pub player_number: PlayerNumber,
-    pub next_player_number: PlayerNumber,
+    pub next_player_number: Option<PlayerNumber>,
     pub board: Board,
     pub hand: Hand,
     pub changes: Vec<Change>,
+    pub game_ends_at: Option<u64>,
+    pub remaining_turns: Option<u64>,
+    pub paused: bool,
 }
 
 impl fmt::Display for GameStateMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "• Game {}, next up {}\n• Board:\n{}\n• Hand: {}\n• Just changed:\n{}",
+            "• Game {}, next up {:?}\n• Board:\n{}\n• Hand: {}\n• Just changed:\n{}",
             self.room_code,
             self.next_player_number,
             self.board,
@@ -224,6 +246,8 @@ impl DailyStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameMessage {
     Ping,
+    Ack(Nonce),
+    PleaseLogin,
     JoinedLobby(
         PlayerNumber,
         RoomCode,
@@ -233,6 +257,7 @@ pub enum GameMessage {
     ),
     LobbyUpdate(PlayerNumber, RoomCode, Vec<LobbyPlayerMessage>, Board),
     StartedGame(GameStateMessage),
+    GameTimingUpdate(GameStateMessage),
     GameUpdate(GameStateMessage),
     GameEnd(GameStateMessage, PlayerNumber),
     GameError(RoomCode, PlayerNumber, String),
@@ -251,6 +276,8 @@ impl fmt::Display for GameMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             GameMessage::Ping => write!(f, "Game ping"),
+            GameMessage::Ack(_) => write!(f, "ACK"),
+            GameMessage::PleaseLogin => write!(f, "Server is requesting player to login"),
             GameMessage::JoinedLobby(player, room, players, board, _token) => write!(
                 f,
                 "Joined lobby {} as player {} with players {}. Board is:\n{}",
@@ -276,6 +303,7 @@ impl fmt::Display for GameMessage {
                 board
             ),
             GameMessage::StartedGame(game) => write!(f, "Started game:\n{}", game),
+            GameMessage::GameTimingUpdate(game) => write!(f, "Update to timing:\n{}", game),
             GameMessage::GameUpdate(game) => write!(f, "Update to game:\n{}", game),
             GameMessage::GameEnd(game, winner) => {
                 write!(f, "Conclusion of game, winner was {}:\n{}", winner, game)

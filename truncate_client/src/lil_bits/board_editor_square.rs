@@ -37,12 +37,12 @@ impl EditorSquareUI {
     ) -> egui::Response {
         let (rect, response) = ui.allocate_exact_size(
             egui::vec2(theme.grid_size, theme.grid_size),
-            egui::Sense::click(),
+            egui::Sense::hover(),
         );
         let response = ui.interact(
             rect.shrink(theme.tile_margin),
             response.id.with("editor_tile"),
-            egui::Sense::click_and_drag(),
+            egui::Sense::drag(),
         );
 
         let inner_bounds = rect.shrink(theme.tile_margin);

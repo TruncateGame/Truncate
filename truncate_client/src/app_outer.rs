@@ -42,6 +42,8 @@ pub enum BackchannelMsg {
     },
     /// Tells the outer host to add a given word to the NPC's known dictionaries
     Remember { word: String },
+    /// Tells the outer host to forget all words learned via BackchannelMsg::Remember
+    Forget,
     /// Tells the outer host to copy the given text, and optionally
     /// open a system share dialog.
     /// More reliable than copying within egui, as the browser JS
@@ -221,7 +223,7 @@ impl OuterApplication {
             }
         }
 
-        let theme = Theme::default();
+        let theme = Theme::day();
 
         {
             use egui::FontFamily;

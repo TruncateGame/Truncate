@@ -146,12 +146,11 @@ pub fn backchannel(msg: String) -> String {
             next_player,
             npc_params,
         } => {
-            let mut game = truncate_core::game::Game::new(3, 3, None, 0);
+            let mut game = truncate_core::game::Game::new(3, 3, None, rules);
             game.board = board;
-            game.rules = rules;
             game.player_turn_count = vec![0; players.len()];
             game.players = players;
-            game.next_player = next_player;
+            game.next_player = Some(next_player);
 
             game.players[next_player].turn_starts_no_later_than = Some(
                 instant::SystemTime::now()
@@ -165,6 +164,10 @@ pub fn backchannel(msg: String) -> String {
         }
         BackchannelMsg::Remember { word } => {
             utils::game_evals::remember(&word);
+            return String::new();
+        }
+        BackchannelMsg::Forget => {
+            utils::game_evals::forget();
             return String::new();
         }
         BackchannelMsg::QueryFor { .. } => {

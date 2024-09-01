@@ -50,7 +50,7 @@ fn evaluate_single_seed(
 
     while game.turn_count < maximum_turns {
         let best_move_for_next_player = best_move(&game, &npc_params, &dicts);
-        let next_player = game.next_player;
+        let next_player = game.next_player.unwrap();
 
         let next_move = match best_move_for_next_player {
             PlayerMessage::Place(position, tile) => Move::Place {
@@ -133,7 +133,12 @@ fn get_game_for_seed(seed: BoardSeed, rules_generation: u32) -> Game {
         .board;
     board.cache_special_squares();
 
-    let mut game = Game::new(9, 9, Some(seed.seed as u64), rules_generation);
+    let mut game = Game::new(
+        9,
+        9,
+        Some(seed.seed as u64),
+        GameRules::generation(rules_generation),
+    );
     game.add_player("P1".into());
     game.add_player("P2".into());
 
@@ -169,20 +174,25 @@ fn evaluate_seed(mut seed: BoardSeed, log: bool, latest_rules_generation: u32) -
     (core_seed, seed_notes)
 }
 
-fn verify_note(seed: &u32, note: &SeedNote) {
+fn verify_note(seed: &u32, note: &SeedNote) -> bool {
     let mut board_seed = BoardSeed::new_with_generation(note.board_generation, *seed);
     for _ in 0..(note.rerolls) {
         board_seed.external_reroll();
     }
 
     let game = get_game_for_seed(board_seed, note.rules_generation);
+
+    println!("{}", game.board);
+
     let verification = get_game_verification(&game);
 
     if verification != note.verification {
-        panic!("Failed verification for {seed}");
+        eprintln!("! ! ! ! ! ! ! ! ! ! ! Failed verification for {seed}");
     } else {
         println!("Seed {seed} was verified ({} rerolls)", note.rerolls);
     }
+
+    verification == note.verification
 }
 
 fn main() {
@@ -191,9 +201,15 @@ fn main() {
     let mut current_notes = load_file();
     ensure_dicts();
 
-    current_notes.notes.iter().for_each(|(seed, note)| {
-        verify_note(seed, note);
-    });
+    let verifies: Vec<_> = current_notes
+        .notes
+        .iter()
+        .map(|(seed, note)| verify_note(seed, note))
+        .collect();
+
+    if verifies.contains(&false) {
+        panic!("One or more seeds failed to verify");
+    }
 
     let latest_rules_generation = GameRules::latest().0;
 

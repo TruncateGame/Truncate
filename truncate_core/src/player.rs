@@ -72,6 +72,8 @@ pub struct Player {
     pub allotted_time: Option<Duration>,
     pub time_remaining: Option<Duration>,
     pub turn_starts_no_later_than: Option<u64>,
+    pub turn_starts_no_sooner_than: Option<u64>,
+    pub paused_turn_delta: Option<i64>,
     pub swap_count: usize,
     pub penalties_incurred: usize,
     pub color: (u8, u8, u8),
@@ -94,10 +96,16 @@ impl Player {
             allotted_time: time_allowance,
             time_remaining: time_allowance,
             turn_starts_no_later_than: None,
+            turn_starts_no_sooner_than: None,
+            paused_turn_delta: None,
             swap_count: 0,
             penalties_incurred: 0,
             color,
         }
+    }
+
+    pub fn has_tile(&self, tile: char) -> bool {
+        self.hand.0.contains(&tile)
     }
 
     pub fn use_tile(&mut self, tile: char, bag: &mut TileBag) -> Result<Change, GamePlayError> {

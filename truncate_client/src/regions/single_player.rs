@@ -5,10 +5,11 @@ use truncate_core::{
     board::Board,
     game::{Game, GAME_COLOR_BLUE, GAME_COLOR_RED},
     generation::BoardSeed,
-    messages::{DailyStats, GameStateMessage, PlayerMessage},
+    messages::{DailyStats, GamePlayerMessage, GameStateMessage, PlayerMessage},
     moves::Move,
     npc::scoring::NPCPersonality,
     reporting::WordMeaning,
+    rules::GameRules,
 };
 
 use crate::{
@@ -18,7 +19,7 @@ use crate::{
         ResultModalUI,
     },
     utils::{
-        game_evals::{client_best_move, get_main_dict, remember},
+        game_evals::{client_best_move, forget, get_main_dict, remember},
         text::TextHelper,
         Theme,
     },
@@ -66,7 +67,12 @@ impl SinglePlayerState {
     ) -> Self {
         event_dispatcher.event(format!("single_player_{name}"));
 
-        let mut game = Game::new(9, 9, seed.clone().map(|s| s.seed as u64), rules_generation);
+        let mut game = Game::new(
+            9,
+            9,
+            seed.clone().map(|s| s.seed as u64),
+            GameRules::generation(rules_generation),
+        );
         if human_starts {
             game.add_player("You".into());
             game.add_player("Computer".into());
@@ -93,14 +99,19 @@ impl SinglePlayerState {
             "SINGLE_PLAYER".into(),
             seed,
             Some(npc.clone()),
-            game.players.iter().map(Into::into).collect(),
+            game.players
+                .iter()
+                .map(|p| GamePlayerMessage::new(p, &game))
+                .collect(),
             if human_starts { 0 } else { 1 },
-            0,
+            Some(0),
             filtered_board.clone(),
             game.players[if human_starts { 0 } else { 1 }].hand.clone(),
             map_texture.clone(),
             theme.clone(),
             GameLocation::Local,
+            None,
+            None,
         );
         active_game.depot.ui_state.game_header = header.clone();
 
@@ -133,7 +144,12 @@ impl SinglePlayerState {
             .event(format!("single_player_{}_{}", self.name, event));
     }
 
-    pub fn reset(&mut self, current_time: Duration, ctx: &egui::Context) {
+    pub fn reset(
+        &mut self,
+        current_time: Duration,
+        ctx: &egui::Context,
+        backchannel: &Backchannel,
+    ) {
         if let Some(seed) = &self.active_game.depot.board_info.board_seed {
             if seed.day.is_some() {
                 match &mut self.header {
@@ -145,18 +161,29 @@ impl SinglePlayerState {
                     }
                     _ => {}
                 };
-                return self.reset_to(seed.clone(), self.human_starts, ctx);
+                return self.reset_to(seed.clone(), self.human_starts, ctx, backchannel);
             }
         }
 
         let next_seed = (current_time.as_micros() % 243985691) as u32;
         let next_board_seed = BoardSeed::new(next_seed);
 
-        self.reset_to(next_board_seed, !self.human_starts, ctx);
+        self.reset_to(next_board_seed, !self.human_starts, ctx, backchannel);
     }
 
-    pub fn reset_to(&mut self, seed: BoardSeed, human_starts: bool, ctx: &egui::Context) {
-        let mut game = Game::new(9, 9, Some(seed.seed as u64), self.rules_generation);
+    pub fn reset_to(
+        &mut self,
+        seed: BoardSeed,
+        human_starts: bool,
+        ctx: &egui::Context,
+        backchannel: &Backchannel,
+    ) {
+        let mut game = Game::new(
+            9,
+            9,
+            Some(seed.seed as u64),
+            GameRules::generation(self.rules_generation),
+        );
         self.human_starts = human_starts;
         if self.human_starts {
             game.add_player("You".into());
@@ -185,9 +212,12 @@ impl SinglePlayerState {
             "SINGLE_PLAYER".into(),
             Some(seed),
             Some(self.npc.clone()),
-            game.players.iter().map(Into::into).collect(),
+            game.players
+                .iter()
+                .map(|p| GamePlayerMessage::new(p, &game))
+                .collect(),
             if self.human_starts { 0 } else { 1 },
-            0,
+            Some(0),
             game.board.clone(),
             game.players[if self.human_starts { 0 } else { 1 }]
                 .hand
@@ -195,6 +225,8 @@ impl SinglePlayerState {
             self.map_texture.clone(),
             self.theme.clone(),
             GameLocation::Local,
+            None,
+            None,
         );
         active_game.depot.ui_state.game_header = self.header.clone();
 
@@ -207,6 +239,12 @@ impl SinglePlayerState {
         self.winner = None;
         self.move_sequence = vec![];
         self.event_dispatcher = self.event_dispatcher.clone();
+
+        if backchannel.is_open() {
+            backchannel.send_msg(crate::app_outer::BackchannelMsg::Forget);
+        } else {
+            forget();
+        }
     }
 
     /// If the server sent through some new word definitions,
@@ -318,12 +356,20 @@ impl SinglePlayerState {
                 let room_code = self.active_game.depot.gameplay.room_code.clone();
                 let state_message = GameStateMessage {
                     room_code,
-                    players: self.game.players.iter().map(Into::into).collect(),
+                    players: self
+                        .game
+                        .players
+                        .iter()
+                        .map(|p| GamePlayerMessage::new(p, &self.game))
+                        .collect(),
                     player_number: human_player as u64,
-                    next_player_number: self.game.next_player as u64,
+                    next_player_number: self.game.next_player.map(|p| p as u64),
                     board: self.game.board.clone(),
                     hand: self.game.players[human_player].hand.clone(),
                     changes,
+                    game_ends_at: None,
+                    paused: false,
+                    remaining_turns: None,
                 };
                 self.active_game.apply_new_state(state_message);
 
@@ -389,7 +435,7 @@ impl SinglePlayerState {
             .map(|msg| (human_player, msg));
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
-            self.reset(current_time, ui.ctx());
+            self.reset(current_time, ui.ctx(), backchannel);
             return msgs_to_server;
         } else if matches!(next_msg, Some((_, PlayerMessage::Resign))) {
             if self.hide_splash {
@@ -427,15 +473,15 @@ impl SinglePlayerState {
                 match splash_msg {
                     Some(ResultModalAction::NewPuzzle) => {
                         self.splash = None;
-                        self.reset(current_time, ui.ctx());
+                        self.reset(current_time, ui.ctx(), backchannel);
                     }
                     Some(ResultModalAction::TryAgain) => {
                         self.splash = None;
 
                         if let Some(seed) = &self.active_game.depot.board_info.board_seed {
-                            self.reset_to(seed.clone(), self.human_starts, ui.ctx());
+                            self.reset_to(seed.clone(), self.human_starts, ui.ctx(), backchannel);
                         } else {
-                            self.reset(current_time, ui.ctx());
+                            self.reset(current_time, ui.ctx(), backchannel);
                         }
                     }
                     Some(ResultModalAction::Dismiss) => {
@@ -517,6 +563,15 @@ impl SinglePlayerState {
                         ));
                     }
                 }
+
+                if self.splash.is_none() {
+                    // TODO: Add a special splash screen for somehow having no token / not being logged in
+                    self.splash = Some(ResultModalUI::new_loading(&mut ui));
+
+                    if let Some(token) = logged_in_as {
+                        msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
+                    }
+                }
             } else {
                 if self.splash.is_none() {
                     self.splash = Some(ResultModalUI::new_unique(
@@ -534,7 +589,7 @@ impl SinglePlayerState {
         }
 
         if let Some(next_response_at) = self.next_response_at {
-            if self.game.next_player == npc_player
+            if self.game.next_player.unwrap() == npc_player
                 && next_response_at > self.active_game.depot.timing.current_time
             {
                 return msgs_to_server;
@@ -542,10 +597,10 @@ impl SinglePlayerState {
         }
         self.next_response_at = None;
 
-        if self.game.next_player == npc_player {
+        if self.game.next_player.unwrap() == npc_player {
             if let Some(turn_starts_no_later_than) = self
                 .game
-                .get_player(self.game.next_player)
+                .get_player(self.game.next_player.unwrap())
                 .unwrap()
                 .turn_starts_no_later_than
             {
@@ -620,7 +675,9 @@ impl SinglePlayerState {
                                 moves: self.move_sequence.clone(),
                                 won: self.winner == Some(human_player),
                             });
-                            msgs_to_server.push(PlayerMessage::RequestStats(token.clone()));
+
+                            // Ensure we never pull up an old splash screen without this move
+                            self.daily_stats = None;
                         }
                     }
                 }
