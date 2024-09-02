@@ -21,6 +21,7 @@ pub enum DockType {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Symmetry {
+    SmoothTwoFoldRotational,
     TwoFoldRotational,
     Asymmetric,
 }
@@ -32,13 +33,25 @@ pub struct BoardElements {
     pub obelisk: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BoardParams {
-    pub land_dimensions: [usize; 2],
-    pub canvas_dimensions: [usize; 2],
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct BoardNoiseParams {
     pub dispersion: [f64; 2],
     pub island_influence: f64,
     pub symmetric: Symmetry,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct WaterLayer {
+    pub params: BoardNoiseParams,
+    pub density: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardParams {
+    pub land_layer: BoardNoiseParams,
+    pub water_layer: Option<WaterLayer>,
+    pub land_dimensions: [usize; 2],
+    pub canvas_dimensions: [usize; 2],
     pub maximum_town_density: f64,
     pub maximum_town_distance: f64,
     pub minimum_choke: usize,
@@ -52,13 +65,16 @@ pub struct BoardParams {
 // Updating an existing generation will break puzzle URLs.
 const BOARD_GENERATIONS: [BoardParams; 2] = [
     BoardParams {
+        land_layer: BoardNoiseParams {
+            dispersion: [5.0, 5.0],
+            island_influence: 0.0,
+            symmetric: Symmetry::Asymmetric,
+        },
+        water_layer: None,
         land_dimensions: [10, 10],
         canvas_dimensions: [20, 20],
-        dispersion: [5.0, 5.0],
-        symmetric: Symmetry::Asymmetric,
         maximum_town_density: 0.2,
         maximum_town_distance: 0.15,
-        island_influence: 0.0,
         minimum_choke: 3,
         dock_type: DockType::IslandV1,
         ideal_dock_extremity: 1.0,
@@ -69,13 +85,16 @@ const BOARD_GENERATIONS: [BoardParams; 2] = [
         },
     },
     BoardParams {
+        land_layer: BoardNoiseParams {
+            dispersion: [5.0, 5.0],
+            island_influence: 0.0,
+            symmetric: Symmetry::Asymmetric,
+        },
+        water_layer: None,
         land_dimensions: [9, 10],
         canvas_dimensions: [18, 20],
-        dispersion: [5.0, 5.0],
-        symmetric: Symmetry::Asymmetric,
         maximum_town_density: 0.2,
         maximum_town_distance: 0.15,
-        island_influence: 0.0,
         minimum_choke: 3,
         dock_type: DockType::IslandV1,
         ideal_dock_extremity: 1.0,
@@ -204,13 +223,12 @@ pub fn generate_board(
         max_attempts,
         params:
             BoardParams {
+                land_layer,
+                water_layer,
                 land_dimensions: ideal_land_dimensions,
                 canvas_dimensions,
-                dispersion,
-                symmetric,
                 maximum_town_density,
                 maximum_town_distance,
-                island_influence: jitter,
                 minimum_choke,
                 dock_type,
                 ideal_dock_extremity,
@@ -249,11 +267,15 @@ pub fn generate_board(
             let distance_to_center = (x * x + y * y).sqrt();
 
             // Get Simplex noise value
-            let noise_value =
-                (simplex.get([ni * dispersion[0], nj * dispersion[1], 0.0]) + 1.0) / 2.0;
+            let noise_value = (simplex.get([
+                ni * land_layer.dispersion[0],
+                nj * land_layer.dispersion[1],
+                0.0,
+            ]) + 1.0)
+                / 2.0;
 
             // Combine noise and gradient
-            let value = noise_value - (distance_to_center * jitter);
+            let value = noise_value - (distance_to_center * land_layer.island_influence);
 
             if value > water_level {
                 board
@@ -322,19 +344,44 @@ pub fn generate_board(
         }
     }
 
-    match symmetric {
+    match land_layer.symmetric {
         Symmetry::Asymmetric => { /* nothing to do */ }
-        Symmetry::TwoFoldRotational => {
+        Symmetry::TwoFoldRotational | Symmetry::SmoothTwoFoldRotational => {
             let input = board.squares.clone();
             let board_width = board.width();
             let board_height = board.height();
 
-            for (row_num, row) in input.into_iter().enumerate() {
-                for (col_num, square) in row.into_iter().enumerate().skip(row_num) {
-                    let recip = board.reciprocal_coordinate(Coordinate::new(col_num, row_num));
+            match land_layer.symmetric {
+                Symmetry::SmoothTwoFoldRotational => {
+                    for (row_num, row) in input.into_iter().enumerate() {
+                        for (col_num, square) in row.into_iter().enumerate().skip(row_num) {
+                            let coord = Coordinate::new(col_num, row_num);
+                            let recip = board.reciprocal_coordinate(coord);
+                            let recip_square =
+                                board.get(recip).expect("symmetric point should exist");
 
-                    board.squares[recip.y][recip.x] = square;
+                            match (square, recip_square) {
+                                (Square::Water { .. }, Square::Land { .. })
+                                | (Square::Land { .. }, Square::Water { .. }) => {
+                                    board.squares[coord.y][coord.x] = Square::land();
+                                    board.squares[recip.y][recip.x] = Square::land();
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
                 }
+                Symmetry::TwoFoldRotational => {
+                    for (row_num, row) in input.into_iter().enumerate() {
+                        for (col_num, square) in row.into_iter().enumerate().skip(row_num) {
+                            let recip =
+                                board.reciprocal_coordinate(Coordinate::new(col_num, row_num));
+
+                            board.squares[recip.y][recip.x] = square;
+                        }
+                    }
+                }
+                Symmetry::Asymmetric => unreachable!(),
             }
 
             if board.trim_nubs().is_err() {
@@ -350,6 +397,12 @@ pub fn generate_board(
         }
     }
 
+    if let Some(water_layer) = water_layer {
+        if board.generate_water_layer(seed, water_layer).is_err() {
+            return retry_with(board_seed, board);
+        }
+    }
+
     if elements.docks {
         match dock_type {
             DockType::IslandV1 => {
@@ -359,7 +412,7 @@ pub fn generate_board(
             }
             _ => {
                 if board
-                    .drop_docks(seed, ideal_dock_extremity, dock_type, symmetric)
+                    .drop_docks(seed, ideal_dock_extremity, dock_type, land_layer.symmetric)
                     .is_err()
                 {
                     return retry_with(board_seed, board);
@@ -368,33 +421,17 @@ pub fn generate_board(
         }
     }
 
-    if board.expand_choke_points(minimum_choke, false).is_err() {
+    if board
+        .expand_choke_points(
+            minimum_choke,
+            water_layer
+                .map(|w| w.params.symmetric)
+                .unwrap_or(land_layer.symmetric),
+            false,
+        )
+        .is_err()
+    {
         return retry_with(board_seed, board);
-    }
-
-    // Mirror any land created when we expanded the choke point
-    match symmetric {
-        Symmetry::Asymmetric => { /* nothing to do */ }
-        Symmetry::TwoFoldRotational => {
-            let input = board.squares.clone();
-
-            for (row_num, row) in input.into_iter().enumerate() {
-                for (col_num, square) in row.into_iter().enumerate().skip(row_num) {
-                    let coord = Coordinate::new(col_num, row_num);
-                    let recip = board.reciprocal_coordinate(coord);
-                    let recip_square = board.get(recip).expect("symmetric point should exist");
-
-                    match (square, recip_square) {
-                        (Square::Water { .. }, Square::Land { .. })
-                        | (Square::Land { .. }, Square::Water { .. }) => {
-                            board.squares[coord.y][coord.x] = Square::land();
-                            board.squares[recip.y][recip.x] = Square::land();
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
     }
 
     // Recalculate the shortest path, as expanding the choke points
@@ -411,7 +448,7 @@ pub fn generate_board(
                 &shortest_attack_path,
                 maximum_town_density,
                 maximum_town_distance,
-                symmetric,
+                land_layer.symmetric,
             )
             .is_err()
         {
@@ -421,7 +458,7 @@ pub fn generate_board(
 
     if elements.obelisk {
         if board
-            .generate_obelisk(&shortest_attack_path, symmetric)
+            .generate_obelisk(&shortest_attack_path, land_layer.symmetric)
             .is_err()
         {
             return retry_with(board_seed, board);
@@ -435,9 +472,16 @@ pub fn generate_board(
 }
 
 trait BoardGenerator {
+    fn generate_water_layer(&mut self, seed: u32, water_params: WaterLayer) -> Result<(), ()>;
+
     fn trim_nubs(&mut self) -> Result<(), ()>;
 
-    fn expand_choke_points(&mut self, minimum_choke: usize, debug: bool) -> Result<(), ()>;
+    fn expand_choke_points(
+        &mut self,
+        minimum_choke: usize,
+        symmetric: Symmetry,
+        debug: bool,
+    ) -> Result<(), ()>;
 
     fn drop_island_v1_docks(&mut self, seed: u32) -> Result<(), ()>;
 
@@ -466,6 +510,94 @@ trait BoardGenerator {
 }
 
 impl BoardGenerator for Board {
+    fn generate_water_layer(&mut self, seed: u32, water_layer: WaterLayer) -> Result<(), ()> {
+        let mut visited: HashSet<Coordinate> = HashSet::from([Coordinate { x: 0, y: 0 }]);
+        let mut coastal_land: HashSet<Coordinate> = HashSet::new();
+
+        let mut pts = VecDeque::from(vec![Coordinate { x: 0, y: 0 }]);
+        while !pts.is_empty() {
+            let pt = pts.pop_front().unwrap();
+            for neighbor in pt
+                .neighbors_8_iter()
+                .filter(|coord| !visited.contains(&coord))
+                .collect::<Vec<_>>()
+            {
+                match self.get(neighbor) {
+                    Ok(Square::Water { .. }) => {
+                        pts.push_back(neighbor);
+                        visited.insert(neighbor);
+                    }
+                    Ok(Square::Land { .. }) => {
+                        visited.insert(neighbor);
+                        coastal_land.insert(neighbor);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let simplex = Simplex::new(seed);
+        let canvas_x = self.width() - 2;
+        let canvas_y = self.height() - 2;
+
+        let water_params = water_layer.params;
+        for i in 1..=canvas_x {
+            let skip_horiz = match water_params.symmetric {
+                Symmetry::SmoothTwoFoldRotational => 0,
+                Symmetry::Asymmetric => 0,
+                Symmetry::TwoFoldRotational => i,
+            };
+            for j in (1..=canvas_y).skip(skip_horiz) {
+                let coord = Coordinate { x: i, y: j };
+
+                if coastal_land.contains(&coord) {
+                    continue;
+                }
+
+                let ni = i as f64 / (canvas_x + 1) as f64; // normalized coordinates
+                let nj = j as f64 / (canvas_y + 1) as f64;
+                let x = ni - 0.5; // centering the coordinates
+                let y = nj - 0.5;
+
+                let distance_to_center = (x * x + y * y).sqrt();
+
+                // Get Simplex noise value
+                let noise_value = (simplex.get([
+                    ni * water_params.dispersion[0],
+                    nj * water_params.dispersion[1],
+                    0.0,
+                ]) + 1.0)
+                    / 2.0;
+
+                // Combine noise and gradient
+                let value = noise_value + (distance_to_center * water_params.island_influence);
+
+                if value < water_layer.density {
+                    self.set_square(coord, crate::board::Square::water())
+                        .expect("Board position should be settable");
+
+                    match water_params.symmetric {
+                        Symmetry::SmoothTwoFoldRotational | Symmetry::TwoFoldRotational => {
+                            let recip = self.reciprocal_coordinate(coord);
+                            self.set_square(recip, crate::board::Square::water())
+                                .expect("Board position should be settable");
+                        }
+                        Symmetry::Asymmetric => { /* no-op */ }
+                    };
+                }
+            }
+        }
+
+        if self.trim_nubs().is_err() {
+            return Err(());
+        }
+
+        // Remove extraneous water
+        self.trim();
+
+        Ok(())
+    }
+
     fn trim_nubs(&mut self) -> Result<(), ()> {
         let sqs = || {
             self.squares.iter().enumerate().flat_map(|(y, row)| {
@@ -527,7 +659,12 @@ impl BoardGenerator for Board {
         Ok(())
     }
 
-    fn expand_choke_points(&mut self, minimum_choke: usize, debug: bool) -> Result<(), ()> {
+    fn expand_choke_points(
+        &mut self,
+        minimum_choke: usize,
+        symmetric: Symmetry,
+        debug: bool,
+    ) -> Result<(), ()> {
         let Some(shortest_attack_path) = self.shortest_path_between(&self.docks[0], &self.docks[1])
         else {
             return Err(());
@@ -605,6 +742,15 @@ impl BoardGenerator for Board {
                                     );
                                 } else {
                                     _ = self.set_square(c, Square::land());
+
+                                    match symmetric {
+                                        Symmetry::SmoothTwoFoldRotational
+                                        | Symmetry::TwoFoldRotational => {
+                                            let recip = self.reciprocal_coordinate(c);
+                                            _ = self.set_square(recip, Square::land());
+                                        }
+                                        Symmetry::Asymmetric => { /* no-op */ }
+                                    }
                                 }
                             }
                         }
@@ -857,7 +1003,7 @@ impl BoardGenerator for Board {
             .expect("Board position should be settable");
 
         match symmetric {
-            Symmetry::TwoFoldRotational => {
+            Symmetry::TwoFoldRotational | Symmetry::SmoothTwoFoldRotational => {
                 let dock_one = self.reciprocal_coordinate(dock_zero);
                 self.set_square(dock_one, Square::dock(1))
                     .expect("Board position should be settable");
@@ -947,7 +1093,7 @@ impl BoardGenerator for Board {
             _ = self.set_square(town_zero, Square::town(player_zero));
 
             match symmetric {
-                Symmetry::TwoFoldRotational => {
+                Symmetry::TwoFoldRotational | Symmetry::SmoothTwoFoldRotational => {
                     let recip = self.reciprocal_coordinate(town_zero);
                     _ = self.set_square(recip, Square::town(player_one));
                 }
@@ -981,7 +1127,7 @@ impl BoardGenerator for Board {
                 // For an asymmetric board, the center of the shortest path becomes the obelisk
                 _ = self.set_square(main_road[main_road.len() / 2], Square::obelisk());
             }
-            Symmetry::TwoFoldRotational => {
+            Symmetry::TwoFoldRotational | Symmetry::SmoothTwoFoldRotational => {
                 // For a symmetric board, the dead center of the map can become the obelisk
                 let board_mid = Coordinate::new(self.width() / 2, self.height() / 2);
 
