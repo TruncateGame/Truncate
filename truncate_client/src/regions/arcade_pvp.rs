@@ -5,7 +5,9 @@ use truncate_core::{
     board::Board,
     game::{Game, GAME_COLOR_BLUE, GAME_COLOR_PURPLE, GAME_COLOR_RED},
     generation::BoardSeed,
-    messages::{DailyStats, GamePlayerMessage, GameStateMessage, PlayerMessage},
+    messages::{
+        AssignedPlayerMessage, DailyStats, GamePlayerMessage, GameStateMessage, PlayerMessage,
+    },
     moves::Move,
     npc::scoring::NPCPersonality,
     reporting::WordMeaning,
@@ -205,7 +207,11 @@ impl ArcadeState {
             .active_game
             .render(&mut ui, current_time, Some(&self.game));
 
-        if let Some(PlayerMessage::RequestDefinitions(words)) = &next_msg {
+        if let Some(AssignedPlayerMessage {
+            message: PlayerMessage::RequestDefinitions(words),
+            ..
+        }) = &next_msg
+        {
             msgs_to_server.push(PlayerMessage::RequestDefinitions(words.clone()));
         }
 
@@ -214,13 +220,19 @@ impl ArcadeState {
         }
 
         let next_move = match next_msg {
-            Some(PlayerMessage::Place(position, tile)) => Some(Move::Place {
-                player: 0, // TODO: Pull player index out of the active game interactions
+            Some(AssignedPlayerMessage {
+                message: PlayerMessage::Place(position, tile),
+                player_id,
+            }) => Some(Move::Place {
+                player: player_id.unwrap_or_default() as _,
                 tile,
                 position,
             }),
-            Some(PlayerMessage::Swap(from, to)) => Some(Move::Swap {
-                player: 0, // TODO: Pull player index out of the active game interactions
+            Some(AssignedPlayerMessage {
+                message: PlayerMessage::Swap(from, to),
+                player_id,
+            }) => Some(Move::Swap {
+                player: player_id.unwrap_or_default() as _,
                 positions: [from, to],
             }),
             _ => None,

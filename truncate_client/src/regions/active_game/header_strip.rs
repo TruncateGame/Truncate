@@ -24,7 +24,10 @@ impl ActiveGame {
         game_ref: Option<&truncate_core::game::Game>,
         for_player_index: usize,
     ) -> (Option<Rect>, Option<PlayerMessage>) {
-        if matches!(self.depot.ui_state.game_header, HeaderType::None) {
+        if matches!(
+            self.depot.ui_state.game_header,
+            HeaderType::None | HeaderType::Tutorial
+        ) {
             return (None, None);
         }
 
@@ -233,7 +236,7 @@ impl ActiveGame {
 
                             ui.add_space(y_offset);
                         }
-                        HeaderType::None => unreachable!(),
+                        HeaderType::None | HeaderType::Tutorial => unreachable!(),
                     }
 
                     ui.add_space(item_spacing);

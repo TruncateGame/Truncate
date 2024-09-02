@@ -2,7 +2,7 @@ use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Direction, Square},
-    messages::PlayerMessage,
+    messages::{AssignedPlayerMessage, PlayerMessage},
     player::Hand,
     reporting::BoardChange,
 };
@@ -44,8 +44,8 @@ impl<'a> BoardUI<'a> {
         mapped_board: &mut MappedBoard,
         mapped_overlay: &mut MappedTiles,
         depot: &mut TruncateDepot,
-    ) -> Option<PlayerMessage> {
-        let mut msg = None;
+    ) -> Option<AssignedPlayerMessage> {
+        let mut msg: Option<AssignedPlayerMessage> = None;
         let mut unoccupied_square_is_hovered = None;
         let mut occupied_square_is_hovered = None;
         let mut tile_is_hovered = None;
@@ -190,12 +190,15 @@ impl<'a> BoardUI<'a> {
                                                 if let Some((tile, _)) =
                                                     player_interactions.selected_tile_in_hand
                                                 {
-                                                    msg = Some(PlayerMessage::Place(
-                                                        coord,
-                                                        *hands[interaction_player]
-                                                            .get(tile)
-                                                            .unwrap(),
-                                                    ));
+                                                    msg = Some(AssignedPlayerMessage {
+                                                        message: PlayerMessage::Place(
+                                                            coord,
+                                                            *hands[interaction_player]
+                                                                .get(tile)
+                                                                .unwrap(),
+                                                        ),
+                                                        player_id: Some(interaction_player as _),
+                                                    });
 
                                                     player_interactions.selected_tile_in_hand =
                                                         None;
@@ -218,12 +221,15 @@ impl<'a> BoardUI<'a> {
 
                                             if let Some(tile) = player_interactions.released_tile {
                                                 if tile.1 == coord {
-                                                    msg = Some(PlayerMessage::Place(
-                                                        coord,
-                                                        *hands[interaction_player]
-                                                            .get(tile.0)
-                                                            .unwrap(),
-                                                    ));
+                                                    msg = Some(AssignedPlayerMessage {
+                                                        message: PlayerMessage::Place(
+                                                            coord,
+                                                            *hands[interaction_player]
+                                                                .get(tile.0)
+                                                                .unwrap(),
+                                                        ),
+                                                        player_id: Some(interaction_player as _),
+                                                    });
                                                     player_interactions.selected_tile_in_hand =
                                                         None;
                                                     player_interactions.selected_tile_on_board =
@@ -273,10 +279,13 @@ impl<'a> BoardUI<'a> {
                                                 } else if let Some((selected_coord, _)) =
                                                     player_interactions.selected_tile_on_board
                                                 {
-                                                    msg = Some(PlayerMessage::Swap(
-                                                        coord,
-                                                        selected_coord,
-                                                    ));
+                                                    msg = Some(AssignedPlayerMessage {
+                                                        message: PlayerMessage::Swap(
+                                                            coord,
+                                                            selected_coord,
+                                                        ),
+                                                        player_id: Some(interaction_player as _),
+                                                    });
                                                     player_interactions.selected_tile_on_board =
                                                         None;
                                                     player_interactions.selected_tile_in_hand =
@@ -356,9 +365,12 @@ impl<'a> BoardUI<'a> {
                                                     .flatten();
 
                                                 if let Some(drop_coord) = drop_coord {
-                                                    msg = Some(PlayerMessage::Swap(
-                                                        coord, drop_coord,
-                                                    ));
+                                                    msg = Some(AssignedPlayerMessage {
+                                                        message: PlayerMessage::Swap(
+                                                            coord, drop_coord,
+                                                        ),
+                                                        player_id: Some(interaction_player as _),
+                                                    });
                                                     player_interactions.selected_tile_on_board =
                                                         None;
                                                     player_interactions.selected_tile_in_hand =

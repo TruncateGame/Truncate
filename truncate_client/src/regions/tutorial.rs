@@ -122,7 +122,9 @@ impl TutorialStage {
     }
 
     fn render_game(&mut self, ui: &mut egui::Ui, current_time: Duration) -> Option<PlayerMessage> {
-        self.active_game.render(ui, current_time, None)
+        self.active_game
+            .render(ui, current_time, None)
+            .map(|m| m.message) // ignoring tutorial message player_ids
     }
 
     fn get_dialog_position(&self) -> Option<Rect> {
@@ -324,7 +326,7 @@ impl TutorialState {
                 None,
                 None,
             );
-            active_game.depot.ui_state.game_header = HeaderType::None;
+            active_game.depot.ui_state.game_header = HeaderType::Tutorial;
 
             game.start();
 

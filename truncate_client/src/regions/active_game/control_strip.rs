@@ -22,6 +22,8 @@ impl ActiveGame {
         &mut self,
         ui: &mut egui::Ui,
         for_player_index: usize,
+        aligned: Align2,
+        anchor: Vec2,
     ) -> (Option<Rect>, Option<PlayerMessage>) {
         if self.depot.ui_state.hand_hidden {
             return (None, None);
@@ -30,13 +32,13 @@ impl ActiveGame {
         let mut msg = None;
         let companion_space = 220.0;
 
-        let control_anchor = if !matches!(self.depot.ui_state.game_header, HeaderType::None) {
-            vec2(0.0, 0.0)
+        let control_anchor = if !matches!(self.depot.ui_state.game_header, HeaderType::Tutorial) {
+            anchor
         } else {
-            vec2(0.0, -companion_space)
+            vec2(0.0, -companion_space) // TODO: Pass this in from outside
         };
 
-        if matches!(self.depot.ui_state.game_header, HeaderType::None) {
+        if matches!(self.depot.ui_state.game_header, HeaderType::Tutorial) {
             let mut companion_pos = ui.available_rect_before_wrap();
             companion_pos.set_top(companion_pos.bottom() - companion_space);
             self.depot.regions.hand_companion_rect = Some(companion_pos);
@@ -48,7 +50,7 @@ impl ActiveGame {
             .movable(false)
             .order(Order::Tooltip)
             .anchor(
-                Align2::LEFT_BOTTOM,
+                aligned,
                 -vec2(
                     0.0,
                     self.depot
@@ -96,7 +98,7 @@ impl ActiveGame {
         let area = egui::Area::new(egui::Id::new("controls_layer"))
             .movable(false)
             .order(Order::Foreground)
-            .anchor(Align2::LEFT_BOTTOM, control_anchor);
+            .anchor(aligned, control_anchor);
 
         let resp = area.show(ui.ctx(), |ui| {
             // TODO: We can likely use Memory::area_rect now instead of tracking sizes ourselves

@@ -1,18 +1,20 @@
 use std::sync::{Arc, Mutex};
 
-use epaint::{Color32, TextureHandle};
+use epaint::{vec2, Color32, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
     generation::BoardSeed,
-    messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
+    messages::{
+        AssignedPlayerMessage, GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode,
+    },
     npc::scoring::NPCPersonality,
     player::Hand,
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, TimeChange},
 };
 
 use eframe::{
-    egui::{self, Layout},
+    egui::{self, Align2, Layout},
     emath::Align,
 };
 use hashbrown::HashMap;
@@ -45,6 +47,7 @@ pub enum HeaderType {
         title: String,
         attempt: Option<usize>,
     },
+    Tutorial,
     None,
 }
 
@@ -171,7 +174,7 @@ impl ActiveGame {
         ui: &mut egui::Ui,
         current_time: Duration,
         game_ref: Option<&truncate_core::game::Game>,
-    ) -> Option<PlayerMessage> {
+    ) -> Option<AssignedPlayerMessage> {
         self.depot.timing.current_time = current_time;
         let cur_tick = get_qs_tick(current_time);
         if cur_tick > self.depot.aesthetics.qs_tick {
@@ -226,8 +229,26 @@ impl ActiveGame {
         }
 
         let mut control_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
-        let (control_strip_rect, control_player_message) =
-            self.render_control_strip(&mut control_strip_ui, 0);
+        let (control_strip_rect, control_player_message) = self.render_control_strip(
+            &mut control_strip_ui,
+            self.depot.gameplay.player_numbers[0] as _,
+            Align2::LEFT_BOTTOM,
+            vec2(0.0, 0.0),
+        );
+
+        let mut top_control_strip_rect = None;
+        if let Some(player_two) = self.depot.gameplay.player_numbers.get(1) {
+            let mut top_control_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
+            let (control_strip_rect, control_player_message) = self.render_control_strip(
+                &mut control_strip_ui,
+                self.depot.gameplay.player_numbers[0] as _,
+                Align2::LEFT_TOP,
+                vec2(0.0, 0.0),
+            );
+            top_control_strip_rect = control_strip_rect;
+            // TODO: handle control_player_message
+        }
+        debug_assert!(self.depot.gameplay.player_numbers.len() <= 2);
 
         let mut timer_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
         let (timer_strip_rect, timer_player_message) =
@@ -238,6 +259,9 @@ impl ActiveGame {
 
         if let Some(timer_strip_rect) = timer_strip_rect {
             game_space.set_top(timer_strip_rect.bottom());
+        }
+        if let Some(top_control_strip_rect) = top_control_strip_rect {
+            game_space.set_bottom(top_control_strip_rect.bottom());
         }
         if let Some(control_strip_rect) = control_strip_rect {
             game_space.set_bottom(control_strip_rect.top());
@@ -253,6 +277,10 @@ impl ActiveGame {
 
         let dict_player_message = self.render_dictionary(ui);
 
+        let wrap = |message: PlayerMessage| AssignedPlayerMessage {
+            message,
+            player_id: None,
+        };
         let player_message = BoardUI::new(&self.board)
             .interactive(!self.depot.interactions[0].view_only)
             .render(
@@ -263,11 +291,11 @@ impl ActiveGame {
                 &mut self.mapped_overlay,
                 &mut self.depot,
             )
-            .or(actions_player_message)
-            .or(control_player_message)
-            .or(timer_player_message)
-            .or(dict_player_message)
-            .or(sidebar_player_message);
+            .or(actions_player_message.map(|message| wrap(message)))
+            .or(control_player_message.map(|message| wrap(message)))
+            .or(timer_player_message.map(|message| wrap(message)))
+            .or(dict_player_message.map(|message| wrap(message)))
+            .or(sidebar_player_message.map(|message| wrap(message)));
 
         kb_msg.or(pad_msg).or(player_message)
     }

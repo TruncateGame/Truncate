@@ -432,7 +432,7 @@ impl SinglePlayerState {
         let mut next_msg = self
             .active_game
             .render(&mut ui, current_time, Some(&self.game))
-            .map(|msg| (human_player, msg));
+            .map(|msg| (human_player, msg.message)); // Intentionally ignoring msg.player_id here
 
         if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
             self.reset(current_time, ui.ctx(), backchannel);

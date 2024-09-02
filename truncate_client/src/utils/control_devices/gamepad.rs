@@ -1,6 +1,10 @@
 use eframe::egui;
 use gilrs::{Button, Event, EventType, Gilrs};
-use truncate_core::{board::Board, messages::PlayerMessage, player::Hand};
+use truncate_core::{
+    board::Board,
+    messages::{AssignedPlayerMessage, PlayerMessage},
+    player::Hand,
+};
 
 use super::{ensure_board_selection, move_selection};
 use crate::utils::depot::TruncateDepot;
@@ -22,18 +26,24 @@ impl GamepadInput {
         board: &Board,
         hands: &Vec<Hand>,
         depot: &mut TruncateDepot,
-    ) -> Option<PlayerMessage> {
+    ) -> Option<AssignedPlayerMessage> {
         let mut msg = None;
 
         while let Some(event) = self.mgr.next_event() {
             let player: usize = event.id.into();
+            let m = |message: PlayerMessage| {
+                Some(AssignedPlayerMessage {
+                    message,
+                    player_id: Some(player as u64),
+                })
+            };
             match event.event {
                 // Tile slot 0
                 EventType::ButtonPressed(Button::Start, _) => {
                     let current_selection = ensure_board_selection(depot, player, board);
 
                     if let Some(char) = hands[player].get(0) {
-                        msg = Some(PlayerMessage::Place(current_selection, *char))
+                        msg = m(PlayerMessage::Place(current_selection, *char))
                     }
                 }
                 // Tile slot 1
@@ -41,7 +51,7 @@ impl GamepadInput {
                     let current_selection = ensure_board_selection(depot, player, board);
 
                     if let Some(char) = hands[player].get(1) {
-                        msg = Some(PlayerMessage::Place(current_selection, *char))
+                        msg = m(PlayerMessage::Place(current_selection, *char))
                     }
                 }
                 // Tile slot 2
@@ -49,7 +59,7 @@ impl GamepadInput {
                     let current_selection = ensure_board_selection(depot, player, board);
 
                     if let Some(char) = hands[player].get(2) {
-                        msg = Some(PlayerMessage::Place(current_selection, *char))
+                        msg = m(PlayerMessage::Place(current_selection, *char))
                     }
                 }
                 // Tile slot 3
@@ -57,7 +67,7 @@ impl GamepadInput {
                     let current_selection = ensure_board_selection(depot, player, board);
 
                     if let Some(char) = hands[player].get(3) {
-                        msg = Some(PlayerMessage::Place(current_selection, *char))
+                        msg = m(PlayerMessage::Place(current_selection, *char))
                     }
                 }
                 EventType::AxisChanged(dir, amt, _) => {

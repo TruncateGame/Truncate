@@ -1,7 +1,7 @@
 use eframe::egui::{self, Key, Modifiers};
 use truncate_core::{
     board::{Board, Coordinate, Square},
-    messages::PlayerMessage,
+    messages::{AssignedPlayerMessage, PlayerMessage},
     player::Hand,
 };
 
@@ -31,7 +31,7 @@ pub fn handle_input(
     board: &Board,
     hands: &Vec<Hand>,
     depot: &mut TruncateDepot,
-) -> Option<PlayerMessage> {
+) -> Option<AssignedPlayerMessage> {
     let mut needs_repaint = false;
     let mut msg = None;
 
@@ -94,7 +94,10 @@ pub fn handle_input(
                 let current_selection = ensure_board_selection(depot, 0, board);
 
                 if let Some(char) = hands[0].get(key) {
-                    msg = Some(PlayerMessage::Place(current_selection, *char))
+                    msg = Some(AssignedPlayerMessage {
+                        message: PlayerMessage::Place(current_selection, *char),
+                        player_id: Some(0),
+                    })
                 }
             }
         }
@@ -104,7 +107,10 @@ pub fn handle_input(
                 let current_selection = ensure_board_selection(depot, 1, board);
 
                 if let Some(char) = hands[1].get(key - 5) {
-                    msg = Some(PlayerMessage::Place(current_selection, *char))
+                    msg = Some(AssignedPlayerMessage {
+                        message: PlayerMessage::Place(current_selection, *char),
+                        player_id: Some(1),
+                    })
                 }
             }
         }
@@ -124,29 +130,29 @@ pub fn handle_input(
         //     }
         // }
 
-        if input.consume_key(Modifiers::NONE, Key::Space) {
-            let current_selection = ensure_board_selection(depot, 0, board);
-            if matches!(board.get(current_selection), Ok(Square::Occupied { .. })) {
-                if let Some((already_selected_tile, _)) =
-                    depot.interactions[0].selected_tile_on_board
-                {
-                    if already_selected_tile == current_selection {
-                        depot.interactions[0].selected_tile_on_board = None;
-                    } else {
-                        msg = Some(PlayerMessage::Swap(
-                            already_selected_tile,
-                            current_selection,
-                        ));
-                        depot.interactions[0].selected_tile_on_board = None;
-                    }
-                } else {
-                    depot.interactions[0].selected_tile_on_board =
-                        Some((current_selection, board.get(current_selection).unwrap()));
-                }
-            } else {
-                depot.interactions[0].selected_tile_on_board = None;
-            }
-        }
+        // if input.consume_key(Modifiers::NONE, Key::Space) {
+        //     let current_selection = ensure_board_selection(depot, 0, board);
+        //     if matches!(board.get(current_selection), Ok(Square::Occupied { .. })) {
+        //         if let Some((already_selected_tile, _)) =
+        //             depot.interactions[0].selected_tile_on_board
+        //         {
+        //             if already_selected_tile == current_selection {
+        //                 depot.interactions[0].selected_tile_on_board = None;
+        //             } else {
+        //                 msg = Some(PlayerMessage::Swap(
+        //                     already_selected_tile,
+        //                     current_selection,
+        //                 ));
+        //                 depot.interactions[0].selected_tile_on_board = None;
+        //             }
+        //         } else {
+        //             depot.interactions[0].selected_tile_on_board =
+        //                 Some((current_selection, board.get(current_selection).unwrap()));
+        //         }
+        //     } else {
+        //         depot.interactions[0].selected_tile_on_board = None;
+        //     }
+        // }
     });
 
     if needs_repaint {

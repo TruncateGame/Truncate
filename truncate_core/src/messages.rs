@@ -31,6 +31,12 @@ pub struct NoncedPlayerMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AssignedPlayerMessage {
+    pub message: PlayerMessage,
+    pub player_id: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PlayerMessage {
     Ping,
     NewGame(String),

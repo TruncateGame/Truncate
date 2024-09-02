@@ -2,7 +2,7 @@ use eframe::egui;
 use epaint::vec2;
 use instant::Duration;
 use truncate_core::{
-    messages::{RoomCode, TruncateToken},
+    messages::{AssignedPlayerMessage, RoomCode, TruncateToken},
     npc::scoring::NPCPersonality,
     rules::GameRules,
 };
@@ -380,11 +380,17 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
         }
         GameStatus::Active(game) => {
             if let Some(msg) = game.render(ui, current_time, None) {
-                send(msg);
+                // Online games can only play as the logged in player
+                debug_assert!(msg.player_id.is_none());
+                send(msg.message);
             }
         }
         GameStatus::Concluded(game, _winner) => {
-            if let Some(PlayerMessage::Rematch) = game.render(ui, current_time, None) {
+            if let Some(AssignedPlayerMessage {
+                message: PlayerMessage::Rematch,
+                ..
+            }) = game.render(ui, current_time, None)
+            {
                 send(PlayerMessage::Rematch);
             }
         }
