@@ -2,6 +2,7 @@ use truncate_core::board::{Board, Coordinate, Square};
 
 use super::depot::TruncateDepot;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub mod gamepad;
 pub mod keyboard;
 
@@ -21,7 +22,7 @@ fn ensure_board_selection(
     }
     let dock = board.docks.iter().find(|d| {
         board.get(**d).is_ok_and(
-            |s| matches!(s, Square::Dock(p) if p == depot.gameplay.player_numbers[local_player_index] as usize),
+            |s| matches!(s, Square::Dock{ player, .. } if player == depot.gameplay.player_numbers[local_player_index] as usize),
         )
     });
     let coord = dock.cloned().unwrap_or_else(|| Coordinate::new(0, 0));

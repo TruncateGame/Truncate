@@ -22,7 +22,7 @@ use hashbrown::HashMap;
 use crate::{
     lil_bits::{BoardUI, DictionaryUI},
     utils::{
-        control_devices::{self, gamepad::GamepadInput},
+        control_devices,
         depot::{
             AestheticDepot, AudioDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot,
             TimingDepot, TruncateDepot, UIStateDepot,
@@ -32,6 +32,9 @@ use crate::{
         Theme,
     },
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::utils::control_devices::gamepad::GamepadInput;
 
 mod actions_menu;
 mod control_strip;
@@ -72,6 +75,7 @@ pub struct ActiveGame {
     pub turn_reports: Vec<Vec<Change>>,
     pub location: GameLocation,
     pub dictionary_ui: Option<DictionaryUI>,
+    #[cfg(not(target_arch = "wasm32"))]
     pub gamepad_input: Arc<Mutex<GamepadInput>>,
 }
 
@@ -163,6 +167,7 @@ impl ActiveGame {
             turn_reports: vec![],
             location,
             dictionary_ui: None,
+            #[cfg(not(target_arch = "wasm32"))]
             gamepad_input: Arc::new(Mutex::new(GamepadInput::new())),
         }
     }
@@ -188,6 +193,7 @@ impl ActiveGame {
             &mut self.depot,
         );
 
+        #[cfg(not(target_arch = "wasm32"))]
         let pad_msg = self.gamepad_input.lock().unwrap().handle_input(
             ui.ctx(),
             &self.board,
@@ -297,7 +303,10 @@ impl ActiveGame {
             .or(dict_player_message.map(|message| wrap(message)))
             .or(sidebar_player_message.map(|message| wrap(message)));
 
-        kb_msg.or(pad_msg).or(player_message)
+        #[cfg(not(target_arch = "wasm32"))]
+        return kb_msg.or(pad_msg).or(player_message);
+        #[cfg(target_arch = "wasm32")]
+        kb_msg.or(player_message)
     }
 
     pub fn apply_new_timing(&mut self, state_message: GameStateMessage) {

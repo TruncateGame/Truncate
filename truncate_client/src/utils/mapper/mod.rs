@@ -679,7 +679,7 @@ impl MappedBoard {
                                 structures: None,
                                 checkerboard: None,
                                 piece_validities: vec![],
-                                mist: None
+                                mist: None,
                                 fog: None,
                                 pieces: vec![PieceLayer::Texture(
                                     tex::tiles::quad::CHECKERBOARD,
