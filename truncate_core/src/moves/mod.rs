@@ -332,7 +332,7 @@ mod tests {
                 None,
                 None
             ),
-            Err(GamePlayError::NonAdjacentPlace)
+            Err(GamePlayError::NonExistentPlayer { index: 2 })
         );
 
         assert_eq!(
