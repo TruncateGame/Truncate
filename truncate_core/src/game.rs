@@ -519,6 +519,10 @@ impl Game {
                 tile,
                 position: player_reported_position,
             } => {
+                if self.get_player(player).is_none() {
+                    return Err(GamePlayError::NonExistentPlayer { index: player });
+                }
+
                 let position = self.board.map_player_coord_to_game(
                     player,
                     player_reported_position,
