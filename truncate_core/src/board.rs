@@ -93,13 +93,13 @@ impl Board {
         let board_height = land_height + 2;
 
         // Create a slice of land with water on the edges
-        let mut land_row = vec![Square::Land; land_width];
-        land_row.insert(0, Square::Water);
-        land_row.push(Square::Water);
+        let mut land_row = vec![Square::land(); land_width];
+        land_row.insert(0, Square::water());
+        land_row.push(Square::water());
 
-        let mut squares = vec![vec![Square::Water; board_width]]; // Start with our north row of water
+        let mut squares = vec![vec![Square::water(); board_width]]; // Start with our north row of water
         squares.extend(vec![land_row.clone(); land_height]); // Build out the centre land of the board
-        squares.extend(vec![vec![Square::Water; board_width]]); // Finish with a south row of water
+        squares.extend(vec![vec![Square::water(); board_width]]); // Finish with a south row of water
 
         let mut board = Board {
             squares,
@@ -116,18 +116,12 @@ impl Board {
             .map(|x| Coordinate { x, y: 1 });
         for town in north_towns {
             board
-                .set_square(
-                    town,
-                    Square::Town {
-                        player: 0,
-                        defeated: false,
-                    },
-                )
+                .set_square(town, Square::town(0))
                 .expect("Town square should exist on the land");
         }
         // North dock
         board
-            .set_square(Coordinate { x: dock_x, y: 0 }, Square::Dock(0))
+            .set_square(Coordinate { x: dock_x, y: 0 }, Square::dock(0))
             .expect("Dock square should exist in the sea");
 
         let south_towns = (1..=land_width)
@@ -138,13 +132,7 @@ impl Board {
             });
         for town in south_towns {
             board
-                .set_square(
-                    town,
-                    Square::Town {
-                        player: 1,
-                        defeated: false,
-                    },
-                )
+                .set_square(town, Square::town(1))
                 .expect("Town square should exist on the land");
         }
         // South dock
@@ -154,7 +142,7 @@ impl Board {
                     x: dock_x,
                     y: board_height - 1,
                 },
-                Square::Dock(1),
+                Square::dock(1),
             )
             .expect("Dock square should exist in the sea");
 
@@ -190,25 +178,29 @@ impl Board {
     /// Adds water to all edges of the board
     pub fn grow(&mut self) {
         for row in &mut self.squares {
-            row.insert(0, Square::Water);
-            row.push(Square::Water);
+            row.insert(0, Square::water());
+            row.push(Square::water());
         }
 
-        self.squares.insert(0, vec![Square::Water; self.width()]);
-        self.squares.push(vec![Square::Water; self.width()]);
+        self.squares.insert(0, vec![Square::water(); self.width()]);
+        self.squares.push(vec![Square::water(); self.width()]);
 
         self.cache_special_squares();
     }
 
     /// Returns the number of rows/columns
     fn redundant_edges(&self) -> RedundantEdges {
+        let redundant = |s: &Square| {
+            matches!(
+                s,
+                Square::Water { .. } | Square::Fog { .. } | Square::Dock { .. }
+            )
+        };
+
         let top = self
             .squares
             .iter()
-            .position(|row| {
-                row.iter()
-                    .any(|s| !matches!(s, Square::Water | Square::Fog | Square::Dock(_)))
-            })
+            .position(|row| row.iter().any(|s| !redundant(s)))
             .unwrap_or_default()
             .saturating_sub(1);
 
@@ -216,29 +208,18 @@ impl Board {
             .squares
             .iter()
             .rev()
-            .position(|row| {
-                row.iter()
-                    .any(|s| !matches!(s, Square::Water | Square::Fog | Square::Dock(_)))
-            })
+            .position(|row| row.iter().any(|s| !redundant(s)))
             .unwrap_or_default()
             .saturating_sub(1);
 
         let left = (0..self.width())
-            .position(|i| {
-                self.squares
-                    .iter()
-                    .any(|row| !matches!(row[i], Square::Water | Square::Fog | Square::Dock(_)))
-            })
+            .position(|i| self.squares.iter().any(|row| !redundant(&row[i])))
             .unwrap_or_default()
             .saturating_sub(1);
 
         let right = (0..self.width())
             .rev()
-            .position(|i| {
-                self.squares
-                    .iter()
-                    .any(|row| !matches!(row[i], Square::Water | Square::Fog | Square::Dock(_)))
-            })
+            .position(|i| self.squares.iter().any(|row| !redundant(&row[i])))
             .unwrap_or_default()
             .saturating_sub(1);
 
@@ -284,10 +265,15 @@ impl Board {
 
         for coord in coords {
             match self.get(coord) {
-                Ok(Square::Water | Square::Land | Square::Occupied { .. } | Square::Fog) => {}
-                Ok(Square::Obelisk) => self.obelisks.push(coord),
+                Ok(
+                    Square::Water { .. }
+                    | Square::Land { .. }
+                    | Square::Occupied { .. }
+                    | Square::Fog { .. },
+                ) => {}
+                Ok(Square::Obelisk { .. }) => self.obelisks.push(coord),
                 Ok(Square::Town { .. }) => self.towns.push(coord),
-                Ok(Square::Dock(_)) => self.docks.push(coord),
+                Ok(Square::Dock { .. }) => self.docks.push(coord),
                 Err(e) => {
                     unreachable!(
                         "Iterating over the board should not return invalid positions: {e}"
@@ -357,11 +343,12 @@ impl Board {
             .get_mut(position.y)
             .and_then(|row| row.get_mut(position.x))
         {
-            Some(square) if matches!(square, Square::Land | Square::Occupied { .. }) => {
+            Some(square) if matches!(square, Square::Land { .. } | Square::Occupied { .. }) => {
                 *square = Square::Occupied {
                     player,
                     tile,
                     validity: SquareValidity::Unknown,
+                    foggy: false,
                 };
                 Ok(())
             }
@@ -396,15 +383,19 @@ impl Board {
                     player: owner,
                     tile,
                     validity: _,
+                    foggy: _,
                 } => {
                     if owner != player {
                         return Err(GamePlayError::UnownedSwap);
                     }
                     tiles[i] = tile;
                 }
-                Water | Land | Fog | Town { .. } | Obelisk | Dock(_) => {
-                    return Err(GamePlayError::UnoccupiedSwap)
-                }
+                Water { .. }
+                | Land { .. }
+                | Fog { .. }
+                | Town { .. }
+                | Obelisk { .. }
+                | Dock { .. } => return Err(GamePlayError::UnoccupiedSwap),
             };
         }
 
@@ -456,7 +447,7 @@ impl Board {
                     square: *square,
                     coordinate: position,
                 });
-                *square = Square::Land;
+                *square = Square::land();
 
                 self.neighbouring_squares(position)
                     .into_iter()
@@ -482,11 +473,12 @@ impl Board {
                 unreachable!("Iterating over the board should not return invalid positions");
             };
             match sq {
-                Square::Occupied { .. } => *sq = Square::Land,
+                Square::Occupied { .. } => *sq = Square::land(),
                 Square::Town { player, .. } => {
                     *sq = Square::Town {
                         player: player.clone(),
                         defeated: false,
+                        foggy: false,
                     }
                 }
                 _ => {}
@@ -505,6 +497,7 @@ impl Board {
                     *sq = Square::Town {
                         player: player_to_defeat,
                         defeated: true,
+                        foggy: false,
                     }
                 }
                 _ => {}
@@ -523,6 +516,13 @@ impl Board {
                 }
             })
             .collect()
+    }
+
+    pub fn reciprocal_coordinate(&self, input: Coordinate) -> Coordinate {
+        Coordinate {
+            x: self.width() - 1 - input.x,
+            y: self.height() - 1 - input.y,
+        }
     }
 }
 
@@ -622,7 +622,7 @@ impl Board {
         fn dfs(b: &Board, position: Coordinate, visited: &mut HashSet<Coordinate>) {
             let player = match b.get(position) {
                 Ok(Square::Occupied { player, .. }) => Some(player),
-                Ok(Square::Dock(player)) => Some(player),
+                Ok(Square::Dock { player, .. }) => Some(player),
                 _ => None,
             };
             if let Some(player) = player {
@@ -652,7 +652,7 @@ impl Board {
             .ok()
             .map(|sq| match sq {
                 Square::Occupied { player, .. } => Some(player),
-                Square::Dock(player) => Some(player),
+                Square::Dock { player, .. } => Some(player),
                 _ => None,
             })
             .flatten();
@@ -696,7 +696,7 @@ impl Board {
                     attackable_pts.extend(neighbors.iter().map(|n| (n.0, 0)));
                     distances.set_attackable(&pt, 0);
                 }
-                Ok(Square::Land) => {
+                Ok(Square::Land { .. }) => {
                     let neighbors = self.neighbouring_squares(pt);
 
                     if adjacent_to_opponent(&neighbors) {
@@ -707,7 +707,7 @@ impl Board {
                         attackable_pts.extend(
                             neighbors
                                 .iter()
-                                .filter(|(_, sq)| !matches!(sq, Square::Land))
+                                .filter(|(_, sq)| !matches!(sq, Square::Land { .. }))
                                 .map(|n| (n.0, dist + 1)),
                         );
                         // We also put these neighbor tiles into the list for the next stage,
@@ -718,7 +718,7 @@ impl Board {
                         attackable_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
                     }
                 }
-                Ok(Square::Water) => continue,
+                Ok(Square::Water { .. }) => continue,
                 Ok(_) => {
                     let neighbors = self.neighbouring_squares(pt);
                     // Falling through from the above, these tiles are the edges of our attacking BFS.
@@ -750,7 +750,7 @@ impl Board {
             }
 
             match self.get(pt) {
-                Ok(Square::Water) => continue,
+                Ok(Square::Water { .. }) => continue,
                 Ok(_) => {
                     let neighbors = self.neighbouring_squares(pt);
                     direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
@@ -826,7 +826,7 @@ impl Board {
             }
 
             match self.get(pt) {
-                Ok(Square::Water) => continue,
+                Ok(Square::Water { .. }) => continue,
                 Ok(Square::Town { player, .. }) if player == player_index => {
                     let neighbors = self.neighbouring_squares(pt);
 
@@ -885,7 +885,7 @@ impl Board {
             }
 
             match self.get(pt) {
-                Ok(Square::Land) => {
+                Ok(Square::Land { .. }) => {
                     let neighbors = self.neighbouring_squares(pt);
                     bfs_queue.extend(neighbors.iter().map(|n| (n.0, path.clone())));
                 }
@@ -925,7 +925,7 @@ impl Board {
             last_processed_distance = dist;
 
             match self.get(pt) {
-                Ok(Square::Land) => {
+                Ok(Square::Land { .. }) => {
                     let neighbors = self.neighbouring_squares(pt);
                     bfs_queue.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
                 }
@@ -1089,6 +1089,7 @@ impl Board {
                 Square::Town {
                     player: adjacent_player,
                     defeated,
+                    ..
                 } => player != *adjacent_player && !defeated,
                 _ => false,
             })
@@ -1109,7 +1110,11 @@ impl Board {
                 word.iter()
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
-                            Water | Land | Fog | Dock(_) | Obelisk => {
+                            Water { .. }
+                            | Land { .. }
+                            | Fog { .. }
+                            | Dock { .. }
+                            | Obelisk { .. } => {
                                 debug_assert!(false);
                                 err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
@@ -1143,7 +1148,7 @@ impl Board {
             rules::Truncation::Root => {
                 for dock in &self.docks {
                     let sq = self.get(*dock).unwrap();
-                    if !matches!(sq, Square::Dock(p) if p == for_player) {
+                    if !matches!(sq, Square::Dock{ player, .. } if player == for_player) {
                         continue;
                     }
 
@@ -1168,7 +1173,7 @@ impl Board {
                         .filter(|c| {
                             matches!(
                                 self.get(*c),
-                                Ok(Square::Occupied{ player, .. } | Square::Dock (player)) if player == for_player
+                                Ok(Square::Occupied{ player, .. } | Square::Dock { player, ..}) if player == for_player
                             )
                         })
                         .flat_map(|sq| sq.neighbors_4_iter()),
@@ -1178,11 +1183,16 @@ impl Board {
         }
         playable_squares
             .into_iter()
-            .filter(|sq| matches!(self.get(*sq), Ok(Square::Land)))
+            .filter(|sq| matches!(self.get(*sq), Ok(Square::Land { .. })))
             .collect()
     }
 
-    pub fn fog_of_war(&self, player_index: usize, visibility: &rules::Visibility) -> Self {
+    pub fn fog_of_war(
+        &self,
+        player_index: usize,
+        visibility: &rules::Visibility,
+        seen_tiles: &HashSet<Coordinate>,
+    ) -> Self {
         let mut visible_coords: HashSet<Coordinate> = HashSet::new();
         let mut all_towns: HashSet<Coordinate> = HashSet::new();
 
@@ -1198,7 +1208,7 @@ impl Board {
             }
 
             match square {
-                Ok(Square::Dock(player)) | Ok(Square::Town { player, .. })
+                Ok(Square::Dock { player, .. }) | Ok(Square::Town { player, .. })
                     if player == player_index =>
                 {
                     let mut sqs = HashSet::new();
@@ -1270,7 +1280,7 @@ impl Board {
                         }
                     }
                 }
-                Ok(Square::Obelisk) => {
+                Ok(Square::Obelisk { .. }) => {
                     visible_coords.insert(coord);
                 }
                 _ => {}
@@ -1290,26 +1300,38 @@ impl Board {
                     let c = Coordinate { x, y };
                     let is_tile = matches!(new_board.get(c), Ok(Square::Occupied { .. }));
                     if !visible_coords.contains(&c) && is_tile {
-                        _ = new_board.set_square(c, Square::Land);
+                        _ = new_board.set_square(c, Square::land());
                     }
                 }
             }
-            rules::Visibility::LandFog => {
+            rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
                 for (x, y) in squares {
                     let c = Coordinate { x, y };
-                    if !visible_coords.contains(&c) {
-                        _ = new_board.set_square(c, Square::Fog);
-                    }
-                }
-            }
-            rules::Visibility::OnlyHouseFog => {
-                for (x, y) in squares {
-                    let c = Coordinate { x, y };
-                    if all_towns.contains(&c) {
-                        continue;
+                    if matches!(visibility, rules::Visibility::OnlyHouseFog) {
+                        if all_towns.contains(&c) {
+                            continue;
+                        }
                     }
                     if !visible_coords.contains(&c) {
-                        _ = new_board.set_square(c, Square::Fog);
+                        if seen_tiles.contains(&c) {
+                            let make_land = match &mut new_board.squares[y][x] {
+                                Square::Water { foggy }
+                                | Square::Land { foggy }
+                                | Square::Obelisk { foggy }
+                                | Square::Town { foggy, .. }
+                                | Square::Dock { foggy, .. } => {
+                                    *foggy = true;
+                                    false
+                                }
+                                Square::Occupied { .. } => true,
+                                Square::Fog {} => false,
+                            };
+                            if make_land {
+                                _ = new_board.set_square(c, Square::Land { foggy: true });
+                            }
+                        } else {
+                            _ = new_board.set_square(c, Square::fog());
+                        }
                     }
                 }
             }
@@ -1326,6 +1348,7 @@ impl Board {
         player_index: usize,
         player_coordinate: Coordinate,
         visibility: &rules::Visibility,
+        seen_tiles: &HashSet<Coordinate>,
     ) -> Coordinate {
         let foggy_board = match visibility {
             rules::Visibility::Standard | rules::Visibility::TileFog => {
@@ -1333,7 +1356,7 @@ impl Board {
                 return player_coordinate;
             }
             rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
-                self.fog_of_war(player_index, visibility)
+                self.fog_of_war(player_index, visibility, seen_tiles)
             }
         };
 
@@ -1353,6 +1376,7 @@ impl Board {
         player_index: usize,
         game_coordinate: Coordinate,
         visibility: &rules::Visibility,
+        seen_tiles: &HashSet<Coordinate>,
     ) -> Option<Coordinate> {
         let foggy_board = match visibility {
             rules::Visibility::Standard | rules::Visibility::TileFog => {
@@ -1360,7 +1384,7 @@ impl Board {
                 return Some(game_coordinate);
             }
             rules::Visibility::LandFog | rules::Visibility::OnlyHouseFog => {
-                self.fog_of_war(player_index, visibility)
+                self.fog_of_war(player_index, visibility, seen_tiles)
             }
         };
 
@@ -1388,6 +1412,8 @@ impl Board {
         player_index: usize,
         visibility: &rules::Visibility,
         winner: &Option<usize>,
+        seen_tiles: &HashSet<Coordinate>,
+        trim_coords: bool,
     ) -> Self {
         // All visibility is restored when the game ends
         if winner.is_some() {
@@ -1399,9 +1425,12 @@ impl Board {
             rules::Visibility::TileFog
             | rules::Visibility::LandFog
             | rules::Visibility::OnlyHouseFog => {
-                let mut foggy = self.fog_of_war(player_index, visibility);
-                // Remove extraneous water, so the client doesn't know the dimensions of the play area
-                foggy.trim();
+                let mut foggy = self.fog_of_war(player_index, visibility, seen_tiles);
+
+                if trim_coords {
+                    // Remove extraneous water, so the client doesn't know the dimensions of the play area
+                    foggy.trim();
+                }
 
                 foggy
             }
@@ -1429,23 +1458,22 @@ impl Board {
                     .map(|tile| {
                         let mut chars = tile.chars();
                         match chars.next() {
-                            Some('~') => Square::Water,
-                            Some('_') => Square::Land,
-                            Some('|') => Square::Dock(
+                            Some('~') => Square::water(),
+                            Some('_') => Square::land(),
+                            Some('|') => Square::dock(
                                 chars
                                     .next()
                                     .expect("Square needs player")
                                     .to_digit(10)
                                     .unwrap() as usize,
                             ),
-                            Some('#') => Square::Town {
-                                player: chars
+                            Some('#') => Square::town(
+                                chars
                                     .next()
                                     .expect("Square needs player")
                                     .to_digit(10)
                                     .unwrap() as usize,
-                                defeated: false,
-                            },
+                            ),
                             Some(tile) => Square::Occupied {
                                 player: chars
                                     .next()
@@ -1454,6 +1482,7 @@ impl Board {
                                     .unwrap() as usize,
                                 tile,
                                 validity: SquareValidity::Unknown,
+                                foggy: false,
                             },
                             _ => panic!("Couldn't build board from string"),
                         }
@@ -1607,42 +1636,98 @@ pub enum SquareValidity {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Square {
-    Water,
-    Land,
+    Water {
+        foggy: bool,
+    },
+    Land {
+        foggy: bool,
+    },
     Town {
         player: usize,
         defeated: bool,
+        foggy: bool,
     },
-    Obelisk,
-    Dock(usize),
+    Obelisk {
+        foggy: bool,
+    },
+    Dock {
+        player: usize,
+        foggy: bool,
+    },
     Occupied {
         player: usize,
         tile: char,
         validity: SquareValidity,
+        foggy: bool,
     },
-    Fog,
+    Fog {},
+}
+
+impl Square {
+    pub fn water() -> Self {
+        Self::Water { foggy: false }
+    }
+
+    pub fn land() -> Self {
+        Self::Land { foggy: false }
+    }
+
+    pub fn obelisk() -> Self {
+        Self::Obelisk { foggy: false }
+    }
+
+    pub fn fog() -> Self {
+        Self::Fog {}
+    }
+
+    pub fn town(player: usize) -> Self {
+        Self::Town {
+            player,
+            defeated: false,
+            foggy: false,
+        }
+    }
+
+    pub fn dock(player: usize) -> Self {
+        Self::Dock {
+            player,
+            foggy: false,
+        }
+    }
+
+    pub fn is_foggy(&self) -> bool {
+        match self {
+            Square::Water { foggy }
+            | Square::Land { foggy }
+            | Square::Town { foggy, .. }
+            | Square::Obelisk { foggy }
+            | Square::Dock { foggy, .. }
+            | Square::Occupied { foggy, .. } => *foggy,
+            Square::Fog {} => true,
+        }
+    }
 }
 
 impl fmt::Display for Square {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
-            Square::Water => write!(f, "~~"),
-            Square::Fog => write!(f, "░░"),
-            Square::Land => write!(f, "__"),
-            Square::Obelisk => write!(f, "^^"),
+            Square::Water { .. } => write!(f, "~~"),
+            Square::Fog { .. } => write!(f, "░░"),
+            Square::Land { .. } => write!(f, "__"),
+            Square::Obelisk { .. } => write!(f, "^^"),
             Square::Town {
                 player: p,
                 defeated: false,
+                ..
             } => write!(f, "#{p}"),
             Square::Town {
                 player: p,
                 defeated: true,
+                ..
             } => write!(f, "⊭{p}"),
-            Square::Dock(p) => write!(f, "|{p}"),
+            Square::Dock { player, .. } => write!(f, "|{player}"),
             Square::Occupied {
-                player: p,
-                tile,
-                validity: _,
+                player: p, tile, ..
             } => write!(f, "{tile}{p}"),
         }
     }
@@ -1965,7 +2050,7 @@ pub mod tests {
         );
 
         let position = Coordinate { x: 1, y: 1 };
-        assert_eq!(b.get(position), Ok(Square::Water));
+        assert_eq!(b.get(position), Ok(Square::water()));
 
         let position = Coordinate { x: 1, y: 1 };
         assert_eq!(
@@ -1981,10 +2066,10 @@ pub mod tests {
              __ |1 __",
         );
 
-        assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::Land));
-        assert_eq!(b.get(Coordinate { x: 0, y: 1 }), Ok(Square::Land));
-        assert_eq!(b.get(Coordinate { x: 2, y: 0 }), Ok(Square::Land));
-        assert_eq!(b.get(Coordinate { x: 2, y: 1 }), Ok(Square::Land));
+        assert_eq!(b.get(Coordinate { x: 0, y: 0 }), Ok(Square::land()));
+        assert_eq!(b.get(Coordinate { x: 0, y: 1 }), Ok(Square::land()));
+        assert_eq!(b.get(Coordinate { x: 2, y: 0 }), Ok(Square::land()));
+        assert_eq!(b.get(Coordinate { x: 2, y: 1 }), Ok(Square::land()));
 
         assert_eq!(
             b.set(Coordinate { x: 0, y: 0 }, 0, 'a', Some(&short_dict())),
@@ -1992,7 +2077,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: Coordinate { x: 0, y: 0 },
             })
@@ -2003,7 +2089,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: Coordinate { x: 0, y: 1 },
             })
@@ -2014,7 +2101,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: Coordinate { x: 2, y: 0 },
             })
@@ -2025,7 +2113,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: Coordinate { x: 2, y: 1 },
             })
@@ -2045,7 +2134,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: Coordinate { x: 0, y: 0 },
             })
@@ -2056,7 +2146,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 1,
                     tile: 'a',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: Coordinate { x: 0, y: 1 },
             })
@@ -2078,14 +2169,15 @@ pub mod tests {
     #[test]
     fn set_changes_get() {
         let mut b = Board::new(3, 3); // Note, height is 3 from home rows
-        assert_eq!(b.get(Coordinate { x: 2, y: 2 }), Ok(Square::Land));
+        assert_eq!(b.get(Coordinate { x: 2, y: 2 }), Ok(Square::land()));
         assert_eq!(
             b.set(Coordinate { x: 2, y: 2 }, 0, 'a', Some(&short_dict())),
             Ok(BoardChangeDetail {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: Coordinate { x: 2, y: 2 },
             })
@@ -2095,7 +2187,8 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'a',
-                validity: SquareValidity::Invalid
+                validity: SquareValidity::Invalid,
+                foggy: false
             })
         );
     }
@@ -2125,7 +2218,8 @@ pub mod tests {
                     square: Square::Occupied {
                         player: 0,
                         tile: 'a',
-                        validity: SquareValidity::Invalid
+                        validity: SquareValidity::Invalid,
+                        foggy: false
                     },
                     coordinate: part,
                 })
@@ -2152,7 +2246,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 1,
                     tile: 'a',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: other,
             })
@@ -2339,33 +2434,27 @@ pub mod tests {
             // TODO: should we allow you to find neighbours of an invalid square?
             b.neighbouring_squares(Coordinate { x: 0, y: 0 }),
             [
-                (Coordinate { x: 1, y: 0 }, Square::Water),
-                (Coordinate { x: 0, y: 1 }, Square::Water),
+                (Coordinate { x: 1, y: 0 }, Square::water()),
+                (Coordinate { x: 0, y: 1 }, Square::water()),
             ]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 0 }),
             [
-                (Coordinate { x: 2, y: 0 }, Square::Dock(0)),
-                (
-                    Coordinate { x: 1, y: 1 },
-                    Square::Town {
-                        player: 0,
-                        defeated: false
-                    }
-                ),
-                (Coordinate { x: 0, y: 0 }, Square::Water),
+                (Coordinate { x: 2, y: 0 }, Square::dock(0)),
+                (Coordinate { x: 1, y: 1 }, Square::town(0)),
+                (Coordinate { x: 0, y: 0 }, Square::water()),
             ]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 2, y: 2 }),
             [
-                (Coordinate { x: 2, y: 1 }, Square::Land),
-                (Coordinate { x: 3, y: 2 }, Square::Land),
-                (Coordinate { x: 2, y: 3 }, Square::Land),
-                (Coordinate { x: 1, y: 2 }, Square::Land),
+                (Coordinate { x: 2, y: 1 }, Square::land()),
+                (Coordinate { x: 3, y: 2 }, Square::land()),
+                (Coordinate { x: 2, y: 3 }, Square::land()),
+                (Coordinate { x: 1, y: 2 }, Square::land()),
             ]
         );
     }
@@ -2386,7 +2475,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'a',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: c0_1,
             })
@@ -2397,7 +2487,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 0,
                     tile: 'b',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: c1_1,
             })
@@ -2408,7 +2499,8 @@ pub mod tests {
                 square: Square::Occupied {
                     player: 1,
                     tile: 'c',
-                    validity: SquareValidity::Invalid
+                    validity: SquareValidity::Invalid,
+                    foggy: false
                 },
                 coordinate: c2_1,
             })
@@ -2419,7 +2511,8 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'a',
-                validity: SquareValidity::Invalid
+                validity: SquareValidity::Invalid,
+                foggy: false
             })
         );
         assert_eq!(
@@ -2427,7 +2520,8 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'b',
-                validity: SquareValidity::Invalid
+                validity: SquareValidity::Invalid,
+                foggy: false
             })
         );
         assert_eq!(
@@ -2443,7 +2537,8 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'b',
-                            validity: SquareValidity::Invalid
+                            validity: SquareValidity::Invalid,
+                            foggy: false
                         },
                         coordinate: c0_1,
                     },
@@ -2454,7 +2549,8 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'a',
-                            validity: SquareValidity::Invalid
+                            validity: SquareValidity::Invalid,
+                            foggy: false
                         },
                         coordinate: c1_1,
                     },
@@ -2467,7 +2563,8 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'b',
-                validity: SquareValidity::Invalid
+                validity: SquareValidity::Invalid,
+                foggy: false
             })
         );
         assert_eq!(
@@ -2475,7 +2572,8 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'a',
-                validity: SquareValidity::Invalid
+                validity: SquareValidity::Invalid,
+                foggy: false
             })
         );
         assert_eq!(
@@ -2559,7 +2657,8 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'O',
-                            validity: SquareValidity::Invalid
+                            validity: SquareValidity::Invalid,
+                            foggy: false
                         },
                         coordinate: pos1,
                     },
@@ -2570,7 +2669,8 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'R',
-                            validity: SquareValidity::Invalid
+                            validity: SquareValidity::Invalid,
+                            foggy: false
                         },
                         coordinate: pos2,
                     },
@@ -2626,7 +2726,8 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'C',
-                            validity: SquareValidity::Invalid
+                            validity: SquareValidity::Invalid,
+                            foggy: false
                         },
                         coordinate: a1,
                     },
@@ -2637,7 +2738,8 @@ pub mod tests {
                         square: Square::Occupied {
                             player: 0,
                             tile: 'A',
-                            validity: SquareValidity::Invalid
+                            validity: SquareValidity::Invalid,
+                            foggy: false
                         },
                         coordinate: c,
                     },
@@ -2704,7 +2806,8 @@ pub mod tests {
             Ok(Square::Occupied {
                 player: 0,
                 tile: 'S',
-                validity: SquareValidity::Unknown
+                validity: SquareValidity::Unknown,
+                foggy: false
             })
         );
         assert_eq!(
@@ -2752,7 +2855,7 @@ pub mod tests {
              ~~ ~~ B1 ~~ ~~",
         );
 
-        let foggy = board.fog_of_war(1, &rules::Visibility::TileFog);
+        let foggy = board.fog_of_war(1, &rules::Visibility::TileFog, &HashSet::new());
         assert_eq!(
             foggy.to_string(),
             "~~ ~~ __ ~~ ~~\n\
@@ -2777,7 +2880,7 @@ pub mod tests {
              ~~ ~~ B1 ~~ ~~",
         );
 
-        let foggy = board.fog_of_war(0, &rules::Visibility::TileFog);
+        let foggy = board.fog_of_war(0, &rules::Visibility::TileFog, &HashSet::new());
         assert_eq!(
             foggy.to_string(),
             "~~ ~~ A0 ~~ ~~\n\
@@ -2804,7 +2907,7 @@ pub mod tests {
              ~~ ~~ B1 ~~ ~~ ~~ ~~ ~~ ~~ ~~",
         );
 
-        let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog);
+        let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog, &HashSet::new());
         foggy.trim();
         assert_eq!(
             foggy.to_string(),
@@ -2835,7 +2938,7 @@ pub mod tests {
              __ __ __ __ ~~ ~~ B1 ~~ ~~ ~~ ~~",
         );
         {
-            let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog);
+            let mut foggy = board.fog_of_war(0, &rules::Visibility::LandFog, &HashSet::new());
             foggy.trim();
             assert_eq!(
                 foggy.to_string(),
@@ -2850,16 +2953,25 @@ pub mod tests {
             );
 
             let source_coord = Coordinate { x: 4, y: 3 };
-            let game_coord =
-                board.map_player_coord_to_game(0, source_coord, &rules::Visibility::LandFog);
+            let game_coord = board.map_player_coord_to_game(
+                0,
+                source_coord,
+                &rules::Visibility::LandFog,
+                &HashSet::new(),
+            );
             assert_eq!(game_coord, Coordinate { x: 5, y: 5 });
             assert_eq!(
-                board.map_game_coord_to_player(0, game_coord, &rules::Visibility::LandFog),
+                board.map_game_coord_to_player(
+                    0,
+                    game_coord,
+                    &rules::Visibility::LandFog,
+                    &HashSet::new()
+                ),
                 Some(source_coord)
             );
         }
         {
-            let mut foggy = board.fog_of_war(1, &rules::Visibility::LandFog);
+            let mut foggy = board.fog_of_war(1, &rules::Visibility::LandFog, &HashSet::new());
             foggy.trim();
             assert_eq!(
                 foggy.to_string(),
@@ -2875,11 +2987,20 @@ pub mod tests {
             );
 
             let source_coord = Coordinate { x: 6, y: 4 };
-            let game_coord =
-                board.map_player_coord_to_game(1, source_coord, &rules::Visibility::LandFog);
+            let game_coord = board.map_player_coord_to_game(
+                1,
+                source_coord,
+                &rules::Visibility::LandFog,
+                &HashSet::new(),
+            );
             assert_eq!(game_coord, Coordinate { x: 8, y: 7 });
             assert_eq!(
-                board.map_game_coord_to_player(1, game_coord, &rules::Visibility::LandFog),
+                board.map_game_coord_to_player(
+                    1,
+                    game_coord,
+                    &rules::Visibility::LandFog,
+                    &HashSet::new()
+                ),
                 Some(source_coord)
             );
         }

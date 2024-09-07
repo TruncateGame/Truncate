@@ -392,6 +392,27 @@ impl Game {
             }
         };
 
+        // Track any new tiles that the player may have gained vision of from this turn
+        {
+            let seen = &mut self.players[player].seen_tiles;
+
+            let newly_visible_board = self.board.filter_to_player(
+                player,
+                &self.rules.visibility,
+                &self.winner,
+                seen,
+                false,
+            );
+
+            for (y, row) in newly_visible_board.squares.iter().enumerate() {
+                for (x, sq) in row.iter().enumerate() {
+                    if !matches!(sq, Square::Fog {}) {
+                        seen.insert(Coordinate::new(x, y));
+                    }
+                }
+            }
+        }
+
         self.turn_count += 1;
         self.player_turn_count[player] += 1;
 
@@ -502,6 +523,7 @@ impl Game {
                     player,
                     player_reported_position,
                     &self.rules.visibility,
+                    &self.players[player].seen_tiles,
                 );
 
                 if let Square::Occupied { .. } = self.board.get(position)? {
@@ -511,7 +533,7 @@ impl Game {
                 if !self.board.neighbouring_squares(position).iter().any(
                     |&(_, square)| match square {
                         Square::Occupied { player: p, .. } => p == player,
-                        Square::Dock(p) => p == player,
+                        Square::Dock { player: p, .. } => p == player,
                         _ => false,
                     },
                 ) {
@@ -552,11 +574,13 @@ impl Game {
                         player_index,
                         player_reported_positions[0],
                         &self.rules.visibility,
+                        &self.players[player_index].seen_tiles,
                     ),
                     self.board.map_player_coord_to_game(
                         player_index,
                         player_reported_positions[1],
                         &self.rules.visibility,
+                        &self.players[player_index].seen_tiles,
                     ),
                 ];
 
@@ -740,6 +764,7 @@ impl Game {
                                     Square::Town {
                                         player,
                                         defeated: true,
+                                        foggy: false,
                                     },
                                 );
                             }
@@ -821,9 +846,16 @@ impl Game {
     }
 
     pub fn filter_game_to_player(&self, player_index: usize) -> (Board, Vec<Change>) {
-        let visible_board =
-            self.board
-                .filter_to_player(player_index, &self.rules.visibility, &self.winner);
+        let seen = &self.players[player_index].seen_tiles;
+
+        let visible_board = self.board.filter_to_player(
+            player_index,
+            &self.rules.visibility,
+            &self.winner,
+            seen,
+            true,
+        );
+
         let visible_changes = reporting::filter_to_player(
             &self.recent_changes,
             &self.board,
@@ -831,6 +863,7 @@ impl Game {
             player_index,
             &self.rules.visibility,
             &self.winner,
+            seen,
         );
         (visible_board, visible_changes)
     }

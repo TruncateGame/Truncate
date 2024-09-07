@@ -1,10 +1,11 @@
-use std::fmt;
+use std::{collections::HashSet, fmt};
 use time::Duration;
 
 use serde::{Deserialize, Serialize};
 
 use super::bag::TileBag;
 use crate::{
+    board::Coordinate,
     error::GamePlayError,
     reporting::{Change, HandChange},
 };
@@ -77,6 +78,9 @@ pub struct Player {
     pub swap_count: usize,
     pub penalties_incurred: usize,
     pub color: (u8, u8, u8),
+    /// Tracked when in a fog of war game,
+    /// to provide persistent vision of terrain and structures
+    pub seen_tiles: HashSet<Coordinate>,
 }
 
 impl Player {
@@ -101,6 +105,7 @@ impl Player {
             swap_count: 0,
             penalties_incurred: 0,
             color,
+            seen_tiles: HashSet::new(),
         }
     }
 

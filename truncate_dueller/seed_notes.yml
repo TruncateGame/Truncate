@@ -1307,3 +1307,303 @@ notes:
     board_generation: 1
     rules_generation: 1
     verification: 1c933d1ebdc298e287974cc926f414733133c3bf125fb784fb8507c08e2d4d32
+  218:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: dd9538f2302d8bc4a2627ffc948f03ab47f323bb96cf2d0b3a71bf22da4c4669
+  219:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 56353b41f7c62cb1d81ab8e576ddf75f0c95452f40e18506de201e1f56bd7972
+  220:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 8eb3b9bb01a7f27a1854f992e18f375c762adfa9d9a8eda5490563623240fc68
+  221:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 1057397ef63c50da002602cf1af3320ba4026649337d77b5162018fd2e5672c8
+  222:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: e94a1fc14ff9742758b09c331bef5ee2e58e75fd113043ae2223bc2a019bede4
+  223:
+    rerolls: 4
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: d8d706c2c2346b84866c514ef022cbbd413408656f8fffb6d573f58a353e7193
+  224:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: a769d7260b27cdebe206a3056ca3d00edcc6f4f8d7424288697ed1c446ce95d6
+  225:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: f9c7569d1bbb078b2fdbdc78afdb2fe35e148efdf61240a3688e9f639fce43ef
+  226:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: e25e217b975b1a7054dfd983603da5a5e86a0a534407a2fcbf2b122a2dc304a4
+  227:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 4c0722eead3ac88a5fc70dfbe019d18bc12efd373141ea7aad103379b8e1d8e6
+  228:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: d82fafc87cee7079caea1ea15857f88f04e1060f74e3164ab660c36cef1a32ce
+  229:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: aceae9a32c6570bf2c98ed2929362a2e4c3abcee50a62da36f9914f198f78362
+  230:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 89703dafc1576506173e3661b23c06d6e98778a49d1ebbbfa6065010617e5d7b
+  231:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 4720e452175c51ede34e85229b7bd42b4cc3310b13e3e09a0842d0e2f9acf1bf
+  232:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 139446286e31567f9597c62d0abf81b8f957f53341ea2841596c219a4a794e55
+  233:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 937ddc91932fcac6133b74e4a7aa03915dc658f02ed7f56b26c66220e5c920dd
+  234:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 36cb32da49e1a0bb6438e4e6671a1d77fac59a1611ad1092892c5a1f1c049765
+  235:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: df57040256215c8daf3727505df1ff4a5f15d3905404ff6cc0c16cd0869b5db6
+  236:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 911df4f495942ef0501364cd144c3549e57db5dc0871044f0bc648ae5b6c166d
+  237:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: e4d0080570992c67f07ef83c0bdb487312d38c76d795140664432c7aa1b401b7
+  238:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 6fe8655da1a8f8580460209f4ef1c59af07a335464085640bd840c46005a55b8
+  239:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 4aa4b2d149b9453cc04b60561dad0e934290807d40550b215a8626e674e89ce5
+  240:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: a9052ca9ad034562508144ef2181c149f97e514b7014fb09f18bc4af5b4c7c09
+  241:
+    rerolls: 2
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 5185c2afb8634ae86ef938ce8ac1547ad7911217dfce6110bf57058230b9e3f2
+  242:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 370d217f801e74e3210c5becbf906ea8d16e695dce6d1871b1707238bb34f64c
+  243:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 0a5502e6ac25d3ee97196a4a4724b405abff3b397446a0d9b85409cbf02d0c6e
+  244:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: d4c44112e3a41a3f13b8920abd79023a761175a4d91a6d5403f5e0a3adf90911
+  245:
+    rerolls: 2
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 7a03163fdc41fe25ba65fd31936cf4d9d205a3e63df2950c58bf5ca3233e8ce9
+  246:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: f323e4f92f9df03f0fc107c5032dbabda2bd87accc005bf3fe34f72311388526
+  247:
+    rerolls: 2
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 2a9762d3cbc5d68af6e73ce7bda44c14d3c67b7b62197e76a18e139fd0000a67
+  248:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 1147c323780d951fcb69d8b4865ede35578b109b16db626f7546d8d34fccc7c9
+  249:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 4143636d0a4aadc66c9f956e0b945f9035c2e405011eadc0092439aab1baa18f
+  250:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: ef8d8897ae39721d4d97ff9a30e3424eb21b5c401ed336ee7214eb23bbe91109
+  251:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 673db41132160dc9a4e1db97c82c69ed5f7b4c962d8f1718178a34156ef651e7
+  252:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 7bc57d922fe53817fb94ac23bab0140e2d2bf9eaa05cb0295fd40b5cc510666e
+  253:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 18135fec7212a6987e9ab978ab7d34f0566da9cc1192464ebf68cb02d747f883
+  254:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 1efd1bb3f9b063e20dd771ab490e97330396dd1384c4bf91e6cef5dbfe6a1356
+  255:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: d830028dd8fdd261aa992e6adaffe6b14159d630cef2fc03e585f637a64a57ce
+  256:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 1a68854b8fb9713ede25619ac25afdcad68744b1ed2b9bc7a2e1707d9b259d58
+  257:
+    rerolls: 3
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: da0ca72beed52fa2a96cfc47d7d8e1bc5328e89cc9b9d5c080364b1ffab7d36f
+  258:
+    rerolls: 2
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: a17f8670872fc9e8b18428b14cb64d25906e4c663f2e9774513860f8f13292d4
+  259:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 3006d1ade0894a2e8bfff96afbce534b320cc143d4e70d001daf0ddffba4724c
+  260:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 255af68d3a6288b0570bd522f6923393929df60076bea0b4393a852fcc0f73b5
+  261:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 8faa64a2303d713932597e04941c5a77d40872c13efdf50f7350039fd0bf8c2d
+  262:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 69c5f208cc088114967df13c8371fcbd2ed92f5d90bd6968dec364ca43a9449a
+  263:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 78e20c3f1df776b87904fd8bdd11c96313211ebeadd5accc087c266bc1f4af1e
+  264:
+    rerolls: 1
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 981c40d56ab51c9052b74c86672e61141ea04f385d47490fa2f347b7a5c209ae
+  265:
+    rerolls: 2
+    best_player: 1
+    board_generation: 1
+    rules_generation: 1
+    verification: 544f19fee9634c168e6ea8d2f4a8b4a0e48a474a812a447231fa1b0d773b2480
+  266:
+    rerolls: 3
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 091d1bd73fe3a86ea2aa0e565c7a93fad7efc3a7225202c96337207d5ff21640
+  267:
+    rerolls: 1
+    best_player: 0
+    board_generation: 1
+    rules_generation: 1
+    verification: 41b747705f2fb44161d75bda5760a53b2799252d35873a1fea1468aadb3f3d73

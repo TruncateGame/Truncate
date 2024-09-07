@@ -95,6 +95,7 @@ impl Judge {
             if let Ok(Square::Town {
                 player,
                 defeated: true,
+                ..
             }) = board.get(*town_coord)
             {
                 return Some((player + 1) % 2);

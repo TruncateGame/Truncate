@@ -4,11 +4,11 @@ use instant::Duration;
 use truncate_core::{
     game::Game,
     generation::{
-        self, generate_board, BoardElements, BoardGenerationResult, BoardParams, BoardSeed,
-        BoardType,
+        self, generate_board, BoardElements, BoardGenerationResult, BoardNoiseParams, BoardParams,
+        BoardSeed, DockType, Symmetry, WaterLayer,
     },
     messages::GamePlayerMessage,
-    rules::GameRules,
+    rules::{BoardGenesis, GameRules},
 };
 
 use crate::utils::{Lighten, Theme};
@@ -19,16 +19,7 @@ pub struct GeneratorState {
     active_game: ActiveGame,
     seed: u32,
     infinite: bool,
-    width: usize,
-    height: usize,
-    dispersion: f64,
-    maximum_town_density: f64,
-    maximum_town_distance: f64,
-    island_influence: f64,
-    minimum_choke: usize,
-    board_type: BoardType,
-    ideal_dock_radius: f64,
-    ideal_dock_separation: f64,
+    params: BoardParams,
     generation_result: Option<Result<BoardGenerationResult, BoardGenerationResult>>,
 }
 
@@ -60,22 +51,16 @@ impl GeneratorState {
         active_game.depot.ui_state.sidebar_hidden = true;
         active_game.depot.interactions[0].view_only = true;
 
-        let (_, default) = BoardParams::latest();
+        // let (_, default) = BoardParams::latest();
+        let BoardGenesis::Random(default) = GameRules::tuesday().board_genesis else {
+            panic!("ack");
+        };
 
         Self {
             active_game,
-            seed: 1843,
+            seed: 1844,
             infinite: false,
-            width: default.land_dimensions[0],
-            height: default.land_dimensions[1],
-            dispersion: default.dispersion[0],
-            maximum_town_density: default.maximum_town_density,
-            maximum_town_distance: default.maximum_town_distance,
-            island_influence: default.island_influence,
-            minimum_choke: default.minimum_choke,
-            board_type: default.board_type,
-            ideal_dock_radius: default.ideal_dock_radius,
-            ideal_dock_separation: default.ideal_dock_separation,
+            params: default,
             generation_result: None,
         }
     }
@@ -84,138 +69,258 @@ impl GeneratorState {
         let max_attempts = 500;
         let mut changed = self.generation_result.is_none();
 
-        let _r = egui::Grid::new("weightings")
-            .spacing(Vec2::splat(8.0))
-            .min_col_width(150.0)
-            .show(ui, |ui| {
-                ui.label(RichText::new("Seed").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.seed)
-                        .clamp_range(1..=10000)
-                        .speed(0.05),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                if ui.button("+1").clicked() {
-                    changed = true;
-                    self.seed += 1;
-                }
-                if ui.button("++++++").clicked() {
-                    changed = true;
-                    self.infinite = !self.infinite;
-                }
-                ui.end_row();
+        egui::Window::new("controls").show(ui.ctx(), |ui| {
+            let _r = egui::Grid::new("weightings")
+                .spacing(Vec2::splat(8.0))
+                .min_col_width(150.0)
+                .show(ui, |ui| {
+                    ui.label(RichText::new("Seed").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.seed)
+                            .clamp_range(1..=10000)
+                            .speed(0.05),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    if ui.button("+1").clicked() {
+                        changed = true;
+                        self.seed += 1;
+                    }
+                    if ui.button("++++++").clicked() {
+                        changed = true;
+                        self.infinite = !self.infinite;
+                    }
+                    ui.end_row();
 
-                ui.label(RichText::new("Width").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.width)
-                        .clamp_range(4..=1000)
-                        .speed(0.05),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
+                    ui.label(RichText::new("Width").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.land_dimensions[0])
+                            .clamp_range(4..=1000)
+                            .speed(0.05),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
 
-                ui.label(RichText::new("Height").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.height)
-                        .clamp_range(4..=1000)
-                        .speed(0.05),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
+                    ui.label(RichText::new("Height").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.land_dimensions[1])
+                            .clamp_range(4..=1000)
+                            .speed(0.05),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
 
-                ui.label(RichText::new("Dispersion").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.dispersion)
-                        .clamp_range(0.0..=100.0)
-                        .speed(0.01),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
+                    ui.label(RichText::new("Canvas Width").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.canvas_dimensions[0])
+                            .clamp_range(4..=1000)
+                            .speed(0.05),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
 
-                ui.label(RichText::new("Town Density").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.maximum_town_density)
-                        .clamp_range(0.0..=1.0)
-                        .speed(0.005),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
+                    ui.label(RichText::new("Canvas Height").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.canvas_dimensions[1])
+                            .clamp_range(4..=1000)
+                            .speed(0.05),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
 
-                ui.label(RichText::new("Town Distance").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.maximum_town_distance)
-                        .clamp_range(0.0..=1.0)
-                        .speed(0.005),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
+                    ui.label(RichText::new("Dispersion X").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.land_layer.dispersion[0])
+                            .clamp_range(0.0..=100.0)
+                            .speed(0.01),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
 
-                ui.label(RichText::new("Island Influence").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.island_influence)
-                        .clamp_range(0.0..=1.0)
-                        .speed(0.005),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
+                    ui.label(RichText::new("Dispersion y").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.land_layer.dispersion[1])
+                            .clamp_range(0.0..=100.0)
+                            .speed(0.01),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
 
-                ui.label(RichText::new("Min Choke").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.minimum_choke)
-                        .clamp_range(1..=100)
-                        .speed(0.05),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
+                    ui.label(RichText::new("Island Influence").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.land_layer.island_influence)
+                            .clamp_range(0.0..=1.0)
+                            .speed(0.005),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
 
-                ui.label(RichText::new("Board Type").color(Color32::WHITE));
-                if ui.button(format!("{:?}", self.board_type)).clicked() {
-                    self.board_type = match self.board_type {
-                        BoardType::Island => BoardType::Continental,
-                        BoardType::Continental => BoardType::Island,
-                    };
-                    changed = true;
-                }
-                ui.end_row();
+                    ui.label(RichText::new("Symmetric").color(Color32::WHITE));
+                    if ui
+                        .button(format!("{:?}", self.params.land_layer.symmetric))
+                        .clicked()
+                    {
+                        self.params.land_layer.symmetric = match self.params.land_layer.symmetric {
+                            Symmetry::TwoFoldRotational => Symmetry::SmoothTwoFoldRotational,
+                            Symmetry::SmoothTwoFoldRotational => Symmetry::Asymmetric,
+                            Symmetry::Asymmetric => Symmetry::TwoFoldRotational,
+                        };
+                        changed = true;
+                    }
+                    ui.end_row();
 
-                ui.label(RichText::new("Ideal Dock Radius").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.ideal_dock_radius)
-                        .clamp_range(0.0..=1.0)
-                        .speed(0.005),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
+                    if self.params.water_layer.is_some() {
+                        if ui.button("Remove Water Layer").clicked() {
+                            self.params.water_layer = None;
+                            changed = true;
+                        };
 
-                ui.label(RichText::new("Ideal Dock Separation").color(Color32::WHITE));
-                let r = ui.add(
-                    DragValue::new(&mut self.ideal_dock_separation)
-                        .clamp_range(0.0..=1.0)
-                        .speed(0.005),
-                );
-                if r.changed() {
-                    changed = true;
-                }
-                ui.end_row();
-            });
+                        ui.end_row();
+                    }
+                    if let Some(water_layer) = self.params.water_layer.as_mut() {
+                        ui.label(RichText::new("[WATER] Dispersion X").color(Color32::WHITE));
+                        let r = ui.add(
+                            DragValue::new(&mut water_layer.params.dispersion[0])
+                                .clamp_range(0.0..=100.0)
+                                .speed(0.01),
+                        );
+                        if r.changed() {
+                            changed = true;
+                        }
+                        ui.end_row();
+
+                        ui.label(RichText::new("[WATER] Dispersion y").color(Color32::WHITE));
+                        let r = ui.add(
+                            DragValue::new(&mut water_layer.params.dispersion[1])
+                                .clamp_range(0.0..=100.0)
+                                .speed(0.01),
+                        );
+                        if r.changed() {
+                            changed = true;
+                        }
+                        ui.end_row();
+
+                        ui.label(RichText::new("[WATER] Island Influence").color(Color32::WHITE));
+                        let r = ui.add(
+                            DragValue::new(&mut water_layer.params.island_influence)
+                                .clamp_range(0.0..=1.0)
+                                .speed(0.005),
+                        );
+                        if r.changed() {
+                            changed = true;
+                        }
+                        ui.end_row();
+
+                        ui.label(RichText::new("[WATER] Symmetric").color(Color32::WHITE));
+                        if ui
+                            .button(format!("{:?}", water_layer.params.symmetric))
+                            .clicked()
+                        {
+                            water_layer.params.symmetric = match water_layer.params.symmetric {
+                                Symmetry::TwoFoldRotational => Symmetry::SmoothTwoFoldRotational,
+                                Symmetry::SmoothTwoFoldRotational => Symmetry::Asymmetric,
+                                Symmetry::Asymmetric => Symmetry::TwoFoldRotational,
+                            };
+                            changed = true;
+                        }
+                        ui.end_row();
+
+                        ui.label(RichText::new("[WATER] Density").color(Color32::WHITE));
+                        let r = ui.add(
+                            DragValue::new(&mut water_layer.density)
+                                .clamp_range(0.0..=1.0)
+                                .speed(0.005),
+                        );
+                        if r.changed() {
+                            changed = true;
+                        }
+                        ui.end_row();
+                    } else {
+                        if ui.button("Add Water Layer").clicked() {
+                            self.params.water_layer = Some(WaterLayer {
+                                params: BoardNoiseParams {
+                                    dispersion: [20.0, 20.0],
+                                    island_influence: 0.0,
+                                    symmetric: Symmetry::TwoFoldRotational,
+                                },
+                                density: 0.5,
+                            });
+                            changed = true;
+                        }
+                        ui.end_row();
+                    }
+
+                    ui.label(RichText::new("Town Density").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.maximum_town_density)
+                            .clamp_range(0.0..=1.0)
+                            .speed(0.005),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
+
+                    ui.label(RichText::new("Town Distance").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.maximum_town_distance)
+                            .clamp_range(0.0..=1.0)
+                            .speed(0.005),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
+
+                    ui.label(RichText::new("Min Choke").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.minimum_choke)
+                            .clamp_range(1..=100)
+                            .speed(0.05),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
+
+                    ui.label(RichText::new("Dock Type").color(Color32::WHITE));
+                    if ui.button(format!("{:?}", self.params.dock_type)).clicked() {
+                        self.params.dock_type = match self.params.dock_type {
+                            DockType::IslandV1 => DockType::Coastal,
+                            DockType::Coastal => DockType::Continental,
+                            DockType::Continental => DockType::IslandV1,
+                        };
+                        changed = true;
+                    }
+                    ui.end_row();
+
+                    ui.label(RichText::new("ideal_dock_extremity").color(Color32::WHITE));
+                    let r = ui.add(
+                        DragValue::new(&mut self.params.ideal_dock_extremity)
+                            .clamp_range(0.0..=1.0)
+                            .speed(0.01),
+                    );
+                    if r.changed() {
+                        changed = true;
+                    }
+                    ui.end_row();
+                });
+        });
 
         if self.infinite {
             self.seed += 1;
@@ -232,22 +337,7 @@ impl GeneratorState {
                 height_resize_state: None,
                 water_level: 0.5,
                 max_attempts,
-                params: BoardParams {
-                    land_dimensions: [self.width, self.height],
-                    dispersion: [self.dispersion, self.dispersion],
-                    maximum_town_density: self.maximum_town_density,
-                    maximum_town_distance: self.maximum_town_distance,
-                    island_influence: self.island_influence,
-                    minimum_choke: self.minimum_choke,
-                    board_type: self.board_type,
-                    ideal_dock_radius: self.ideal_dock_radius,
-                    ideal_dock_separation: self.ideal_dock_separation,
-                    elements: BoardElements {
-                        docks: true,
-                        towns: true,
-                        obelisk: true,
-                    },
-                },
+                params: self.params.clone(),
             }));
         }
 

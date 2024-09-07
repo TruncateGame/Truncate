@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     board::Board,
-    generation::{BoardElements, BoardParams, BoardSeed, BoardType},
+    generation::{
+        BoardElements, BoardNoiseParams, BoardParams, BoardSeed, DockType, Symmetry, WaterLayer,
+    },
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,15 +201,26 @@ impl GameRules {
             battle_delay: 2,
             max_turns: Some(1050),
             board_genesis: BoardGenesis::Random(BoardParams {
-                land_dimensions: [180, 180],
-                dispersion: [13.51, 13.51],
-                island_influence: 0.23,
+                land_layer: BoardNoiseParams {
+                    dispersion: [3.0, 3.0],
+                    symmetric: Symmetry::SmoothTwoFoldRotational,
+                    island_influence: 0.48,
+                },
+                water_layer: Some(WaterLayer {
+                    params: BoardNoiseParams {
+                        dispersion: [10.0, 10.0],
+                        island_influence: 0.0,
+                        symmetric: Symmetry::TwoFoldRotational,
+                    },
+                    density: 0.42,
+                }),
+                land_dimensions: [103, 103],
+                canvas_dimensions: [196, 196],
                 maximum_town_density: 0.2,
                 maximum_town_distance: 0.1,
-                minimum_choke: 4,
-                board_type: BoardType::Continental,
-                ideal_dock_radius: 0.2,
-                ideal_dock_separation: 0.4,
+                minimum_choke: 3,
+                dock_type: DockType::Continental,
+                ideal_dock_extremity: 0.0,
                 elements: BoardElements {
                     docks: true,
                     towns: false,

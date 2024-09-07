@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use eframe::egui::{self, Align, Align2, CursorIcon, Layout, NumExt, Order, Sense};
 use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
@@ -276,6 +276,7 @@ impl TutorialState {
                         swap_count: 0,
                         penalties_incurred: 0,
                         color: GAME_COLOR_BLUE,
+                        seen_tiles: HashSet::new(),
                     },
                     Player {
                         name: "Computer".into(),
@@ -290,6 +291,7 @@ impl TutorialState {
                         swap_count: 0,
                         penalties_incurred: 0,
                         color: GAME_COLOR_RED,
+                        seen_tiles: HashSet::new(),
                     },
                 ],
                 board,
