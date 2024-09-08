@@ -504,7 +504,7 @@ async fn handle_player_msg(
 
                     match &game_manager.core_game.rules.timing {
                         truncate_core::rules::Timing::Periodic {
-                            total_time_allowance,
+                            total_time_allowance: Some(total_time_allowance),
                             ..
                         } => {
                             tokio::spawn(check_game_over(

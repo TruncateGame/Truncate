@@ -65,7 +65,7 @@ pub enum Timing {
     },
     Periodic {
         turn_delay: usize,
-        total_time_allowance: usize,
+        total_time_allowance: Option<usize>,
     },
     None,
 }
@@ -225,6 +225,49 @@ impl GameRules {
                     docks: true,
                     towns: false,
                     obelisk: true,
+                },
+            }),
+        }
+    }
+
+    pub fn arcade() -> Self {
+        Self {
+            generation: None, // hydrated on fetch
+            win_condition: WinCondition::Destination {
+                town_defense: TownDefense::BeatenWithDefenseStrength(0),
+            },
+            win_metric: WinMetric::TownProximity,
+            visibility: Visibility::Standard,
+            truncation: Truncation::Root,
+            timing: Timing::Periodic {
+                turn_delay: 5,
+                total_time_allowance: None,
+            },
+            hand_size: 5,
+            tile_generation: 1,
+            tile_bag_behaviour: TileBagBehaviour::Standard,
+            battle_rules: BattleRules { length_delta: 2 },
+            swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
+            battle_delay: 2,
+            max_turns: None,
+            board_genesis: BoardGenesis::Random(BoardParams {
+                land_layer: BoardNoiseParams {
+                    dispersion: [5.0, 5.0],
+                    island_influence: 0.0,
+                    symmetric: Symmetry::TwoFoldRotational,
+                },
+                water_layer: None,
+                land_dimensions: [9, 10],
+                canvas_dimensions: [18, 20],
+                maximum_town_density: 0.2,
+                maximum_town_distance: 0.15,
+                minimum_choke: 3,
+                dock_type: DockType::Coastal,
+                ideal_dock_extremity: 1.0,
+                elements: BoardElements {
+                    docks: true,
+                    towns: true,
+                    obelisk: false,
                 },
             }),
         }

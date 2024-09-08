@@ -55,16 +55,43 @@ impl ArcadeState {
             9,
             9,
             seed.clone().map(|s| s.seed as u64),
-            GameRules::generation(rules_generation),
+            GameRules::arcade(),
         );
         game.add_player("P1".into());
         game.add_player("P2".into());
 
+        match &game.rules.board_genesis {
+            truncate_core::rules::BoardGenesis::Passthrough => {
+                game.board = board.clone();
+                game.board.cache_special_squares();
+            }
+            truncate_core::rules::BoardGenesis::SpecificBoard(_) => unimplemented!(),
+            truncate_core::rules::BoardGenesis::Classic(_, _) => unimplemented!(),
+            truncate_core::rules::BoardGenesis::Random(params) => {
+                let rand_board = truncate_core::generation::generate_board(
+                    truncate_core::generation::BoardSeed {
+                        generation: 9999,
+                        seed: (instant::SystemTime::now()
+                            .duration_since(instant::SystemTime::UNIX_EPOCH)
+                            .expect("Please don't play Truncate earlier than 1970")
+                            .as_micros()
+                            % 287520520) as u32,
+                        day: None,
+                        params: params.clone(),
+                        current_iteration: 0,
+                        width_resize_state: None,
+                        height_resize_state: None,
+                        water_level: 0.5,
+                        max_attempts: 10000,
+                    },
+                );
+                game.board = rand_board.expect("Board can be resolved").board;
+                game.board.cache_special_squares();
+            }
+        }
+
         game.players[0].color = GAME_COLOR_BLUE;
         game.players[1].color = GAME_COLOR_PURPLE;
-
-        board.cache_special_squares();
-        game.board = board.clone();
 
         game.start();
 

@@ -127,7 +127,9 @@ impl Game {
                 p.turn_starts_no_later_than = Some(now);
                 p.turn_starts_no_sooner_than = Some(now);
 
-                self.game_ends_at = Some(now + total_time_allowance as u64);
+                if let Some(total_time_allowance) = total_time_allowance {
+                    self.game_ends_at = Some(now + total_time_allowance as u64);
+                }
             }),
             _ => unimplemented!(),
         }
@@ -166,7 +168,7 @@ impl Game {
 
         match &self.rules.timing {
             rules::Timing::Periodic {
-                total_time_allowance,
+                total_time_allowance: Some(total_time_allowance),
                 ..
             } => {
                 let elapsed = now() - started_at;
