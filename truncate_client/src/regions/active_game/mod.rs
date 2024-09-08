@@ -67,8 +67,8 @@ pub struct ActiveGame {
     pub players: Vec<GamePlayerMessage>,
     pub board: Board,
     pub mapped_board: MappedBoard,
-    pub mapped_hand: MappedTiles,
     pub mapped_overlay: MappedTiles,
+    pub mapped_hands: Vec<MappedTiles>,
     pub hands: Vec<Hand>,
     pub board_changes: HashMap<Coordinate, BoardChange>,
     pub time_changes: Vec<TimeChange>,
@@ -156,8 +156,11 @@ impl ActiveGame {
                 player_numbers,
                 theme.daytime,
             ),
-            mapped_hand: MappedTiles::new(ctx, 7),
             mapped_overlay: MappedTiles::new(ctx, 1),
+            mapped_hands: hands
+                .iter()
+                .map(|h| MappedTiles::new(ctx, h.len()))
+                .collect(),
             depot,
             players,
             board,
@@ -246,8 +249,8 @@ impl ActiveGame {
         if let Some(player_two) = self.depot.gameplay.player_numbers.get(1) {
             let mut top_control_strip_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
             let (control_strip_rect, control_player_message) = self.render_control_strip(
-                &mut control_strip_ui,
-                self.depot.gameplay.player_numbers[0] as _,
+                &mut top_control_strip_ui,
+                self.depot.gameplay.player_numbers[1] as _,
                 Align2::LEFT_TOP,
                 vec2(0.0, 0.0),
             );
@@ -267,7 +270,7 @@ impl ActiveGame {
             game_space.set_top(timer_strip_rect.bottom());
         }
         if let Some(top_control_strip_rect) = top_control_strip_rect {
-            game_space.set_bottom(top_control_strip_rect.bottom());
+            game_space.set_top(top_control_strip_rect.bottom());
         }
         if let Some(control_strip_rect) = control_strip_rect {
             game_space.set_bottom(control_strip_rect.top());

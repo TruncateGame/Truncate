@@ -456,6 +456,7 @@ impl<'a> BoardUI<'a> {
                                                             animated_position,
                                                             grid_cell.size(),
                                                         ),
+                                                        Direction::North, // TODO: Use player's orientation
                                                         ui,
                                                     );
                                                 })

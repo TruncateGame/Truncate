@@ -128,7 +128,13 @@ impl TutorialStage {
     }
 
     fn get_dialog_position(&self) -> Option<Rect> {
-        self.active_game.depot.regions.hand_companion_rect
+        self.active_game
+            .depot
+            .regions
+            .hand_companion_rects
+            .get(0)
+            .cloned()
+            .flatten()
     }
 
     fn increment_step(&mut self) {

@@ -91,12 +91,12 @@ pub fn handle_input(
 
         for key in 0..5 {
             if input.consume_key(Modifiers::NONE, NUM_KEYS[key]) {
-                let current_selection = ensure_board_selection(depot, 0, board);
+                let current_selection = ensure_board_selection(depot, 1, board);
 
-                if let Some(char) = hands[0].get(key) {
+                if let Some(char) = hands[1].get(key) {
                     msg = Some(AssignedPlayerMessage {
                         message: PlayerMessage::Place(current_selection, *char),
-                        player_id: Some(0),
+                        player_id: Some(1),
                     })
                 }
             }
@@ -104,12 +104,12 @@ pub fn handle_input(
 
         for key in 5..9 {
             if input.consume_key(Modifiers::NONE, NUM_KEYS[key]) {
-                let current_selection = ensure_board_selection(depot, 1, board);
+                let current_selection = ensure_board_selection(depot, 0, board);
 
-                if let Some(char) = hands[1].get(key - 5) {
+                if let Some(char) = hands[0].get(key - 5) {
                     msg = Some(AssignedPlayerMessage {
                         message: PlayerMessage::Place(current_selection, *char),
-                        player_id: Some(1),
+                        player_id: Some(0),
                     })
                 }
             }

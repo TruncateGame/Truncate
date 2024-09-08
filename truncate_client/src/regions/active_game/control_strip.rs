@@ -3,7 +3,7 @@ use epaint::{emath::Align2, hex_color, vec2, Rect, Vec2};
 use truncate_core::messages::PlayerMessage;
 
 use eframe::{
-    egui::{self, CursorIcon, Layout, Order, Sense},
+    egui::{self, CursorIcon, Layout, Memory, Order, Sense},
     emath::Align,
 };
 
@@ -31,6 +31,7 @@ impl ActiveGame {
 
         let mut msg = None;
         let companion_space = 220.0;
+        let controls_area_id = egui::Id::new("controls_layer").with(for_player_index);
 
         let control_anchor = if !matches!(self.depot.ui_state.game_header, HeaderType::Tutorial) {
             anchor
@@ -41,21 +42,25 @@ impl ActiveGame {
         if matches!(self.depot.ui_state.game_header, HeaderType::Tutorial) {
             let mut companion_pos = ui.available_rect_before_wrap();
             companion_pos.set_top(companion_pos.bottom() - companion_space);
-            self.depot.regions.hand_companion_rect = Some(companion_pos);
+            while self.depot.regions.hand_companion_rects.len() <= for_player_index {
+                self.depot.regions.hand_companion_rects.push(None);
+            }
+            self.depot
+                .regions
+                .hand_companion_rects
+                .insert(for_player_index, Some(companion_pos));
         }
 
         let avail_width = ui.available_width();
 
-        let error_area = egui::Area::new(egui::Id::new("error_layer"))
+        let error_area = egui::Area::new(egui::Id::new("error_layer").with(for_player_index))
             .movable(false)
             .order(Order::Tooltip)
             .anchor(
                 aligned,
                 -vec2(
                     0.0,
-                    self.depot
-                        .regions
-                        .hand_total_rect
+                    ui.memory(|m| m.area_rect(controls_area_id))
                         .map(|r| r.height())
                         .unwrap_or_default(),
                 ),
@@ -95,14 +100,13 @@ impl ActiveGame {
             }
         });
 
-        let area = egui::Area::new(egui::Id::new("controls_layer"))
+        let area = egui::Area::new(controls_area_id.clone())
             .movable(false)
             .order(Order::Foreground)
             .anchor(aligned, control_anchor);
 
         let resp = area.show(ui.ctx(), |ui| {
-            // TODO: We can likely use Memory::area_rect now instead of tracking sizes ourselves
-            if let Some(bg_rect) = self.depot.regions.hand_total_rect {
+            if let Some(bg_rect) = ui.memory(|m| m.area_rect(controls_area_id)) {
                 ui.painter().clone().rect_filled(
                     bg_rect,
                     0.0,
@@ -280,7 +284,11 @@ impl ActiveGame {
 
                             HandUI::new(&mut self.hands[for_player_index], for_player_index)
                                 .active(active_hand)
-                                .render(&mut hand_ui, &mut self.depot, &mut self.mapped_hand);
+                                .render(
+                                    &mut hand_ui,
+                                    &mut self.depot,
+                                    &mut self.mapped_hands[for_player_index],
+                                );
                         },
                     );
 
@@ -288,8 +296,6 @@ impl ActiveGame {
                 },
             );
         });
-
-        self.depot.regions.hand_total_rect = Some(resp.response.rect);
 
         (Some(resp.response.rect), msg)
     }

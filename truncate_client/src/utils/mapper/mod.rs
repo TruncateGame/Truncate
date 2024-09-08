@@ -1,7 +1,7 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, f32::consts::PI};
 
 use eframe::egui;
-use epaint::{hex_color, pos2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
+use epaint::{emath::Rot2, hex_color, pos2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Direction, Square},
@@ -1244,7 +1244,13 @@ impl MappedTiles {
         }
     }
 
-    pub fn render_tile_to_rect(&self, slot: usize, rect: Rect, ui: &mut egui::Ui) {
+    pub fn render_tile_to_rect(
+        &self,
+        slot: usize,
+        rect: Rect,
+        direction: Direction,
+        ui: &mut egui::Ui,
+    ) {
         let tile_width = 1.0 / self.capacity as f32;
         let uv = Rect::from_min_max(
             pos2(tile_width * (slot as f32), 0.0),
@@ -1253,6 +1259,13 @@ impl MappedTiles {
 
         let mut mesh = Mesh::with_texture(self.tile_texture.id());
         mesh.add_rect_with_uv(rect, uv, Color32::WHITE);
+        match direction {
+            Direction::North => { /* no-op */ }
+            Direction::East => mesh.rotate(Rot2::from_angle(PI * 1.5), rect.center()),
+            Direction::South => mesh.rotate(Rot2::from_angle(PI), rect.center()),
+            Direction::West => mesh.rotate(Rot2::from_angle(PI * 0.5), rect.center()),
+            _ => unimplemented!(),
+        }
         ui.painter().add(Shape::mesh(mesh));
     }
 }

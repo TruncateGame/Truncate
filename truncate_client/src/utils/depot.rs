@@ -41,8 +41,7 @@ pub struct InteractionDepot {
 
 #[derive(Clone, Default)]
 pub struct RegionDepot {
-    pub hand_total_rect: Option<Rect>,
-    pub hand_companion_rect: Option<Rect>,
+    pub hand_companion_rects: Vec<Option<Rect>>,
     pub headers_total_rect: Option<Rect>,
 }
 

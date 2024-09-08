@@ -1,5 +1,5 @@
 use instant::Duration;
-use truncate_core::player::Hand;
+use truncate_core::{board::Direction, player::Hand};
 
 use eframe::egui::{self, CursorIcon, Id, Order, Sense};
 use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
@@ -124,11 +124,26 @@ impl<'a> HandUI<'a> {
 
         let outer_frame = egui::Frame::none().inner_margin(margin);
 
+        let player_dir = match self.local_player_index {
+            0 => Direction::North,
+            1 => Direction::South,
+            _ => unimplemented!(),
+        };
+
+        let tiles: Vec<_> = if matches!(player_dir, Direction::South) {
+            self.hand.0.iter().cloned().enumerate().rev().collect()
+        } else {
+            self.hand.0.iter().cloned().enumerate().collect()
+        };
+
         outer_frame.show(ui, |ui| {
             ui.horizontal(|ui| {
-                for (i, char) in self.hand.iter().enumerate() {
+                for (i, char) in tiles {
                     HandSquareUI::new().render(ui, depot, |ui, depot| {
-                        let tile_id = Id::new("Hand").with(i).with(char);
+                        let tile_id = Id::new("Hand")
+                            .with(self.local_player_index)
+                            .with(i)
+                            .with(char);
                         let mut is_being_dragged = ui.memory(|mem| mem.is_being_dragged(tile_id));
                         let is_decidedly_dragging =
                             ui.ctx().input(|inp| inp.pointer.is_decidedly_dragging());
@@ -149,7 +164,7 @@ impl<'a> HandUI<'a> {
                         let interactions = &mut interactions[self.local_player_index];
 
                         let _highlight = if let Some(highlights) = highlights.as_mut() {
-                            if let Some(c) = highlights.iter().position(|c| c == char) {
+                            if let Some(c) = highlights.iter().position(|c| *c == char) {
                                 highlights.remove(c);
                                 true
                             } else {
@@ -163,8 +178,7 @@ impl<'a> HandUI<'a> {
                             egui::vec2(aesthetics.theme.grid_size, aesthetics.theme.grid_size),
                             egui::Sense::hover(),
                         );
-
-                        mapped_tiles.render_tile_to_rect(i, base_rect, ui);
+                        mapped_tiles.render_tile_to_rect(i, base_rect, player_dir, ui);
 
                         if !self.interactive {
                             return;
@@ -177,7 +191,7 @@ impl<'a> HandUI<'a> {
                             ui.interact(tile_rect, tile_id, Sense::click_and_drag());
                         if tile_response.hovered() {
                             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
-                            interactions.hovered_tile_in_hand = Some((i, *char));
+                            interactions.hovered_tile_in_hand = Some((i, char));
                         }
 
                         if tile_response.drag_started() {
@@ -276,6 +290,7 @@ impl<'a> HandUI<'a> {
                                         animated_position,
                                         Vec2::splat(bouncy_width),
                                     ),
+                                    player_dir,
                                     ui,
                                 );
                             })

@@ -37,8 +37,10 @@ impl ActiveGame {
                 .order(Order::Foreground)
                 .anchor(Align2::RIGHT_TOP, vec2(0.0, 0.0));
 
+            let controls_area_id = egui::Id::new("controls_layer").with(0);
+
             let mut dict_alloc = ui.max_rect();
-            if let Some(hand_rect) = self.depot.regions.hand_total_rect {
+            if let Some(hand_rect) = ui.memory(|m| m.area_rect(controls_area_id)) {
                 dict_alloc.set_bottom(hand_rect.top());
             }
             let inner_dict_area = dict_alloc.shrink2(vec2(10.0, 0.0));
