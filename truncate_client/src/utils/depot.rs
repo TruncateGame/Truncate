@@ -1,5 +1,5 @@
 use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     board::{Coordinate, Square},
     generation::BoardSeed,
@@ -85,7 +85,7 @@ impl Default for BoardDepot {
 pub struct TimingDepot {
     pub current_time: Duration,
     pub last_turn_change: Duration,
-    pub game_ends_at: Option<u64>,
+    pub game_ends_at: Option<Duration>,
     pub paused: bool,
 }
 

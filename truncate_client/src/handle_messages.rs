@@ -1,4 +1,5 @@
 use eframe::egui;
+use time::Duration;
 use truncate_core::{
     game::{self, GAME_COLOR_BLUE, GAME_COLOR_RED},
     generation,
@@ -227,7 +228,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
 
                 if let Some(best_puzzle) = best_puzzle {
                     let mut best_game = puzzle_game.game.clone();
-                    best_game.rules.battle_delay = 0;
+                    best_game.rules.battle_delay = Duration::ZERO;
                     let dict_lock = get_main_dict();
                     let dict = dict_lock.as_ref().unwrap();
 
@@ -254,7 +255,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 puzzle_game.move_sequence = latest_puzzle_state.current_moves.clone();
 
                 let delay = puzzle_game.game.rules.battle_delay;
-                puzzle_game.game.rules.battle_delay = 0;
+                puzzle_game.game.rules.battle_delay = Duration::ZERO;
                 for next_move in latest_puzzle_state.current_moves.into_iter() {
                     if puzzle_game
                         .handle_move(next_move, &outer.backchannel, false)

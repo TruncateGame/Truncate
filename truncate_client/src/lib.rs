@@ -152,12 +152,7 @@ pub fn backchannel(msg: String) -> String {
             game.players = players;
             game.next_player = Some(next_player);
 
-            game.players[next_player].turn_starts_no_later_than = Some(
-                instant::SystemTime::now()
-                    .duration_since(instant::SystemTime::UNIX_EPOCH)
-                    .expect("Please don't play Truncate before 1970")
-                    .as_secs(),
-            );
+            game.players[next_player].turn_starts_no_later_than = Some(truncate_core::game::now());
             let best = utils::game_evals::client_best_move(&game, &npc_params);
 
             return serde_json::to_string(&best).expect("Resultant move should be serializable");

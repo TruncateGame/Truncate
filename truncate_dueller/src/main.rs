@@ -143,7 +143,7 @@ fn get_game_for_seed(seed: BoardSeed, rules_generation: u32) -> Game {
     game.add_player("P2".into());
 
     game.board = board.clone();
-    game.rules.battle_delay = 0;
+    game.rules.battle_delay = time::Duration::ZERO;
     game.start();
 
     game

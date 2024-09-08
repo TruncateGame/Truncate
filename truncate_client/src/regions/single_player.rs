@@ -1,6 +1,6 @@
 use eframe::egui::{self, Layout, Sense};
 use epaint::{emath::Align, hex_color, vec2, TextureHandle};
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     board::Board,
     game::{Game, GAME_COLOR_BLUE, GAME_COLOR_RED},
@@ -165,7 +165,7 @@ impl SinglePlayerState {
             }
         }
 
-        let next_seed = (current_time.as_micros() % 243985691) as u32;
+        let next_seed = (current_time.whole_microseconds() % 243985691) as u32;
         let next_board_seed = BoardSeed::new(next_seed);
 
         self.reset_to(next_board_seed, !self.human_starts, ctx, backchannel);
@@ -609,7 +609,7 @@ impl SinglePlayerState {
                         // Do nothing if a message is pending but our turn hasn't yet started,
                         // we'll fetch the turn once we're allowed to play.
                         // It is allowed to play here, but waiting lets battle animations play out.
-                        if turn_starts_no_later_than <= current_time.as_secs() {
+                        if turn_starts_no_later_than <= current_time {
                             let msg_response =
                                 backchannel.send_msg(crate::app_outer::BackchannelMsg::QueryFor {
                                     id: pending_msg.clone(),
@@ -640,7 +640,7 @@ impl SinglePlayerState {
                     let mut evaluation_game = self.game.clone();
                     evaluation_game.board = filtered_board;
 
-                    if turn_starts_no_later_than <= current_time.as_secs() {
+                    if turn_starts_no_later_than <= current_time {
                         let best = client_best_move(&evaluation_game, &self.npc.params);
                         next_msg = Some((npc_player, best));
                     }
@@ -681,7 +681,8 @@ impl SinglePlayerState {
                         }
                     }
                 }
-                let delay = if battle_words.is_empty() { 650 } else { 2000 };
+                let delay =
+                    Duration::milliseconds(if battle_words.is_empty() { 650 } else { 2000 });
 
                 if !battle_words.is_empty() {
                     msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
@@ -692,10 +693,10 @@ impl SinglePlayerState {
                         .depot
                         .timing
                         .current_time
-                        .saturating_add(Duration::from_millis(delay)),
+                        .saturating_add(delay),
                 );
                 ui.ctx()
-                    .request_repaint_after(Duration::from_millis(delay / 2));
+                    .request_repaint_after(delay.checked_div(2).unwrap().try_into().unwrap());
             }
         }
 

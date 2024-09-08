@@ -6,11 +6,6 @@ cd "$script_path/.."
 CRATE_NAME="truncate_client"
 FEATURES=""
 
-# This is required to enable the web_sys clipboard API which eframe web uses
-# https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.Clipboard.html
-# https://rustwasm.github.io/docs/wasm-bindgen/web-sys/unstable-apis.html
-export RUSTFLAGS=--cfg=web_sys_unstable_apis
-
 # Clear output from old stuff:
 rm -f "web_client/src/static/${CRATE_NAME}_bg.wasm"
 
@@ -27,7 +22,8 @@ BUILD=release
 )
 
 # Get the output directory (in the workspace it is in another location)
-TARGET=`cargo metadata --format-version=1 | jq --raw-output .target_directory`
+# TARGET=`cargo metadata --format-version=1 | jq --raw-output .target_directory`
+TARGET="truncate_client/target"
 
 echo "Generating JS bindings for wasm…"
 TARGET_NAME="${CRATE_NAME}.wasm"

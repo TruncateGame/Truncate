@@ -41,7 +41,7 @@ impl NonceTracker {
     fn burn_nonce(&mut self, user: AuthedTruncateToken, nonce: Nonce) -> Result<(), ()> {
         let set = self.map.entry(user).or_default();
 
-        let current_time = truncate_core::game::now();
+        let current_time = truncate_core::game::now().whole_seconds() as u64;
 
         // Reject all nonces older than an hour.
         if nonce.generated_at < current_time.saturating_sub(60 * 60) {
@@ -56,7 +56,7 @@ impl NonceTracker {
     }
 
     fn cleanup(&mut self, minutes: u64) {
-        let current_time = truncate_core::game::now();
+        let current_time = truncate_core::game::now().whole_seconds() as u64;
 
         self.map.values_mut().for_each(|set| {
             set.retain(|n| n.generated_at > current_time.saturating_sub(60 * minutes));
@@ -509,7 +509,7 @@ async fn handle_player_msg(
                         } => {
                             tokio::spawn(check_game_over(
                                 room_code,
-                                (*total_time_allowance + 1) as i128 * 1000,
+                                total_time_allowance.whole_milliseconds() + 100,
                                 server_state.clone(),
                             ));
                         }
@@ -934,6 +934,7 @@ async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, add
 }
 
 async fn check_game_over(game_id: String, check_in_ms: i128, server_state: ServerState) {
+    println!("Checking for game over in {}ms", check_in_ms);
     if check_in_ms.is_negative() {
         return;
     }

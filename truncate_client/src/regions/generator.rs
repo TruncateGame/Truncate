@@ -1,6 +1,6 @@
 use eframe::egui::{self, DragValue, Layout, RichText, Sense};
 use epaint::{emath::Align, vec2, Color32, TextureHandle, Vec2};
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     game::Game,
     generation::{

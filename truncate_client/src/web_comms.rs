@@ -11,8 +11,6 @@ use truncate_core::messages::{GameMessage, Nonce, NoncedPlayerMessage, PlayerMes
 use web_sys::console;
 use ws_stream_wasm::{WsMessage, WsMeta, WsStream};
 
-use crate::utils::macros::current_time;
-
 async fn websocket_connect(connect_addr: &String) -> Result<WsStream, ()> {
     console::log_1(&format!("Connecting to {connect_addr}").into());
 
@@ -51,7 +49,7 @@ pub async fn connect(
     let mut get_nonce = || {
         current_nonce += 1;
         Nonce {
-            generated_at: current_time!().as_secs(),
+            generated_at: truncate_core::game::now().whole_seconds() as u64,
             id: current_nonce,
         }
     };

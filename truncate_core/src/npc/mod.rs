@@ -15,6 +15,7 @@ use crate::{
 pub mod scoring;
 
 use scoring::BoardScore;
+use time::Duration;
 use xxhash_rust::xxh3;
 
 use self::scoring::NPCParams;
@@ -349,7 +350,7 @@ impl Game {
         let player = &mut self.players[evaluation_player];
 
         // Remove timing concerns from the simulated turns
-        self.rules.battle_delay = 0;
+        self.rules.battle_delay = Duration::ZERO;
 
         // Prevent the evaluation player from being given new tiles in future turns
         player.hand_capacity = 0;

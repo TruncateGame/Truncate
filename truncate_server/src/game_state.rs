@@ -1,7 +1,7 @@
-use instant::Duration;
 use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
+use time::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
@@ -33,8 +33,8 @@ pub struct GameManager {
 
 impl GameManager {
     pub fn new(game_id: String) -> Self {
-        let game = Game::new(9, 11, None, GameRules::latest().1);
-        // let game = Game::new(9, 11, None, GameRules::tuesday());
+        // let game = Game::new(9, 11, None, GameRules::latest().1);
+        let game = Game::new(9, 11, None, GameRules::tuesday());
 
         Self {
             game_id,

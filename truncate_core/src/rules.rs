@@ -1,6 +1,7 @@
 // TODO: Maximum consecutive swaps / stalemate rule
 
 use serde::{Deserialize, Serialize};
+use time::Duration;
 
 use crate::{
     board::Board,
@@ -56,16 +57,16 @@ pub enum OvertimeRule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Timing {
     PerPlayer {
-        time_allowance: usize,
+        time_allowance: Duration,
         overtime_rule: OvertimeRule,
     },
     PerTurn {
         // TODO: Implement
-        time_allowance: usize,
+        time_allowance: Duration,
     },
     Periodic {
-        turn_delay: usize,
-        total_time_allowance: Option<usize>,
+        turn_delay: Duration,
+        total_time_allowance: Option<Duration>,
     },
     None,
 }
@@ -92,7 +93,7 @@ pub enum Swapping {
 pub enum SwapPenalty {
     Time {
         swap_threshold: usize,
-        penalties: Vec<usize>,
+        penalties: Vec<Duration>,
     },
     Disallowed {
         allowed_swaps: usize,
@@ -120,7 +121,7 @@ pub struct GameRules {
     pub tile_bag_behaviour: TileBagBehaviour,
     pub battle_rules: BattleRules,
     pub swapping: Swapping,
-    pub battle_delay: u64,
+    pub battle_delay: Duration,
     pub max_turns: Option<u64>,
     pub board_genesis: BoardGenesis,
 }
@@ -140,7 +141,7 @@ const RULE_GENERATIONS: [GameRules; 2] = [
         tile_bag_behaviour: TileBagBehaviour::Standard,
         battle_rules: BattleRules { length_delta: 2 },
         swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
-        battle_delay: 2,
+        battle_delay: Duration::seconds(2),
         max_turns: None,
         board_genesis: BoardGenesis::Passthrough,
     },
@@ -158,7 +159,7 @@ const RULE_GENERATIONS: [GameRules; 2] = [
         tile_bag_behaviour: TileBagBehaviour::Standard,
         battle_rules: BattleRules { length_delta: 2 },
         swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
-        battle_delay: 2,
+        battle_delay: Duration::seconds(2),
         max_turns: None,
         board_genesis: BoardGenesis::Passthrough,
     },
@@ -190,7 +191,7 @@ impl GameRules {
             visibility: Visibility::LandFog,
             truncation: Truncation::None,
             timing: Timing::PerPlayer {
-                time_allowance: 75 * 60,
+                time_allowance: Duration::minutes(90),
                 overtime_rule: OvertimeRule::Elimination,
             },
             hand_size: 7,
@@ -198,7 +199,7 @@ impl GameRules {
             tile_bag_behaviour: TileBagBehaviour::Standard,
             battle_rules: BattleRules { length_delta: 1 },
             swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
-            battle_delay: 2,
+            battle_delay: Duration::seconds(2),
             max_turns: Some(1050),
             board_genesis: BoardGenesis::Random(BoardParams {
                 land_layer: BoardNoiseParams {
@@ -240,7 +241,7 @@ impl GameRules {
             visibility: Visibility::Standard,
             truncation: Truncation::Root,
             timing: Timing::Periodic {
-                turn_delay: 5,
+                turn_delay: Duration::seconds(5),
                 total_time_allowance: None,
             },
             hand_size: 5,
@@ -248,7 +249,7 @@ impl GameRules {
             tile_bag_behaviour: TileBagBehaviour::Standard,
             battle_rules: BattleRules { length_delta: 2 },
             swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
-            battle_delay: 2,
+            battle_delay: Duration::seconds(2),
             max_turns: None,
             board_genesis: BoardGenesis::Random(BoardParams {
                 land_layer: BoardNoiseParams {

@@ -1,4 +1,4 @@
-use instant::Duration;
+use time::Duration;
 use truncate_core::{board::Direction, player::Hand};
 
 use eframe::egui::{self, CursorIcon, Id, Order, Sense};

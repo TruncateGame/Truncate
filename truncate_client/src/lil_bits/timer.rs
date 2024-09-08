@@ -9,7 +9,7 @@ use crate::utils::{depot::TruncateDepot, text::TextHelper, Darken, Diaphanize};
 pub struct TimerUI<'a> {
     player: &'a GamePlayerMessage,
     depot: &'a TruncateDepot,
-    time_adjustment: isize,
+    time_adjustment: Duration,
     time: Duration,
     friend: bool,
     active: bool,
@@ -22,7 +22,7 @@ impl<'a> TimerUI<'a> {
         depot: &'a TruncateDepot,
         time_changes: &'a Vec<TimeChange>,
     ) -> Self {
-        let time_adjustment: isize = time_changes
+        let time_adjustment: Duration = time_changes
             .iter()
             .filter(|change| change.player == player.index)
             .map(|change| change.time_change)
@@ -91,11 +91,11 @@ impl<'a> TimerUI<'a> {
     fn calculate_time(&mut self) -> String {
         match self.player.turn_starts_no_later_than {
             Some(next_turn) => {
-                let now = self.depot.timing.current_time.as_secs();
+                let now = self.depot.timing.current_time;
                 let elapsed = now.checked_sub(next_turn);
                 if let Some(elapsed) = elapsed {
                     if let Some(time) = self.player.time_remaining {
-                        self.time = time - Duration::seconds(elapsed as i64);
+                        self.time = time - elapsed;
                         format!("{}", TimerUI::human_time(self.time.whole_seconds(), false))
                     } else {
                         format!("")
@@ -112,7 +112,7 @@ impl<'a> TimerUI<'a> {
             None => {
                 if let Some(mut time) = self.player.time_remaining {
                     if let Some(paused_time_delta) = self.player.paused_turn_delta {
-                        time = time.saturating_add(Duration::seconds(paused_time_delta));
+                        time = time + paused_time_delta;
                     }
 
                     self.time = time;
@@ -141,7 +141,7 @@ impl<'a> TimerUI<'a> {
 
         match self.player.turn_starts_no_later_than {
             Some(next_turn) => {
-                let now = self.depot.timing.current_time.as_secs();
+                let now = self.depot.timing.current_time;
                 let elapsed = now.checked_sub(next_turn);
                 if elapsed.is_some() {
                     if self.friend {
@@ -150,7 +150,7 @@ impl<'a> TimerUI<'a> {
                         return format!("Playing");
                     }
                 } else {
-                    let starts_in = (next_turn.saturating_sub(now) as i64) * -1;
+                    let starts_in = next_turn.saturating_sub(now).whole_seconds();
                     return format!("Turn starts in {}", TimerUI::human_time(starts_in, true));
                 }
             }
@@ -183,8 +183,7 @@ impl<'a> TimerUI<'a> {
             (self.player.time_remaining, self.player.allotted_time)
         {
             if let Some(paused_time_delta) = self.player.paused_turn_delta {
-                time_remaining =
-                    time_remaining.saturating_add(Duration::seconds(paused_time_delta));
+                time_remaining = time_remaining.saturating_add(paused_time_delta);
             }
 
             // Paint time remaining sector of bar
@@ -212,8 +211,8 @@ impl<'a> TimerUI<'a> {
             }
 
             // If player has lost or gained special time this turn, render this as well
-            if self.time_adjustment != 0 {
-                let adj_duration = Duration::seconds(self.time_adjustment as i64).abs();
+            if !self.time_adjustment.is_zero() {
+                let adj_duration = self.time_adjustment.abs();
                 let adj_proportion = (adj_duration / allotted_time) as f32;
                 let penalty =
                     (remaining_time_proportion - adj_proportion) * inner_timer_rect.width();
@@ -263,9 +262,9 @@ impl<'a> TimerUI<'a> {
         }
 
         let text = if let Some(ends_at) = self.depot.timing.game_ends_at {
-            let now = self.depot.timing.current_time.as_secs();
+            let now = self.depot.timing.current_time;
             let remaining = ends_at.saturating_sub(now);
-            let remaining_label = TimerUI::human_time(remaining as i64, false);
+            let remaining_label = TimerUI::human_time(remaining.whole_seconds(), false);
             format!("{} : {}", remaining_label, &self.player.name)
         } else if let Some(turns_remaining) = self.depot.gameplay.remaining_turns {
             format!("{} : {}", turns_remaining, &self.player.name)

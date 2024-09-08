@@ -1,6 +1,6 @@
 use epaint::{emath::Align2, hex_color, vec2, Color32, TextureHandle};
-use instant::Duration;
 use interpolation::Ease;
+use time::Duration;
 use truncate_core::{game::Game, messages::DailyStats};
 
 mod daily_actions;
@@ -436,7 +436,7 @@ impl ResultModalUI {
                     ResultModalVariant::Unique(unique) => {
                         if unique
                             .share_copied_at
-                            .is_some_and(|s| depot.timing.current_time - s > Duration::from_secs(2))
+                            .is_some_and(|s| depot.timing.current_time - s > Duration::seconds(2))
                         {
                             unique.share_copied_at = None;
                         }

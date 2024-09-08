@@ -1,6 +1,6 @@
 use eframe::egui::{self, Layout, Sense};
 use epaint::{emath::Align, hex_color, vec2, TextureHandle};
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     board::Board,
     game::{Game, GAME_COLOR_BLUE, GAME_COLOR_PURPLE, GAME_COLOR_RED},

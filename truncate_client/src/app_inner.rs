@@ -1,6 +1,6 @@
 use eframe::egui;
 use epaint::vec2;
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     messages::{AssignedPlayerMessage, RoomCode, TruncateToken},
     npc::scoring::NPCPersonality,
@@ -72,7 +72,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
     // or until the player accepts to play offline.
     // TODO: Daily puzzle is still inaccessible offline, thus needs a similar check.
     if let (Some(waiting_for_login), None) = (&outer.started_login_at, &outer.logged_in_as) {
-        if (current_time - *waiting_for_login) < Duration::from_secs(5) {
+        if (current_time - *waiting_for_login) < Duration::seconds(5) {
             SplashUI::new(vec!["INITIALIZING".to_string()])
                 .animated(true)
                 .render(ui, &outer.theme, current_time, &outer.map_texture);

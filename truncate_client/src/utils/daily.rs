@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use chrono::Offset;
 use eframe::egui;
 use epaint::TextureHandle;
-use instant::Duration;
 use serde::{Deserialize, Serialize};
+use time::Duration;
 use truncate_core::{
     generation::{generate_board, get_game_verification, BoardSeed},
     npc::scoring::NPCPersonality,
@@ -42,7 +42,7 @@ pub struct NotesFile {
 
 pub fn get_puzzle_day(current_time: Duration) -> u32 {
     let seconds_offset = chrono::Local::now().offset().fix().local_minus_utc();
-    let local_seconds = current_time.as_secs() as i32 + seconds_offset;
+    let local_seconds = current_time.whole_seconds() as i32 + seconds_offset;
     let seed = (local_seconds / (60 * 60 * 24)) as u32;
     let day = seed - DAILY_PUZZLE_DAY_ZERO as u32;
 

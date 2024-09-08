@@ -3,7 +3,7 @@ use epaint::{
     emath::Align2, hex_color, pos2, textures::TextureOptions, vec2, Color32, ColorImage, Mesh,
     Rect, Shape, Stroke, TextureHandle,
 };
-use instant::Duration;
+use time::Duration;
 use truncate_core::messages::DailyStats;
 
 use crate::utils::text::TextHelper;
@@ -115,7 +115,7 @@ impl DailySplashGraph {
 
         // TODO: Once we have interactions, we'll need these date strings to be reactive
         let rightmost_date_string = "Today".to_string();
-        let today_date = time::OffsetDateTime::from_unix_timestamp(current_time.as_secs() as i64)
+        let today_date = time::OffsetDateTime::from_unix_timestamp(current_time.whole_seconds())
             .expect("Current time should be valid");
         let leftmost_date = today_date - time::Duration::days(days_played as i64);
         let leftmost_date_string = leftmost_date

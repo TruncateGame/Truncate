@@ -1,7 +1,7 @@
 use eframe::egui::{self};
 use epaint::{vec2, Color32, TextureHandle};
-use instant::Duration;
 use std::f32;
+use time::Duration;
 
 use crate::utils::{text::TextHelper, Darken, Theme};
 
@@ -71,7 +71,7 @@ impl SplashUI {
     ) -> SplashResponse {
         let dots = || {
             if self.animated {
-                let dot_count = (current_time.as_millis() / 500) % 4;
+                let dot_count = (current_time.whole_milliseconds() / 500) % 4;
                 let mut dots = vec!["."; dot_count as usize];
                 dots.extend(vec![" "; 4 - dot_count as usize]);
                 dots.join("")

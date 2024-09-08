@@ -1,7 +1,7 @@
 use eframe::egui::{self};
 use epaint::{vec2, Color32, TextureHandle};
-use instant::Duration;
 use std::f32;
+use time::Duration;
 
 use crate::utils::{text::TextHelper, Darken, Theme};
 
@@ -59,8 +59,8 @@ impl ChangelogSplashUI {
             .rect_filled(background, 0.0, Color32::BLACK.gamma_multiply(0.2));
 
         let max_text_width = (ui.available_width() - 48.0).min(600.0);
-        let text_pause_delay = Duration::from_millis(500);
-        let button_pause_delay = Duration::from_millis(350);
+        let text_pause_delay = Duration::milliseconds(500);
+        let button_pause_delay = Duration::milliseconds(350);
 
         let text_blocks = self
             .message
@@ -94,11 +94,12 @@ impl ChangelogSplashUI {
                     ui.add_space(20.0);
                 } else {
                     if current_time <= self.animate_from {
-                        ui.ctx()
-                            .request_repaint_after(self.animate_from - current_time);
+                        ui.ctx().request_repaint_after(
+                            (self.animate_from - current_time).try_into().unwrap(),
+                        );
                         return;
                     }
-                    let block_time = (current_time - self.animate_from).as_secs_f32();
+                    let block_time = (current_time - self.animate_from).as_seconds_f32();
                     let animated_text = block.get_partial_slice(block_time, ui);
 
                     match animated_text {
@@ -110,7 +111,8 @@ impl ChangelogSplashUI {
                             block.paint(Color32::WHITE, ui, false);
                             self.done_stages += 1;
                             self.animate_from = current_time + text_pause_delay;
-                            ui.ctx().request_repaint_after(text_pause_delay);
+                            ui.ctx()
+                                .request_repaint_after(text_pause_delay.try_into().unwrap());
                         }
                     }
 
@@ -132,8 +134,9 @@ impl ChangelogSplashUI {
                         }
                     } else {
                         if current_time <= self.animate_from {
-                            ui.ctx()
-                                .request_repaint_after(self.animate_from - current_time);
+                            ui.ctx().request_repaint_after(
+                                (self.animate_from - current_time).try_into().unwrap(),
+                            );
                             return;
                         }
 

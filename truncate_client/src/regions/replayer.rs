@@ -1,6 +1,6 @@
 use eframe::egui;
 use epaint::{vec2, Color32, TextureHandle};
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     game::Game,
     moves::Move,
@@ -63,7 +63,7 @@ impl ReplayerState {
         move_sequence: Vec<Move>,
         as_player: usize,
     ) -> Self {
-        game.rules.battle_delay = 0;
+        game.rules.battle_delay = time::Duration::ZERO;
 
         let player_colors: Vec<_> = game
             .players

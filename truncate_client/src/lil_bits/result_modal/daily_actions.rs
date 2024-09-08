@@ -1,6 +1,6 @@
 use eframe::egui::{self, Layout};
 use epaint::{emath::Align, TextureHandle};
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     game::Game,
     messages::{DailyAttempt, DailyStats},
@@ -111,14 +111,14 @@ impl DailyActions {
     fn reset_buttons(&mut self, depot: &TruncateDepot) {
         if self
             .share_copied_at
-            .is_some_and(|s| depot.timing.current_time - s > Duration::from_secs(2))
+            .is_some_and(|s| depot.timing.current_time - s > Duration::seconds(2))
         {
             self.share_copied_at = None;
         }
 
         if self
             .replay_copied_at
-            .is_some_and(|s| depot.timing.current_time - s > Duration::from_secs(2))
+            .is_some_and(|s| depot.timing.current_time - s > Duration::seconds(2))
         {
             self.replay_copied_at = None;
         }

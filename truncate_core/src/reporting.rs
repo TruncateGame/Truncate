@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt};
+use time::Duration;
 
 use crate::{
     board::{Board, Coordinate, Square},
@@ -131,15 +132,24 @@ impl fmt::Display for BattleReport {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TimeChange {
     pub player: usize,
-    pub time_change: isize,
+    pub time_change: Duration,
     pub reason: String,
 }
 
 impl fmt::Display for TimeChange {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.time_change {
-            0..=isize::MAX => write!(f, "Player gained {} seconds", self.time_change),
-            _ => write!(f, "Player lost {} seconds", self.time_change),
+        if self.time_change.is_positive() {
+            write!(
+                f,
+                "Player gained {} seconds",
+                self.time_change.as_seconds_f32()
+            )
+        } else {
+            write!(
+                f,
+                "Player lost {} seconds",
+                self.time_change.as_seconds_f32()
+            )
         }
     }
 }

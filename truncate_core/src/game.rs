@@ -42,19 +42,27 @@ pub struct Game {
     pub turn_count: u32,
     pub player_turn_count: Vec<u32>,
     pub recent_changes: Vec<Change>,
-    pub started_at: Option<u64>,
-    pub game_ends_at: Option<u64>,
+    pub started_at: Option<Duration>,
+    pub game_ends_at: Option<Duration>,
     pub next_player: Option<usize>,
     pub paused: bool,
     pub winner: Option<usize>,
 }
 
 // TODO: Move this to a helper file somewhere
-pub fn now() -> u64 {
-    instant::SystemTime::now()
+pub fn now() -> Duration {
+    // We have to go through the instant crate as
+    // most std time functions are not implemented
+    // in Rust's wasm targets.
+    // instant::SystemTime::now() conditionally uses
+    // a js function on wasm targets, and otherwise aliases
+    // to the std SystemTime type.
+    let instant_duration = instant::SystemTime::now()
         .duration_since(instant::SystemTime::UNIX_EPOCH)
-        .expect("Please don't play Truncate before 1970")
-        .as_secs()
+        .expect("Please don't play Truncate before 1970");
+
+    Duration::seconds(instant_duration.as_secs() as i64)
+        + Duration::microseconds(instant_duration.subsec_micros() as i64)
 }
 
 impl Game {
@@ -90,7 +98,7 @@ impl Game {
             rules::Timing::PerPlayer {
                 time_allowance,
                 overtime_rule: _,
-            } => Some(Duration::new(time_allowance as i64, 0)),
+            } => Some(time_allowance),
             rules::Timing::None => None,
             rules::Timing::Periodic { .. } => None,
             _ => unimplemented!(),
@@ -128,7 +136,7 @@ impl Game {
                 p.turn_starts_no_sooner_than = Some(now);
 
                 if let Some(total_time_allowance) = total_time_allowance {
-                    self.game_ends_at = Some(now + total_time_allowance as u64);
+                    self.game_ends_at = Some(now + total_time_allowance);
                 }
             }),
             _ => unimplemented!(),
@@ -144,7 +152,7 @@ impl Game {
             };
             if let Some(turn_starts) = player.turn_starts_no_later_than {
                 let elapsed_time = now().saturating_sub(turn_starts);
-                time_remaining -= Duration::seconds(elapsed_time as i64);
+                time_remaining -= elapsed_time;
             }
 
             if !time_remaining.is_positive() {
@@ -172,7 +180,7 @@ impl Game {
                 ..
             } => {
                 let elapsed = now() - started_at;
-                if elapsed as usize > *total_time_allowance {
+                if elapsed > *total_time_allowance {
                     return true;
                 }
             }
@@ -299,7 +307,7 @@ impl Game {
                 .or(player.turn_starts_no_sooner_than);
 
             if let Some(current_player_turn) = current_player_turn {
-                let turn_delta = current_player_turn as i64 - (now() as i64);
+                let turn_delta = current_player_turn - now();
 
                 player.paused_turn_delta = Some(turn_delta);
             }
@@ -318,10 +326,8 @@ impl Game {
                     let next_player = &mut self.players[next_player_index];
                     let paused_turn_delta = next_player.paused_turn_delta.unwrap_or_default();
 
-                    next_player.turn_starts_no_later_than =
-                        Some(now().saturating_add_signed(paused_turn_delta));
-                    next_player.turn_starts_no_sooner_than =
-                        Some(now().saturating_add_signed(paused_turn_delta));
+                    next_player.turn_starts_no_later_than = Some(now() + paused_turn_delta);
+                    next_player.turn_starts_no_sooner_than = Some(now() + paused_turn_delta);
 
                     next_player.paused_turn_delta = None;
                 }
@@ -330,10 +336,8 @@ impl Game {
                 for player in self.players.iter_mut() {
                     let paused_turn_delta = player.paused_turn_delta.unwrap_or_default();
 
-                    player.turn_starts_no_later_than =
-                        Some(now().saturating_add_signed(paused_turn_delta));
-                    player.turn_starts_no_sooner_than =
-                        Some(now().saturating_add_signed(paused_turn_delta));
+                    player.turn_starts_no_later_than = Some(now() + paused_turn_delta);
+                    player.turn_starts_no_sooner_than = Some(now() + paused_turn_delta);
 
                     player.paused_turn_delta = None;
                 }
@@ -443,7 +447,7 @@ impl Game {
                     .expect("Player played without the time running"),
             );
 
-            *time_remaining -= Duration::seconds(turn_duration as i64);
+            *time_remaining -= turn_duration;
 
             let overtime_rule = match &self.rules.timing {
                 rules::Timing::PerPlayer { overtime_rule, .. } => Some(overtime_rule),
@@ -479,8 +483,8 @@ impl Game {
 
         match &self.rules.timing {
             rules::Timing::Periodic { turn_delay, .. } => {
-                self.players[player].turn_starts_no_later_than = Some(now() + *turn_delay as u64);
-                self.players[player].turn_starts_no_sooner_than = Some(now() + *turn_delay as u64);
+                self.players[player].turn_starts_no_later_than = Some(now() + *turn_delay);
+                self.players[player].turn_starts_no_sooner_than = Some(now() + *turn_delay);
             }
             _ => {
                 self.players[player].turn_starts_no_later_than = None;
@@ -635,11 +639,10 @@ impl Game {
                             if let (Some(penalty), Some(time_remaining)) =
                                 (penalty, &mut player.time_remaining)
                             {
-                                let time_change = -(*penalty as isize);
-                                *time_remaining += Duration::seconds(time_change as i64);
+                                *time_remaining += *penalty;
                                 swap_result.push(Change::Time(TimeChange {
                                     player: player_index,
-                                    time_change,
+                                    time_change: *penalty,
                                     reason: format!(
                                         "Lost time for {player_swaps} consecutive swap{}",
                                         if player_swaps == 1 { "" } else { "s" }

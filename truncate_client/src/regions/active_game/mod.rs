@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use epaint::{vec2, Color32, TextureHandle};
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     board::{Board, Coordinate},
     generation::BoardSeed,
@@ -93,7 +93,7 @@ impl ActiveGame {
         map_texture: TextureHandle,
         theme: Theme,
         location: GameLocation,
-        game_ends_at: Option<u64>,
+        game_ends_at: Option<Duration>,
         remaining_turns: Option<u64>,
     ) -> Self {
         let player_colors = players

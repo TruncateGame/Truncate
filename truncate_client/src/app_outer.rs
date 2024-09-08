@@ -1,14 +1,13 @@
 use std::sync::OnceLock;
 
 use futures::channel::mpsc::{Receiver, Sender};
-use instant::Duration;
 use serde::{Deserialize, Serialize};
+use time::Duration;
 type R = Receiver<GameMessage>;
 type S = Sender<PlayerMessage>;
 
 use super::utils::Theme;
 use crate::app_inner::AppInnerStorage;
-use crate::utils::macros::current_time;
 use crate::{app_inner, utils::glyph_utils::Glypher};
 use eframe::egui::{self, Frame, Margin, TextureOptions};
 #[cfg(target_arch = "wasm32")]
@@ -16,6 +15,7 @@ use eframe::wasm_bindgen::JsValue;
 use epaint::{Color32, Stroke, TextureHandle};
 use truncate_core::{
     board::Board,
+    game,
     messages::{GameMessage, PlayerMessage},
     npc::scoring::NPCParams,
     player::Player,
@@ -265,7 +265,7 @@ impl OuterApplication {
         Self {
             name: player_name,
             theme,
-            started_login_at: Some(current_time!()),
+            started_login_at: Some(game::now()),
             logged_in_as: None,
             unread_changelogs: vec![],
             game_status,
@@ -381,7 +381,7 @@ impl eframe::App for OuterApplication {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::CentralPanel::default()
             .frame(Frame::default().fill(self.theme.water))
-            .show(ctx, |ui| app_inner::render(self, ui, current_time!()));
+            .show(ctx, |ui| app_inner::render(self, ui, game::now()));
 
         if self.log_frames {
             self.frames
@@ -392,9 +392,11 @@ impl eframe::App for OuterApplication {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread::JoinHandle<()> {
+    use truncate_core::game;
+
     std::thread::spawn(move || loop {
-        let current_time = current_time!();
-        let subsec = current_time.subsec_millis();
+        let current_time = game::now();
+        let subsec = current_time.subsec_milliseconds();
         // In-game animations should try align with the quarter-second tick,
         // so we try to repaint around that tick to keep them looking consistent.
         // (Adding an extra millisecond so we don't have to worry about `> 250` vs `>= 250`)
@@ -407,12 +409,12 @@ fn setup_repaint_truncate_animations(egui_ctx: egui::Context) -> std::thread::Jo
 #[cfg(target_arch = "wasm32")]
 async fn setup_repaint_truncate_animations_web(egui_ctx: egui::Context) {
     loop {
-        let current_time = current_time!();
-        let subsec = current_time.subsec_millis();
+        let current_time = game::now();
+        let subsec = current_time.subsec_milliseconds();
         // In-game animations should try align with the quarter-second tick,
         // so we try to repaint around that tick to keep them looking consistent.
         let next_tick = 250 - (subsec % 250);
-        gloo_timers::future::TimeoutFuture::new(next_tick).await;
+        gloo_timers::future::TimeoutFuture::new(next_tick as u32).await;
         egui_ctx.request_repaint();
     }
 }

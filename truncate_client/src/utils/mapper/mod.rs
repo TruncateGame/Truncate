@@ -2,7 +2,7 @@ use std::{collections::VecDeque, f32::consts::PI};
 
 use eframe::egui;
 use epaint::{emath::Rot2, hex_color, pos2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Direction, Square},
     reporting::Change,
@@ -338,7 +338,7 @@ impl MappedBoard {
         let mut tile_was_swapped = false;
         let mut tile_was_victor = false;
 
-        let base_destructo_time = (timing.current_time - timing.last_turn_change).as_secs_f32();
+        let base_destructo_time = (timing.current_time - timing.last_turn_change).as_seconds_f32();
         let mut destructo_time = base_destructo_time;
 
         if let Some(gameplay) = gameplay {
@@ -1050,7 +1050,7 @@ impl MappedBoard {
                             );
 
                             if wants_repaint {
-                                ctx.request_repaint_after(Duration::from_millis(16));
+                                ctx.request_repaint_after(instant::Duration::from_millis(16));
                                 self.generic_repaint_tick += 1;
                             }
                         },
@@ -1080,7 +1080,7 @@ impl MappedBoard {
                     );
 
                     if wants_repaint {
-                        ctx.request_repaint_after(Duration::from_millis(16));
+                        ctx.request_repaint_after(instant::Duration::from_millis(16));
                         self.generic_repaint_tick += 1;
                     }
                 });

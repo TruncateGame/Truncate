@@ -2,12 +2,12 @@ use std::collections::{HashMap, HashSet};
 
 use eframe::egui::{self, Align, Align2, CursorIcon, Layout, NumExt, Order, Sense};
 use epaint::{vec2, Color32, Rect, TextureHandle, Vec2};
-use instant::Duration;
 use serde::Deserialize;
+use time::Duration;
 use truncate_core::{
     bag::TileBag,
     board::{Board, Coordinate},
-    game::{Game, GAME_COLOR_BLUE, GAME_COLOR_RED},
+    game::{self, Game, GAME_COLOR_BLUE, GAME_COLOR_RED},
     judge::Judge,
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage},
     moves::Move,
@@ -220,7 +220,7 @@ impl TutorialState {
             stage_index: 0,
             change_stage_next_frame: ChangeStage::None,
             stage: stage_zero,
-            stage_changed_at: Duration::from_secs(0),
+            stage_changed_at: Duration::seconds(0),
             tutorial,
             event_dispatcher,
         }
@@ -253,12 +253,7 @@ impl TutorialState {
         let scenario = TutorialState::get_nth_scenario(tutorial, index);
 
         scenario.map(|(category, scenario)| {
-            let now = Some(
-                instant::SystemTime::now()
-                    .duration_since(instant::SystemTime::UNIX_EPOCH)
-                    .expect("Please don't play Truncate earlier than 1970")
-                    .as_secs(),
-            );
+            let now = Some(game::now());
 
             let mut board = Board::from_string(scenario.board.clone());
 
@@ -606,7 +601,7 @@ impl TutorialState {
                     };
 
                     let button_spacing = 70.0;
-                    let time_in_stage = (current_time - self.stage_changed_at).as_secs_f32();
+                    let time_in_stage = (current_time - self.stage_changed_at).as_seconds_f32();
 
                     match current_step {
                         Some(step) => match step {

@@ -1,5 +1,5 @@
 use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
-use instant::Duration;
+use time::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Direction, Square},
     messages::{AssignedPlayerMessage, PlayerMessage},

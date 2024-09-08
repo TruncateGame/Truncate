@@ -2,6 +2,7 @@ use eframe::egui;
 
 use truncate_core::{
     board::Board,
+    game,
     generation::{generate_board, BoardSeed},
     messages::LobbyPlayerMessage,
     npc::scoring::NPCPersonality,
@@ -14,7 +15,7 @@ use crate::{
         active_game::HeaderType, lobby::Lobby, single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
-    utils::{self, daily::get_puzzle_day, macros::current_time},
+    utils::{self, daily::get_puzzle_day},
 };
 
 use super::OuterApplication;
@@ -82,7 +83,7 @@ pub fn handle_launch_code(
             )));
         }
         "DAILY_PUZZLE" => {
-            let day = get_puzzle_day(current_time!());
+            let day = get_puzzle_day(game::now());
             if let Some(token) = &outer.logged_in_as {
                 send_to_server(PlayerMessage::LoadDailyPuzzle(token.clone(), day));
             }
@@ -90,7 +91,7 @@ pub fn handle_launch_code(
             return Some(GameStatus::PendingDaily);
         }
         "RANDOM_PUZZLE" => {
-            let seed = (current_time!().as_micros() % 243985691) as u32;
+            let seed = (game::now().whole_microseconds() % 243985691) as u32;
             let board_seed = BoardSeed::new(seed);
             let board = generate_board(board_seed.clone())
                 .expect("Common seeds can be reasonably expected to produce a board")
@@ -116,7 +117,7 @@ pub fn handle_launch_code(
             return Some(GameStatus::SinglePlayer(puzzle_game));
         }
         "RANDOM_EASY_PUZZLE" => {
-            let seed = (current_time!().as_micros() % 243985691) as u32;
+            let seed = (game::now().whole_microseconds() % 243985691) as u32;
             let board_seed = BoardSeed::new(seed);
             let board = generate_board(board_seed.clone())
                 .expect("Common seeds can be reasonably expected to produce a board")

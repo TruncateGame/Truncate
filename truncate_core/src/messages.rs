@@ -145,8 +145,8 @@ pub struct GamePlayerMessage {
     pub color: (u8, u8, u8),
     pub allotted_time: Option<Duration>,
     pub time_remaining: Option<Duration>,
-    pub turn_starts_no_later_than: Option<u64>,
-    pub paused_turn_delta: Option<i64>,
+    pub turn_starts_no_later_than: Option<Duration>,
+    pub paused_turn_delta: Option<Duration>,
 }
 
 impl GamePlayerMessage {
@@ -172,7 +172,7 @@ pub struct GameStateMessage {
     pub board: Board,
     pub hand: Hand,
     pub changes: Vec<Change>,
-    pub game_ends_at: Option<u64>,
+    pub game_ends_at: Option<Duration>,
     pub remaining_turns: Option<u64>,
     pub paused: bool,
 }

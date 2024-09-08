@@ -9,6 +9,7 @@ edition = "2021"
 rayon = "1.8"
 truncate_core = { path = "../truncate_core" }
 instant = "0.1"
+time = { version = "0.3", features = ["serde"] }
 chrono = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
