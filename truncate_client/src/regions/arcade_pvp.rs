@@ -105,7 +105,7 @@ impl ArcadeState {
                 .map(|p| GamePlayerMessage::new(p, &game))
                 .collect(),
             vec![0, 1],
-            Some(0),
+            None,
             game.board.clone(),
             vec![game.players[0].hand.clone(), game.players[1].hand.clone()],
             map_texture.clone(),

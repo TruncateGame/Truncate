@@ -281,9 +281,12 @@ impl ActiveGame {
                                 || self.depot.gameplay.next_player_number.is_some_and(|n| {
                                     n == self.depot.gameplay.player_numbers[for_player_index]
                                 });
+                            let waiting = self.players[for_player_index]
+                                .turn_starts_no_later_than
+                                .is_some_and(|t| t > self.depot.timing.current_time);
 
                             HandUI::new(&mut self.hands[for_player_index], for_player_index)
-                                .active(active_hand)
+                                .active(active_hand && !waiting)
                                 .render(
                                     &mut hand_ui,
                                     &mut self.depot,
