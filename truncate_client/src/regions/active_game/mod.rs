@@ -58,6 +58,7 @@ pub enum HeaderType {
 pub enum GameLocation {
     Tutorial,
     Local,
+    Arcade,
     Online,
 }
 

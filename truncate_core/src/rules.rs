@@ -241,10 +241,10 @@ impl GameRules {
             visibility: Visibility::Standard,
             truncation: Truncation::Root,
             timing: Timing::Periodic {
-                turn_delay: Duration::seconds(5),
+                turn_delay: Duration::seconds(1),
                 total_time_allowance: None,
             },
-            hand_size: 5,
+            hand_size: 4,
             tile_generation: 1,
             tile_bag_behaviour: TileBagBehaviour::Standard,
             battle_rules: BattleRules { length_delta: 2 },

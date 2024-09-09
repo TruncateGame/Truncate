@@ -442,7 +442,7 @@ impl SinglePlayerState {
                 self.hide_splash = false;
             } else {
                 match self.active_game.location {
-                    GameLocation::Tutorial | GameLocation::Local => {
+                    GameLocation::Tutorial | GameLocation::Local | GameLocation::Arcade => {
                         self.splash = Some(ResultModalUI::new_resigning(
                             &mut ui,
                             "Start again?".to_string(),

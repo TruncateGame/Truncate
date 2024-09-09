@@ -110,7 +110,7 @@ impl ArcadeState {
             vec![game.players[0].hand.clone(), game.players[1].hand.clone()],
             map_texture.clone(),
             theme.clone(),
-            GameLocation::Local,
+            GameLocation::Arcade,
             None,
             None,
         );
@@ -186,6 +186,7 @@ impl ArcadeState {
         match self.game.play_turn(next_move, Some(dict), Some(dict), None) {
             Ok(winner) => {
                 self.winner = winner;
+                self.active_game.depot.gameplay.winner = self.winner;
 
                 let room_code = self.active_game.depot.gameplay.room_code.clone();
                 let state_message = GameStateMessage {
@@ -210,10 +211,89 @@ impl ArcadeState {
                 return Ok(());
             }
             Err(msg) => {
-                self.active_game.depot.interactions[player_index].error_msg = Some(msg);
+                // Suppress errors in Arcade mode until we have a place on the screen for them
+                // self.active_game.depot.interactions[player_index].error_msg = Some(msg);
                 return Err(());
             }
         }
+    }
+
+    pub fn reset(
+        &mut self,
+        current_time: Duration,
+        ctx: &egui::Context,
+        backchannel: &Backchannel,
+    ) {
+        let next_seed = (current_time.whole_microseconds() % 243985691) as u32;
+
+        let next_board_seed = match &self.game.rules.board_genesis {
+            truncate_core::rules::BoardGenesis::Passthrough => None,
+            truncate_core::rules::BoardGenesis::SpecificBoard(_) => unimplemented!(),
+            truncate_core::rules::BoardGenesis::Classic(_, _) => unimplemented!(),
+            truncate_core::rules::BoardGenesis::Random(params) => {
+                Some(truncate_core::generation::BoardSeed {
+                    generation: 9999,
+                    seed: next_seed,
+                    day: None,
+                    params: params.clone(),
+                    current_iteration: 0,
+                    width_resize_state: None,
+                    height_resize_state: None,
+                    water_level: 0.5,
+                    max_attempts: 10000,
+                })
+            }
+        };
+
+        self.reset_to(next_board_seed, ctx, backchannel);
+    }
+
+    pub fn reset_to(
+        &mut self,
+        seed: Option<BoardSeed>,
+        ctx: &egui::Context,
+        backchannel: &Backchannel,
+    ) {
+        let seed = seed.unwrap();
+
+        let mut game = Game::new(9, 9, Some(seed.seed as u64), GameRules::arcade());
+
+        game.add_player("P1".into());
+        game.add_player("P2".into());
+
+        let mut rand_board = truncate_core::generation::generate_board(seed.clone())
+            .expect("Standard seeds should always generate a board")
+            .board;
+        rand_board.cache_special_squares();
+
+        game.board = rand_board;
+        game.start();
+
+        let mut active_game = ActiveGame::new(
+            ctx,
+            "ARCADE_PVP".into(),
+            Some(seed),
+            None,
+            game.players
+                .iter()
+                .map(|p| GamePlayerMessage::new(p, &game))
+                .collect(),
+            vec![0, 1],
+            None,
+            game.board.clone(),
+            vec![game.players[0].hand.clone(), game.players[1].hand.clone()],
+            self.map_texture.clone(),
+            self.theme.clone(),
+            GameLocation::Arcade,
+            None,
+            None,
+        );
+        active_game.depot.ui_state.game_header = HeaderType::None;
+
+        self.game = game;
+        self.active_game = active_game;
+        self.turns = 0;
+        self.winner = None;
     }
 
     pub fn render(
@@ -224,6 +304,12 @@ impl ArcadeState {
         backchannel: &Backchannel,
         logged_in_as: &Option<String>,
     ) -> Vec<PlayerMessage> {
+        if self.winner.is_some() {
+            if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                self.reset(current_time, ui.ctx(), backchannel);
+            }
+        }
+
         let mut msgs_to_server = vec![];
 
         let (rect, _) = ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
@@ -267,6 +353,7 @@ impl ArcadeState {
 
         if let Some(next_move) = next_move {
             if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel, true) {
+                // Skipping battle word fetching while arcade mode doesn't have the ability to show definitions
                 // if !battle_words.is_empty() {
                 //     msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
                 // }
