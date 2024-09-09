@@ -91,12 +91,12 @@ struct MapState {
     prev_board: Board,
     prev_tick: u64,
     prev_winner: Option<usize>,
-    prev_selected_tile: Option<Vec<(Coordinate, Square)>>,
-    prev_selected_square: Option<Vec<(Coordinate, Square)>>,
-    prev_tile_hover: Option<Vec<(Coordinate, Square)>>,
-    prev_dragging: Option<Vec<(Coordinate, Square)>>,
-    prev_occupied_hover: Option<Vec<HoveredRegion>>,
-    prev_square_hover: Option<Vec<HoveredRegion>>,
+    prev_selected_tile: Option<Vec<Option<(Coordinate, Square)>>>,
+    prev_selected_square: Option<Vec<Option<(Coordinate, Square)>>>,
+    prev_tile_hover: Option<Vec<Option<(Coordinate, Square)>>>,
+    prev_dragging: Option<Vec<Option<(Coordinate, Square)>>>,
+    prev_occupied_hover: Option<Vec<Option<HoveredRegion>>>,
+    prev_square_hover: Option<Vec<Option<HoveredRegion>>>,
     prev_changes: Vec<Change>,
     generic_tick: u32,
 }
@@ -718,13 +718,18 @@ impl MappedBoard {
                         2 => tex::tiles::quad::SELECTION_SPINNER_3,
                         3.. => tex::tiles::quad::SELECTION_SPINNER_4,
                     };
-                    let color = gameplay
+                    let mut color = gameplay
                         .map(|g| {
                             let player_number = g.player_numbers[interaction_index];
                             player_colors.get(player_number as usize)
                         })
                         .flatten()
                         .unwrap_or(&Color32::GOLD);
+
+                    if !interactions.current_turn {
+                        color = &Color32::GRAY;
+                    }
+
                     layers = layers.merge_above_self(TexLayers {
                         terrain: None,
                         structures: None,
@@ -893,33 +898,23 @@ impl MappedBoard {
         board: &Board,
     ) {
         let mut tick_eq = true;
-        let selected_tile = interactions
-            .map(|i| i.iter().map(|i| i.selected_tile_on_board).collect())
-            .flatten();
-        let selected_square = interactions
-            .map(|i| i.iter().map(|i| i.selected_square_on_board).collect())
-            .flatten();
-        let tile_hover = interactions
-            .map(|i| i.iter().map(|i| i.hovered_tile_on_board).collect())
-            .flatten();
-        let dragging = interactions
-            .map(|i| i.iter().map(|i| i.dragging_tile_on_board).collect())
-            .flatten();
-        let occupied_hover = interactions
-            .map(|i| {
-                i.iter()
-                    .map(|i| i.hovered_occupied_square_on_board)
-                    .collect()
-            })
-            .flatten();
-        let square_hover = interactions
-            .map(|i| {
-                i.iter()
-                    .map(|i| i.hovered_unoccupied_square_on_board)
-                    .clone()
-                    .collect()
-            })
-            .flatten();
+        let selected_tile =
+            interactions.map(|i| i.iter().map(|i| i.selected_tile_on_board).collect());
+        let selected_square =
+            interactions.map(|i| i.iter().map(|i| i.selected_square_on_board).collect());
+        let tile_hover = interactions.map(|i| i.iter().map(|i| i.hovered_tile_on_board).collect());
+        let dragging = interactions.map(|i| i.iter().map(|i| i.dragging_tile_on_board).collect());
+        let occupied_hover = interactions.map(|i| {
+            i.iter()
+                .map(|i| i.hovered_occupied_square_on_board)
+                .collect()
+        });
+        let square_hover = interactions.map(|i| {
+            i.iter()
+                .map(|i| i.hovered_unoccupied_square_on_board)
+                .clone()
+                .collect()
+        });
         let generic_repaint_tick = self.generic_repaint_tick;
         let winner = gameplay.map(|g| g.winner).flatten();
 

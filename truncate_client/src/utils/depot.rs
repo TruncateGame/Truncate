@@ -23,6 +23,7 @@ pub struct HoveredRegion {
 
 #[derive(Clone, Default)]
 pub struct InteractionDepot {
+    pub current_turn: bool,
     pub view_only: bool,
     pub error_msg: Option<String>,
     pub released_tile: Option<(usize, Coordinate)>,

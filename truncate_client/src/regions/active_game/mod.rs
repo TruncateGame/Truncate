@@ -189,6 +189,22 @@ impl ActiveGame {
             self.depot.aesthetics.qs_tick = cur_tick;
         }
 
+        for (for_player_index, player) in self.players.iter().enumerate() {
+            let active_hand = self.depot.gameplay.next_player_number.is_none()
+                || self
+                    .depot
+                    .gameplay
+                    .next_player_number
+                    .is_some_and(|n| n == player.index as u64);
+            let waiting = player
+                .turn_starts_no_later_than
+                .is_some_and(|t| t > self.depot.timing.current_time);
+
+            if let Some(turn) = self.depot.interactions.get_mut(for_player_index) {
+                turn.current_turn = active_hand && !waiting;
+            }
+        }
+
         let kb_msg = control_devices::keyboard::handle_input(
             ui.ctx(),
             &self.board,

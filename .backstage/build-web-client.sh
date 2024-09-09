@@ -23,7 +23,7 @@ BUILD=release
 
 # Get the output directory (in the workspace it is in another location)
 # TARGET=`cargo metadata --format-version=1 | jq --raw-output .target_directory`
-TARGET="truncate_client/target"
+TARGET="target"
 
 echo "Generating JS bindings for wasm…"
 TARGET_NAME="${CRATE_NAME}.wasm"
