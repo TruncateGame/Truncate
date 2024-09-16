@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use futures::channel::mpsc::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -8,6 +8,7 @@ type S = Sender<PlayerMessage>;
 
 use super::utils::Theme;
 use crate::app_inner::AppInnerStorage;
+use crate::utils::control_devices::Switchboard;
 use crate::{app_inner, utils::glyph_utils::Glypher};
 use eframe::egui::{self, Frame, Margin, TextureOptions};
 #[cfg(target_arch = "wasm32")]
@@ -116,6 +117,7 @@ pub struct OuterApplication {
     pub log_frames: bool,
     pub frames: debug::FrameHistory,
     pub event_dispatcher: EventDispatcher,
+    pub switchboard: Arc<Mutex<Switchboard>>,
 }
 
 impl OuterApplication {
@@ -282,6 +284,7 @@ impl OuterApplication {
                 tx_player,
                 sent: vec![],
             },
+            switchboard: Arc::new(Mutex::new(Switchboard::load())),
         }
     }
 }

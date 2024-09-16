@@ -248,13 +248,21 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
         outer.tx_player.try_send(msg).unwrap();
     };
 
+    let mut switchboard = outer.switchboard.lock().unwrap();
+
     match &mut outer.game_status {
         GameStatus::None(_, _) => { /* handled above */ }
         GameStatus::Generator(generator) => {
-            generator.render(ui, &outer.theme, current_time);
+            generator.render(ui, &mut switchboard, &outer.theme, current_time);
         }
         GameStatus::Tutorial(tutorial) => {
-            for msg in tutorial.render(ui, outer.map_texture.clone(), &outer.theme, current_time) {
+            for msg in tutorial.render(
+                ui,
+                outer.map_texture.clone(),
+                &outer.theme,
+                &mut switchboard,
+                current_time,
+            ) {
                 send(msg);
             }
         }
@@ -296,6 +304,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 &outer.theme,
                 current_time,
                 &outer.backchannel,
+                &mut switchboard,
                 &outer.logged_in_as,
             ) {
                 send(msg);
@@ -308,6 +317,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 &outer.theme,
                 current_time,
                 &outer.backchannel,
+                &mut switchboard,
                 &outer.logged_in_as,
             ) {
                 send(msg);
@@ -379,18 +389,23 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             }
         }
         GameStatus::Active(game) => {
-            if let Some(msg) = game.render(ui, current_time, None) {
+            for msg in game.render(ui, current_time, &mut switchboard, None) {
                 // Online games can only play as the logged in player
                 debug_assert!(msg.player_id.is_none());
                 send(msg.message);
             }
         }
         GameStatus::Concluded(game, _winner) => {
-            if let Some(AssignedPlayerMessage {
-                message: PlayerMessage::Rematch,
-                ..
-            }) = game.render(ui, current_time, None)
-            {
+            let msgs = game.render(ui, current_time, &mut switchboard, None);
+            if msgs.iter().any(|m| {
+                matches!(
+                    m,
+                    AssignedPlayerMessage {
+                        message: PlayerMessage::Rematch,
+                        ..
+                    }
+                )
+            }) {
                 send(PlayerMessage::Rematch);
             }
         }

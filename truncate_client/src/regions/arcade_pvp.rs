@@ -21,6 +21,7 @@ use crate::{
         ResultModalUI,
     },
     utils::{
+        control_devices::Switchboard,
         game_evals::{client_best_move, forget, get_main_dict, remember},
         text::TextHelper,
         Theme,
@@ -302,6 +303,7 @@ impl ArcadeState {
         theme: &Theme,
         current_time: Duration,
         backchannel: &Backchannel,
+        switchboard: &mut Switchboard,
         logged_in_as: &Option<String>,
     ) -> Vec<PlayerMessage> {
         if self.winner.is_some() {
@@ -316,47 +318,51 @@ impl ArcadeState {
         let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
         // Standard game helper
-        let mut next_msg = self
-            .active_game
-            .render(&mut ui, current_time, Some(&self.game));
+        let mut msgs =
+            self.active_game
+                .render(&mut ui, current_time, switchboard, Some(&self.game));
 
-        if let Some(AssignedPlayerMessage {
-            message: PlayerMessage::RequestDefinitions(words),
-            ..
-        }) = &next_msg
-        {
-            msgs_to_server.push(PlayerMessage::RequestDefinitions(words.clone()));
+        for msg in &msgs {
+            if let AssignedPlayerMessage {
+                message: PlayerMessage::RequestDefinitions(words),
+                ..
+            } = msg
+            {
+                msgs_to_server.push(PlayerMessage::RequestDefinitions(words.clone()));
+            }
         }
 
         if self.winner.is_some() {
             return msgs_to_server;
         }
 
-        let next_move = match next_msg {
-            Some(AssignedPlayerMessage {
-                message: PlayerMessage::Place(position, tile),
-                player_id,
-            }) => Some(Move::Place {
-                player: player_id.unwrap_or_default() as _,
-                tile,
-                position,
-            }),
-            Some(AssignedPlayerMessage {
-                message: PlayerMessage::Swap(from, to),
-                player_id,
-            }) => Some(Move::Swap {
-                player: player_id.unwrap_or_default() as _,
-                positions: [from, to],
-            }),
-            _ => None,
-        };
+        for msg in msgs {
+            let next_move = match msg {
+                AssignedPlayerMessage {
+                    message: PlayerMessage::Place(position, tile),
+                    player_id,
+                } => Some(Move::Place {
+                    player: player_id.unwrap_or_default() as _,
+                    tile,
+                    position,
+                }),
+                AssignedPlayerMessage {
+                    message: PlayerMessage::Swap(from, to),
+                    player_id,
+                } => Some(Move::Swap {
+                    player: player_id.unwrap_or_default() as _,
+                    positions: [from, to],
+                }),
+                _ => None,
+            };
 
-        if let Some(next_move) = next_move {
-            if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel, true) {
-                // Skipping battle word fetching while arcade mode doesn't have the ability to show definitions
-                // if !battle_words.is_empty() {
-                //     msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
-                // }
+            if let Some(next_move) = next_move {
+                if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel, true) {
+                    // Skipping battle word fetching while arcade mode doesn't have the ability to show definitions
+                    // if !battle_words.is_empty() {
+                    //     msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
+                    // }
+                }
             }
         }
 

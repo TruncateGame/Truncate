@@ -22,7 +22,7 @@ use hashbrown::HashMap;
 use crate::{
     lil_bits::{BoardUI, DictionaryUI},
     utils::{
-        control_devices,
+        control_devices::{self, Switchboard},
         depot::{
             AestheticDepot, AudioDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot,
             TimingDepot, TruncateDepot, UIStateDepot,
@@ -34,7 +34,7 @@ use crate::{
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::utils::control_devices::gamepad::GamepadInput;
+use crate::utils::control_devices::gamepad::GamepadManager;
 
 mod actions_menu;
 mod control_strip;
@@ -76,8 +76,6 @@ pub struct ActiveGame {
     pub turn_reports: Vec<Vec<Change>>,
     pub location: GameLocation,
     pub dictionary_ui: Option<DictionaryUI>,
-    #[cfg(not(target_arch = "wasm32"))]
-    pub gamepad_input: Arc<Mutex<GamepadInput>>,
 }
 
 impl ActiveGame {
@@ -171,8 +169,6 @@ impl ActiveGame {
             turn_reports: vec![],
             location,
             dictionary_ui: None,
-            #[cfg(not(target_arch = "wasm32"))]
-            gamepad_input: Arc::new(Mutex::new(GamepadInput::new())),
         }
     }
 }
@@ -182,9 +178,11 @@ impl ActiveGame {
         &mut self,
         ui: &mut egui::Ui,
         current_time: Duration,
+        switchboard: &mut Switchboard,
         game_ref: Option<&truncate_core::game::Game>,
-    ) -> Option<AssignedPlayerMessage> {
+    ) -> Vec<AssignedPlayerMessage> {
         self.depot.timing.current_time = current_time;
+        let mut msgs = vec![];
         let cur_tick = get_qs_tick(current_time);
         if cur_tick > self.depot.aesthetics.qs_tick {
             self.depot.aesthetics.qs_tick = cur_tick;
@@ -206,20 +204,7 @@ impl ActiveGame {
             }
         }
 
-        let kb_msg = control_devices::keyboard::handle_input(
-            ui.ctx(),
-            &self.board,
-            &self.hands,
-            &mut self.depot,
-        );
-
-        #[cfg(not(target_arch = "wasm32"))]
-        let pad_msg = self.gamepad_input.lock().unwrap().handle_input(
-            ui.ctx(),
-            &self.board,
-            &self.hands,
-            &mut self.depot,
-        );
+        msgs.extend(switchboard.operate(ui.ctx(), &self.board, &self.hands, &mut self.depot));
 
         if !self.depot.ui_state.is_touch {
             // If we ever receive any touch event,
@@ -323,10 +308,11 @@ impl ActiveGame {
             .or(dict_player_message.map(|message| wrap(message)))
             .or(sidebar_player_message.map(|message| wrap(message)));
 
-        #[cfg(not(target_arch = "wasm32"))]
-        return kb_msg.or(pad_msg).or(player_message);
-        #[cfg(target_arch = "wasm32")]
-        kb_msg.or(player_message)
+        if let Some(player_message) = player_message {
+            msgs.push(player_message);
+        }
+
+        msgs
     }
 
     pub fn apply_new_timing(&mut self, state_message: GameStateMessage) {

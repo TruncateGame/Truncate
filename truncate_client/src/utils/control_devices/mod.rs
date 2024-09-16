@@ -1,10 +1,483 @@
-use truncate_core::board::{Board, Coordinate, Square};
+use std::{
+    collections::{BTreeMap, HashMap},
+    f32::consts::PI,
+};
+
+use eframe::egui::Key;
+use gilrs::GamepadId;
+use serde::{Deserialize, Serialize};
+use truncate_core::{
+    board::{Board, Coordinate, Square},
+    messages::{AssignedPlayerMessage, PlayerMessage},
+    player::Hand,
+};
 
 use super::depot::TruncateDepot;
+
+const KEYBOARD_MAPPINGS_FILE: &'static str = "truncate_kb_mappings.json";
+const GAMEPAD_MAPPINGS_FILE: &'static str = "truncate_gp_mappings.json";
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod gamepad;
 pub mod keyboard;
+
+pub struct Switchboard {
+    keyboard_mappings: KeyboardMappings,
+    #[cfg(not(target_arch = "wasm32"))]
+    gamepad_mappings: GamepadMappings,
+    #[cfg(not(target_arch = "wasm32"))]
+    identified_gamepad_mappings: IdentifiedGamepadMappings,
+    #[cfg(not(target_arch = "wasm32"))]
+    gamepad: gamepad::GamepadManager,
+}
+
+impl Switchboard {
+    pub fn load() -> Self {
+        Self {
+            keyboard_mappings: load_from_disk(KEYBOARD_MAPPINGS_FILE).unwrap_or_default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            gamepad_mappings: load_from_disk(GAMEPAD_MAPPINGS_FILE).unwrap_or_default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            identified_gamepad_mappings: IdentifiedGamepadMappings::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            gamepad: gamepad::GamepadManager::new(),
+        }
+    }
+
+    pub fn store(&self) {
+        save_to_disk(&self.keyboard_mappings, KEYBOARD_MAPPINGS_FILE);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        save_to_disk(&self.gamepad_mappings, GAMEPAD_MAPPINGS_FILE);
+    }
+
+    pub fn operate(
+        &mut self,
+        ctx: &egui::Context,
+        board: &Board,
+        hands: &Vec<Hand>,
+        depot: &mut TruncateDepot,
+    ) -> Vec<AssignedPlayerMessage> {
+        let mut msgs = vec![];
+
+        let actions = keyboard::get_kb_action(ctx, &self.keyboard_mappings);
+
+        msgs.extend(
+            actions
+                .into_iter()
+                .flat_map(|a| self.handle_action(a, ctx, board, hands, depot)),
+        );
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let actions = self.gamepad.get_gp_action(
+                ctx,
+                &self.gamepad_mappings,
+                &mut self.identified_gamepad_mappings,
+            );
+
+            msgs.extend(
+                actions
+                    .into_iter()
+                    .flat_map(|a| self.handle_action(a, ctx, board, hands, depot)),
+            );
+        }
+
+        msgs
+    }
+
+    fn handle_action(
+        &mut self,
+        action: PlayerInputAction,
+        ctx: &egui::Context,
+        board: &Board,
+        hands: &Vec<Hand>,
+        depot: &mut TruncateDepot,
+    ) -> Vec<AssignedPlayerMessage> {
+        let PlayerInputAction {
+            action,
+            start,
+            player,
+        } = action;
+        let mut msgs = vec![];
+
+        if depot.ui_state.dictionary_open {
+            if !matches!(action, InputAction::Dictionary | InputAction::Escape) {
+                return msgs;
+            }
+        }
+
+        match (action, start) {
+            (InputAction::MoveUp, true) => {
+                move_selection(depot, player, [0, -1], board);
+                ctx.request_repaint();
+            }
+            (InputAction::MoveUp, false) => {
+                println!("todo: handle fast movement")
+            }
+            (InputAction::MoveRight, true) => {
+                move_selection(depot, player, [1, 0], board);
+                ctx.request_repaint();
+            }
+            (InputAction::MoveRight, false) => {
+                println!("todo: handle fast movement")
+            }
+            (InputAction::MoveDown, true) => {
+                move_selection(depot, player, [0, 1], board);
+                ctx.request_repaint();
+            }
+            (InputAction::MoveDown, false) => {
+                println!("todo: handle fast movement")
+            }
+            (InputAction::MoveLeft, true) => {
+                move_selection(depot, player, [-1, 0], board);
+                ctx.request_repaint();
+            }
+            (InputAction::MoveLeft, false) => {
+                println!("todo: handle fast movement")
+            }
+            (InputAction::SelectSwap, true) => {
+                let current_selection = ensure_board_selection(depot, player, board);
+                if matches!(board.get(current_selection), Ok(Square::Occupied { .. })) {
+                    if let Some((already_selected_tile, _)) =
+                        depot.interactions[player].selected_tile_on_board
+                    {
+                        if already_selected_tile == current_selection {
+                            depot.interactions[player].selected_tile_on_board = None;
+                        } else {
+                            msgs.push(AssignedPlayerMessage {
+                                message: PlayerMessage::Swap(
+                                    already_selected_tile,
+                                    current_selection,
+                                ),
+                                player_id: Some(player as _),
+                            });
+                            depot.interactions[player].selected_tile_on_board = None;
+                        }
+                    } else {
+                        depot.interactions[player].selected_tile_on_board =
+                            Some((current_selection, board.get(current_selection).unwrap()));
+                    }
+                } else {
+                    depot.interactions[player].selected_tile_on_board = None;
+                }
+            }
+            (InputAction::Dictionary, true) => {
+                if !depot.ui_state.dictionary_open {
+                    depot.ui_state.dictionary_open = true;
+                    depot.ui_state.dictionary_opened_by_keyboard = true;
+                } else if depot.ui_state.dictionary_opened_by_keyboard {
+                    depot.ui_state.dictionary_open = false;
+                    depot.ui_state.dictionary_opened_by_keyboard = false;
+                }
+            }
+            (InputAction::Escape, true) => {
+                if depot.ui_state.dictionary_open {
+                    depot.ui_state.dictionary_open = false;
+                    depot.ui_state.dictionary_focused = false;
+                }
+            }
+            (InputAction::Slot1, true) => {
+                if let Some(msg) = tile_play_message(player, 0, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (InputAction::Slot2, true) => {
+                if let Some(msg) = tile_play_message(player, 1, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (InputAction::Slot3, true) => {
+                if let Some(msg) = tile_play_message(player, 2, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (InputAction::Slot4, true) => {
+                if let Some(msg) = tile_play_message(player, 3, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (InputAction::Slot5, true) => {
+                if let Some(msg) = tile_play_message(player, 4, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (InputAction::Slot6, true) => {
+                if let Some(msg) = tile_play_message(player, 5, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (InputAction::Slot7, true) => {
+                if let Some(msg) = tile_play_message(player, 6, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (InputAction::Slot8, true) => {
+                if let Some(msg) = tile_play_message(player, 7, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (InputAction::Slot9, true) => {
+                if let Some(msg) = tile_play_message(player, 8, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (InputAction::Slot10, true) => {
+                if let Some(msg) = tile_play_message(player, 9, board, hands, depot) {
+                    msgs.push(msg);
+                }
+            }
+            (_, false) => { /* no-op for most buttons on release */ }
+        }
+
+        msgs
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct KeyboardMappings {
+    keyboard: Vec<BTreeMap<Key, InputAction>>,
+}
+
+impl Default for KeyboardMappings {
+    fn default() -> Self {
+        Self {
+            keyboard: Vec::from([
+                BTreeMap::from([
+                    (Key::ArrowUp, InputAction::MoveUp),
+                    (Key::ArrowRight, InputAction::MoveRight),
+                    (Key::ArrowDown, InputAction::MoveDown),
+                    (Key::ArrowLeft, InputAction::MoveLeft),
+                    (Key::Period, InputAction::SelectSwap),
+                    (Key::Slash, InputAction::Dictionary),
+                    (Key::Num7, InputAction::Slot1),
+                    (Key::Num8, InputAction::Slot2),
+                    (Key::Num9, InputAction::Slot3),
+                    (Key::Num0, InputAction::Slot4),
+                ]),
+                BTreeMap::from([
+                    (Key::W, InputAction::MoveUp),
+                    (Key::D, InputAction::MoveRight),
+                    (Key::S, InputAction::MoveDown),
+                    (Key::A, InputAction::MoveLeft),
+                    (Key::Q, InputAction::SelectSwap),
+                    (Key::E, InputAction::Dictionary),
+                    (Key::Num1, InputAction::Slot1),
+                    (Key::Num2, InputAction::Slot2),
+                    (Key::Num3, InputAction::Slot3),
+                    (Key::Num4, InputAction::Slot4),
+                ]),
+            ]),
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Serialize, Deserialize, Debug)]
+struct GamepadMappings {
+    gamepad: Vec<BTreeMap<gamepad::GamepadEvent, InputAction>>,
+}
+
+impl Default for GamepadMappings {
+    fn default() -> Self {
+        use gamepad::GamepadEvent::*;
+        Self {
+            gamepad: Vec::from([
+                BTreeMap::from([
+                    (
+                        Axis {
+                            a: gilrs::Axis::LeftStickX,
+                            positive: false,
+                        },
+                        InputAction::MoveUp,
+                    ),
+                    (
+                        Axis {
+                            a: gilrs::Axis::LeftStickY,
+                            positive: true,
+                        },
+                        InputAction::MoveRight,
+                    ),
+                    (
+                        Axis {
+                            a: gilrs::Axis::LeftStickX,
+                            positive: true,
+                        },
+                        InputAction::MoveDown,
+                    ),
+                    (
+                        Axis {
+                            a: gilrs::Axis::LeftStickY,
+                            positive: false,
+                        },
+                        InputAction::MoveLeft,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::RightThumb,
+                        },
+                        InputAction::SelectSwap,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::North,
+                        },
+                        InputAction::Slot1,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::East,
+                        },
+                        InputAction::Slot2,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::South,
+                        },
+                        InputAction::Slot3,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::West,
+                        },
+                        InputAction::Slot4,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::LeftTrigger,
+                        },
+                        InputAction::Slot5,
+                    ),
+                ]),
+                BTreeMap::from([
+                    (
+                        Axis {
+                            a: gilrs::Axis::LeftStickX,
+                            positive: false,
+                        },
+                        InputAction::MoveUp,
+                    ),
+                    (
+                        Axis {
+                            a: gilrs::Axis::LeftStickY,
+                            positive: true,
+                        },
+                        InputAction::MoveRight,
+                    ),
+                    (
+                        Axis {
+                            a: gilrs::Axis::LeftStickX,
+                            positive: true,
+                        },
+                        InputAction::MoveDown,
+                    ),
+                    (
+                        Axis {
+                            a: gilrs::Axis::LeftStickY,
+                            positive: false,
+                        },
+                        InputAction::MoveLeft,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::LeftThumb,
+                        },
+                        InputAction::SelectSwap,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::North,
+                        },
+                        InputAction::Slot1,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::East,
+                        },
+                        InputAction::Slot2,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::South,
+                        },
+                        InputAction::Slot3,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::West,
+                        },
+                        InputAction::Slot4,
+                    ),
+                    (
+                        Button {
+                            b: gilrs::Button::LeftTrigger,
+                        },
+                        InputAction::Slot5,
+                    ),
+                ]),
+            ]),
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Default)]
+struct IdentifiedGamepadMappings {
+    gamepad: HashMap<usize, HashMap<(GamepadId, gamepad::GamepadEvent), InputAction>>,
+}
+
+struct PlayerInputAction {
+    action: InputAction,
+    start: bool,
+    player: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
+enum InputAction {
+    MoveUp,
+    MoveRight,
+    MoveDown,
+    MoveLeft,
+    SelectSwap,
+    Dictionary,
+    Escape,
+    Slot1,
+    Slot2,
+    Slot3,
+    Slot4,
+    Slot5,
+    Slot6,
+    Slot7,
+    Slot8,
+    Slot9,
+    Slot10,
+}
+
+fn save_to_disk<M: Serialize>(mappings: &M, filename: &str) {
+    let mapping_file = serde_json::to_string(mappings).expect("mappings should be serializable");
+    std::fs::write(filename, mapping_file).expect("mappings file should be writeable");
+}
+
+fn load_from_disk<M: for<'de> Deserialize<'de>>(filename: &str) -> Option<M> {
+    std::fs::read_to_string(filename)
+        .ok()
+        .map(|f| serde_json::from_str::<M>(&f).expect("if mappings file exists it should be valid"))
+}
+
+fn tile_play_message(
+    player: usize,
+    slot: usize,
+    board: &Board,
+    hands: &Vec<Hand>,
+    depot: &mut TruncateDepot,
+) -> Option<AssignedPlayerMessage> {
+    let current_selection = ensure_board_selection(depot, player, board);
+
+    hands[player].get(slot).map(|char| AssignedPlayerMessage {
+        message: PlayerMessage::Place(current_selection, *char),
+        player_id: Some(player as _),
+    })
+}
 
 fn ensure_board_selection(
     depot: &mut TruncateDepot,

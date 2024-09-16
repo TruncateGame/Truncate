@@ -502,7 +502,7 @@ impl MappedBoard {
                             (true, true) => Some(aesthetics.theme.ring_selected_hovered),
                             (true, false) => Some(aesthetics.theme.ring_selected),
                             (false, true) => Some(aesthetics.theme.ring_hovered),
-                            (false, false) => None,
+                            (false, false) => highlight,
                         };
 
                         // Preview click-to-swap from this tile to another

@@ -19,6 +19,7 @@ use crate::{
         ResultModalUI,
     },
     utils::{
+        control_devices::Switchboard,
         game_evals::{client_best_move, forget, get_main_dict, remember},
         text::TextHelper,
         Theme,
@@ -388,6 +389,7 @@ impl SinglePlayerState {
         theme: &Theme,
         current_time: Duration,
         backchannel: &Backchannel,
+        switchboard: &mut Switchboard,
         logged_in_as: &Option<String>,
     ) -> Vec<PlayerMessage> {
         let mut msgs_to_server = vec![];
@@ -429,15 +431,20 @@ impl SinglePlayerState {
         let mut ui = ui.child_ui(rect, Layout::top_down(Align::LEFT));
 
         // Standard game helper
-        let mut next_msg = self
+        let mut msgs: Vec<_> = self
             .active_game
-            .render(&mut ui, current_time, Some(&self.game))
-            .map(|msg| (human_player, msg.message)); // Intentionally ignoring msg.player_id here
+            .render(&mut ui, current_time, switchboard, Some(&self.game))
+            .into_iter()
+            .map(|msg| (human_player, msg.message))
+            .collect(); // Intentionally ignoring msg.player_id here
 
-        if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
+        let rematch = msgs.iter().any(|m| matches!(m.1, PlayerMessage::Rematch));
+        let resign = msgs.iter().any(|m| matches!(m.1, PlayerMessage::Resign));
+
+        if rematch {
             self.reset(current_time, ui.ctx(), backchannel);
             return msgs_to_server;
-        } else if matches!(next_msg, Some((_, PlayerMessage::Resign))) {
+        } else if resign {
             if self.hide_splash {
                 self.hide_splash = false;
             } else {
@@ -456,8 +463,12 @@ impl SinglePlayerState {
                     }
                 }
             }
-        } else if let Some((_, PlayerMessage::RequestDefinitions(words))) = &next_msg {
-            msgs_to_server.push(PlayerMessage::RequestDefinitions(words.clone()));
+        } else {
+            for msg in &msgs {
+                if let (_, PlayerMessage::RequestDefinitions(words)) = msg {
+                    msgs_to_server.push(PlayerMessage::RequestDefinitions(words.clone()));
+                }
+            }
         }
 
         if let Some(splash) = &mut self.splash {
@@ -617,7 +628,7 @@ impl SinglePlayerState {
                             if let Some(msg_response) = msg_response {
                                 let player_msg: PlayerMessage = serde_json::from_str(&msg_response)
                                     .expect("Backchannel should be sending valid JSON");
-                                next_msg = Some((npc_player, player_msg));
+                                msgs.push((npc_player, player_msg));
                                 self.waiting_on_backchannel = None;
                             }
                         }
@@ -642,61 +653,63 @@ impl SinglePlayerState {
 
                     if turn_starts_no_later_than <= current_time {
                         let best = client_best_move(&evaluation_game, &self.npc.params);
-                        next_msg = Some((npc_player, best));
+                        msgs.push((npc_player, best));
                     }
                 }
             }
         }
 
-        let next_move = match next_msg {
-            Some((player, PlayerMessage::Place(position, tile))) => Some(Move::Place {
-                player,
-                tile,
-                position,
-            }),
-            Some((player, PlayerMessage::Swap(from, to))) => Some(Move::Swap {
-                player,
-                positions: [from, to],
-            }),
-            _ => None,
-        };
+        for msg in msgs {
+            let next_move = match msg {
+                (player, PlayerMessage::Place(position, tile)) => Some(Move::Place {
+                    player,
+                    tile,
+                    position,
+                }),
+                (player, PlayerMessage::Swap(from, to)) => Some(Move::Swap {
+                    player,
+                    positions: [from, to],
+                }),
+                _ => None,
+            };
 
-        if let Some(next_move) = next_move {
-            if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel, true) {
-                self.move_sequence.push(next_move.clone());
+            if let Some(next_move) = next_move {
+                if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel, true) {
+                    self.move_sequence.push(next_move.clone());
 
-                if let Some(seed) = &self.active_game.depot.board_info.board_seed {
-                    if seed.day.is_some() {
-                        if let Some(token) = logged_in_as {
-                            msgs_to_server.push(PlayerMessage::PersistPuzzleMoves {
-                                player_token: token.clone(),
-                                day: seed.day.unwrap(),
-                                human_player: human_player as u32,
-                                moves: self.move_sequence.clone(),
-                                won: self.winner == Some(human_player),
-                            });
+                    if let Some(seed) = &self.active_game.depot.board_info.board_seed {
+                        if seed.day.is_some() {
+                            if let Some(token) = logged_in_as {
+                                msgs_to_server.push(PlayerMessage::PersistPuzzleMoves {
+                                    player_token: token.clone(),
+                                    day: seed.day.unwrap(),
+                                    human_player: human_player as u32,
+                                    moves: self.move_sequence.clone(),
+                                    won: self.winner == Some(human_player),
+                                });
 
-                            // Ensure we never pull up an old splash screen without this move
-                            self.daily_stats = None;
+                                // Ensure we never pull up an old splash screen without this move
+                                self.daily_stats = None;
+                            }
                         }
                     }
-                }
-                let delay =
-                    Duration::milliseconds(if battle_words.is_empty() { 650 } else { 2000 });
+                    let delay =
+                        Duration::milliseconds(if battle_words.is_empty() { 650 } else { 2000 });
 
-                if !battle_words.is_empty() {
-                    msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
-                }
+                    if !battle_words.is_empty() {
+                        msgs_to_server.push(PlayerMessage::RequestDefinitions(battle_words));
+                    }
 
-                self.next_response_at = Some(
-                    self.active_game
-                        .depot
-                        .timing
-                        .current_time
-                        .saturating_add(delay),
-                );
-                ui.ctx()
-                    .request_repaint_after(delay.checked_div(2).unwrap().try_into().unwrap());
+                    self.next_response_at = Some(
+                        self.active_game
+                            .depot
+                            .timing
+                            .current_time
+                            .saturating_add(delay),
+                    );
+                    ui.ctx()
+                        .request_repaint_after(delay.checked_div(2).unwrap().try_into().unwrap());
+                }
             }
         }
 

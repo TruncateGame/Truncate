@@ -11,7 +11,7 @@ use truncate_core::{
     rules::{BoardGenesis, GameRules},
 };
 
-use crate::utils::{Lighten, Theme};
+use crate::utils::{control_devices::Switchboard, Lighten, Theme};
 
 use super::active_game::{ActiveGame, GameLocation, HeaderType};
 
@@ -65,7 +65,13 @@ impl GeneratorState {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, _theme: &Theme, current_time: Duration) {
+    pub fn render(
+        &mut self,
+        ui: &mut egui::Ui,
+        switchboard: &mut Switchboard,
+        _theme: &Theme,
+        current_time: Duration,
+    ) {
         let max_attempts = 500;
         let mut changed = self.generation_result.is_none();
 
@@ -387,6 +393,7 @@ impl GeneratorState {
         );
         let mut game_ui = ui.child_ui(game_rect, Layout::left_to_right(Align::TOP));
 
-        self.active_game.render(&mut game_ui, current_time, None);
+        self.active_game
+            .render(&mut game_ui, current_time, switchboard, None);
     }
 }

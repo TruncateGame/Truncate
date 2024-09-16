@@ -19,6 +19,7 @@ use truncate_core::{
 use crate::{
     app_outer::EventDispatcher,
     utils::{
+        control_devices::Switchboard,
         game_evals::get_main_dict,
         includes::{Scenario, ScenarioStep, Tutorial},
         tex::{render_tex_quad, tiles},
@@ -121,10 +122,17 @@ impl TutorialStage {
         }
     }
 
-    fn render_game(&mut self, ui: &mut egui::Ui, current_time: Duration) -> Option<PlayerMessage> {
+    fn render_game(
+        &mut self,
+        switchboard: &mut Switchboard,
+        ui: &mut egui::Ui,
+        current_time: Duration,
+    ) -> Vec<PlayerMessage> {
         self.active_game
-            .render(ui, current_time, None)
-            .map(|m| m.message) // ignoring tutorial message player_ids
+            .render(ui, current_time, switchboard, None)
+            .iter()
+            .map(|m| m.message.clone()) // ignoring tutorial message player_ids
+            .collect()
     }
 
     fn get_dialog_position(&self) -> Option<Rect> {
@@ -373,6 +381,7 @@ impl TutorialState {
         ui: &mut egui::Ui,
         map_texture: TextureHandle,
         theme: &Theme,
+        switchboard: &mut Switchboard,
         current_time: Duration,
     ) -> Vec<PlayerMessage> {
         let mut msgs_to_server = vec![];
@@ -544,7 +553,8 @@ impl TutorialState {
         let mut pending_event = None;
 
         // Standard game helper
-        if let Some(msg) = current_stage.render_game(ui, current_time) {
+        let msgs = current_stage.render_game(switchboard, ui, current_time);
+        for msg in msgs {
             if let PlayerMessage::RequestDefinitions(words) = &msg {
                 msgs_to_server.push(PlayerMessage::RequestDefinitions(words.clone()));
             }
