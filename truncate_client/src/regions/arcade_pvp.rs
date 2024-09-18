@@ -306,10 +306,8 @@ impl ArcadeState {
         switchboard: &mut Switchboard,
         logged_in_as: &Option<String>,
     ) -> Vec<PlayerMessage> {
-        if self.winner.is_some() {
-            if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                self.reset(current_time, ui.ctx(), backchannel);
-            }
+        if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+            self.reset(current_time, ui.ctx(), backchannel);
         }
 
         let mut msgs_to_server = vec![];
