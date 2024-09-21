@@ -217,19 +217,21 @@ impl<'a> EditorUI<'a> {
 
                                 if let Some(drag_action) = drag_action {
                                     match (drag_action, &square) {
-                                        (EditorDrag::MakeLand, Square::Water | Square::Dock(_)) => {
-                                            modify_pos = Some((coord, Square::Land))
-                                        }
+                                        (
+                                            EditorDrag::MakeLand,
+                                            Square::Water { .. } | Square::Dock { .. },
+                                        ) => modify_pos = Some((coord, Square::land())),
                                         (
                                             EditorDrag::RemoveLand,
-                                            Square::Land | Square::Town { .. },
-                                        ) => modify_pos = Some((coord, Square::Water)),
+                                            Square::Land { .. } | Square::Town { .. },
+                                        ) => modify_pos = Some((coord, Square::water())),
                                         (EditorDrag::MakeTown(player), _) => {
                                             modify_pos = Some((
                                                 coord,
                                                 Square::Town {
                                                     player,
                                                     defeated: false,
+                                                    foggy: false,
                                                 },
                                             ))
                                         }
@@ -239,16 +241,18 @@ impl<'a> EditorUI<'a> {
                                                 player: sq_player, ..
                                             },
                                         ) if player == *sq_player => {
-                                            modify_pos = Some((coord, Square::Land))
+                                            modify_pos = Some((coord, Square::land()))
                                         }
                                         (EditorDrag::MakeDock(player), _) => {
-                                            modify_pos = Some((coord, Square::Dock(player)))
+                                            modify_pos = Some((coord, Square::dock(player)))
                                         }
                                         (
                                             EditorDrag::RemoveDock(player),
-                                            Square::Dock(sq_player),
+                                            Square::Dock {
+                                                player: sq_player, ..
+                                            },
                                         ) if player == *sq_player => {
-                                            modify_pos = Some((coord, Square::Water))
+                                            modify_pos = Some((coord, Square::water()))
                                         }
                                         (_, _) => {}
                                     }
@@ -263,14 +267,14 @@ impl<'a> EditorUI<'a> {
                                             "With no board editing set we should not be editing"
                                         ),
                                             BoardEditingMode::Land => match square {
-                                                Square::Water | Square::Dock(_) => {
+                                                Square::Water { .. } | Square::Dock { .. } => {
                                                     EditorDrag::MakeLand
                                                 }
-                                                Square::Land
+                                                Square::Land { .. }
                                                 | Square::Town { .. }
-                                                | Square::Obelisk => EditorDrag::RemoveLand,
+                                                | Square::Obelisk { .. } => EditorDrag::RemoveLand,
                                                 Square::Occupied { .. } => unreachable!(),
-                                                Square::Fog => unreachable!(),
+                                                Square::Fog { .. } => unreachable!(),
                                             },
                                             BoardEditingMode::Town(editing_player) => {
                                                 match square {
@@ -284,9 +288,9 @@ impl<'a> EditorUI<'a> {
                                             }
                                             BoardEditingMode::Dock(editing_player) => {
                                                 match square {
-                                                    Square::Dock(sq_player)
-                                                        if sq_player == editing_player =>
-                                                    {
+                                                    Square::Dock {
+                                                        player: sq_player, ..
+                                                    } if sq_player == editing_player => {
                                                         EditorDrag::RemoveDock(*editing_player)
                                                     }
                                                     _ => EditorDrag::MakeDock(*editing_player),
@@ -317,45 +321,44 @@ impl<'a> EditorUI<'a> {
 
                 // TODO: Put board mirroring behind a flag
                 {
-                    let board_mid = (
-                        self.board.width() as isize / 2,
-                        self.board.height() as isize / 2,
-                    );
-                    let recip_x = board_mid.0 - (coord.x as isize - board_mid.0);
-                    let recip_y = board_mid.1 - (coord.y as isize - board_mid.1);
+                    let recip = self.board.reciprocal_coordinate(coord);
 
                     // TODO: Player mirroring won't work for >2 players
                     let mirrored_state = match new_state {
-                        Square::Water | Square::Land | Square::Obelisk => new_state,
+                        Square::Water { .. } | Square::Land { .. } | Square::Obelisk { .. } => {
+                            new_state
+                        }
                         Square::Town { player: p, .. } => {
                             if p == 0 {
                                 Square::Town {
                                     player: 1,
                                     defeated: false,
+                                    foggy: false,
                                 }
                             } else {
                                 Square::Town {
                                     player: 0,
                                     defeated: false,
+                                    foggy: false,
                                 }
                             }
                         }
-                        Square::Dock(p) => {
+                        Square::Dock { player: p, .. } => {
                             if p == 0 {
-                                Square::Dock(1)
+                                Square::dock(1)
                             } else {
-                                Square::Dock(0)
+                                Square::dock(0)
                             }
                         }
                         Square::Occupied { .. } => {
                             unreachable!("Board editor should not contain occupied tiles")
                         }
-                        Square::Fog => {
+                        Square::Fog { .. } => {
                             unreachable!("Board editor should not contain fog")
                         }
                     };
 
-                    self.board.squares[recip_y as usize][recip_x as usize] = mirrored_state;
+                    self.board.squares[recip.y][recip.x] = mirrored_state;
                 }
 
                 edited = true;

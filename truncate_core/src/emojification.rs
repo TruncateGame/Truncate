@@ -21,12 +21,12 @@ impl Board {
         let tile = if player_won { SQ_YELLOW } else { SQ_PURPLE };
 
         let emoji_for_square = |sq: &Square| match sq {
-            crate::board::Square::Water => water,
-            crate::board::Square::Fog => water,
-            crate::board::Square::Land => land,
+            crate::board::Square::Water { .. } => water,
+            crate::board::Square::Fog { .. } => water,
+            crate::board::Square::Land { .. } => land,
             crate::board::Square::Town { .. } => land,
-            crate::board::Square::Obelisk => SQ_WHITE_IN_BLACK,
-            crate::board::Square::Dock(_) => water,
+            crate::board::Square::Obelisk { .. } => SQ_WHITE_IN_BLACK,
+            crate::board::Square::Dock { .. } => water,
             crate::board::Square::Occupied { player, .. } if won == Some(*player) => tile,
             crate::board::Square::Occupied { .. } => land,
         };
