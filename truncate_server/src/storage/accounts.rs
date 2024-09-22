@@ -192,7 +192,8 @@ async fn get_unreads(
             UnreadChangelog,
             "SELECT changelog_id
             FROM changelogs
-            WHERE changelog_timestamp > $1",
+            WHERE changelog_timestamp > $1
+            ORDER BY changelog_timestamp ASC",
             last_known
         )
         .fetch_all(pool)
@@ -201,7 +202,8 @@ async fn get_unreads(
         sqlx::query_as!(
             UnreadChangelog,
             "SELECT changelog_id
-             FROM changelogs",
+             FROM changelogs
+             ORDER BY changelog_timestamp ASC",
         )
         .fetch_all(pool)
         .await

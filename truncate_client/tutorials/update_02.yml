@@ -1,0 +1,33 @@
+splash_message:
+  - YOZA
+
+changelog_name: HELP
+
+priority: High
+
+effective_day: 237
+
+rules:
+  - category: TODO
+    scenarios:
+      - name: "TODO"
+        description: "TODO"
+        board: |-
+          ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+          ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
+          ~~ __ __ __ __ __ __ __ __ __ ~~
+          |0 Q0 F0 R0 V0 A0 X0 __ __ __ ~~
+          ~~ A0 __ __ __ __ E0 __ __ __ ~~
+          ~~ H0 G0 U0 O0 N0 __ __ __ __ ~~
+          ~~ __ __ __ __ __ F1 O1 U1 R1 |1
+          ~~ ~~ ~~ ~~ __ __ __ __ __ #1 ~~
+          ~~ ~~ ~~ __ __ __ __ __ __ __ ~~
+          ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~
+          ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+        player_hand: TODO
+        computer_hand: R
+
+        steps:
+          - message: |-
+              TODO

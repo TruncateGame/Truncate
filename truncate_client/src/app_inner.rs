@@ -120,6 +120,10 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 continue;
             };
 
+            if tutorial.effective_day > outer.launched_at_day {
+                continue;
+            }
+
             if tutorial.priority == Some(ChangePriority::High) {
                 outer.event_dispatcher.event(format!("interrupt_{unread}"));
                 let changelog_ui = outer.inner_storage.changelog_ui.get_or_insert_with(|| {

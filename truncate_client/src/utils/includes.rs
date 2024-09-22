@@ -63,9 +63,16 @@ pub fn example_game() -> Tutorial {
 }
 
 pub fn changelogs() -> HashMap<&'static str, Tutorial> {
-    HashMap::from([(
-        "update_01",
-        serde_yaml::from_slice(include_bytes!("../../tutorials/update_01.yml"))
-            .expect("Tutorial should match Tutorial format"),
-    )])
+    HashMap::from([
+        (
+            "update_01",
+            serde_yaml::from_slice(include_bytes!("../../tutorials/update_01.yml"))
+                .expect("Tutorial should match Tutorial format"),
+        ),
+        (
+            "update_02",
+            serde_yaml::from_slice(include_bytes!("../../tutorials/update_02.yml"))
+                .expect("Tutorial should match Tutorial format"),
+        ),
+    ])
 }
