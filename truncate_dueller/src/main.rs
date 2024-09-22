@@ -197,6 +197,7 @@ fn verify_note(seed: &u32, note: &SeedNote) -> bool {
 
 fn main() {
     let quantity = 10;
+    let rule_generation = 2;
 
     let mut current_notes = load_file();
     ensure_dicts();
@@ -211,7 +212,7 @@ fn main() {
         panic!("One or more seeds failed to verify");
     }
 
-    let latest_rules_generation = GameRules::latest().0;
+    let latest_rules_generation = GameRules::latest(Some(rule_generation)).0;
 
     let args = std::env::args().collect::<Vec<_>>();
 

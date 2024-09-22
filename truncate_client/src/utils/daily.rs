@@ -92,7 +92,7 @@ pub fn get_playable_daily_puzzle(
     let rules_generation = info
         .as_ref()
         .map(|(_, note)| note.rules_generation)
-        .unwrap_or_else(|| GameRules::latest().0);
+        .unwrap_or_else(|| GameRules::latest(Some(day)).0);
 
     let mut game_state = SinglePlayerState::new(
         "daily".to_string(),

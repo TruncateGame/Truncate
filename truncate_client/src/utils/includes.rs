@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Tutorial {
+    pub effective_day: u32,
     pub rules: Vec<Category>,
     pub splash_message: Option<Vec<String>>,
     pub changelog_name: Option<String>,

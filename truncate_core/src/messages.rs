@@ -33,7 +33,10 @@ pub struct NoncedPlayerMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PlayerMessage {
     Ping,
-    NewGame(String),
+    NewGame {
+        player_name: String,
+        effective_day: u32,
+    },
     JoinGame(RoomCode, String, Option<TruncateToken>),
     RejoinGame(TruncateToken),
     EditBoard(Board),
@@ -79,7 +82,13 @@ impl fmt::Display for PlayerMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             PlayerMessage::Ping => write!(f, "Player ping"),
-            PlayerMessage::NewGame(name) => write!(f, "Create a new game as player {}", name),
+            PlayerMessage::NewGame {
+                player_name,
+                effective_day,
+            } => write!(
+                f,
+                "Create a new game as player {player_name} at day {effective_day}"
+            ),
             PlayerMessage::JoinGame(room, name, token) => {
                 write!(
                     f,

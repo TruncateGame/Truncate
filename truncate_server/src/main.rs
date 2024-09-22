@@ -217,9 +217,12 @@ async fn handle_player_msg(
 
     match parsed_msg {
         Ping => { /* TODO: Track pings and notify the game when players disconnect */ }
-        NewGame(mut player_name) => {
+        NewGame {
+            mut player_name,
+            effective_day,
+        } => {
             let new_game_id = server_state.game_code();
-            let mut game = GameManager::new(new_game_id.clone());
+            let mut game = GameManager::new(new_game_id.clone(), effective_day);
 
             let connection_player = connection_info_mutex.lock().player.clone();
             _ = create_event(&server_state, &"new_game".into(), connection_player).await;
@@ -577,7 +580,8 @@ async fn handle_player_msg(
                     return player_err("Cannot rematch unfinished game".into());
                 } else {
                     let new_game_id = server_state.game_code();
-                    let mut new_game = GameManager::new(new_game_id.clone());
+                    let mut new_game =
+                        GameManager::new(new_game_id.clone(), existing_game_manager.effective_day);
 
                     let mut next_board = existing_game_manager.core_game.board.clone();
                     next_board.reset();

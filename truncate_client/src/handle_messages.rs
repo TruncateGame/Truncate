@@ -281,7 +281,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 let rules_generation = info
                     .as_ref()
                     .map(|(_, i)| i.rules_generation)
-                    .unwrap_or_else(|| GameRules::latest().0);
+                    .unwrap_or_else(|| GameRules::latest(Some(outer.launched_at_day)).0);
 
                 let mut game = game::Game::new(
                     9,

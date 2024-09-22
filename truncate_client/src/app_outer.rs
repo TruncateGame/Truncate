@@ -8,6 +8,7 @@ type S = Sender<PlayerMessage>;
 
 use super::utils::Theme;
 use crate::app_inner::AppInnerStorage;
+use crate::utils::daily::get_puzzle_day;
 use crate::utils::macros::current_time;
 use crate::{app_inner, utils::glyph_utils::Glypher};
 use eframe::egui::{self, Frame, Margin, TextureOptions};
@@ -102,6 +103,7 @@ pub static GLYPHER: OnceLock<Glypher> = OnceLock::new();
 pub struct OuterApplication {
     pub name: String,
     pub theme: Theme,
+    pub launched_at_day: u32,
     pub started_login_at: Option<Duration>,
     pub logged_in_as: Option<String>,
     pub unread_changelogs: Vec<String>,
@@ -262,9 +264,12 @@ impl OuterApplication {
             cc.egui_ctx.clone(),
         ));
 
+        let launched_at_day = get_puzzle_day(current_time!());
+
         Self {
             name: player_name,
             theme,
+            launched_at_day,
             started_login_at: Some(current_time!()),
             logged_in_as: None,
             unread_changelogs: vec![],

@@ -29,17 +29,19 @@ pub struct GameManager {
     pub game_id: String,
     pub players: Vec<Player>,
     pub core_game: Game,
+    pub effective_day: u32,
 }
 
 impl GameManager {
-    pub fn new(game_id: String) -> Self {
-        let game = Game::new(9, 11, None, GameRules::latest().1);
+    pub fn new(game_id: String, effective_day: u32) -> Self {
+        let game = Game::new(9, 11, None, GameRules::latest(Some(effective_day)).1);
         // let game = Game::new(9, 11, None, GameRules::tuesday());
 
         Self {
             game_id,
             players: vec![],
             core_game: game,
+            effective_day,
         }
     }
 
