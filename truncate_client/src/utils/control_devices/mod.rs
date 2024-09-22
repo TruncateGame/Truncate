@@ -6,6 +6,7 @@ use std::{
 use eframe::egui::Key;
 use gilrs::GamepadId;
 use serde::{Deserialize, Serialize};
+use time::Duration;
 use truncate_core::{
     board::{Board, Coordinate, Square},
     messages::{AssignedPlayerMessage, PlayerMessage},
@@ -17,11 +18,23 @@ use super::depot::TruncateDepot;
 const KEYBOARD_MAPPINGS_FILE: &'static str = "truncate_kb_mappings.json";
 const GAMEPAD_MAPPINGS_FILE: &'static str = "truncate_gp_mappings.json";
 
+const INITIAL_MOVE_DELAY: Duration = Duration::milliseconds(300);
+const MOVE_REPEAT_DELAY: Duration = Duration::milliseconds(50);
+
 #[cfg(not(target_arch = "wasm32"))]
 pub mod gamepad;
 pub mod keyboard;
 
+type Movement = [isize; 2];
+type MovementMap = HashMap<(Movement, usize), MovingDirection>;
+
+struct MovingDirection {
+    started_move: Duration,
+    ticked_moves: usize,
+}
+
 pub struct Switchboard {
+    moving: MovementMap,
     keyboard_mappings: KeyboardMappings,
     #[cfg(not(target_arch = "wasm32"))]
     gamepad_mappings: GamepadMappings,
@@ -34,6 +47,7 @@ pub struct Switchboard {
 impl Switchboard {
     pub fn load() -> Self {
         Self {
+            moving: HashMap::new(),
             keyboard_mappings: load_from_disk(KEYBOARD_MAPPINGS_FILE).unwrap_or_default(),
             #[cfg(not(target_arch = "wasm32"))]
             gamepad_mappings: load_from_disk(GAMEPAD_MAPPINGS_FILE).unwrap_or_default(),
@@ -83,6 +97,12 @@ impl Switchboard {
             );
         }
 
+        self.handle_repeat(board, depot);
+
+        if !self.moving.is_empty() {
+            ctx.request_repaint();
+        }
+
         msgs
     }
 
@@ -107,34 +127,65 @@ impl Switchboard {
             }
         }
 
+        let moving = |other_movements: &MovementMap, depot: &TruncateDepot| {
+            let now = depot.timing.current_time;
+            let earliest_start = other_movements
+                .values()
+                .min_by_key(|m| m.started_move)
+                .map(|m| m.started_move)
+                .unwrap_or(now);
+
+            // If we are already fast-moving, we don't want an additional
+            // axis to have to wait for its delay. e.g. while moving up
+            // if you start a rightward input we go straight to fast-moving right.
+            let remapped_start = if now - earliest_start > INITIAL_MOVE_DELAY {
+                now - INITIAL_MOVE_DELAY
+            } else {
+                earliest_start
+            };
+
+            MovingDirection {
+                started_move: remapped_start,
+                ticked_moves: 0,
+            }
+        };
+
         match (action, start) {
             (InputAction::MoveUp, true) => {
                 move_selection(depot, player, [0, -1], board);
+                self.moving
+                    .insert(([0, -1], player), moving(&self.moving, depot));
                 ctx.request_repaint();
             }
             (InputAction::MoveUp, false) => {
-                println!("todo: handle fast movement")
+                self.moving.remove(&([0, -1], player));
             }
             (InputAction::MoveRight, true) => {
                 move_selection(depot, player, [1, 0], board);
+                self.moving
+                    .insert(([1, 0], player), moving(&self.moving, depot));
                 ctx.request_repaint();
             }
             (InputAction::MoveRight, false) => {
-                println!("todo: handle fast movement")
+                self.moving.remove(&([1, 0], player));
             }
             (InputAction::MoveDown, true) => {
                 move_selection(depot, player, [0, 1], board);
+                self.moving
+                    .insert(([0, 1], player), moving(&self.moving, depot));
                 ctx.request_repaint();
             }
             (InputAction::MoveDown, false) => {
-                println!("todo: handle fast movement")
+                self.moving.remove(&([0, 1], player));
             }
             (InputAction::MoveLeft, true) => {
                 move_selection(depot, player, [-1, 0], board);
+                self.moving
+                    .insert(([-1, 0], player), moving(&self.moving, depot));
                 ctx.request_repaint();
             }
             (InputAction::MoveLeft, false) => {
-                println!("todo: handle fast movement")
+                self.moving.remove(&([-1, 0], player));
             }
             (InputAction::SelectSwap, true) => {
                 let current_selection = ensure_board_selection(depot, player, board);
@@ -231,6 +282,24 @@ impl Switchboard {
         }
 
         msgs
+    }
+
+    fn handle_repeat(&mut self, board: &Board, depot: &mut TruncateDepot) {
+        for ((movement, player), direction) in self.moving.iter_mut() {
+            let now = depot.timing.current_time;
+            let total_dur = now.saturating_sub(direction.started_move);
+            if total_dur < INITIAL_MOVE_DELAY {
+                continue;
+            }
+
+            let target_tick_count =
+                ((total_dur - INITIAL_MOVE_DELAY) / MOVE_REPEAT_DELAY) as usize + 1;
+
+            while target_tick_count > direction.ticked_moves {
+                move_selection(depot, *player, *movement, board);
+                direction.ticked_moves += 1;
+            }
+        }
     }
 }
 
