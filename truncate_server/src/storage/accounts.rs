@@ -148,7 +148,7 @@ pub async fn login(
         return Err(TruncateServerError::InvalidUser(player_id));
     };
 
-    let unread_changelogs = get_unreads(pool, login.last_known_changelog).await?;
+    let unread_changelogs = get_unreads(pool, login.player_id).await?;
 
     let parsed_ua = UAParser::new().parse(&user_agent);
 
@@ -185,34 +185,24 @@ pub async fn login(
 
 async fn get_unreads(
     pool: &sqlx::Pool<sqlx::Postgres>,
-    last_known_changelog: Option<time::OffsetDateTime>,
+    player_id: Uuid,
 ) -> Result<Vec<UnreadChangelog>, sqlx::Error> {
-    if let Some(last_known) = last_known_changelog {
-        sqlx::query_as!(
-            UnreadChangelog,
-            "SELECT changelog_id
-            FROM changelogs
-            WHERE changelog_timestamp > $1
-            ORDER BY changelog_timestamp ASC",
-            last_known
-        )
-        .fetch_all(pool)
-        .await
-    } else {
-        sqlx::query_as!(
-            UnreadChangelog,
-            "SELECT changelog_id
-             FROM changelogs
-             ORDER BY changelog_timestamp ASC",
-        )
-        .fetch_all(pool)
-        .await
-    }
+    sqlx::query_as!(
+        UnreadChangelog,
+        "SELECT c.changelog_id
+        FROM changelogs c
+        LEFT JOIN viewed_changelogs v_c ON c.changelog_id = v_c.changelog_id AND v_c.player_id = $1
+        WHERE v_c.read_timestamp IS NULL",
+        player_id
+    )
+    .fetch_all(pool)
+    .await
 }
 
-pub async fn mark_changelogs_read(
+pub async fn mark_changelog_read(
     server_state: &ServerState,
     authed: AuthedTruncateToken,
+    changelog_id: String,
 ) -> Result<(), TruncateServerError> {
     let Some(pool) = &server_state.truncate_db else {
         return Err(TruncateServerError::DatabaseOffline);
@@ -221,11 +211,13 @@ pub async fn mark_changelogs_read(
     let player_id = authed.player();
 
     sqlx::query!(
-        "UPDATE players
-            SET
-                last_known_changelog = CURRENT_TIMESTAMP
-            WHERE player_id = $1",
+        "INSERT INTO viewed_changelogs (
+            player_id,
+            changelog_id
+        ) VALUES ($1, $2)
+        ON CONFLICT DO NOTHING;",
         player_id,
+        changelog_id
     )
     .execute(pool)
     .await?;

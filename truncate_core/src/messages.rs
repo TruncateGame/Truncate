@@ -72,7 +72,7 @@ pub enum PlayerMessage {
     },
     RequestStats(TruncateToken),
     LoadReplay(String),
-    MarkChangelogRead,
+    MarkChangelogRead(String),
     GenericEvent {
         name: String,
     },
@@ -128,7 +128,7 @@ impl fmt::Display for PlayerMessage {
             }
             PlayerMessage::RequestStats(_token) => write!(f, "Requesting daily puzzle stats!"),
             PlayerMessage::LoadReplay(id) => write!(f, "Requesting the replay for {id}!"),
-            PlayerMessage::MarkChangelogRead => write!(f, "Marked all changelogs as read"),
+            PlayerMessage::MarkChangelogRead(id) => write!(f, "Marked changelog {id} as read"),
             PlayerMessage::GenericEvent { name } => write!(f, "Tracking a {name} event"),
         }
     }

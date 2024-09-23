@@ -21,7 +21,7 @@ use tungstenite::protocol::Message;
 
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
-use crate::storage::accounts::{mark_changelogs_read, LoginResponse};
+use crate::storage::accounts::{mark_changelog_read, LoginResponse};
 use crate::storage::daily;
 use crate::storage::events::create_event;
 use game_state::GameManager;
@@ -846,7 +846,7 @@ async fn handle_player_msg(
                 }
             }
         }
-        MarkChangelogRead => {
+        MarkChangelogRead(id) => {
             let Some(connection_player) = connection_info_mutex.lock().player.clone() else {
                 eprintln!(
                     "No connection player found, but player wanted to mark changelog as read"
@@ -854,7 +854,7 @@ async fn handle_player_msg(
                 return Ok(());
             };
 
-            _ = mark_changelogs_read(&server_state, connection_player).await;
+            _ = mark_changelog_read(&server_state, connection_player, id).await;
         }
         GenericEvent { name } => {
             let connection_player = connection_info_mutex.lock().player.clone();

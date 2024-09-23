@@ -153,7 +153,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                         .event(format!("interrupt_view_{unread}"));
                     outer
                         .tx_player
-                        .try_send(PlayerMessage::MarkChangelogRead)
+                        .try_send(PlayerMessage::MarkChangelogRead(unread.clone()))
                         .unwrap();
                     new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                         unread.clone(),
@@ -185,7 +185,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     outer.unread_changelogs = vec![];
                     outer
                         .tx_player
-                        .try_send(PlayerMessage::MarkChangelogRead)
+                        .try_send(PlayerMessage::MarkChangelogRead(unread.clone()))
                         .unwrap();
                     break;
                 }
@@ -220,7 +220,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 .event(format!("updates_view_{requested_changelog}"));
             outer
                 .tx_player
-                .try_send(PlayerMessage::MarkChangelogRead)
+                .try_send(PlayerMessage::MarkChangelogRead(
+                    requested_changelog.to_string(),
+                ))
                 .unwrap();
             new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                 requested_changelog.to_string(),

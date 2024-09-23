@@ -1,17 +1,21 @@
 splash_message:
-  - YOZA
+  - Hello!
+  - Hope you're doing well! Since the last time you played, we have changed some of the rules of Truncate.
+  - Words now only need to be one tile longer to defeat another.
+  - Also, touching the opponent's starting position now behaves differently.
+  - To see the full explanation, click through to the scenario below.
 
-changelog_name: HELP
+changelog_name: Battle length changes
 
 priority: High
 
-effective_day: 237
+effective_day: 238
 
 rules:
-  - category: TODO
+  - category: Update
     scenarios:
-      - name: "TODO"
-        description: "TODO"
+      - name: "Length changes"
+        description: "Words need only be one tile longer"
         board: |-
           ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
           ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
@@ -25,9 +29,13 @@ rules:
           ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~
           ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
-        player_hand: TODO
+        player_hand: ABCDE
         computer_hand: R
 
         steps:
           - message: |-
-              TODO
+              Art change: Docks are now "Artifacts"
+          - message: |-
+              Rule change: Long words beat short words, now n+1
+          - message: |-
+              Rule change: Touching the artifact behaves the same as a town
