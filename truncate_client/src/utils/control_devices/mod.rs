@@ -67,7 +67,7 @@ impl Switchboard {
 
     pub fn operate(
         &mut self,
-        ctx: &egui::Context,
+        ctx: &eframe::egui::Context,
         board: &Board,
         hands: &Vec<Hand>,
         depot: &mut TruncateDepot,
@@ -109,7 +109,7 @@ impl Switchboard {
     fn handle_action(
         &mut self,
         action: PlayerInputAction,
-        ctx: &egui::Context,
+        ctx: &eframe::egui::Context,
         board: &Board,
         hands: &Vec<Hand>,
         depot: &mut TruncateDepot,

@@ -7,8 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-eframe = { version = "0.26.2", features = ["serde"] }
-egui = { version = "*", features = ["serde"] }
+eframe = { version = "0.26.2", features = ["serde", "persistence"] }
 epaint = { version = "0.26.2", features = ["color-hex"] }
 color-hex = "0.2.0"
 futures-util = { version = "0.3", default-features = false, features = [

@@ -1,9 +1,0 @@
-[workspace]
-
-members = [
-    "dict_builder",
-    "truncate_core",
-    "truncate_server",
-    "truncate_client",
-    "truncate_dueller",
-]
