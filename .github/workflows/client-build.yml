@@ -2,7 +2,7 @@ name: Build Client Binaries
 
 on:
   push:
-    branches: ["feat/ci-client-builds"]
+    branches: ["feat/gamepad"]
 
 env:
   CARGO_TERM_COLOR: always
