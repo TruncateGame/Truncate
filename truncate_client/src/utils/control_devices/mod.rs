@@ -130,7 +130,8 @@ impl Switchboard {
         let moving = |other_movements: &MovementMap, depot: &TruncateDepot| {
             let now = depot.timing.current_time;
             let earliest_start = other_movements
-                .values()
+                .iter()
+                .filter_map(|((_, p), movement)| if (*p == player) { Some(movement) } else { None })
                 .min_by_key(|m| m.started_move)
                 .map(|m| m.started_move)
                 .unwrap_or(now);
