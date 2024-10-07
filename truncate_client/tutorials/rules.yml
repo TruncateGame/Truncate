@@ -1,4 +1,4 @@
-effective_day: 236
+effective_day: 252
 
 rules:
   - category: Basics
@@ -256,67 +256,57 @@ rules:
     - name: "Long beats short"
       description: "Long words beat short words"
       board: |-
-        ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ #0 __ T0 __ __ ~~ ~~ ~~ ~~
-        ~~ __ __ U0 __ __ __ __ __ ~~
-        ~~ S0 U0 O0 M0 R0 O0 N0 __ ~~
-        ~~ __ __ __ __ __ __ __ P1 ~~
-        ~~ __ __ __ __ ~~ __ __ U1 ~~
+        ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
+        ~~ #0 __ __ U0 __ ~~ ~~ ~~ ~~
+        ~~ __ __ __ M0 __ __ __ __ ~~
+        ~~ __ __ __ E0 G0 R0 A0 __ ~~
+        ~~ __ __ __ __ __ __ __ T1 ~~
+        ~~ __ __ __ __ ~~ __ __ I1 ~~
         ~~ ~~ __ __ __ ~~ __ __ N1 ~~
         ~~ ~~ ~~ __ ~~ ~~ __ #1 Y1 ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~
 
-      player_hand: ETHRYUF
+      player_hand: ETHRLUF
       computer_hand: D
 
       steps:
         - description: |-
-            Long valid words beat short words in a battle. "ENORMOUS" is significantly longer than "PUNY" and would win in a battle.
+            Long valid words beat short words in a battle. "LARGE" is longer than "TINY" and would win in a battle.
 
-            Try playing an "E" to defeat your opponent's word.
-          you: "E -> 8,3"
+            Try playing an "L" to defeat your opponent's word.
+          you: "L -> 8,3"
           gets: "F"
 
         - message: |-
-            "ENORMOUS" was valid, and easily long enough to beat "PUNY", so "PUNY" was removed from the board.
+            "LARGE" was valid, and longer than "TINY", so "TINY" was removed from the board.
 
     - name: "Defender's advantage"
-      description: "The defender has a length bonus"
+      description: "The defender wins a tiebreak"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
-        ~~ __ ~~ ~~ #0 __ E0 __ ~~ ~~ ~~
-        ~~ __ ~~ __ __ __ N0 __ __ ~~ ~~
-        ~~ __ __ E0 G0 N0 O0 L0 __ __ ~~
-        ~~ __ C1 __ __ __ __ I0 __ __ ~~
-        ~~ __ A1 __ __ __ __ A0 ~~ __ ~~
-        ~~ #1 P1 __ R0 O0 H0 S0 ~~ __ ~~
-        |1 T1 S1 __ ~~ ~~ __ ~~ ~~ ~~ ~~
+        ~~ __ ~~ ~~ #0 __ T0 __ ~~ ~~ ~~
+        ~~ __ ~~ __ __ __ A0 __ __ ~~ ~~
+        ~~ __ A1 __ A0 U0 Q0 E0 __ __ ~~
+        ~~ __ L1 __ __ __ __ __ __ __ ~~
+        ~~ __ I1 __ __ __ __ __ ~~ __ ~~
+        ~~ #1 K1 __ __ __ __ __ ~~ __ ~~
+        |1 M1 E1 __ ~~ ~~ __ ~~ ~~ ~~ ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
-      player_hand: TYUIGII
+      player_hand: TYUIGLI
       computer_hand: H
 
       steps:
         - message: |-
-            In battles, defenders have a length advantage of 2. If the defending and attacking words are both valid, the attacking word must be 2 letters longer than the defending word to win.
+            In battles, defenders win a tiebreak. If the defending and attacking words are both valid, the attacking word must be longer than the defending word to win.
         - description: |-
-            Let's demonstrate a failed attack by playing "SHORT" against "CAPS".
-          you: "T -> 3,6"
-          gets: "R"
-        - description: |-
-            "SHORT" was longer, but only by one. Since it was the attacker, the attack failed.
-
-            When an attack fails, the attacker is destroyed.
-          computer: "2,6 -> 1,7"
-          gets: "_"
-        - description: |-
-            Your opponent used their turn to swap "CAPS" into "CATS".
-
-            Let's now demonstrate a successful attack by playing "LONGER" into "CATS".
-          you: "R -> 2,3"
+            Let's demonstrate a failed attack by playing "EQUAL" against "ALIKE".
+          you: "L -> 3,3"
           gets: "R"
         - message: |-
-            Since "LONGER" is 2 letters longer than "CATS", it won the battle and "CATS" was removed from the board.
+            "EQUAL" was valid, but was the same length as "ALIKE". Since it was the attacker, the attack failed.
+
+            When an attack fails, the attacker is destroyed.
     
     - name: "Weakest defender"
       description: "The weakest defender is used"
@@ -398,7 +388,7 @@ rules:
           you: "E -> 6,5"
           gets: "I"
         - message: |-
-            Since "ENOUGH" was long enough to beat "FOUR" it wins the battle, and "EEX" is irrelevant despite being invalid and too short.
+            Since "ENOUGH" was longer than "FOUR" it wins the battle, and "EEX" is irrelevant despite being invalid and too short.
 
     - name: "Truncation"
       description: "Tiles disconnected from the dock are truncated"
