@@ -57,11 +57,6 @@ pub fn rules() -> Tutorial {
         .expect("Tutorial should match Tutorial format")
 }
 
-pub fn example_game() -> Tutorial {
-    serde_yaml::from_slice(include_bytes!("../../tutorials/example_game.yml"))
-        .expect("Tutorial should match Tutorial format")
-}
-
 pub fn changelogs() -> HashMap<&'static str, Tutorial> {
     HashMap::from([
         (

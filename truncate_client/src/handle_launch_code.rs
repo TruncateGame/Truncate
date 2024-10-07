@@ -47,16 +47,6 @@ pub fn handle_launch_code(
                 outer.event_dispatcher.clone(),
             )));
         }
-        "TUTORIAL_EXAMPLE" => {
-            return Some(GameStatus::Tutorial(TutorialState::new(
-                "example_game".to_string(),
-                utils::includes::example_game(),
-                ui.ctx(),
-                outer.map_texture.clone(),
-                &outer.theme,
-                outer.event_dispatcher.clone(),
-            )));
-        }
         "SINGLE_PLAYER" => {
             outer.event_dispatcher.event("single_player_lobby");
             let mut board = Board::new(9, 9);

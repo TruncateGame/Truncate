@@ -45,16 +45,6 @@ pub fn render_native_menu_if_required(
                     outer.event_dispatcher.clone(),
                 )));
             }
-            if ui.button("Tutorial: Example").clicked() {
-                return Some(GameStatus::Tutorial(TutorialState::new(
-                    "example_game".to_string(),
-                    utils::includes::example_game(),
-                    ui.ctx(),
-                    outer.map_texture.clone(),
-                    &outer.theme,
-                    outer.event_dispatcher.clone(),
-                )));
-            }
             if ui.button("Single Player").clicked() {
                 let mut board = Board::new(9, 9);
                 board.grow();

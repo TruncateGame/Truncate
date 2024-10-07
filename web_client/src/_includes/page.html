@@ -503,9 +503,14 @@
                     });
 
                     if (has_played_tut) {
-                      this.button("Tutorials", () => {
-                          this.learnStage();
+                      this.button("Learn To Play", () => {
+                          localStorage.setItem("tutorial_played", "true");
+                          truncate_runner.join_game('TUTORIAL_RULES');
                       });
+                      // Uncomment if adding back a second tutorial
+                      // this.button("Tutorials", () => {
+                      //     this.learnStage();
+                      // });
                     }
                 }
 
