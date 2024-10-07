@@ -25,7 +25,7 @@ use crate::storage::accounts::{mark_changelog_read, LoginResponse};
 use crate::storage::daily;
 use crate::storage::events::create_event;
 use game_state::GameManager;
-use storage::accounts::{self, AuthedTruncateToken};
+use storage::accounts::{self, mark_most_changelogs_read, AuthedTruncateToken};
 use truncate_core::messages::{
     DailyStateMessage, GameMessage, GameStateMessage, LobbyPlayerMessage, Nonce,
     NoncedPlayerMessage, PlayerMessage,
@@ -691,6 +691,7 @@ async fn handle_player_msg(
             screen_height,
             user_agent,
             referrer,
+            unread_changelogs,
         } => match accounts::create_player(
             &server_state,
             screen_width,
@@ -702,6 +703,13 @@ async fn handle_player_msg(
         {
             Ok(new_player) => {
                 let authed_token = accounts::get_player_token(&server_state, new_player);
+
+                _ = mark_most_changelogs_read(
+                    &server_state,
+                    authed_token.clone(),
+                    unread_changelogs,
+                )
+                .await;
 
                 let mut connection_info = connection_info_mutex.lock();
                 connection_info.player = Some(authed_token.clone());

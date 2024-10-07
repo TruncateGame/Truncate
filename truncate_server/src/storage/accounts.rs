@@ -224,3 +224,27 @@ pub async fn mark_changelog_read(
 
     Ok(())
 }
+
+pub async fn mark_most_changelogs_read(
+    server_state: &ServerState,
+    authed: AuthedTruncateToken,
+    unread: Vec<String>,
+) -> Result<(), TruncateServerError> {
+    let Some(pool) = &server_state.truncate_db else {
+        return Err(TruncateServerError::DatabaseOffline);
+    };
+
+    let player_id = authed.player();
+
+    sqlx::query!(
+        "INSERT INTO viewed_changelogs (player_id, changelog_id)
+        SELECT $1, changelog_id FROM changelogs WHERE changelog_id NOT IN (SELECT unnest($2::text[]))
+        ON CONFLICT DO NOTHING;",
+        player_id,
+        &unread
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}

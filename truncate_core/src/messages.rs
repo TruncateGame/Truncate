@@ -54,6 +54,7 @@ pub enum PlayerMessage {
         screen_height: u32,
         user_agent: String,
         referrer: String,
+        unread_changelogs: Vec<String>,
     },
     Login {
         player_token: TruncateToken,
