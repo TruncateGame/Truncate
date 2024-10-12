@@ -62,7 +62,7 @@ struct RedundantEdges {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Board {
     pub squares: Vec<Vec<Square>>,
-    pub docks: Vec<Coordinate>,
+    pub artifacts: Vec<Coordinate>,
     pub towns: Vec<Coordinate>,
     pub obelisks: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
@@ -88,7 +88,7 @@ impl Board {
         //     },
         // ];
 
-        // Final board should have a ring of water around the land, in which to place the docks
+        // Final board should have a ring of water around the land, in which to place the artifacts
         let board_width = land_width + 2;
         let board_height = land_height + 2;
 
@@ -103,29 +103,35 @@ impl Board {
 
         let mut board = Board {
             squares,
-            docks: vec![],
+            artifacts: vec![],
             towns: vec![],
             obelisks: vec![],
             orientations: vec![Direction::North, Direction::South],
         };
 
-        let dock_x = board_width / 2;
+        let artifact_x = board_width / 2;
 
         let north_towns = (1..=land_width)
-            .filter(|x| *x != dock_x)
+            .filter(|x| *x != artifact_x)
             .map(|x| Coordinate { x, y: 1 });
         for town in north_towns {
             board
                 .set_square(town, Square::town(0))
                 .expect("Town square should exist on the land");
         }
-        // North dock
+        // North artifact
         board
-            .set_square(Coordinate { x: dock_x, y: 0 }, Square::dock(0))
-            .expect("Dock square should exist in the sea");
+            .set_square(
+                Coordinate {
+                    x: artifact_x,
+                    y: 0,
+                },
+                Square::artifact(0),
+            )
+            .expect("Artifact square should exist in the sea");
 
         let south_towns = (1..=land_width)
-            .filter(|x| *x != dock_x)
+            .filter(|x| *x != artifact_x)
             .map(|x| Coordinate {
                 x,
                 y: board_height - 2,
@@ -135,16 +141,16 @@ impl Board {
                 .set_square(town, Square::town(1))
                 .expect("Town square should exist on the land");
         }
-        // South dock
+        // South artifact
         board
             .set_square(
                 Coordinate {
-                    x: dock_x,
+                    x: artifact_x,
                     y: board_height - 1,
                 },
-                Square::dock(1),
+                Square::artifact(1),
             )
-            .expect("Dock square should exist in the sea");
+            .expect("Artifact square should exist in the sea");
 
         board.cache_special_squares();
 
@@ -175,6 +181,10 @@ impl Board {
         self.towns.iter()
     }
 
+    pub fn artifacts(&self) -> Iter<Coordinate> {
+        self.artifacts.iter()
+    }
+
     /// Adds water to all edges of the board
     pub fn grow(&mut self) {
         for row in &mut self.squares {
@@ -193,7 +203,7 @@ impl Board {
         let redundant = |s: &Square| {
             matches!(
                 s,
-                Square::Water { .. } | Square::Fog { .. } | Square::Dock { .. }
+                Square::Water { .. } | Square::Fog { .. } | Square::Artifact { .. }
             )
         };
 
@@ -260,7 +270,7 @@ impl Board {
             .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
             .map(|(x, y)| Coordinate { x, y });
 
-        self.docks.clear();
+        self.artifacts.clear();
         self.towns.clear();
 
         for coord in coords {
@@ -273,7 +283,7 @@ impl Board {
                 ) => {}
                 Ok(Square::Obelisk { .. }) => self.obelisks.push(coord),
                 Ok(Square::Town { .. }) => self.towns.push(coord),
-                Ok(Square::Dock { .. }) => self.docks.push(coord),
+                Ok(Square::Artifact { .. }) => self.artifacts.push(coord),
                 Err(e) => {
                     unreachable!(
                         "Iterating over the board should not return invalid positions: {e}"
@@ -334,7 +344,7 @@ impl Board {
         tile: char,
         ref_dict: Option<&WordDict>,
     ) -> Result<BoardChangeDetail, GamePlayError> {
-        if self.docks.get(player).is_none() {
+        if self.artifacts.get(player).is_none() {
             return Err(GamePlayError::NonExistentPlayer { index: player });
         }
 
@@ -395,7 +405,7 @@ impl Board {
                 | Fog { .. }
                 | Town { .. }
                 | Obelisk { .. }
-                | Dock { .. } => return Err(GamePlayError::UnoccupiedSwap),
+                | Artifact { .. } => return Err(GamePlayError::UnoccupiedSwap),
             };
         }
 
@@ -587,7 +597,7 @@ impl Board {
 
     pub fn truncate(&mut self, bag: &mut TileBag, ref_dict: Option<&WordDict>) -> Vec<Change> {
         let mut attatched = HashSet::new();
-        for root in self.docks.iter() {
+        for root in self.artifacts.iter() {
             attatched.extend(self.depth_first_search(*root));
         }
 
@@ -622,7 +632,7 @@ impl Board {
         fn dfs(b: &Board, position: Coordinate, visited: &mut HashSet<Coordinate>) {
             let player = match b.get(position) {
                 Ok(Square::Occupied { player, .. }) => Some(player),
-                Ok(Square::Dock { player, .. }) => Some(player),
+                Ok(Square::Artifact { player, .. }) => Some(player),
                 _ => None,
             };
             if let Some(player) = player {
@@ -652,7 +662,7 @@ impl Board {
             .ok()
             .map(|sq| match sq {
                 Square::Occupied { player, .. } => Some(player),
-                Square::Dock { player, .. } => Some(player),
+                Square::Artifact { player, .. } => Some(player),
                 _ => None,
             })
             .flatten();
@@ -787,7 +797,7 @@ impl Board {
 
         let Some(outermost_attacker) = outermost_attacker else {
             // Attacker has no tiles, cannot reach anywhere.
-            // TODO: count from docks?
+            // TODO: count from artifacts?
             return BoardDistances::new(self);
         };
 
@@ -1086,6 +1096,11 @@ impl Board {
                     player: adjacent_player,
                     ..
                 } => player != *adjacent_player,
+                Square::Artifact {
+                    player: adjacent_player,
+                    defeated,
+                    ..
+                } => player != *adjacent_player && !defeated,
                 Square::Town {
                     player: adjacent_player,
                     defeated,
@@ -1110,15 +1125,12 @@ impl Board {
                 word.iter()
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
-                            Water { .. }
-                            | Land { .. }
-                            | Fog { .. }
-                            | Dock { .. }
-                            | Obelisk { .. } => {
+                            Water { .. } | Land { .. } | Fog { .. } | Obelisk { .. } => {
                                 debug_assert!(false);
                                 err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
                             }
+                            Artifact { .. } => '|',
                             Town { .. } => '#',
                             Occupied { tile, .. } => tile,
                         },
@@ -1146,14 +1158,14 @@ impl Board {
         let mut playable_squares = HashSet::new();
         match truncation {
             rules::Truncation::Root => {
-                for dock in &self.docks {
-                    let sq = self.get(*dock).unwrap();
-                    if !matches!(sq, Square::Dock{ player, .. } if player == for_player) {
+                for artifact in &self.artifacts {
+                    let sq = self.get(*artifact).unwrap();
+                    if !matches!(sq, Square::Artifact{ player, .. } if player == for_player) {
                         continue;
                     }
 
                     playable_squares.extend(
-                        self.depth_first_search(*dock)
+                        self.depth_first_search(*artifact)
                             .iter()
                             .flat_map(|sq| sq.neighbors_4_iter())
                             .collect::<HashSet<_>>(),
@@ -1173,7 +1185,7 @@ impl Board {
                         .filter(|c| {
                             matches!(
                                 self.get(*c),
-                                Ok(Square::Occupied{ player, .. } | Square::Dock { player, ..}) if player == for_player
+                                Ok(Square::Occupied{ player, .. } | Square::Artifact { player, ..}) if player == for_player
                             )
                         })
                         .flat_map(|sq| sq.neighbors_4_iter()),
@@ -1208,7 +1220,7 @@ impl Board {
             }
 
             match square {
-                Ok(Square::Dock { player, .. }) | Ok(Square::Town { player, .. })
+                Ok(Square::Artifact { player, .. }) | Ok(Square::Town { player, .. })
                     if player == player_index =>
                 {
                     let mut sqs = HashSet::new();
@@ -1319,7 +1331,7 @@ impl Board {
                                 | Square::Land { foggy }
                                 | Square::Obelisk { foggy }
                                 | Square::Town { foggy, .. }
-                                | Square::Dock { foggy, .. } => {
+                                | Square::Artifact { foggy, .. } => {
                                     *foggy = true;
                                     false
                                 }
@@ -1460,7 +1472,7 @@ impl Board {
                         match chars.next() {
                             Some('~') => Square::water(),
                             Some('_') => Square::land(),
-                            Some('|') => Square::dock(
+                            Some('|') => Square::artifact(
                                 chars
                                     .next()
                                     .expect("Square needs player")
@@ -1503,7 +1515,7 @@ impl Board {
         let mut board = Board {
             squares,
             towns: vec![],
-            docks: vec![],
+            artifacts: vec![],
             obelisks: vec![],
             orientations: vec![Direction::North, Direction::South],
         };
@@ -1650,8 +1662,9 @@ pub enum Square {
     Obelisk {
         foggy: bool,
     },
-    Dock {
+    Artifact {
         player: usize,
+        defeated: bool,
         foggy: bool,
     },
     Occupied {
@@ -1688,9 +1701,10 @@ impl Square {
         }
     }
 
-    pub fn dock(player: usize) -> Self {
-        Self::Dock {
+    pub fn artifact(player: usize) -> Self {
+        Self::Artifact {
             player,
+            defeated: false,
             foggy: false,
         }
     }
@@ -1701,7 +1715,7 @@ impl Square {
             | Square::Land { foggy }
             | Square::Town { foggy, .. }
             | Square::Obelisk { foggy }
-            | Square::Dock { foggy, .. }
+            | Square::Artifact { foggy, .. }
             | Square::Occupied { foggy, .. } => *foggy,
             Square::Fog {} => true,
         }
@@ -1725,7 +1739,7 @@ impl fmt::Display for Square {
                 defeated: true,
                 ..
             } => write!(f, "⊭{p}"),
-            Square::Dock { player, .. } => write!(f, "|{player}"),
+            Square::Artifact { player, .. } => write!(f, "|{player}"),
             Square::Occupied {
                 player: p, tile, ..
             } => write!(f, "{tile}{p}"),
@@ -1932,7 +1946,7 @@ pub mod tests {
              __ W0 O0 R0 __\n\
              __ __ S0 __ __\n\
              __ __ __ __ __",
-            "Don't trim docks or land"
+            "Don't trim artifacts or land"
         );
 
         let mut b = Board::from_string(
@@ -2009,7 +2023,7 @@ pub mod tests {
              ~~ W0 O0 R0 ~~\n\
              ~~ __ S0 __ |0\n\
              ~~ ~~ ~~ ~~ ~~",
-            "Do trim unconnected docks"
+            "Do trim unconnected artifacts"
         );
     }
 
@@ -2302,7 +2316,7 @@ pub mod tests {
             Some(4)
         );
 
-        // Player 1's dock
+        // Player 1's artifact
         assert_eq!(
             dists.attackable_distance(&Coordinate { x: 2, y: 6 }),
             Some(3)
@@ -2442,7 +2456,7 @@ pub mod tests {
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 1, y: 0 }),
             [
-                (Coordinate { x: 2, y: 0 }, Square::dock(0)),
+                (Coordinate { x: 2, y: 0 }, Square::artifact(0)),
                 (Coordinate { x: 1, y: 1 }, Square::town(0)),
                 (Coordinate { x: 0, y: 0 }, Square::water()),
             ]

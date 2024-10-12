@@ -111,7 +111,7 @@ impl From<&Square> for BGTexType {
     fn from(sq: &Square) -> Self {
         use truncate_core::board::Square::*;
         match sq {
-            Water { .. } | Fog { .. } | Dock { .. } => Self::WaterOrFog,
+            Water { .. } | Fog { .. } | Artifact { .. } => Self::WaterOrFog,
             Land { .. } | Town { .. } | Obelisk { .. } | Occupied { .. } => Self::Land,
         }
     }
@@ -121,7 +121,7 @@ impl From<&Square> for BGTexType {
 pub enum FGTexType {
     None,
     Town(Color32),
-    Dock(Color32),
+    Artifact(Color32),
     Obelisk,
     Fog,
 }
@@ -136,8 +136,8 @@ impl From<(&Square, &Vec<Color32>)> for FGTexType {
             Square::Town { player, .. } => {
                 Self::Town(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
-            Square::Dock { player, .. } => {
-                Self::Dock(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
+            Square::Artifact { player, .. } => {
+                Self::Artifact(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
             Square::Occupied { .. } => Self::None,
         }
@@ -358,13 +358,13 @@ impl Tex {
         t
     }
 
-    pub fn dock_button(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
+    pub fn artifact_button(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
         let mut t = vec![
-            tiles::quad::DOCK_BUTTON,
+            tiles::quad::ARTIFACT_BUTTON,
             if let Some(color) = color {
-                tiles::quad::DOCK_BUTTON_SAIL.tint(color)
+                tiles::quad::ARTIFACT_BUTTON_SAIL.tint(color)
             } else {
-                tiles::quad::DOCK_BUTTON_SAIL
+                tiles::quad::ARTIFACT_BUTTON_SAIL
             },
         ];
         if let Some(highlight) = highlight {
@@ -426,57 +426,57 @@ impl Tex {
         .concat()
     }
 
-    fn dock(color: Color32, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
-        // TODO: Render docks with multiple edges somehow.
+    fn artifact(color: Color32, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
+        // TODO: Render artifacts with multiple edges somehow.
 
-        let (dock, sails) = if matches!(neighbors[1], BGTexType::Land) {
+        let (artifact, sails) = if matches!(neighbors[1], BGTexType::Land) {
             (
-                tiles::quad::SOUTH_DOCK,
+                tiles::quad::SOUTH_ARTIFACT,
                 [
-                    tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
-                    tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
-                    tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
+                    tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_0,
+                    tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_1,
+                    tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_2,
                 ],
             )
         } else if matches!(neighbors[5], BGTexType::Land) {
             (
-                tiles::quad::NORTH_DOCK,
+                tiles::quad::NORTH_ARTIFACT,
                 [
-                    tiles::quad::NORTH_DOCK_SAIL_WIND_0,
-                    tiles::quad::NORTH_DOCK_SAIL_WIND_1,
-                    tiles::quad::NORTH_DOCK_SAIL_WIND_2,
+                    tiles::quad::NORTH_ARTIFACT_SAIL_WIND_0,
+                    tiles::quad::NORTH_ARTIFACT_SAIL_WIND_1,
+                    tiles::quad::NORTH_ARTIFACT_SAIL_WIND_2,
                 ],
             )
         } else if matches!(neighbors[3], BGTexType::Land) {
             (
-                tiles::quad::WEST_DOCK,
+                tiles::quad::WEST_ARTIFACT,
                 [
-                    tiles::quad::WEST_DOCK_SAIL_WIND_0,
-                    tiles::quad::WEST_DOCK_SAIL_WIND_1,
-                    tiles::quad::WEST_DOCK_SAIL_WIND_2,
+                    tiles::quad::WEST_ARTIFACT_SAIL_WIND_0,
+                    tiles::quad::WEST_ARTIFACT_SAIL_WIND_1,
+                    tiles::quad::WEST_ARTIFACT_SAIL_WIND_2,
                 ],
             )
         } else if matches!(neighbors[7], BGTexType::Land) {
             (
-                tiles::quad::EAST_DOCK,
+                tiles::quad::EAST_ARTIFACT,
                 [
-                    tiles::quad::EAST_DOCK_SAIL_WIND_0,
-                    tiles::quad::EAST_DOCK_SAIL_WIND_1,
-                    tiles::quad::EAST_DOCK_SAIL_WIND_2,
+                    tiles::quad::EAST_ARTIFACT_SAIL_WIND_0,
+                    tiles::quad::EAST_ARTIFACT_SAIL_WIND_1,
+                    tiles::quad::EAST_ARTIFACT_SAIL_WIND_2,
                 ],
             )
         } else {
             (
-                tiles::quad::FLOATING_DOCK,
+                tiles::quad::FLOATING_ARTIFACT,
                 [
-                    tiles::quad::FLOATING_DOCK_SAIL_WIND_0,
-                    tiles::quad::FLOATING_DOCK_SAIL_WIND_1,
-                    tiles::quad::FLOATING_DOCK_SAIL_WIND_2,
+                    tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_0,
+                    tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_1,
+                    tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_2,
                 ],
             )
         };
         TexLayers::default()
-            .with_structures(dock)
+            .with_structures(artifact)
             .with_piece_texture(
                 match wind_at_coord {
                     calm!() => sails[0],
@@ -702,8 +702,8 @@ impl Tex {
             FGTexType::Town(color) => {
                 layers = layers.merge_above_self(Tex::town(color, seed, tick, wind_at_coord))
             }
-            FGTexType::Dock(color) => {
-                layers = layers.merge_above_self(Tex::dock(color, neighbors, wind_at_coord))
+            FGTexType::Artifact(color) => {
+                layers = layers.merge_above_self(Tex::artifact(color, neighbors, wind_at_coord))
             }
             FGTexType::Obelisk => {
                 layers = layers
@@ -727,10 +727,10 @@ impl Tex {
         match (action, from) {
             (
                 BoardEditingMode::Land | BoardEditingMode::Town(_),
-                Square::Water { .. } | Square::Dock { .. },
+                Square::Water { .. } | Square::Artifact { .. },
             ) => Some(tiles::quad::ISLAND),
             (
-                BoardEditingMode::Land | BoardEditingMode::Dock(_),
+                BoardEditingMode::Land | BoardEditingMode::Artifact(_),
                 Square::Land { .. } | Square::Town { .. },
             ) => Some(tiles::quad::LAKE),
             _ => None,

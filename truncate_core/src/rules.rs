@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     board::Board,
     generation::{
-        BoardElements, BoardNoiseParams, BoardParams, BoardSeed, DockType, Symmetry, WaterLayer,
+        ArtifactType, BoardElements, BoardNoiseParams, BoardParams, BoardSeed, Symmetry, WaterLayer,
     },
 };
 
@@ -16,10 +16,19 @@ pub enum TownDefense {
     BeatenWithDefenseStrength(usize),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ArtifactDefense {
+    Invincible,
+    BeatenWithDefenseStrength(usize),
+}
+
 /// Conditions which, when hit, end the game and mark a winner
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WinCondition {
-    Destination { town_defense: TownDefense },
+    Destination {
+        town_defense: TownDefense,
+        artifact_defense: ArtifactDefense,
+    },
     Elimination, // TODO: Implement
 }
 
@@ -135,6 +144,7 @@ const RULE_GENERATIONS: [(Option<EffectiveRuleDay>, GameRules); 3] = [
             generation: None, // hydrated on fetch
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
+                artifact_defense: ArtifactDefense::Invincible,
             },
             win_metric: WinMetric::TownProximity,
             visibility: Visibility::Standard,
@@ -156,6 +166,7 @@ const RULE_GENERATIONS: [(Option<EffectiveRuleDay>, GameRules); 3] = [
             generation: None, // hydrated on fetch
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
+                artifact_defense: ArtifactDefense::Invincible,
             },
             win_metric: WinMetric::TownProximity,
             visibility: Visibility::Standard,
@@ -177,6 +188,7 @@ const RULE_GENERATIONS: [(Option<EffectiveRuleDay>, GameRules); 3] = [
             generation: None, // hydrated on fetch
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
+                artifact_defense: ArtifactDefense::BeatenWithDefenseStrength(0),
             },
             win_metric: WinMetric::TownProximity,
             visibility: Visibility::Standard,
@@ -227,6 +239,7 @@ impl GameRules {
             generation: None, // hydrated on fetch
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
+                artifact_defense: ArtifactDefense::Invincible,
             },
             win_metric: WinMetric::ObeliskProximity,
             visibility: Visibility::LandFog,
@@ -261,10 +274,10 @@ impl GameRules {
                 maximum_town_density: 0.2,
                 maximum_town_distance: 0.1,
                 minimum_choke: 3,
-                dock_type: DockType::Continental,
-                ideal_dock_extremity: 0.0,
+                artifact_type: ArtifactType::Continental,
+                ideal_artifact_extremity: 0.0,
                 elements: BoardElements {
-                    docks: true,
+                    artifacts: true,
                     towns: false,
                     obelisk: true,
                 },

@@ -31,7 +31,7 @@ pub enum GamePlayError {
 
     #[error("You can't place a tile on top of another")]
     OccupiedPlace,
-    #[error("You can only place tiles touching your dock or your existing tiles")]
+    #[error("You can only place tiles touching your artifact or your existing tiles")]
     NonAdjacentPlace,
 
     #[error("Player {player:?} doesn't have a '{tile:?}' tile")]

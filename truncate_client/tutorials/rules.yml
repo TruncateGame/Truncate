@@ -31,7 +31,7 @@ rules:
             You can use the buttons above the board to navigate through the rules at any time.
 
     - name: "Placing tiles"
-      description: "Place tiles by your dock or your own tiles"
+      description: "Place tiles by your artifact or your own tiles"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
         ~~ ~~ ~~ __ __ __ #0 __ ~~
@@ -56,9 +56,9 @@ rules:
             You can tell which colour you're playing by the colour of the tiles in your hand.
 
         - description: |-
-            You start the game by placing tiles beside your dock.
+            You start the game by placing tiles beside your artifact.
 
-            Your dock is at the bottom left of the board. Try playing an 'M' there.
+            On this board, your artifact is at the bottom left of the board. Try playing an 'M' there.
           you: "M -> 7,1"
           gets: "E"
 
@@ -70,7 +70,7 @@ rules:
           gets: "R"
 
         - description: |-
-            Once you've placed a tile, you can place tiles beside your dock or your existing tiles.
+            Once you've placed a tile, you can place tiles beside your artifact or your existing tiles.
 
             Try playing an 'A' beside the 'M' you just played.
           you: "A -> 7,2"
@@ -99,7 +99,7 @@ rules:
         - message: |-
             To win, touch your opponent's town with a valid word.
 
-            Notice that your dock is on the right of the board, and your opponent's town and dock are on the left.
+            Notice that your artifact is on the right of the board, and your opponent's town and artifact are on the left.
 
         - description: |-
             Place a 'G' to form the word 'GROWING', which will touch your opponent's town, and win the game.
@@ -391,7 +391,7 @@ rules:
             Since "ENOUGH" was longer than "FOUR" it wins the battle, and "EEX" is irrelevant despite being invalid and too short.
 
     - name: "Truncation"
-      description: "Tiles disconnected from the dock are truncated"
+      description: "Tiles disconnected from the artifact are truncated"
       board: |-
         ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
         ~~ ~~ ~~ __ E0 #0 __ __ ~~ ~~ ~~
@@ -410,7 +410,7 @@ rules:
 
       steps:
         - description: |-
-            When a battle is lost and some tiles become disconnected from their dock, they are removed ("Truncated").
+            When a battle is lost and some tiles become disconnected from their artifact, they are removed ("Truncated").
             
             Try playing "RESTATE" against "NOT".
           you: "R -> 4,7"
@@ -418,7 +418,7 @@ rules:
         - message: |-
             "NOT" was defeated, because it was too short.
 
-            This leaves "STRO" disconnected from their dock, causing it to be truncated.
+            This leaves "STRO" disconnected from their artifact, causing it to be truncated.
 
     - name: "Conclusion"
       description: ""

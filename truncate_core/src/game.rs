@@ -416,7 +416,7 @@ impl Game {
         self.turn_count += 1;
         self.player_turn_count[player] += 1;
 
-        // Check for winning via defeated towns
+        // Check for winning via defeated towns or artifacts
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
             return Ok(Some(winner));
@@ -537,7 +537,7 @@ impl Game {
                 if !self.board.neighbouring_squares(position).iter().any(
                     |&(_, square)| match square {
                         Square::Occupied { player: p, .. } => p == player,
-                        Square::Dock { player: p, .. } => p == player,
+                        Square::Artifact { player: p, .. } => p == player,
                         _ => false,
                     },
                 ) {
@@ -697,12 +697,8 @@ impl Game {
 
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
-                    let mut all_defenders_are_towns = true;
                     changes.extend(defenders.iter().flatten().map(|coordinate| {
                         let square = self.board.get(*coordinate).expect("Tile just attacked");
-                        if matches!(square, Square::Occupied { .. }) {
-                            all_defenders_are_towns = false;
-                        }
                         Change::Board(BoardChange {
                             detail: BoardChangeDetail {
                                 square,
@@ -718,7 +714,8 @@ impl Game {
                     if matches!(
                         &self.rules.win_condition,
                         rules::WinCondition::Destination {
-                            town_defense: rules::TownDefense::BeatenByValidity
+                            town_defense: rules::TownDefense::BeatenByValidity,
+                            ..
                         }
                     ) {
                         remove_attackers = false;
@@ -766,6 +763,16 @@ impl Game {
                                 _ = self.board.set_square(
                                     *square,
                                     Square::Town {
+                                        player,
+                                        defeated: true,
+                                        foggy: false,
+                                    },
+                                );
+                            }
+                            Ok(Square::Artifact { player, .. }) => {
+                                _ = self.board.set_square(
+                                    *square,
+                                    Square::Artifact {
                                         player,
                                         defeated: true,
                                         foggy: false,

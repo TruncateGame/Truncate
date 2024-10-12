@@ -26,8 +26,8 @@ enum EditorDrag {
     RemoveLand,
     MakeTown(usize),
     RemoveTown(usize),
-    MakeDock(usize),
-    RemoveDock(usize),
+    MakeArtifact(usize),
+    RemoveArtifact(usize),
 }
 
 pub struct EditorUI<'a> {
@@ -69,8 +69,8 @@ impl<'a> EditorUI<'a> {
             BoardEditingMode::Land => highlights[0] = Some(theme.ring_selected),
             BoardEditingMode::Town(0) => highlights[1] = Some(theme.ring_selected),
             BoardEditingMode::Town(1) => highlights[2] = Some(theme.ring_selected),
-            BoardEditingMode::Dock(0) => highlights[3] = Some(theme.ring_selected),
-            BoardEditingMode::Dock(1) => highlights[4] = Some(theme.ring_selected),
+            BoardEditingMode::Artifact(0) => highlights[3] = Some(theme.ring_selected),
+            BoardEditingMode::Artifact(1) => highlights[4] = Some(theme.ring_selected),
             _ => unreachable!("Unknown board editing mode — player count has likely increased"),
         }
 
@@ -127,15 +127,15 @@ impl<'a> EditorUI<'a> {
             ui.add_space(28.0);
 
             ui.horizontal(|ui| {
-                if tiled_button(Tex::dock_button(pcol(0), highlights[3]), ui).clicked() {
-                    *self.editing_mode = BoardEditingMode::Dock(0);
+                if tiled_button(Tex::artifact_button(pcol(0), highlights[3]), ui).clicked() {
+                    *self.editing_mode = BoardEditingMode::Artifact(0);
                 }
 
-                if tiled_button(Tex::dock_button(pcol(1), highlights[4]), ui).clicked() {
-                    *self.editing_mode = BoardEditingMode::Dock(1);
+                if tiled_button(Tex::artifact_button(pcol(1), highlights[4]), ui).clicked() {
+                    *self.editing_mode = BoardEditingMode::Artifact(1);
                 }
             });
-            ui.label(RichText::new("Docks").color(Color32::WHITE));
+            ui.label(RichText::new("Artifact").color(Color32::WHITE));
 
             ui.add_space(28.0);
 
@@ -219,7 +219,7 @@ impl<'a> EditorUI<'a> {
                                     match (drag_action, &square) {
                                         (
                                             EditorDrag::MakeLand,
-                                            Square::Water { .. } | Square::Dock { .. },
+                                            Square::Water { .. } | Square::Artifact { .. },
                                         ) => modify_pos = Some((coord, Square::land())),
                                         (
                                             EditorDrag::RemoveLand,
@@ -243,12 +243,12 @@ impl<'a> EditorUI<'a> {
                                         ) if player == *sq_player => {
                                             modify_pos = Some((coord, Square::land()))
                                         }
-                                        (EditorDrag::MakeDock(player), _) => {
-                                            modify_pos = Some((coord, Square::dock(player)))
+                                        (EditorDrag::MakeArtifact(player), _) => {
+                                            modify_pos = Some((coord, Square::artifact(player)))
                                         }
                                         (
-                                            EditorDrag::RemoveDock(player),
-                                            Square::Dock {
+                                            EditorDrag::RemoveArtifact(player),
+                                            Square::Artifact {
                                                 player: sq_player, ..
                                             },
                                         ) if player == *sq_player => {
@@ -267,7 +267,7 @@ impl<'a> EditorUI<'a> {
                                             "With no board editing set we should not be editing"
                                         ),
                                             BoardEditingMode::Land => match square {
-                                                Square::Water { .. } | Square::Dock { .. } => {
+                                                Square::Water { .. } | Square::Artifact { .. } => {
                                                     EditorDrag::MakeLand
                                                 }
                                                 Square::Land { .. }
@@ -286,14 +286,14 @@ impl<'a> EditorUI<'a> {
                                                     _ => EditorDrag::MakeTown(*editing_player),
                                                 }
                                             }
-                                            BoardEditingMode::Dock(editing_player) => {
+                                            BoardEditingMode::Artifact(editing_player) => {
                                                 match square {
-                                                    Square::Dock {
+                                                    Square::Artifact {
                                                         player: sq_player, ..
                                                     } if sq_player == editing_player => {
-                                                        EditorDrag::RemoveDock(*editing_player)
+                                                        EditorDrag::RemoveArtifact(*editing_player)
                                                     }
-                                                    _ => EditorDrag::MakeDock(*editing_player),
+                                                    _ => EditorDrag::MakeArtifact(*editing_player),
                                                 }
                                             }
                                         },
@@ -343,11 +343,11 @@ impl<'a> EditorUI<'a> {
                                 }
                             }
                         }
-                        Square::Dock { player: p, .. } => {
+                        Square::Artifact { player: p, .. } => {
                             if p == 0 {
-                                Square::dock(1)
+                                Square::artifact(1)
                             } else {
-                                Square::dock(0)
+                                Square::artifact(0)
                             }
                         }
                         Square::Occupied { .. } => {

@@ -228,6 +228,7 @@ pub fn judge_benches(c: &mut Criterion) {
     let aliased_judge_word = format!("P{alias}RTITI{alias}N");
     let win_condition = rules::WinCondition::Destination {
         town_defense: rules::TownDefense::BeatenWithDefenseStrength(0),
+        artifact_defense: rules::ArtifactDefense::BeatenWithDefenseStrength(0),
     };
 
     c.bench_function("judge_with_double_alias", |b| {

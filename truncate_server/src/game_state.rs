@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc};
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
-    generation::{BoardParams, DockType},
+    generation::{ArtifactType, BoardParams},
     messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
     moves::Move,
     reporting::Change,

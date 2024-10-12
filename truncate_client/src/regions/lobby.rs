@@ -26,7 +26,7 @@ pub enum BoardEditingMode {
     None,
     Land,
     Town(usize),
-    Dock(usize),
+    Artifact(usize),
 }
 
 #[derive(Clone)]

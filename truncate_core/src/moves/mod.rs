@@ -143,7 +143,7 @@ mod tests {
             ..Game::new(3, 3, None, GameRules::generation(0))
         };
 
-        // Places beside dock
+        // Places beside artifact
         let changes = game.make_move(
             Move::Place {
                 player: 0,

@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum DockType {
+pub enum ArtifactType {
     IslandV1,
     Coastal,
     Continental,
@@ -28,7 +28,7 @@ pub enum Symmetry {
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BoardElements {
-    pub docks: bool,
+    pub artifacts: bool,
     pub towns: bool,
     pub obelisk: bool,
 }
@@ -55,8 +55,8 @@ pub struct BoardParams {
     pub maximum_town_density: f64,
     pub maximum_town_distance: f64,
     pub minimum_choke: usize,
-    pub dock_type: DockType,
-    pub ideal_dock_extremity: f64,
+    pub artifact_type: ArtifactType,
+    pub ideal_artifact_extremity: f64,
     pub elements: BoardElements,
 }
 
@@ -76,10 +76,10 @@ const BOARD_GENERATIONS: [BoardParams; 2] = [
         maximum_town_density: 0.2,
         maximum_town_distance: 0.15,
         minimum_choke: 3,
-        dock_type: DockType::IslandV1,
-        ideal_dock_extremity: 1.0,
+        artifact_type: ArtifactType::IslandV1,
+        ideal_artifact_extremity: 1.0,
         elements: BoardElements {
-            docks: true,
+            artifacts: true,
             towns: true,
             obelisk: false,
         },
@@ -96,10 +96,10 @@ const BOARD_GENERATIONS: [BoardParams; 2] = [
         maximum_town_density: 0.2,
         maximum_town_distance: 0.15,
         minimum_choke: 3,
-        dock_type: DockType::IslandV1,
-        ideal_dock_extremity: 1.0,
+        artifact_type: ArtifactType::IslandV1,
+        ideal_artifact_extremity: 1.0,
         elements: BoardElements {
-            docks: true,
+            artifacts: true,
             towns: true,
             obelisk: false,
         },
@@ -230,8 +230,8 @@ pub fn generate_board(
                 maximum_town_density,
                 maximum_town_distance,
                 minimum_choke,
-                dock_type,
-                ideal_dock_extremity,
+                artifact_type,
+                ideal_artifact_extremity,
                 elements,
             },
     } = board_seed;
@@ -403,16 +403,21 @@ pub fn generate_board(
         }
     }
 
-    if elements.docks {
-        match dock_type {
-            DockType::IslandV1 => {
-                if board.drop_island_v1_docks(seed).is_err() {
+    if elements.artifacts {
+        match artifact_type {
+            ArtifactType::IslandV1 => {
+                if board.drop_island_v1_artifacts(seed).is_err() {
                     return retry_with(board_seed, board);
                 }
             }
             _ => {
                 if board
-                    .drop_docks(seed, ideal_dock_extremity, dock_type, land_layer.symmetric)
+                    .drop_artifacts(
+                        seed,
+                        ideal_artifact_extremity,
+                        artifact_type,
+                        land_layer.symmetric,
+                    )
                     .is_err()
                 {
                     return retry_with(board_seed, board);
@@ -436,7 +441,8 @@ pub fn generate_board(
 
     // Recalculate the shortest path, as expanding the choke points
     // may have created new paths altogether
-    let Some(shortest_attack_path) = board.shortest_path_between(&board.docks[0], &board.docks[1])
+    let Some(shortest_attack_path) =
+        board.shortest_path_between(&board.artifacts[0], &board.artifacts[1])
     else {
         return retry_with(board_seed, board);
     };
@@ -483,13 +489,13 @@ trait BoardGenerator {
         debug: bool,
     ) -> Result<(), ()>;
 
-    fn drop_island_v1_docks(&mut self, seed: u32) -> Result<(), ()>;
+    fn drop_island_v1_artifacts(&mut self, seed: u32) -> Result<(), ()>;
 
-    fn drop_docks(
+    fn drop_artifacts(
         &mut self,
         seed: u32,
-        ideal_dock_extremity: f64,
-        dock_type: DockType,
+        ideal_artifact_extremity: f64,
+        artifact_type: ArtifactType,
         symmetric: Symmetry,
     ) -> Result<(), ()>;
 
@@ -665,7 +671,8 @@ impl BoardGenerator for Board {
         symmetric: Symmetry,
         debug: bool,
     ) -> Result<(), ()> {
-        let Some(shortest_attack_path) = self.shortest_path_between(&self.docks[0], &self.docks[1])
+        let Some(shortest_attack_path) =
+            self.shortest_path_between(&self.artifacts[0], &self.artifacts[1])
         else {
             return Err(());
         };
@@ -674,7 +681,7 @@ impl BoardGenerator for Board {
             .iter()
             .enumerate()
             .filter_map(|(i, pt)| {
-                // Avoid processing the tiles closest to each players dock
+                // Avoid processing the tiles closest to each players artifact
                 if i < minimum_choke || i >= shortest_attack_path.len() - minimum_choke {
                     return None;
                 }
@@ -728,7 +735,7 @@ impl BoardGenerator for Board {
                         }
 
                         match self.get(c) {
-                            Ok(Square::Land { .. } | Square::Dock { .. }) => {}
+                            Ok(Square::Land { .. } | Square::Artifact { .. }) => {}
                             Err(_) => {}
                             Ok(_) => {
                                 if debug {
@@ -781,14 +788,14 @@ impl BoardGenerator for Board {
         Ok(())
     }
 
-    // An old implementation of dock placement that should be avoided when possible.
+    // An old implementation of artifact placement that should be avoided when possible.
     // Retained so that past puzzles generate correctly.
-    fn drop_island_v1_docks(&mut self, seed: u32) -> Result<(), ()> {
+    fn drop_island_v1_artifacts(&mut self, seed: u32) -> Result<(), ()> {
         let mut rng = Rand32::new(seed as u64);
         let mut visited: HashSet<Coordinate> = HashSet::from([Coordinate { x: 0, y: 0 }]);
         let mut coastal_water: HashSet<Coordinate> = HashSet::new();
 
-        // Islands require docks on the coasts, so we DFS from the edges.
+        // Islands require artifacts on the coasts, so we DFS from the edges.
         let mut pts = VecDeque::from(vec![Coordinate { x: 0, y: 0 }]);
         while !pts.is_empty() {
             let pt = pts.pop_front().unwrap();
@@ -875,20 +882,21 @@ impl BoardGenerator for Board {
             pt = distances.pop().or(pt);
         }
         let Some(DistanceToCoord {
-            coord: dock_zero, ..
+            coord: artifact_zero,
+            ..
         }) = pt
         else {
             return Err(());
         };
 
-        self.set_square(dock_zero, Square::dock(0))
+        self.set_square(artifact_zero, Square::artifact(0))
             .expect("Board position should be settable");
 
         let mut antipodes: BinaryHeap<_> = coastal_water
             .iter()
             .map(|l| DistanceToCoord {
                 coord: l.clone(),
-                distance: l.distance_to(&dock_zero),
+                distance: l.distance_to(&artifact_zero),
             })
             .collect();
 
@@ -897,13 +905,14 @@ impl BoardGenerator for Board {
             pt = antipodes.pop().or(pt);
         }
         let Some(DistanceToCoord {
-            coord: dock_one, ..
+            coord: artifact_one,
+            ..
         }) = pt
         else {
             return Err(());
         };
 
-        self.set_square(dock_one, Square::dock(1))
+        self.set_square(artifact_one, Square::artifact(1))
             .expect("Board position should be settable");
 
         self.cache_special_squares();
@@ -911,19 +920,21 @@ impl BoardGenerator for Board {
         Ok(())
     }
 
-    fn drop_docks(
+    fn drop_artifacts(
         &mut self,
         seed: u32,
-        ideal_dock_extremity: f64,
-        dock_type: DockType,
+        ideal_artifact_extremity: f64,
+        artifact_type: ArtifactType,
         symmetric: Symmetry,
     ) -> Result<(), ()> {
         let mut rng = Rand32::new(seed as u64);
         let mut viable_water: HashSet<Coordinate> = HashSet::new();
 
-        match dock_type {
-            DockType::IslandV1 => panic!("island_v1 docks must go through the island_v1 function"),
-            DockType::Coastal => {
+        match artifact_type {
+            ArtifactType::IslandV1 => {
+                panic!("island_v1 artifacts must go through the island_v1 function")
+            }
+            ArtifactType::Coastal => {
                 // Search from the corner of the map to find all contiguous outer coastal water
                 let mut visited: HashSet<Coordinate> = HashSet::from([Coordinate { x: 0, y: 0 }]);
                 let mut pts = VecDeque::from(vec![Coordinate { x: 0, y: 0 }]);
@@ -948,7 +959,7 @@ impl BoardGenerator for Board {
                     }
                 }
             }
-            DockType::Continental => {
+            ArtifactType::Continental => {
                 // All water bordering land is fair game
                 let all_pts = (0..self.height())
                     .flat_map(|y| (0..self.width()).zip(std::iter::repeat(y)))
@@ -994,26 +1005,27 @@ impl BoardGenerator for Board {
         // How far away from the extremeties are we allowed to land?
         let slop = self.width().add(self.height()).div(4);
 
-        let start = (ideal_dock_extremity * (viable_water.len() - slop) as f64).floor() as usize;
+        let start =
+            (ideal_artifact_extremity * (viable_water.len() - slop) as f64).floor() as usize;
         let offset = rng.rand_range(0..(slop as u32));
 
-        let dock_zero = *viable_water.get(start + offset as usize).unwrap();
+        let artifact_zero = *viable_water.get(start + offset as usize).unwrap();
 
-        self.set_square(dock_zero, Square::dock(0))
+        self.set_square(artifact_zero, Square::artifact(0))
             .expect("Board position should be settable");
 
         match symmetric {
             Symmetry::TwoFoldRotational | Symmetry::SmoothTwoFoldRotational => {
-                let dock_one = self.reciprocal_coordinate(dock_zero);
-                self.set_square(dock_one, Square::dock(1))
+                let artifact_one = self.reciprocal_coordinate(artifact_zero);
+                self.set_square(artifact_one, Square::artifact(1))
                     .expect("Board position should be settable");
             }
             Symmetry::Asymmetric => {
                 // possible idea:
                 // find all points that are the same distance from the center of the map
-                // find the point that maximises distance between the docks within that set of points
+                // find the point that maximises distance between the artifacts within that set of points
 
-                // let dock_distances = self.flood_fill(&dock_zero);
+                // let artifact_distances = self.flood_fill(&artifact_zero);
 
                 unimplemented!("asymmetric non-island");
             }
@@ -1032,17 +1044,17 @@ impl BoardGenerator for Board {
         maximum_town_distance: f64,
         symmetric: Symmetry,
     ) -> Result<(), ()> {
-        let docks = &self.docks;
-        let Some(Ok(Square::Dock {
+        let artifacts = &self.artifacts;
+        let Some(Ok(Square::Artifact {
             player: player_zero,
             ..
-        })) = docks.get(0).map(|d| self.get(*d))
+        })) = artifacts.get(0).map(|d| self.get(*d))
         else {
             return Err(());
         };
-        let Some(Ok(Square::Dock {
+        let Some(Ok(Square::Artifact {
             player: player_one, ..
-        })) = docks.get(1).map(|d| self.get(*d))
+        })) = artifacts.get(1).map(|d| self.get(*d))
         else {
             return Err(());
         };
@@ -1051,18 +1063,18 @@ impl BoardGenerator for Board {
 
         let town_distance = ((main_road.len() as f64) * maximum_town_distance) as usize;
 
-        let player_zero_dists = self.flood_fill(&docks[0]);
-        let player_one_dists = self.flood_fill(&docks[1]);
+        let player_zero_dists = self.flood_fill(&artifacts[0]);
+        let player_one_dists = self.flood_fill(&artifacts[1]);
 
         let mut candidates = |dists: BoardDistances| {
             let mut candies: Vec<_> = dists
                 .iter_direct()
                 .filter_map(|(coord, distance)| {
                     let is_land = matches!(self.get(coord), Ok(Square::Land { .. }));
-                    let is_near_dock = distance <= town_distance;
+                    let is_near_artifact = distance <= town_distance;
                     let is_on_critical_path = main_road.contains(&coord);
 
-                    if is_land && is_near_dock && !is_on_critical_path {
+                    if is_land && is_near_artifact && !is_on_critical_path {
                         Some(coord)
                     } else {
                         None
