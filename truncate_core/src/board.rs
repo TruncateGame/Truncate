@@ -1028,6 +1028,7 @@ impl Board {
         let owner = match self.get(position) {
             Ok(Square::Occupied { player, .. }) => player,
             Ok(Square::Town { .. }) => return vec![vec![position]],
+            Ok(Square::Artifact { .. }) => return vec![vec![position]],
             _ => return words,
         };
 

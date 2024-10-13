@@ -456,6 +456,29 @@ mod tests {
     }
 
     #[test]
+    fn collect_symbolic_combanants() {
+        let c = |x: usize, y: usize| Coordinate::new(x, y);
+        let mut board = Board::from_string(
+            "__ __ #0 __ __\n\
+             __ __ D0 A0 __\n\
+             __ |0 __ #0 __\n\
+             __ __ M1 __ __\n\
+             __ __ D1 |1 __",
+        );
+        board
+            .set(c(2, 2), 1, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
+
+        assert_eq!(
+            board.collect_combanants(1, c(2, 2)),
+            (
+                vec![vec![c(2, 2), c(2, 3), c(2, 4)]],
+                vec![vec![c(3, 1), c(2, 1)], vec![c(3, 2)], vec![c(1, 2)]],
+            )
+        );
+    }
+
+    #[test]
     fn resolve_successful_attack() {
         let b = Board::from_string(
             "__ S0 X0 |0 __\n\
