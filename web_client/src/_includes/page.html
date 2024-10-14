@@ -36,7 +36,7 @@
 
         <style>
             :root {
-                --water: #50a7e8;
+                --water: #0badff;
             }
 
             @font-face {
@@ -694,7 +694,7 @@
                 const TILEPACKS = {
                     GRASSES: [TILES.BASE_GRASS, TILES.GRASS_0_WIND_0, TILES.GRASS_1_WIND_0, TILES.GRASS_2_WIND_0],
                     HOUSES: [[TILES.HOUSE_0, TILES.ROOF_0], [TILES.HOUSE_1, TILES.ROOF_1], [TILES.HOUSE_2, TILES.ROOF_2], [TILES.HOUSE_3, TILES.ROOF_3]],
-                    DECOR: [[TILES.BUSH_0, TILES.BUSH_FLOWERS_0], [TILES.BUSH_1, TILES.BUSH_FLOWERS_1], [TILES.BUSH_2, TILES.BUSH_FLOWERS_2], [TILES.WHEAT, TILES.NONE], [TILES.WELL, TILES.NONE]],
+                    DECOR: [[TILES.BUSH_0, TILES.BUSH_FLOWERS_0], [TILES.BUSH_1, TILES.BUSH_FLOWERS_1], [TILES.BUSH_2, TILES.BUSH_FLOWERS_2]],
                 }
 
                 const canvas = document.getElementById("splash");
@@ -881,9 +881,6 @@
                             render.water_ne(x + output_size, y, neighbors[1], neighbors[2], neighbors[3]);
                             render.water_se(neighbors, x + output_size, y + output_size, neighbors[3], neighbors[4], neighbors[5]);
                             render.water_sw(x, y + output_size, neighbors[5], neighbors[6], neighbors[7]);
-                            if (!empty) {
-                                render.artifact(x, y, seed, neighbors);
-                            }
                         }
                     },
                     island: (x, y, seed) => {
@@ -892,28 +889,37 @@
                             [pick.grass(seed + 0.3), pick.grass(seed + 0.5)]
                         ], x, y);
 
-                        const houses = pick.houses(seed);
-                        for (const tex of houses?.[0] ?? []) paint.tile(tex, x, y);
-                        for (const tex of houses?.[1] ?? []) paint.tile(tex, x + output_size, y);
-                        for (const tex of houses?.[2] ?? []) paint.tile(tex, x + output_size, y + output_size);
-                        for (const tex of houses?.[3] ?? []) paint.tile(tex, x, y + output_size);
-                    },
-                    artifact: (x, y, seed, neighbors) => {
-                        if (seed > artifact_neg_threshold) return;
 
-                        if (neighbors[1]) {
-                            paint.tiles(TILES.QUAD.SOUTH_ARTIFACT, x, y);
-                            paint.tiles(TILES.QUAD.SOUTH_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
-                        } else if (neighbors[5]) {
-                            paint.tiles(TILES.QUAD.NORTH_ARTIFACT, x, y);
-                            paint.tiles(TILES.QUAD.NORTH_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
-                        } else if (neighbors[3]) {
-                            paint.tiles(TILES.QUAD.WEST_ARTIFACT, x, y);
-                            paint.tiles(TILES.QUAD.WEST_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
-                        } else if (neighbors[7]) {
-                            paint.tiles(TILES.QUAD.EAST_ARTIFACT, x, y);
-                            paint.tiles(TILES.QUAD.EAST_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
+                        if (pick.num(seed + 234) % 30 === 0) {
+                            render.artifact(x, y, seed);
+                        } else {
+                          const houses = pick.houses(seed);
+                          for (const tex of houses?.[0] ?? []) paint.tile(tex, x, y);
+                          for (const tex of houses?.[1] ?? []) paint.tile(tex, x + output_size, y);
+                          for (const tex of houses?.[2] ?? []) paint.tile(tex, x + output_size, y + output_size);
+                          for (const tex of houses?.[3] ?? []) paint.tile(tex, x, y + output_size);
                         }
+                    },
+                    artifact: (x, y, seed, _neighbors) => {
+                        // if (seed > artifact_neg_threshold) return;
+
+                        paint.tiles(TILES.QUAD.ARTIFACT, x, y);
+                        paint.tiles(TILES.QUAD.ARTIFACT_GLYPH, x, y, pick.color(seed));
+
+                        // TODO: Restore artifact directionality
+                        // if (neighbors[1]) {
+                        //     paint.tiles(TILES.QUAD.SOUTH_ARTIFACT, x, y);
+                        //     paint.tiles(TILES.QUAD.SOUTH_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
+                        // } else if (neighbors[5]) {
+                        //     paint.tiles(TILES.QUAD.NORTH_ARTIFACT, x, y);
+                        //     paint.tiles(TILES.QUAD.NORTH_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
+                        // } else if (neighbors[3]) {
+                        //     paint.tiles(TILES.QUAD.WEST_ARTIFACT, x, y);
+                        //     paint.tiles(TILES.QUAD.WEST_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
+                        // } else if (neighbors[7]) {
+                        //     paint.tiles(TILES.QUAD.EAST_ARTIFACT, x, y);
+                        //     paint.tiles(TILES.QUAD.EAST_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
+                        // }
                     },
                     water_nw: (x, y, w, nw, n) => {
                         if (w && n) paint.tile(TILES.LAND_WITH_WATER_SE, x, y);

@@ -166,24 +166,13 @@ impl MappedBoard {
         if let Some(tex) = &self.resolved_textures {
             if ui_state.is_some_and(|s| s.dictionary_open) {
                 paint(tex.terrain.id(), Color32::WHITE.gamma_multiply(0.2));
-                // This is where we make the checkerboard overlay translucent
-                if self.daytime {
-                    paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
-                } else {
-                    paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.02));
-                }
                 paint(tex.structures.id(), Color32::WHITE.gamma_multiply(0.2));
                 paint(tex.pieces.id(), Color32::WHITE.gamma_multiply(0.2));
                 paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.7));
                 paint(tex.pieces_validity.id(), Color32::WHITE);
             } else {
                 paint(tex.terrain.id(), Color32::WHITE);
-                // This is where we make the checkerboard overlay translucent
-                if self.daytime {
-                    paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
-                } else {
-                    paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.02));
-                }
+                paint(tex.checkerboard.id(), Color32::WHITE);
                 paint(tex.structures.id(), Color32::WHITE);
                 paint(tex.pieces.id(), Color32::WHITE);
                 paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.7));
@@ -666,18 +655,20 @@ impl MappedBoard {
                             .hovered_unoccupied_square_on_board
                             .is_some_and(|s| s.coord == Some(coord))
                     {
-                        layers = layers.merge_below_self(TexLayers {
-                            terrain: None,
-                            structures: None,
-                            checkerboard: None,
-                            piece_validities: vec![],
-                            mist: None,
-                            fog: None,
-                            pieces: vec![PieceLayer::Texture(
-                                tex::tiles::quad::CHECKERBOARD,
-                                Some(aesthetics.theme.grass.slighten()),
-                            )],
-                        });
+                        // TODO: paint something on empty tiles when hovered
+                        // (maybe? the oly current interaction is to select it for keyboard control)
+                        // layers = layers.merge_below_self(TexLayers {
+                        //     terrain: None,
+                        //     structures: None,
+                        //     checkerboard: None,
+                        //     piece_validities: vec![],
+                        //     mist: None,
+                        //     fog: None,
+                        //     pieces: vec![PieceLayer::Texture(
+                        //         tex::tiles::quad::CHECKERBOARD_HOVER,
+                        //         None,
+                        //     )],
+                        // });
                     }
                 }
 

@@ -111,8 +111,10 @@ impl From<&Square> for BGTexType {
     fn from(sq: &Square) -> Self {
         use truncate_core::board::Square::*;
         match sq {
-            Water { .. } | Fog { .. } | Artifact { .. } => Self::WaterOrFog,
-            Land { .. } | Town { .. } | Obelisk { .. } | Occupied { .. } => Self::Land,
+            Water { .. } | Fog { .. } => Self::WaterOrFog,
+            Artifact { .. } | Land { .. } | Town { .. } | Obelisk { .. } | Occupied { .. } => {
+                Self::Land
+            }
         }
     }
 }
@@ -362,9 +364,9 @@ impl Tex {
         let mut t = vec![
             tiles::quad::ARTIFACT_BUTTON,
             if let Some(color) = color {
-                tiles::quad::ARTIFACT_BUTTON_SAIL.tint(color)
+                tiles::quad::ARTIFACT_BUTTON_GLYPH.tint(color)
             } else {
-                tiles::quad::ARTIFACT_BUTTON_SAIL
+                tiles::quad::ARTIFACT_BUTTON_GLYPH
             },
         ];
         if let Some(highlight) = highlight {
@@ -427,64 +429,72 @@ impl Tex {
     }
 
     fn artifact(color: Color32, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
-        // TODO: Render artifacts with multiple edges somehow.
+        // TODO: Restore directional artifact textures as below:
 
-        let (artifact, sails) = if matches!(neighbors[1], BGTexType::Land) {
-            (
-                tiles::quad::SOUTH_ARTIFACT,
-                [
-                    tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_0,
-                    tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_1,
-                    tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_2,
-                ],
-            )
-        } else if matches!(neighbors[5], BGTexType::Land) {
-            (
-                tiles::quad::NORTH_ARTIFACT,
-                [
-                    tiles::quad::NORTH_ARTIFACT_SAIL_WIND_0,
-                    tiles::quad::NORTH_ARTIFACT_SAIL_WIND_1,
-                    tiles::quad::NORTH_ARTIFACT_SAIL_WIND_2,
-                ],
-            )
-        } else if matches!(neighbors[3], BGTexType::Land) {
-            (
-                tiles::quad::WEST_ARTIFACT,
-                [
-                    tiles::quad::WEST_ARTIFACT_SAIL_WIND_0,
-                    tiles::quad::WEST_ARTIFACT_SAIL_WIND_1,
-                    tiles::quad::WEST_ARTIFACT_SAIL_WIND_2,
-                ],
-            )
-        } else if matches!(neighbors[7], BGTexType::Land) {
-            (
-                tiles::quad::EAST_ARTIFACT,
-                [
-                    tiles::quad::EAST_ARTIFACT_SAIL_WIND_0,
-                    tiles::quad::EAST_ARTIFACT_SAIL_WIND_1,
-                    tiles::quad::EAST_ARTIFACT_SAIL_WIND_2,
-                ],
-            )
-        } else {
-            (
-                tiles::quad::FLOATING_ARTIFACT,
-                [
-                    tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_0,
-                    tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_1,
-                    tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_2,
-                ],
-            )
-        };
+        let (artifact, glyph) = (tiles::quad::ARTIFACT, [tiles::quad::ARTIFACT_GLYPH]);
+
+        // let (artifact, sails) = if matches!(neighbors[1], BGTexType::Land) {
+        //     (
+        //         tiles::quad::SOUTH_ARTIFACT,
+        //         [
+        //             tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // } else if matches!(neighbors[5], BGTexType::Land) {
+        //     (
+        //         tiles::quad::NORTH_ARTIFACT,
+        //         [
+        //             tiles::quad::NORTH_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::NORTH_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::NORTH_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // } else if matches!(neighbors[3], BGTexType::Land) {
+        //     (
+        //         tiles::quad::WEST_ARTIFACT,
+        //         [
+        //             tiles::quad::WEST_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::WEST_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::WEST_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // } else if matches!(neighbors[7], BGTexType::Land) {
+        //     (
+        //         tiles::quad::EAST_ARTIFACT,
+        //         [
+        //             tiles::quad::EAST_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::EAST_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::EAST_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // } else {
+        //     (
+        //         tiles::quad::FLOATING_ARTIFACT,
+        //         [
+        //             tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // };
+
+        // TODO: Restore wind effects for the artifact as below
+        // TexLayers::default()
+        //     .with_structures(artifact)
+        //     .with_piece_texture(
+        //         match wind_at_coord {
+        //             calm!() => sails[0],
+        //             breeze!() => sails[1],
+        //             _ => sails[2],
+        //         },
+        //         Some(color),
+        //     )
+
         TexLayers::default()
             .with_structures(artifact)
-            .with_piece_texture(
-                match wind_at_coord {
-                    calm!() => sails[0],
-                    breeze!() => sails[1],
-                    _ => sails[2],
-                },
-                Some(color),
-            )
+            .with_piece_texture(glyph[0], Some(color))
     }
 
     fn town(color: Color32, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
@@ -523,17 +533,18 @@ impl Tex {
         };
 
         let rand_decor = |n: usize| match quickrand(n) {
-            0..=20 => (tiles::BUSH_0, tiles::BUSH_FLOWERS_0),
-            21..=40 => (tiles::BUSH_1, tiles::BUSH_FLOWERS_1),
-            41..=60 => (tiles::BUSH_2, tiles::BUSH_FLOWERS_2),
-            61..=80 => (
-                match wind_at_coord {
-                    calm!() | breeze!() => tiles::WHEAT_WIND_0,
-                    _ => tiles::WHEAT_WIND_1,
-                },
-                tiles::NONE,
-            ),
-            _ => (tiles::WELL, tiles::NONE),
+            0..=33 => (tiles::BUSH_0, tiles::BUSH_FLOWERS_0),
+            34..=66 => (tiles::BUSH_1, tiles::BUSH_FLOWERS_1),
+            _ => (tiles::BUSH_2, tiles::BUSH_FLOWERS_2),
+            // TODO: Add wind back to decor as below:
+            // 61..=80 => (
+            //     match wind_at_coord {
+            //         calm!() | breeze!() => tiles::WHEAT_WIND_0,
+            //         _ => tiles::WHEAT_WIND_1,
+            //     },
+            //     tiles::NONE,
+            // ),
+            // _ => (tiles::WELL, tiles::NONE),
         };
 
         let rand_decor_colored = |n: usize| {
