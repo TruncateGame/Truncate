@@ -199,7 +199,13 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
         outer.event_dispatcher.event(format!("updates_listing"));
         let mut changelog_ui = SplashUI::new(vec!["Latest updates".to_string()]);
 
-        for (changelog_id, changelog_tut) in changelogs() {
+        let mut ordered_changelogs = changelogs()
+            .into_iter()
+            .filter(|(_, log)| log.effective_day <= outer.launched_at_day)
+            .collect::<Vec<_>>();
+        ordered_changelogs.sort_by_key(|(_, log)| log.effective_day);
+
+        for (changelog_id, changelog_tut) in ordered_changelogs {
             changelog_ui = changelog_ui.with_button(
                 changelog_id,
                 changelog_tut
