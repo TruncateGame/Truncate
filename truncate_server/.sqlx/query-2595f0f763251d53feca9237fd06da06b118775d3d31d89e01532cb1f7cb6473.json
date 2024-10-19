@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO viewed_changelogs (\n            player_id,\n            changelog_id\n        ) VALUES ($1, $2)\n        ON CONFLICT DO NOTHING;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2595f0f763251d53feca9237fd06da06b118775d3d31d89e01532cb1f7cb6473"
+}
