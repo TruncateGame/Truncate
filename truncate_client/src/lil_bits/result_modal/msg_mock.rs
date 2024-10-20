@@ -150,12 +150,21 @@ impl ShareMessageMock {
         let plur = |num: u32| if num == 1 { "" } else { "s" };
 
         let Some(first_win) = first_win else {
-            return format!(
-                "Truncate Town Day #{day}\nLost in {} move{} on attempt #{}",
-                latest_attempt.1.moves,
-                plur(latest_attempt.1.moves),
-                latest_attempt.0 + 1,
-            );
+            if matches!(option_env!("TR_ENV"), Some("outpost")) {
+                return format!(
+                    "-- Truncate Outpost Day #{day} --\nLost in {} move{} on attempt #{}",
+                    latest_attempt.1.moves,
+                    plur(latest_attempt.1.moves),
+                    latest_attempt.0 + 1,
+                );
+            } else {
+                return format!(
+                    "Truncate Town Day #{day}\nLost in {} move{} on attempt #{}",
+                    latest_attempt.1.moves,
+                    plur(latest_attempt.1.moves),
+                    latest_attempt.0 + 1,
+                );
+            }
         };
 
         let best_win = best_win.unwrap_or(first_win.1);
