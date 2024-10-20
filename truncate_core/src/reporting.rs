@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::{collections::HashSet, fmt};
 
 use crate::{
     board::{Board, Coordinate, Square},
@@ -170,6 +170,7 @@ pub(crate) fn filter_to_player(
     player_index: usize,
     visibility: &rules::Visibility,
     winner: &Option<usize>,
+    seen_tiles: &HashSet<Coordinate>,
 ) -> Vec<Change> {
     changes
         .iter()
@@ -189,9 +190,12 @@ pub(crate) fn filter_to_player(
                 detail: BoardChangeDetail { coordinate, square },
                 action,
             }) => {
-                let Some(relative_coord) =
-                    full_board.map_game_coord_to_player(player_index, *coordinate, visibility)
-                else {
+                let Some(relative_coord) = full_board.map_game_coord_to_player(
+                    player_index,
+                    *coordinate,
+                    visibility,
+                    seen_tiles,
+                ) else {
                     return None;
                 };
                 let relative_change = Change::Board(BoardChange {

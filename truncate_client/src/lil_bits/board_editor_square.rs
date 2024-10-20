@@ -14,7 +14,7 @@ pub struct EditorSquareUI {
 impl EditorSquareUI {
     pub fn new() -> Self {
         Self {
-            square: Square::Water,
+            square: Square::water(),
             action: BoardEditingMode::Land,
         }
     }
@@ -62,7 +62,7 @@ impl EditorSquareUI {
                 }
             }
         }
-        if matches!(self.square, Square::Land) {
+        if matches!(self.square, Square::Land { .. }) {
             ui.painter().rect_stroke(
                 inner_bounds,
                 theme.rounding,

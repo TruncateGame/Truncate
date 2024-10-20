@@ -1,5 +1,5 @@
 .DS_Store
-/target
+target
 web_client/src/static/truncate_client_bg.wasm
 web_client/src/static/truncate_client.js
 kaikki*
