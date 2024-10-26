@@ -855,6 +855,56 @@ impl Board {
         distances
     }
 
+    pub fn flood_fill_water_from_land(&self) -> BoardDistances {
+        let mut distances = BoardDistances::new(self);
+
+        let starting_pos = (0..self.height())
+            .flat_map(|y| (0..self.width()).zip(std::iter::repeat(y)))
+            .map(|(x, y)| Coordinate { x, y })
+            .find(|c| matches!(self.get(*c), Ok(Square::Land { .. })))
+            .expect("Board should not be a complete ocean");
+
+        distances.set_direct(&starting_pos, 0);
+        let initial_neighbors = self.neighbouring_squares(starting_pos);
+        let mut direct_pts: VecDeque<_> = initial_neighbors.iter().map(|n| (n.0, 0)).collect();
+
+        while !direct_pts.is_empty() {
+            let (pt, dist) = direct_pts.pop_front().unwrap();
+
+            match distances.direct_distance_mut(&pt) {
+                Some(Some(visited_dist)) => {
+                    if *visited_dist > dist {
+                        // We have now found a better path to this point, so we will reprocess it
+                        *visited_dist = dist;
+                    } else {
+                        // We have previously found a better (or equal) path to this point, move to the next
+                        continue;
+                    }
+                }
+                _ => {
+                    distances.set_direct(&pt, dist);
+                }
+            }
+
+            match self.get(pt) {
+                Ok(Square::Water { .. }) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                Ok(_) => {
+                    let neighbors = self.neighbouring_squares(pt);
+
+                    // We found more land — search its neighbors with a new starting distance
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, 0)));
+                    distances.set_direct(&pt, 0);
+                }
+                _ => continue,
+            }
+        }
+
+        distances
+    }
+
     /// Find the shortest land path between any two points on a board.
     /// Does NOT take into account tiles defended by either player,
     /// so isn't strictly correct once gameplay has begun.

@@ -3,7 +3,7 @@ use epaint::{
     hex_color, pos2, vec2, Color32, ColorImage, Mesh, Pos2, Rect, Shape, TextureHandle, TextureId,
     Vec2,
 };
-use truncate_core::board::{Coordinate, Direction, Square};
+use truncate_core::board::{BoardDistances, Coordinate, Direction, SignedCoordinate, Square};
 
 use crate::{app_outer::TEXTURE_MEASUREMENT, regions::lobby::BoardEditingMode};
 
@@ -607,6 +607,54 @@ impl Tex {
             .with_piece_texture(tinted, Some(color))
     }
 
+    fn water(
+        seed: usize,
+        source_coord: SignedCoordinate,
+        board_size: (usize, usize),
+        distance_to_land: &BoardDistances,
+    ) -> Tex {
+        let mut added_distance = 0;
+        let mut lookup_x = 0;
+        let mut lookup_y = 0;
+
+        if source_coord.x < 0 {
+            added_distance += source_coord.x.unsigned_abs();
+        } else if source_coord.x as usize >= board_size.0 {
+            lookup_x = board_size.0 - 1;
+            added_distance += source_coord.x as usize - lookup_x;
+        } else {
+            lookup_x = source_coord.x as _;
+        }
+
+        if source_coord.y < 0 {
+            added_distance += source_coord.y.unsigned_abs();
+        } else if source_coord.y as usize >= board_size.1 {
+            lookup_y = board_size.1 - 1;
+            added_distance += source_coord.y as usize - lookup_y;
+        } else {
+            lookup_y = source_coord.y as _;
+        }
+
+        let dist = distance_to_land
+            .direct_distance(&Coordinate::new(lookup_x, lookup_y))
+            .unwrap_or_default()
+            + added_distance;
+
+        let rand = quickrand(seed + 1982367);
+        let threshold = match dist {
+            0 => 100,
+            1 => 70,
+            2 => 30,
+            _ => 0,
+        };
+
+        if threshold > rand {
+            tiles::BASE_WATER_WAVES
+        } else {
+            tiles::BASE_WATER
+        }
+    }
+
     /// Determine the tiles to use based on a given square and its neighbors,
     /// provided clockwise from northwest.
     pub fn terrain(
@@ -616,7 +664,9 @@ impl Tex {
         seed: usize,
         tick: u64,
         wind_at_coord: u8,
-        coord: Coordinate,
+        coord: SignedCoordinate,
+        board_size: (usize, usize),
+        distance_to_land: &BoardDistances,
     ) -> TexLayers {
         debug_assert_eq!(neighbors.len(), 8);
         if neighbors.len() != 8 {
@@ -669,7 +719,9 @@ impl Tex {
                 (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_W,
                 (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_N,
                 (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_NW,
-                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => {
+                    Tex::water(seed, coord, board_size, distance_to_land)
+                }
             },
         };
 
@@ -680,7 +732,9 @@ impl Tex {
                 (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_N,
                 (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_E,
                 (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_NE,
-                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => {
+                    Tex::water(seed + 1, coord, board_size, distance_to_land)
+                }
             },
         };
 
@@ -691,7 +745,9 @@ impl Tex {
                 (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_E,
                 (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_S,
                 (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_SE,
-                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => {
+                    Tex::water(seed + 2, coord, board_size, distance_to_land)
+                }
             },
         };
 
@@ -702,7 +758,9 @@ impl Tex {
                 (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_S,
                 (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_W,
                 (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_SW,
-                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => {
+                    Tex::water(seed + 3, coord, board_size, distance_to_land)
+                }
             },
         };
 

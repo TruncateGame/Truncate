@@ -4,7 +4,7 @@ use eframe::egui;
 use epaint::{hex_color, pos2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
 use instant::Duration;
 use truncate_core::{
-    board::{Board, Coordinate, Direction, SignedCoordinate, Square},
+    board::{Board, BoardDistances, Coordinate, Direction, SignedCoordinate, Square},
     reporting::Change,
 };
 
@@ -123,6 +123,7 @@ pub struct MappedBoard {
     forecasted_wind: u8,
     incoming_wind: u8,
     winds: VecDeque<u8>,
+    distance_to_land: BoardDistances,
 }
 
 impl MappedBoard {
@@ -156,6 +157,7 @@ impl MappedBoard {
             forecasted_wind: 0,
             incoming_wind: 0,
             winds: vec![0; board.width() + board.height()].into(),
+            distance_to_land: board.flood_fill_water_from_land(),
         };
 
         mapper.remap_texture(ctx, aesthetics, &TimingDepot::default(), None, None, board);
@@ -313,7 +315,9 @@ impl MappedBoard {
             seed_at_coord,
             tick,
             wind_at_coord,
-            dest_coord,
+            coord,
+            (board.width(), board.height()),
+            &self.distance_to_land,
         );
 
         if square.is_foggy() {
@@ -934,6 +938,7 @@ impl MappedBoard {
 
             if !board_eq {
                 memory.prev_board = board.clone();
+                self.distance_to_land = board.flood_fill_water_from_land();
             }
             if !selected_tile_eq {
                 memory.prev_selected_tile = selected_tile;
@@ -1026,6 +1031,7 @@ impl MappedBoard {
                 }
 
                 let source_coord = SignedCoordinate::new(source_col, source_row);
+
                 let square = source_coord
                     .real_coord()
                     .and_then(|c| board.get(c).ok())
