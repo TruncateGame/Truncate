@@ -1639,6 +1639,82 @@ impl std::cmp::PartialEq<(usize, usize)> for Coordinate {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord, Deserialize, Serialize)]
+pub struct SignedCoordinate {
+    pub x: isize,
+    pub y: isize,
+}
+
+impl SignedCoordinate {
+    pub fn new(x: isize, y: isize) -> Self {
+        Self { x, y }
+    }
+
+    pub fn add(self, direction: Direction) -> Option<SignedCoordinate> {
+        use Direction::*;
+
+        Some(SignedCoordinate {
+            x: match direction {
+                West | NorthWest | SouthWest => isize::checked_sub(self.x, 1)?,
+                East | NorthEast | SouthEast => isize::checked_add(self.x, 1)?,
+                North | South => self.x,
+            },
+            y: match direction {
+                North | NorthEast | NorthWest => isize::checked_sub(self.y, 1)?,
+                South | SouthEast | SouthWest => isize::checked_add(self.y, 1)?,
+                East | West => self.y,
+            },
+        })
+    }
+
+    pub fn neighbors_4_iter(&self) -> Flatten<IntoIter<Option<SignedCoordinate>, 4>> {
+        self.neighbors_4().into_iter().flatten()
+    }
+
+    /// Return coordinates of the horizontal and vertical neighbors, from north clockwise
+    pub fn neighbors_4(&self) -> [Option<SignedCoordinate>; 4] {
+        use Direction::*;
+
+        [
+            self.add(North),
+            self.add(East),
+            self.add(South),
+            self.add(West),
+        ]
+    }
+
+    pub fn neighbors_8_iter(&self) -> Flatten<IntoIter<Option<SignedCoordinate>, 8>> {
+        self.neighbors_8().into_iter().flatten()
+    }
+
+    /// Return coordinates of the horizontal, vertical, and diagonal neighbors, from northwest clockwise
+    pub fn neighbors_8(&self) -> [Option<SignedCoordinate>; 8] {
+        use Direction::*;
+
+        [
+            self.add(NorthWest),
+            self.add(North),
+            self.add(NorthEast),
+            self.add(East),
+            self.add(SouthEast),
+            self.add(South),
+            self.add(SouthWest),
+            self.add(West),
+        ]
+    }
+
+    pub fn real_coord(&self) -> Option<Coordinate> {
+        if self.x.is_negative() || self.y.is_negative() {
+            None
+        } else {
+            Some(Coordinate {
+                x: self.x as _,
+                y: self.y as _,
+            })
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SquareValidity {
     Unknown,

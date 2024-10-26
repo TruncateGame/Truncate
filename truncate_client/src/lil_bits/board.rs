@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
 use instant::Duration;
 use truncate_core::{
@@ -98,6 +100,8 @@ impl<'a> BoardUI<'a> {
             drag_pos = Some(pointer_pos + vec2(0.0, drag_offset));
         }
 
+        let mut board_texture_dest = Rect::NOTHING;
+
         let board_frame = area
             .show(ui.ctx(), |ui| {
                 let styles = ui.style_mut();
@@ -105,13 +109,16 @@ impl<'a> BoardUI<'a> {
                 styles.spacing.interact_size = egui::vec2(0.0, 0.0);
 
                 outer_frame.show(ui, |ui| {
-                    let board_texture_dest = Rect::from_min_size(
+                    board_texture_dest = Rect::from_min_size(
                         ui.next_widget_position(),
                         vec2(
                             self.board.width() as f32 * depot.aesthetics.theme.grid_size,
                             self.board.height() as f32 * depot.aesthetics.theme.grid_size,
                         ),
                     );
+
+                    board_texture_dest = board_texture_dest
+                        .expand(depot.aesthetics.theme.grid_size * mapped_board.buffer() as f32);
 
                     let mut render = |rows: Box<dyn Iterator<Item = (usize, &Vec<Square>)>>| {
                         let mut render_row =
@@ -440,19 +447,27 @@ impl<'a> BoardUI<'a> {
                     depot.interactions.hovered_occupied_square_on_board =
                         occupied_square_is_hovered;
                     depot.interactions.hovered_tile_on_board = tile_is_hovered;
-
-                    mapped_board.remap_texture(
-                        ui.ctx(),
-                        &depot.aesthetics,
-                        &depot.timing,
-                        Some(&depot.interactions),
-                        Some(&depot.gameplay),
-                        self.board,
-                    );
-                    mapped_board.render_to_rect(board_texture_dest, Some(&depot.ui_state), ui);
                 })
             })
             .inner;
+
+        let texture_area = egui::Area::new(egui::Id::new("board_texture_layer"))
+            .movable(false)
+            .order(Order::Background)
+            .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0))
+            .interactable(false);
+        texture_area.show(ui.ctx(), |ui| {
+            ui.expand_to_include_rect(ui.available_rect_before_wrap());
+            mapped_board.remap_texture(
+                ui.ctx(),
+                &depot.aesthetics,
+                &depot.timing,
+                Some(&depot.interactions),
+                Some(&depot.gameplay),
+                self.board,
+            );
+            mapped_board.render_to_rect(board_texture_dest, Some(&depot.ui_state), ui);
+        });
 
         if !drag_underway {
             depot.interactions.dragging_tile_on_board = None;

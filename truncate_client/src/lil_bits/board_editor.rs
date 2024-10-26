@@ -172,30 +172,21 @@ impl<'a> EditorUI<'a> {
 
             let mut modify_pos = None;
             outer_frame.show(ui, |ui| {
-                let dest = Rect::from_min_size(
+                let mut dest = Rect::from_min_size(
                     ui.next_widget_position(),
                     vec2(
                         self.board.width() as f32 * theme.grid_size,
                         self.board.height() as f32 * theme.grid_size,
                     ),
                 );
+                dest = dest.expand(theme.grid_size * self.mapped_board.buffer() as f32);
                 self.mapped_board.render_to_rect(dest, None, ui);
 
                 for (rownum, row) in self.board.squares.iter().enumerate() {
                     ui.horizontal(|ui| {
                         for (colnum, square) in row.iter().enumerate() {
                             let coord = Coordinate::new(colnum, rownum);
-                            let mut editing_mode = self.editing_mode.clone();
-
-                            // Prevent editing the outermost ring of the board,
-                            // as this leads to broken textures
-                            if rownum == 0
-                                || colnum == 0
-                                || rownum == self.board.squares.len() - 1
-                                || colnum == row.len() - 1
-                            {
-                                editing_mode = BoardEditingMode::None;
-                            }
+                            let editing_mode = self.editing_mode.clone();
 
                             let response = EditorSquareUI::new()
                                 .square(square.clone())
