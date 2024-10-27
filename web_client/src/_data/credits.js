@@ -1,55 +1,5 @@
 module.exports = function () {
   return {
-    art_assets: [
-      {
-        "name": "Serene Village",
-        "url": "https://limezu.itch.io/serenevillage",
-        "author": "LimeZu",
-        "author_url": "https://limezu.itch.io/",
-        "license": "CC BY 4.0",
-        "license_url": "https://creativecommons.org/licenses/by/4.0/"
-      },
-      {
-        "name": "Serene Village Revamped",
-        "url": "https://limezu.itch.io/serenevillagerevamped",
-        "author": "LimeZu",
-        "author_url": "https://limezu.itch.io/",
-        "license": "CC BY 4.0",
-        "license_url": "https://creativecommons.org/licenses/by/4.0/"
-      },
-      {
-        "name": "Overworld - Grass Biome",
-        "url": "https://opengameart.org/content/overworld-grass-biome",
-        "author": "Beast",
-        "author_url": "https://opengameart.org/users/beast",
-        "license": "CC0 1.0",
-        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
-      },
-      {
-        "name": "Board Tiles Fantasy 64x64",
-        "url": "https://opengameart.org/content/board-tiles-fantasy-64x64",
-        "author": "Skyscroller",
-        "author_url": "https://opengameart.org/users/skyscroller",
-        "license": "CC BY 3.0",
-        "license_url": "https://creativecommons.org/licenses/by/3.0/"
-      },
-      {
-        "name": "16x16 fantasy pixel art vehicles",
-        "url": "https://opengameart.org/content/16x16-fantasy-pixel-art-vehicles",
-        "author": "DualR",
-        "author_url": "http://opengameart.org/users/DualR",
-        "license": "CC BY 3.0",
-        "license_url": "https://creativecommons.org/licenses/by/3.0/"
-      },
-      {
-        "name": "Roguelike/RPG Items",
-        "url": "https://opengameart.org/content/roguelikerpg-items",
-        "author": "JoeCreates",
-        "author_url": "https://twitter.com/joecreates",
-        "license": "CC BY-SA 3.0",
-        "license_url": "https://creativecommons.org/licenses/by-sa/3.0/"
-      }
-    ],
     audio_assets: [
       {
         "name": "Puzzle piece placed on board",
