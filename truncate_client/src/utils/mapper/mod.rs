@@ -1027,7 +1027,7 @@ impl MappedBoard {
 
                 if self.inverted {
                     source_col = board.width() as isize - source_col - 1;
-                    source_row = board.width() as isize - source_row - 1;
+                    source_row = board.height() as isize - source_row - 1;
                 }
 
                 let source_coord = SignedCoordinate::new(source_col, source_row);
