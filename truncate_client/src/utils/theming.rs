@@ -119,10 +119,10 @@ impl Theme {
         board_width: usize,
         board_height: usize,
         scale_bounds: Range<f32>,
-        pad_by: (usize, usize),
+        pad_by: (f32, f32),
     ) -> ((f32, f32), Margin, Self) {
-        let mut ideal_grid = avail_space.width() / (board_width + pad_by.0) as f32;
-        let y_space = avail_space.height() / (board_height + pad_by.1) as f32;
+        let mut ideal_grid = avail_space.width() / (board_width as f32 + pad_by.0);
+        let y_space = avail_space.height() / (board_height as f32 + pad_by.1);
         if y_space < ideal_grid {
             ideal_grid = y_space;
         }

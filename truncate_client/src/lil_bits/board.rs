@@ -65,7 +65,7 @@ impl<'a> BoardUI<'a> {
                 self.board.width(),
                 self.board.height(),
                 0.05..2.0,
-                (0, 0),
+                (0.5, 0.5),
             );
         let theme = theme.rescale(depot.board_info.board_zoom);
         let outer_frame = egui::Frame::none().inner_margin(0.0);

@@ -166,7 +166,7 @@ impl<'a> EditorUI<'a> {
                 self.board.width(),
                 self.board.height(),
                 0.3..2.0,
-                (2, 2),
+                (2.0, 2.0),
             );
             let outer_frame = egui::Frame::none().inner_margin(margin);
 
