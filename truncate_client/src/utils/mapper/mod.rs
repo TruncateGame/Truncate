@@ -293,12 +293,24 @@ impl MappedBoard {
             .map(|square| {
                 square
                     .as_ref()
-                    .map(Into::into)
+                    .map(|sq| {
+                        if aesthetics.theme.use_old_art {
+                            if matches!(sq, Square::Artifact { .. }) {
+                                return BGTexType::WaterOrFog;
+                            }
+                        }
+                        sq.into()
+                    })
                     .unwrap_or(BGTexType::WaterOrFog)
             })
             .collect();
 
-        let tile_base_type = BGTexType::from(square);
+        let mut tile_base_type = BGTexType::from(square);
+        if aesthetics.theme.use_old_art {
+            if matches!(square, Square::Artifact { .. }) {
+                tile_base_type = BGTexType::WaterOrFog;
+            }
+        }
         let tile_layer_type = FGTexType::from((square, player_colors));
 
         let wind_at_coord = self

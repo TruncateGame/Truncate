@@ -24,6 +24,8 @@ use truncate_core::{
     rules::GameRules,
 };
 
+pub const ART_CHANGE_DAY: u32 = 280;
+
 /// A way to communicate with an outer host, if one exists. (Typically Browser JS)
 pub struct Backchannel {
     #[cfg(target_arch = "wasm32")]
@@ -158,7 +160,7 @@ impl OuterApplication {
         cc.egui_ctx.set_fonts(fonts);
 
         let glypher = Glypher::new();
-        let map_texture = load_textures(&cc.egui_ctx, &glypher);
+        let map_texture = load_textures(&cc.egui_ctx, &glypher, launched_at_day);
         _ = GLYPHER.set(glypher);
 
         let mut game_status = app_inner::GameStatus::None("".into(), None);
@@ -239,7 +241,11 @@ impl OuterApplication {
             }
         }
 
-        let theme = Theme::day();
+        let theme = if launched_at_day >= ART_CHANGE_DAY {
+            Theme::day()
+        } else {
+            Theme::old_day()
+        };
 
         {
             use egui::FontFamily;
@@ -354,9 +360,12 @@ pub struct TextureMeasurement {
     pub y_padding_pct: f32,
 }
 
-fn load_textures(ctx: &egui::Context, glypher: &Glypher) -> TextureHandle {
-    let image_bytes = include_bytes!("../img/truncate_packed.png");
-    let image = image::load_from_memory(image_bytes).unwrap();
+fn load_textures(ctx: &egui::Context, glypher: &Glypher, launched_at_day: u32) -> TextureHandle {
+    let image = if launched_at_day >= ART_CHANGE_DAY {
+        image::load_from_memory(include_bytes!("../img/truncate_packed.png")).unwrap()
+    } else {
+        image::load_from_memory(include_bytes!("../img/truncate_packed_old.png")).unwrap()
+    };
     let image_width = image.width();
     let image_height = image.height();
     let size = [image_width as _, image_height as _];
