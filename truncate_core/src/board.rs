@@ -11,6 +11,7 @@ use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::judge::WordDict;
 use crate::reporting::Change;
+use crate::rules::{ArtifactDefense, GameRules, WinCondition};
 use crate::{player, rules};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1136,8 +1137,16 @@ impl Board {
         &self,
         player: usize,
         position: Coordinate,
+        rules: &GameRules,
     ) -> (Vec<Vec<Coordinate>>, Vec<Vec<Coordinate>>) {
         let attackers = self.get_words(position);
+        let artifacts_are_combatants = matches!(
+            rules.win_condition,
+            WinCondition::Destination {
+                artifact_defense: ArtifactDefense::BeatenWithDefenseStrength(_),
+                ..
+            }
+        );
         // Any neighbouring square belonging to another player is attacked. The words containing those squares are the defenders.
         let defenders = self
             .neighbouring_squares(position)
@@ -1151,7 +1160,7 @@ impl Board {
                     player: adjacent_player,
                     defeated,
                     ..
-                } => player != *adjacent_player && !defeated,
+                } => artifacts_are_combatants && player != *adjacent_player && !defeated,
                 Square::Town {
                     player: adjacent_player,
                     defeated,

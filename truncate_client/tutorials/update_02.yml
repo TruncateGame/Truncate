@@ -9,7 +9,7 @@ changelog_name: Battle length changes
 
 priority: High
 
-effective_day: 238
+effective_day: 288
 
 rules:
   - category: Update

@@ -673,7 +673,7 @@ impl Game {
         cached_word_judgements: Option<&mut HashMap<String, bool, xxh3::Xxh3Builder>>,
         changes: &mut Vec<Change>,
     ) {
-        let (attackers, defenders) = self.board.collect_combanants(player, position);
+        let (attackers, defenders) = self.board.collect_combanants(player, position, &self.rules);
         let attacking_words = self
             .board
             .word_strings(&attackers)

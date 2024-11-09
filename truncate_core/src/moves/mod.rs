@@ -386,7 +386,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            one_v_one.collect_combanants(0, middle),
+            one_v_one.collect_combanants(0, middle, &GameRules::generation(0)),
             (vec![middle_attacker.clone()], vec![middle_defender.clone()])
         );
 
@@ -403,7 +403,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            one_v_two.collect_combanants(0, middle),
+            one_v_two.collect_combanants(0, middle, &GameRules::generation(0)),
             (
                 vec![middle_attacker.clone()],
                 vec![right_defender.clone(), left_defender.clone()],
@@ -423,7 +423,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            one_v_three.collect_combanants(0, middle),
+            one_v_three.collect_combanants(0, middle, &GameRules::generation(0)),
             (
                 vec![middle_attacker.clone()],
                 vec![
@@ -447,7 +447,7 @@ mod tests {
             .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
             .unwrap();
         assert_eq!(
-            two_v_two.collect_combanants(0, middle),
+            two_v_two.collect_combanants(0, middle, &GameRules::generation(0)),
             (
                 vec![middle_attacker, left_attacker],
                 vec![right_defender, middle_defender, short_cross_defender],
@@ -470,7 +470,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            board.collect_combanants(1, c(2, 2)),
+            board.collect_combanants(1, c(2, 2), &GameRules::generation(0)),
             (
                 vec![vec![c(2, 2), c(2, 3), c(2, 4)]],
                 vec![vec![c(3, 1), c(2, 1)], vec![c(3, 2)], vec![c(1, 2)]],

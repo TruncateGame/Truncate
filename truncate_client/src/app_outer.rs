@@ -24,7 +24,7 @@ use truncate_core::{
     rules::GameRules,
 };
 
-pub const ART_CHANGE_DAY: u32 = 280;
+pub const ART_CHANGE_DAY: u32 = 288;
 
 /// A way to communicate with an outer host, if one exists. (Typically Browser JS)
 pub struct Backchannel {
