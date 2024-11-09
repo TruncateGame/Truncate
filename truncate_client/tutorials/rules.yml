@@ -97,7 +97,7 @@ rules:
 
       steps:
         - message: |-
-            To win, touch your opponent's town with a valid word.
+            To win, touch your opponent's town or artifact with a valid word.
 
             Notice that your artifact is on the right of the board, and your opponent's town and artifact are on the left.
 
@@ -116,10 +116,10 @@ rules:
       description: "Tiles don't always have to form valid words"
       board: |-
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ #1 __ __ ~~ ~~ ~~ ~~ ~~
+        ~~ __ __ __ ~~ ~~ ~~ ~~ ~~
         |1 __ U0 O0 Y0 ~~ ~~ ~~ ~~
         ~~ __ __ __ Z0 U0 Y0 T0 ~~
-        ~~ __ __ __ __ ~~ __ Q0 ~~
+        ~~ #1 __ __ __ ~~ __ Q0 ~~
         ~~ __ __ __ __ ~~ __ X0 ~~
         ~~ __ __ __ __ ~~ #0 A0 ~~
         ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
@@ -129,7 +129,7 @@ rules:
 
       steps:
         - description: |-
-            To win, the word touching your opponent's town has to be valid, but the rest of your words don't.
+            To win, the word touching your opponent's town or artifact has to be valid, but the rest of your words don't.
 
             You will win if you play 'R' to form "YOUR", even though you have invalid words like "AXQT" on your board.
           you: "R -> 1,2"
@@ -214,7 +214,7 @@ rules:
         - message: |-
             When your tiles and the opponent's tiles touch, they battle.
 
-            The battle is between the words that are touching, and valid words beat invalid words.
+            Valid words beat invalid words, and the battle is between all touching words.
           
         - description: |-
             Your opponent's word "NIVALDI" is invalid, so you can defeat it with a valid word.
@@ -423,13 +423,13 @@ rules:
     - name: "Conclusion"
       description: ""
       board: |-
-        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
-        ~~ ~~ ~~ #1 __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~ ~~ __ __ #0 __ |0 ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ __ __ __ #1 ~~ ~~ ~~
-        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ |1 ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ #1 __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~ ~~ __ __ #0 __ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ __ __ __ #1 ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ |0 ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ |1 ~~ ~~ ~~
         ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ #1 __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ __ ~~ __ __ ~~ ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~
-        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ __ #0 __ __ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ __ __ __ ~~ |0 ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~
-        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~ #0 __ ~~ ~~ __ __ ~~ ~~ #0 __ __ __ __ __ ~~ ~~ ~~
-        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ __ #1 __ __ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ __ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~
+        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ __ |1 ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~ ~~ __ ~~ ~~ __ |0 ~~ ~~ #0 __ __ __ __ __ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
 
       player_hand: ""
       computer_hand: R
