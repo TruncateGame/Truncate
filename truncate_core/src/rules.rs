@@ -183,7 +183,7 @@ const RULE_GENERATIONS: [(Option<EffectiveRuleDay>, GameRules); 3] = [
         },
     ),
     (
-        Some(EffectiveRuleDay(288)),
+        Some(EffectiveRuleDay(293)),
         GameRules {
             generation: None, // hydrated on fetch
             win_condition: WinCondition::Destination {
