@@ -2911,7 +2911,7 @@ pub mod tests {
                     y: usize::wrapping_sub(y, 2),
                 };
                 match b.get(coord) {
-                    Ok(Square::Town { .. }) => {
+                    Ok(Square::Town { .. } | Square::Artifact { .. }) => {
                         assert_eq!(b.get_words(coord), vec![vec![coord]]);
                     }
                     _ => {

@@ -470,7 +470,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            board.collect_combanants(1, c(2, 2), &GameRules::generation(0)),
+            board.collect_combanants(1, c(2, 2), &GameRules::generation(2)),
             (
                 vec![vec![c(2, 2), c(2, 3), c(2, 4)]],
                 vec![vec![c(3, 1), c(2, 1)], vec![c(3, 2)], vec![c(1, 2)]],
