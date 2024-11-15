@@ -85,6 +85,38 @@ impl Game {
         }
     }
 
+    pub fn new_legacy(
+        width: usize,
+        height: usize,
+        tile_seed: Option<u64>,
+        rules: GameRules,
+    ) -> Self {
+        let mut board = Board::new_legacy(width, height);
+        board.grow();
+
+        let next_player = match &rules.timing {
+            rules::Timing::Periodic { .. } => None,
+            _ => Some(0),
+        };
+
+        Self {
+            players: Vec::with_capacity(2),
+            board,
+            bag: TileBag::generation(rules.tile_generation, tile_seed),
+            judge: Judge::default(),
+            battle_count: 0,
+            turn_count: 0,
+            player_turn_count: Vec::with_capacity(2),
+            recent_changes: vec![],
+            started_at: None,
+            game_ends_at: None,
+            next_player,
+            paused: false,
+            winner: None,
+            rules,
+        }
+    }
+
     pub fn add_player(&mut self, name: String) {
         let time_allowance = match self.rules.timing {
             rules::Timing::PerPlayer {

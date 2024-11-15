@@ -77,19 +77,62 @@ pub struct Board {
 
 impl Board {
     pub fn new(land_width: usize, land_height: usize) -> Self {
-        // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
-        // let roots = vec![
-        //     Coordinate {
-        //         x: land_width / 2 + land_width % 2 - 1,
-        //         y: 0,
-        //     },
-        //     Coordinate {
-        //         x: land_width / 2,
-        //         y: land_height + 1,
-        //     },
-        // ];
+        // Final board should have a ring of water around the land
+        let board_width = land_width + 2;
+        let board_height = land_height + 2;
 
-        // Final board should have a ring of water around the land, in which to place the artifacts
+        // Create a slice of land with water on the edges
+        let mut land_row = vec![Square::land(); land_width];
+        land_row.insert(0, Square::water());
+        land_row.push(Square::water());
+
+        let mut squares = vec![vec![Square::water(); board_width]]; // Start with our north row of water
+        squares.extend(vec![land_row.clone(); land_height]); // Build out the centre land of the board
+        squares.extend(vec![vec![Square::water(); board_width]]); // Finish with a south row of water
+
+        let mut board = Board {
+            squares,
+            artifacts: vec![],
+            towns: vec![],
+            obelisks: vec![],
+            orientations: vec![Direction::North, Direction::South],
+        };
+
+        let north_towns = [
+            Coordinate::new(board_width - 4, 1),
+            Coordinate::new(board_width - 2, 3),
+        ];
+        for town in north_towns {
+            board
+                .set_square(town, Square::town(0))
+                .expect("Town square should exist");
+        }
+        // North artifact
+        board
+            .set_square(Coordinate::new(board_width - 2, 1), Square::artifact(0))
+            .expect("Artifact square should exist");
+
+        let south_towns = [
+            Coordinate::new(1, board_height - 4),
+            Coordinate::new(3, board_height - 2),
+        ];
+        for town in south_towns {
+            board
+                .set_square(town, Square::town(1))
+                .expect("Town square should exist");
+        }
+        // South artifact
+        board
+            .set_square(Coordinate::new(1, board_height - 2), Square::artifact(1))
+            .expect("Artifact square should exist");
+
+        board.cache_special_squares();
+
+        board
+    }
+
+    pub fn new_legacy(land_width: usize, land_height: usize) -> Self {
+        // Final board should have a ring of water around the land
         let board_width = land_width + 2;
         let board_height = land_height + 2;
 
@@ -2026,40 +2069,34 @@ pub mod tests {
     #[test]
     fn makes_default_boards() {
         assert_eq!(
-            Board::new(3, 3).to_string(),
-            "~~ ~~ |0 ~~ ~~\n\
-             ~~ #0 __ #0 ~~\n\
-             ~~ __ __ __ ~~\n\
-             ~~ #1 __ #1 ~~\n\
-             ~~ ~~ |1 ~~ ~~"
+            Board::new(4, 4).to_string(),
+            "~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ __ #0 __ |0 ~~\n\
+             ~~ #1 __ __ __ ~~\n\
+             ~~ __ __ __ #0 ~~\n\
+             ~~ |1 __ #1 __ ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~"
         );
 
         assert_eq!(
-            Board::new(3, 2).to_string(),
-            "~~ ~~ |0 ~~ ~~\n\
-             ~~ #0 __ #0 ~~\n\
-             ~~ #1 __ #1 ~~\n\
-             ~~ ~~ |1 ~~ ~~"
-        );
-
-        // TODO: Balance uneven boards
-        assert_eq!(
-            Board::new(2, 2).to_string(),
-            "~~ ~~ |0 ~~\n\
-             ~~ #0 __ ~~\n\
-             ~~ #1 __ ~~\n\
-             ~~ ~~ |1 ~~"
+            Board::new(3, 4).to_string(),
+            "~~ ~~ ~~ ~~ ~~\n\
+             ~~ #0 __ |0 ~~\n\
+             ~~ #1 __ __ ~~\n\
+             ~~ __ __ #0 ~~\n\
+             ~~ |1 __ #1 ~~\n\
+             ~~ ~~ ~~ ~~ ~~"
         );
 
         assert_eq!(
             Board::new(5, 5).to_string(),
-            "~~ ~~ ~~ |0 ~~ ~~ ~~\n\
-             ~~ #0 #0 __ #0 #0 ~~\n\
+            "~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ __ __ #0 __ |0 ~~\n\
              ~~ __ __ __ __ __ ~~\n\
+             ~~ #1 __ __ __ #0 ~~\n\
              ~~ __ __ __ __ __ ~~\n\
-             ~~ __ __ __ __ __ ~~\n\
-             ~~ #1 #1 __ #1 #1 ~~\n\
-             ~~ ~~ ~~ |1 ~~ ~~ ~~"
+             ~~ |1 __ #1 __ __ ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~ ~~"
         );
     }
 
@@ -2165,9 +2202,9 @@ pub mod tests {
 
     #[test]
     fn width_height() {
-        let b = Board::new(6, 1);
+        let b = Board::new(6, 3);
         assert_eq!(b.width(), 8);
-        assert_eq!(b.height(), 3);
+        assert_eq!(b.height(), 5);
     }
 
     #[test]
@@ -2573,12 +2610,13 @@ pub mod tests {
 
     #[test]
     fn get_neighbours() {
-        // (0,0) (1,0) (2,0) (3,0) (4,0)
-        // (0,1) (1,1) (2,1) (3,1) (4,1)
-        // (0,2) (1,2) (2,2) (3,2) (4,2)
-        // (0,3) (1,3) (2,3) (3,3) (4,3)
-        // (0,4) (1,4) (2,4) (3,4) (4,4)
-        let b = Board::new(3, 3);
+        // (0,0) (1,0) (2,0) (3,0) (4,0) (5,0)
+        // (0,1) (1,1) (2,1) (3,1) (4,1) (5,1)
+        // (0,2) (1,2) (2,2) (3,2) (4,2) (5,2)
+        // (0,3) (1,3) (2,3) (3,3) (4,3) (5,3)
+        // (0,4) (1,4) (2,4) (3,4) (4,4) (5,4)
+        // (0,5) (1,5) (2,5) (3,5) (4,5) (5,5)
+        let b = Board::new(4, 4);
 
         assert_eq!(
             // TODO: should we allow you to find neighbours of an invalid square?
@@ -2590,21 +2628,21 @@ pub mod tests {
         );
 
         assert_eq!(
-            b.neighbouring_squares(Coordinate { x: 1, y: 0 }),
+            b.neighbouring_squares(Coordinate { x: 0, y: 4 }),
             [
-                (Coordinate { x: 2, y: 0 }, Square::artifact(0)),
-                (Coordinate { x: 1, y: 1 }, Square::town(0)),
-                (Coordinate { x: 0, y: 0 }, Square::water()),
+                (Coordinate { x: 0, y: 3 }, Square::water()),
+                (Coordinate { x: 1, y: 4 }, Square::artifact(1)),
+                (Coordinate { x: 0, y: 5 }, Square::water()),
             ]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 2, y: 2 }),
             [
-                (Coordinate { x: 2, y: 1 }, Square::land()),
+                (Coordinate { x: 2, y: 1 }, Square::town(0)),
                 (Coordinate { x: 3, y: 2 }, Square::land()),
                 (Coordinate { x: 2, y: 3 }, Square::land()),
-                (Coordinate { x: 1, y: 2 }, Square::land()),
+                (Coordinate { x: 1, y: 2 }, Square::town(1)),
             ]
         );
     }

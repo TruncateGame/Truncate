@@ -53,7 +53,7 @@ fn test_game(board: &str, hand: &str) -> Game {
         bag,
         players,
         next_player: Some(next_player),
-        ..Game::new(3, 1, None, GameRules::generation(0))
+        ..Game::new_legacy(3, 1, None, GameRules::generation(0))
     };
     game.players[next_player].hand = Hand(hand.chars().collect());
     game.start();

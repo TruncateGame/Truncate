@@ -34,8 +34,8 @@ pub struct GameManager {
 
 impl GameManager {
     pub fn new(game_id: String, effective_day: u32) -> Self {
-        let game = Game::new(9, 11, None, GameRules::latest(Some(effective_day)).1);
-        // let game = Game::new(9, 11, None, GameRules::tuesday());
+        let game = Game::new(9, 9, None, GameRules::latest(Some(effective_day)).1);
+        // let game = Game::new(9, 9, None, GameRules::tuesday());
 
         Self {
             game_id,
