@@ -8,6 +8,8 @@ type S = Sender<PlayerMessage>;
 
 use super::utils::Theme;
 use crate::app_inner::AppInnerStorage;
+use crate::utils::daily::get_puzzle_day;
+use crate::utils::includes::changelogs;
 use crate::utils::macros::current_time;
 use crate::{app_inner, utils::glyph_utils::Glypher};
 use eframe::egui::{self, Frame, Margin, TextureOptions};
@@ -21,6 +23,8 @@ use truncate_core::{
     player::Player,
     rules::GameRules,
 };
+
+pub const ART_CHANGE_DAY: u32 = 293;
 
 /// A way to communicate with an outer host, if one exists. (Typically Browser JS)
 pub struct Backchannel {
@@ -102,6 +106,7 @@ pub static GLYPHER: OnceLock<Glypher> = OnceLock::new();
 pub struct OuterApplication {
     pub name: String,
     pub theme: Theme,
+    pub launched_at_day: u32,
     pub started_login_at: Option<Duration>,
     pub logged_in_as: Option<String>,
     pub unread_changelogs: Vec<String>,
@@ -127,6 +132,7 @@ impl OuterApplication {
         #[cfg(target_arch = "wasm32")] backchannel: js_sys::Function,
     ) -> Self {
         let mut fonts = egui::FontDefinitions::default();
+        let launched_at_day = get_puzzle_day(current_time!());
 
         // Main tile font
         {
@@ -154,7 +160,7 @@ impl OuterApplication {
         cc.egui_ctx.set_fonts(fonts);
 
         let glypher = Glypher::new();
-        let map_texture = load_textures(&cc.egui_ctx, &glypher);
+        let map_texture = load_textures(&cc.egui_ctx, &glypher, launched_at_day);
         _ = GLYPHER.set(glypher);
 
         let mut game_status = app_inner::GameStatus::None("".into(), None);
@@ -212,18 +218,34 @@ impl OuterApplication {
                     .unwrap();
             }
             None => {
+                let unread_changelogs: Vec<_> = changelogs()
+                    .iter()
+                    .filter_map(|(name, changelog)| {
+                        if changelog.effective_day > launched_at_day {
+                            Some(name.to_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
                 tx_player
                     .try_send(PlayerMessage::CreateAnonymousPlayer {
                         screen_width,
                         screen_height,
                         user_agent,
                         referrer,
+                        unread_changelogs,
                     })
                     .unwrap();
             }
         }
 
-        let theme = Theme::day();
+        let theme = if launched_at_day >= ART_CHANGE_DAY {
+            Theme::day()
+        } else {
+            Theme::old_day()
+        };
 
         {
             use egui::FontFamily;
@@ -265,6 +287,7 @@ impl OuterApplication {
         Self {
             name: player_name,
             theme,
+            launched_at_day,
             started_login_at: Some(current_time!()),
             logged_in_as: None,
             unread_changelogs: vec![],
@@ -337,9 +360,12 @@ pub struct TextureMeasurement {
     pub y_padding_pct: f32,
 }
 
-fn load_textures(ctx: &egui::Context, glypher: &Glypher) -> TextureHandle {
-    let image_bytes = include_bytes!("../img/truncate_packed.png");
-    let image = image::load_from_memory(image_bytes).unwrap();
+fn load_textures(ctx: &egui::Context, glypher: &Glypher, launched_at_day: u32) -> TextureHandle {
+    let image = if launched_at_day >= ART_CHANGE_DAY {
+        image::load_from_memory(include_bytes!("../img/truncate_packed.png")).unwrap()
+    } else {
+        image::load_from_memory(include_bytes!("../img/truncate_packed_old.png")).unwrap()
+    };
     let image_width = image.width();
     let image_height = image.height();
     let size = [image_width as _, image_height as _];

@@ -149,9 +149,15 @@ impl ShareMessageMock {
     ) -> String {
         let plur = |num: u32| if num == 1 { "" } else { "s" };
 
+        let header = if matches!(option_env!("TR_ENV"), Some("outpost")) {
+            format!("-- Truncate Outpost Day #{day} --")
+        } else {
+            format!("Truncate Town Day #{day}")
+        };
+
         let Some(first_win) = first_win else {
             return format!(
-                "Truncate Town Day #{day}\nLost in {} move{} on attempt #{}",
+                "{header}\nLost in {} move{} on attempt #{}",
                 latest_attempt.1.moves,
                 plur(latest_attempt.1.moves),
                 latest_attempt.0 + 1,
@@ -176,10 +182,10 @@ impl ShareMessageMock {
         };
 
         if best_win.id == first_win.1.id {
-            format!("Truncate Town Day #{day}\n{first_win_message}")
+            format!("{header}\n{first_win_message}")
         } else {
             format!(
-                "Truncate Town Day #{day}\n{first_win_message}\nPersonal best: {} move{}",
+                "{header}\n{first_win_message}\nPersonal best: {} move{}",
                 best_win.moves,
                 plur(best_win.moves)
             )

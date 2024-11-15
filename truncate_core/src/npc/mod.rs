@@ -665,7 +665,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             next_player: Some(next_player),
-            ..Game::new(3, 1, None, GameRules::generation(0)) // TODO: update snapshots to rules v1
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0)) // TODO: update snapshots to rules v1
         };
         game.players[next_player].hand = Hand(hand.chars().collect());
         game.start();

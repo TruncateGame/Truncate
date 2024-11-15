@@ -4,7 +4,7 @@ use eframe::egui;
 use epaint::{hex_color, pos2, Color32, ColorImage, Mesh, Rect, Shape, TextureHandle};
 use instant::Duration;
 use truncate_core::{
-    board::{Board, Coordinate, Direction, Square},
+    board::{Board, BoardDistances, Coordinate, Direction, SignedCoordinate, Square},
     reporting::Change,
 };
 
@@ -41,9 +41,14 @@ struct ResolvedTextureLayers {
 }
 
 impl ResolvedTextureLayers {
-    fn new(board: &Board, measures: &TextureMeasurement, ctx: &egui::Context) -> Self {
-        let final_width = measures.inner_tile_width_px * board.width() * 2;
-        let final_height = measures.inner_tile_height_px * board.height() * 2;
+    fn new(
+        board: &Board,
+        measures: &TextureMeasurement,
+        buffer: usize,
+        ctx: &egui::Context,
+    ) -> Self {
+        let final_width = measures.inner_tile_width_px * (board.width() + buffer * 2) * 2;
+        let final_height = measures.inner_tile_height_px * (board.height() + buffer * 2) * 2;
         let layer_base = ColorImage::new([final_width, final_height], Color32::TRANSPARENT);
 
         Self {
@@ -108,6 +113,8 @@ pub struct MappedBoard {
     /// Used to break cache and force a repaint
     generic_repaint_tick: u32,
     resolved_textures: Option<ResolvedTextureLayers>,
+    /// Number of tiles to paint around the board in every direction
+    map_buffer: usize,
     map_seed: usize,
     inverted: bool,
     for_player: usize,
@@ -116,6 +123,7 @@ pub struct MappedBoard {
     forecasted_wind: u8,
     incoming_wind: u8,
     winds: VecDeque<u8>,
+    distance_to_land: BoardDistances,
 }
 
 impl MappedBoard {
@@ -123,6 +131,7 @@ impl MappedBoard {
         ctx: &egui::Context,
         aesthetics: &AestheticDepot,
         board: &Board,
+        map_buffer: usize,
         for_player: usize,
         daytime: bool,
     ) -> Self {
@@ -139,6 +148,7 @@ impl MappedBoard {
             state_memory: None,
             generic_repaint_tick: 0,
             resolved_textures: None,
+            map_buffer,
             map_seed: (secs % 100000) as usize,
             inverted: for_player == 0,
             for_player,
@@ -147,11 +157,16 @@ impl MappedBoard {
             forecasted_wind: 0,
             incoming_wind: 0,
             winds: vec![0; board.width() + board.height()].into(),
+            distance_to_land: board.flood_fill_water_from_land(),
         };
 
         mapper.remap_texture(ctx, aesthetics, &TimingDepot::default(), None, None, board);
 
         mapper
+    }
+
+    pub fn buffer(&self) -> usize {
+        self.map_buffer
     }
 
     pub fn render_to_rect(&self, rect: Rect, ui_state: Option<&UIStateDepot>, ui: &mut egui::Ui) {
@@ -166,24 +181,13 @@ impl MappedBoard {
         if let Some(tex) = &self.resolved_textures {
             if ui_state.is_some_and(|s| s.dictionary_open) {
                 paint(tex.terrain.id(), Color32::WHITE.gamma_multiply(0.2));
-                // This is where we make the checkerboard overlay translucent
-                if self.daytime {
-                    paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
-                } else {
-                    paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.02));
-                }
                 paint(tex.structures.id(), Color32::WHITE.gamma_multiply(0.2));
                 paint(tex.pieces.id(), Color32::WHITE.gamma_multiply(0.2));
                 paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.7));
                 paint(tex.pieces_validity.id(), Color32::WHITE);
             } else {
                 paint(tex.terrain.id(), Color32::WHITE);
-                // This is where we make the checkerboard overlay translucent
-                if self.daytime {
-                    paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.08));
-                } else {
-                    paint(tex.checkerboard.id(), Color32::WHITE.gamma_multiply(0.02));
-                }
+                paint(tex.checkerboard.id(), Color32::WHITE);
                 paint(tex.structures.id(), Color32::WHITE);
                 paint(tex.pieces.id(), Color32::WHITE);
                 paint(tex.mist.id(), Color32::BLACK.gamma_multiply(0.7));
@@ -255,8 +259,8 @@ impl MappedBoard {
         board: &Board,
         player_colors: &Vec<Color32>,
         tick: u64,
-        source_row: usize,
-        source_col: usize,
+        source_row: isize,
+        source_col: isize,
         dest_row: usize,
         dest_col: usize,
         square: &Square,
@@ -269,12 +273,14 @@ impl MappedBoard {
         timing: &TimingDepot,
     ) -> WantsRepaint {
         let mut wants_repaint = false;
-        let coord = Coordinate::new(source_col, source_row);
+        let coord = SignedCoordinate::new(source_col, source_row);
+        let dest_coord = Coordinate::new(dest_col, dest_row);
         let resolved_textures = self.resolved_textures.as_mut().unwrap();
 
         let mut neighbor_squares: Vec<_> = coord
             .neighbors_8()
             .into_iter()
+            .flat_map(|c| c.map(|c| c.real_coord()))
             .map(|pos| pos.map(|p| board.get(p).ok()).flatten())
             .collect();
 
@@ -287,20 +293,32 @@ impl MappedBoard {
             .map(|square| {
                 square
                     .as_ref()
-                    .map(Into::into)
+                    .map(|sq| {
+                        if aesthetics.theme.use_old_art {
+                            if matches!(sq, Square::Artifact { .. }) {
+                                return BGTexType::WaterOrFog;
+                            }
+                        }
+                        sq.into()
+                    })
                     .unwrap_or(BGTexType::WaterOrFog)
             })
             .collect();
 
-        let tile_base_type = BGTexType::from(square);
+        let mut tile_base_type = BGTexType::from(square);
+        if aesthetics.theme.use_old_art {
+            if matches!(square, Square::Artifact { .. }) {
+                tile_base_type = BGTexType::WaterOrFog;
+            }
+        }
         let tile_layer_type = FGTexType::from((square, player_colors));
 
         let wind_at_coord = self
             .winds
-            .get(source_col + source_row)
+            .get(dest_col + dest_row)
             .cloned()
             .unwrap_or_default();
-        let seed_at_coord = self.map_seed + (coord.x * coord.y + coord.y);
+        let seed_at_coord = self.map_seed + (dest_row * dest_col + dest_col);
 
         let mut layers = Tex::terrain(
             tile_base_type,
@@ -310,6 +328,8 @@ impl MappedBoard {
             tick,
             wind_at_coord,
             coord,
+            (board.width(), board.height()),
+            &self.distance_to_land,
         );
 
         if square.is_foggy() {
@@ -325,9 +345,9 @@ impl MappedBoard {
         };
 
         let square_is_highlighted = interactions.is_some_and(|i| {
-            i.highlight_squares
-                .as_ref()
-                .is_some_and(|s| s.contains(&coord))
+            coord
+                .real_coord()
+                .is_some_and(|c| i.highlight_squares.as_ref().is_some_and(|s| s.contains(&c)))
         });
 
         let mut tile_was_added = false;
@@ -341,7 +361,9 @@ impl MappedBoard {
             use truncate_core::reporting::BoardChangeAction;
             use Square::*;
 
-            if let Some(battle_origin) = gameplay.last_battle_origin {
+            if let Some((battle_origin, coord)) =
+                gameplay.last_battle_origin.zip(coord.real_coord())
+            {
                 let dist = coord.distance_to(&battle_origin) as f32;
                 destructo_time -= dist * aesthetics.destruction_tick;
                 if destructo_time < 0.0 {
@@ -350,7 +372,11 @@ impl MappedBoard {
             }
 
             let changes = gameplay.changes.iter().filter_map(|c| match c {
-                Change::Board(b) if b.detail.coordinate == coord => Some(b),
+                Change::Board(b)
+                    if coord.real_coord().is_some_and(|c| c == b.detail.coordinate) =>
+                {
+                    Some(b)
+                }
                 _ => None,
             });
 
@@ -487,7 +513,7 @@ impl MappedBoard {
 
                 let mut render_as_swap = None;
 
-                if let Some(interactions) = interactions {
+                if let Some((interactions, coord)) = interactions.zip(coord.real_coord()) {
                     let selected =
                         matches!(interactions.selected_tile_on_board, Some((c, _)) if c == coord);
                     let hovered =
@@ -634,7 +660,7 @@ impl MappedBoard {
                 layers = layers.merge_above_self(validity_layers);
             }
             Square::Land { .. } => {
-                if let Some(interactions) = interactions {
+                if let Some((interactions, coord)) = interactions.zip(coord.real_coord()) {
                     if let Some((_, tile_char)) = interactions.selected_tile_in_hand {
                         // Don't show preview tiles if anything is being dragged (i.e. a tile from the hand)
                         if !ctx.memory(|m| m.is_anything_being_dragged())
@@ -666,18 +692,20 @@ impl MappedBoard {
                             .hovered_unoccupied_square_on_board
                             .is_some_and(|s| s.coord == Some(coord))
                     {
-                        layers = layers.merge_below_self(TexLayers {
-                            terrain: None,
-                            structures: None,
-                            checkerboard: None,
-                            piece_validities: vec![],
-                            mist: None,
-                            fog: None,
-                            pieces: vec![PieceLayer::Texture(
-                                tex::tiles::quad::CHECKERBOARD,
-                                Some(aesthetics.theme.grass.slighten()),
-                            )],
-                        });
+                        // TODO: paint something on empty tiles when hovered
+                        // (maybe? the oly current interaction is to select it for keyboard control)
+                        // layers = layers.merge_below_self(TexLayers {
+                        //     terrain: None,
+                        //     structures: None,
+                        //     checkerboard: None,
+                        //     piece_validities: vec![],
+                        //     mist: None,
+                        //     fog: None,
+                        //     pieces: vec![PieceLayer::Texture(
+                        //         tex::tiles::quad::CHECKERBOARD_HOVER,
+                        //         None,
+                        //     )],
+                        // });
                     }
                 }
 
@@ -697,7 +725,7 @@ impl MappedBoard {
             _ => {}
         }
 
-        if let Some(interactions) = interactions {
+        if let Some((interactions, coord)) = interactions.zip(coord.real_coord()) {
             if interactions
                 .selected_square_on_board
                 .is_some_and(|(c, _)| c == coord)
@@ -726,9 +754,9 @@ impl MappedBoard {
 
         let cached = self
             .layer_memory
-            .get_mut(coord.y)
+            .get_mut(dest_coord.y)
             .unwrap()
-            .get_mut(coord.x)
+            .get_mut(dest_coord.x)
             .unwrap();
 
         if *cached == layers {
@@ -922,6 +950,7 @@ impl MappedBoard {
 
             if !board_eq {
                 memory.prev_board = board.clone();
+                self.distance_to_land = board.flood_fill_water_from_land();
             }
             if !selected_tile_eq {
                 memory.prev_selected_tile = selected_tile;
@@ -979,8 +1008,10 @@ impl MappedBoard {
             .expect("Base image should have been loaded");
         let glypher = GLYPHER.get().expect("Glypher should have been initialized");
 
-        let final_width = measures.inner_tile_width_px * board.width() * 2;
-        let final_height = measures.inner_tile_height_px * board.height() * 2;
+        let total_buffer = self.map_buffer * 2;
+
+        let final_width = measures.inner_tile_width_px * (board.width() + total_buffer) * 2;
+        let final_height = measures.inner_tile_height_px * (board.height() + total_buffer) * 2;
         let sized_correct = self
             .resolved_textures
             .as_ref()
@@ -989,71 +1020,59 @@ impl MappedBoard {
         // For now we just throw our textures away if this happens, rather
         // than try to match old coordinates to new.
         if !sized_correct {
-            self.resolved_textures = Some(ResolvedTextureLayers::new(board, measures, ctx));
-            self.layer_memory =
-                vec![vec![TexLayers::default(); board.squares[0].len()]; board.squares.len()];
+            self.resolved_textures = Some(ResolvedTextureLayers::new(
+                board,
+                measures,
+                self.map_buffer,
+                ctx,
+            ));
+            self.layer_memory = vec![
+                vec![TexLayers::default(); board.width() + total_buffer];
+                board.height() + total_buffer
+            ];
         }
 
-        if self.inverted {
-            board.squares.iter().enumerate().rev().enumerate().for_each(
-                |(dest_row, (source_row, row))| {
-                    row.iter().enumerate().rev().enumerate().for_each(
-                        |(dest_col, (source_col, square))| {
-                            let wants_repaint = self.paint_square_offscreen(
-                                ctx,
-                                board,
-                                &aesthetics.player_colors,
-                                aesthetics.qs_tick,
-                                source_row,
-                                source_col,
-                                dest_row,
-                                dest_col,
-                                square,
-                                measures,
-                                tileset,
-                                glypher,
-                                interactions,
-                                gameplay,
-                                aesthetics,
-                                timing,
-                            );
+        for dest_row in 0..(board.height() + total_buffer) {
+            for dest_col in 0..(board.width() + total_buffer) {
+                let mut source_col = dest_col as isize - self.map_buffer as isize;
+                let mut source_row = dest_row as isize - self.map_buffer as isize;
 
-                            if wants_repaint {
-                                ctx.request_repaint_after(Duration::from_millis(16));
-                                self.generic_repaint_tick += 1;
-                            }
-                        },
-                    );
-                },
-            );
-        } else {
-            board.squares.iter().enumerate().for_each(|(rownum, row)| {
-                row.iter().enumerate().for_each(|(colnum, square)| {
-                    let wants_repaint = self.paint_square_offscreen(
-                        ctx,
-                        board,
-                        &aesthetics.player_colors,
-                        aesthetics.qs_tick,
-                        rownum,
-                        colnum,
-                        rownum,
-                        colnum,
-                        square,
-                        measures,
-                        tileset,
-                        glypher,
-                        interactions,
-                        gameplay,
-                        aesthetics,
-                        timing,
-                    );
+                if self.inverted {
+                    source_col = board.width() as isize - source_col - 1;
+                    source_row = board.height() as isize - source_row - 1;
+                }
 
-                    if wants_repaint {
-                        ctx.request_repaint_after(Duration::from_millis(16));
-                        self.generic_repaint_tick += 1;
-                    }
-                });
-            });
+                let source_coord = SignedCoordinate::new(source_col, source_row);
+
+                let square = source_coord
+                    .real_coord()
+                    .and_then(|c| board.get(c).ok())
+                    .unwrap_or_else(|| Square::Water { foggy: false });
+
+                let wants_repaint = self.paint_square_offscreen(
+                    ctx,
+                    board,
+                    &aesthetics.player_colors,
+                    aesthetics.qs_tick,
+                    source_row as _,
+                    source_col as _,
+                    dest_row,
+                    dest_col,
+                    &square,
+                    measures,
+                    tileset,
+                    glypher,
+                    interactions,
+                    gameplay,
+                    aesthetics,
+                    timing,
+                );
+
+                if wants_repaint {
+                    ctx.request_repaint_after(Duration::from_millis(16));
+                    self.generic_repaint_tick += 1;
+                }
+            }
         }
     }
 }

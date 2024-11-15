@@ -33,7 +33,10 @@ pub struct NoncedPlayerMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PlayerMessage {
     Ping,
-    NewGame(String),
+    NewGame {
+        player_name: String,
+        effective_day: u32,
+    },
     JoinGame(RoomCode, String, Option<TruncateToken>),
     RejoinGame(TruncateToken),
     EditBoard(Board),
@@ -51,6 +54,7 @@ pub enum PlayerMessage {
         screen_height: u32,
         user_agent: String,
         referrer: String,
+        unread_changelogs: Vec<String>,
     },
     Login {
         player_token: TruncateToken,
@@ -69,7 +73,7 @@ pub enum PlayerMessage {
     },
     RequestStats(TruncateToken),
     LoadReplay(String),
-    MarkChangelogRead,
+    MarkChangelogRead(String),
     GenericEvent {
         name: String,
     },
@@ -79,7 +83,13 @@ impl fmt::Display for PlayerMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             PlayerMessage::Ping => write!(f, "Player ping"),
-            PlayerMessage::NewGame(name) => write!(f, "Create a new game as player {}", name),
+            PlayerMessage::NewGame {
+                player_name,
+                effective_day,
+            } => write!(
+                f,
+                "Create a new game as player {player_name} at day {effective_day}"
+            ),
             PlayerMessage::JoinGame(room, name, token) => {
                 write!(
                     f,
@@ -119,7 +129,7 @@ impl fmt::Display for PlayerMessage {
             }
             PlayerMessage::RequestStats(_token) => write!(f, "Requesting daily puzzle stats!"),
             PlayerMessage::LoadReplay(id) => write!(f, "Requesting the replay for {id}!"),
-            PlayerMessage::MarkChangelogRead => write!(f, "Marked all changelogs as read"),
+            PlayerMessage::MarkChangelogRead(id) => write!(f, "Marked changelog {id} as read"),
             PlayerMessage::GenericEvent { name } => write!(f, "Tracking a {name} event"),
         }
     }

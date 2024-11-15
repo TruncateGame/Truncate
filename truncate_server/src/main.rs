@@ -21,11 +21,11 @@ use tungstenite::protocol::Message;
 
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
-use crate::storage::accounts::{mark_changelogs_read, LoginResponse};
+use crate::storage::accounts::{mark_changelog_read, LoginResponse};
 use crate::storage::daily;
 use crate::storage::events::create_event;
 use game_state::GameManager;
-use storage::accounts::{self, AuthedTruncateToken};
+use storage::accounts::{self, mark_most_changelogs_read, AuthedTruncateToken};
 use truncate_core::messages::{
     DailyStateMessage, GameMessage, GameStateMessage, LobbyPlayerMessage, Nonce,
     NoncedPlayerMessage, PlayerMessage,
@@ -217,9 +217,12 @@ async fn handle_player_msg(
 
     match parsed_msg {
         Ping => { /* TODO: Track pings and notify the game when players disconnect */ }
-        NewGame(mut player_name) => {
+        NewGame {
+            mut player_name,
+            effective_day,
+        } => {
             let new_game_id = server_state.game_code();
-            let mut game = GameManager::new(new_game_id.clone());
+            let mut game = GameManager::new(new_game_id.clone(), effective_day);
 
             let connection_player = connection_info_mutex.lock().player.clone();
             _ = create_event(&server_state, &"new_game".into(), connection_player).await;
@@ -577,7 +580,8 @@ async fn handle_player_msg(
                     return player_err("Cannot rematch unfinished game".into());
                 } else {
                     let new_game_id = server_state.game_code();
-                    let mut new_game = GameManager::new(new_game_id.clone());
+                    let mut new_game =
+                        GameManager::new(new_game_id.clone(), existing_game_manager.effective_day);
 
                     let mut next_board = existing_game_manager.core_game.board.clone();
                     next_board.reset();
@@ -687,6 +691,7 @@ async fn handle_player_msg(
             screen_height,
             user_agent,
             referrer,
+            unread_changelogs,
         } => match accounts::create_player(
             &server_state,
             screen_width,
@@ -698,6 +703,13 @@ async fn handle_player_msg(
         {
             Ok(new_player) => {
                 let authed_token = accounts::get_player_token(&server_state, new_player);
+
+                _ = mark_most_changelogs_read(
+                    &server_state,
+                    authed_token.clone(),
+                    unread_changelogs,
+                )
+                .await;
 
                 let mut connection_info = connection_info_mutex.lock();
                 connection_info.player = Some(authed_token.clone());
@@ -842,7 +854,7 @@ async fn handle_player_msg(
                 }
             }
         }
-        MarkChangelogRead => {
+        MarkChangelogRead(id) => {
             let Some(connection_player) = connection_info_mutex.lock().player.clone() else {
                 eprintln!(
                     "No connection player found, but player wanted to mark changelog as read"
@@ -850,7 +862,7 @@ async fn handle_player_msg(
                 return Ok(());
             };
 
-            _ = mark_changelogs_read(&server_state, connection_player).await;
+            _ = mark_changelog_read(&server_state, connection_player, id).await;
         }
         GenericEvent { name } => {
             let connection_player = connection_info_mutex.lock().player.clone();

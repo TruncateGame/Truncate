@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc};
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
-    generation::{BoardParams, DockType},
+    generation::{ArtifactType, BoardParams},
     messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
     moves::Move,
     reporting::Change,
@@ -29,17 +29,19 @@ pub struct GameManager {
     pub game_id: String,
     pub players: Vec<Player>,
     pub core_game: Game,
+    pub effective_day: u32,
 }
 
 impl GameManager {
-    pub fn new(game_id: String) -> Self {
-        let game = Game::new(9, 11, None, GameRules::latest().1);
-        // let game = Game::new(9, 11, None, GameRules::tuesday());
+    pub fn new(game_id: String, effective_day: u32) -> Self {
+        let game = Game::new(9, 9, None, GameRules::latest(Some(effective_day)).1);
+        // let game = Game::new(9, 9, None, GameRules::tuesday());
 
         Self {
             game_id,
             players: vec![],
             core_game: game,
+            effective_day,
         }
     }
 

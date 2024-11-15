@@ -41,12 +41,12 @@ pub fn handle_input(
             depot.interactions.selected_square_on_board = Some((coord.clone(), sq));
             return coord;
         }
-        let dock = board.docks.iter().find(|d| {
+        let artifact = board.artifacts.iter().find(|d| {
             board.get(**d).is_ok_and(
-                |s| matches!(s, Square::Dock{player: p, ..} if p == depot.gameplay.player_number as usize),
+                |s| matches!(s, Square::Artifact{player: p, ..} if p == depot.gameplay.player_number as usize),
             )
         });
-        let coord = dock.cloned().unwrap_or_else(|| Coordinate::new(0, 0));
+        let coord = artifact.cloned().unwrap_or_else(|| Coordinate::new(0, 0));
         depot.interactions.selected_square_on_board =
             Some((coord.clone(), board.get(coord).unwrap()));
         coord
@@ -54,7 +54,7 @@ pub fn handle_input(
 
     let move_selection = |depot: &mut TruncateDepot, mut movement: [isize; 2]| {
         // If nothing is selected, the first interaction shouldn't move the cursor.
-        // At the start of the game, it should select the dock,
+        // At the start of the game, it should select the artifact,
         // and otherwise it should select the previously selected square.
         if depot.interactions.selected_square_on_board.is_none() {
             ensure_board_selection(depot);

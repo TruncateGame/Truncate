@@ -57,11 +57,16 @@ impl<'a> BattleUI<'a> {
             .iter()
             .flat_map(|w| {
                 [
-                    if &w.original_word == "#" {
+                    if &w.original_word == "#" || &w.original_word == "|" {
+                        let label = if &w.original_word == "#" {
+                            "A TOWN"
+                        } else {
+                            "AN ARTIFACT"
+                        };
                         ui.painter().layout_no_wrap(
                             // TODO: It would be nice to phrase this as <player_name>'s town,
                             // but we don't have player data in the battle UI yet so this is a good first step.
-                            "A TOWN".into(),
+                            label.into(),
                             FontId::new(
                                 aesthetics.theme.letter_size * 0.75,
                                 egui::FontFamily::Name("Truncate-Heavy".into()),
@@ -308,7 +313,7 @@ impl<'a> BattleUI<'a> {
                     .iter()
                     .chain(self.battle.defenders.iter())
                 {
-                    if &word.original_word == "#" {
+                    if &word.original_word == "#" || &word.original_word == "|" {
                         continue;
                     }
                     ui.add_space(12.0);

@@ -85,6 +85,38 @@ impl Game {
         }
     }
 
+    pub fn new_legacy(
+        width: usize,
+        height: usize,
+        tile_seed: Option<u64>,
+        rules: GameRules,
+    ) -> Self {
+        let mut board = Board::new_legacy(width, height);
+        board.grow();
+
+        let next_player = match &rules.timing {
+            rules::Timing::Periodic { .. } => None,
+            _ => Some(0),
+        };
+
+        Self {
+            players: Vec::with_capacity(2),
+            board,
+            bag: TileBag::generation(rules.tile_generation, tile_seed),
+            judge: Judge::default(),
+            battle_count: 0,
+            turn_count: 0,
+            player_turn_count: Vec::with_capacity(2),
+            recent_changes: vec![],
+            started_at: None,
+            game_ends_at: None,
+            next_player,
+            paused: false,
+            winner: None,
+            rules,
+        }
+    }
+
     pub fn add_player(&mut self, name: String) {
         let time_allowance = match self.rules.timing {
             rules::Timing::PerPlayer {
@@ -416,7 +448,7 @@ impl Game {
         self.turn_count += 1;
         self.player_turn_count[player] += 1;
 
-        // Check for winning via defeated towns
+        // Check for winning via defeated towns or artifacts
         if let Some(winner) = Judge::winner(&(self.board)) {
             self.winner = Some(winner);
             return Ok(Some(winner));
@@ -537,7 +569,7 @@ impl Game {
                 if !self.board.neighbouring_squares(position).iter().any(
                     |&(_, square)| match square {
                         Square::Occupied { player: p, .. } => p == player,
-                        Square::Dock { player: p, .. } => p == player,
+                        Square::Artifact { player: p, .. } => p == player,
                         _ => false,
                     },
                 ) {
@@ -673,7 +705,7 @@ impl Game {
         cached_word_judgements: Option<&mut HashMap<String, bool, xxh3::Xxh3Builder>>,
         changes: &mut Vec<Change>,
     ) {
-        let (attackers, defenders) = self.board.collect_combanants(player, position);
+        let (attackers, defenders) = self.board.collect_combanants(player, position, &self.rules);
         let attacking_words = self
             .board
             .word_strings(&attackers)
@@ -697,12 +729,8 @@ impl Game {
 
             match battle.outcome.clone() {
                 Outcome::DefenderWins => {
-                    let mut all_defenders_are_towns = true;
                     changes.extend(defenders.iter().flatten().map(|coordinate| {
                         let square = self.board.get(*coordinate).expect("Tile just attacked");
-                        if matches!(square, Square::Occupied { .. }) {
-                            all_defenders_are_towns = false;
-                        }
                         Change::Board(BoardChange {
                             detail: BoardChangeDetail {
                                 square,
@@ -718,7 +746,8 @@ impl Game {
                     if matches!(
                         &self.rules.win_condition,
                         rules::WinCondition::Destination {
-                            town_defense: rules::TownDefense::BeatenByValidity
+                            town_defense: rules::TownDefense::BeatenByValidity,
+                            ..
                         }
                     ) {
                         remove_attackers = false;
@@ -766,6 +795,16 @@ impl Game {
                                 _ = self.board.set_square(
                                     *square,
                                     Square::Town {
+                                        player,
+                                        defeated: true,
+                                        foggy: false,
+                                    },
+                                );
+                            }
+                            Ok(Square::Artifact { player, .. }) => {
+                                _ = self.board.set_square(
+                                    *square,
+                                    Square::Artifact {
                                         player,
                                         defeated: true,
                                         foggy: false,
