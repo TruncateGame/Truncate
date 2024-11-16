@@ -40,7 +40,7 @@ pub fn handle_launch_code(
         "TUTORIAL_RULES" => {
             return Some(GameStatus::Tutorial(TutorialState::new(
                 "rules".to_string(),
-                utils::includes::rules(),
+                utils::includes::rules(outer.launched_at_day),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
