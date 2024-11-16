@@ -1,0 +1,442 @@
+effective_day: 293
+
+rules:
+  - category: Basics
+    scenarios:
+    - name: "Learn to play"
+      description: "The tutorial for the tutorial"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
+        ~~ ~~ ~~ __ __ __ #0 __ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~
+        ~~ __ ~~ __ __ __ __ ~~ ~~
+        ~~ __ __ __ __ __ ~~ ~~ ~~
+        ~~ __ __ __ __ __ __ __ ~~
+        ~~ __ #1 #1 __ #1 __ ~~ ~~
+        ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~
+
+      player_hand: ALIFIRM
+      computer_hand: D
+
+      steps:
+        - message: |-
+            Welcome to Truncate!
+
+            This tutorial covers the rules of the game.
+
+        - message: |-
+            We'll demonstrate each rule by having you play example scenarios.
+
+            You can use the buttons above the board to navigate through the rules at any time.
+
+    - name: "Placing tiles"
+      description: "Place tiles by your artifact or your own tiles"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
+        ~~ ~~ ~~ __ __ __ #0 __ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~
+        ~~ __ ~~ __ __ __ __ ~~ ~~
+        ~~ __ __ __ __ __ ~~ ~~ ~~
+        ~~ __ __ __ __ __ __ __ ~~
+        ~~ __ #1 #1 __ #1 __ ~~ ~~
+        ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~
+
+      player_hand: ALIFIRM
+      computer_hand: D
+
+      steps:
+        - message: |-
+            In Truncate, players take turns to place a tile on the board.
+
+        - message: |-
+            In this game you are playing as blue.
+
+            You can tell which colour you're playing by the colour of the tiles in your hand.
+
+        - description: |-
+            You start the game by placing tiles beside your artifact.
+
+            On this board, your artifact is at the bottom left of the board. Try playing an 'M' there.
+          you: "M -> 7,1"
+          gets: "E"
+
+        - description: |-
+            Now it's your opponent's turn.
+
+            Click Next to see their first move.
+          computer: "D -> 4,7"
+          gets: "R"
+
+        - description: |-
+            Once you've placed a tile, you can place tiles beside your artifact or your existing tiles.
+
+            Try playing an 'A' beside the 'M' you just played.
+          you: "A -> 7,2"
+          gets: "E"
+
+        - message: |-
+            Next, we'll look at how you win the game.
+
+    - name: "Win condition"
+      description: "To win, touch an opponent's town with a valid word"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~
+        ~~ __ __ __ __ ~~ ~~ ~~ ~~
+        ~~ __ __ __ __ ~~ __ __ ~~
+        ~~ __ __ __ __ __ __ #1 ~~
+        |0 G0 N0 I0 W0 O0 R0 __ ~~
+        ~~ #0 __ __ __ __ __ __ |1
+        ~~ __ __ __ ~~ __ __ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: GSUYIFZ
+      computer_hand: D
+
+      steps:
+        - message: |-
+            To win, touch your opponent's town or artifact with a valid word.
+
+            Notice that your artifact is on the right of the board, and your opponent's town and artifact are on the left.
+
+        - description: |-
+            Place a 'G' to form the word 'GROWING', which will touch your opponent's town, and win the game.
+          you: "G -> 7,5"
+          gets: "E"
+
+        - message: |-
+            Since "GROWING" is a valid word touching your opponent's town, you win the game.
+
+        - message: |-
+            You can check whether words are valid in Truncate's dictionary using the menu in the bottom right.
+
+    - name: "Word validity"
+      description: "Tiles don't always have to form valid words"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ __ __ __ ~~ ~~ ~~ ~~ ~~
+        |1 __ U0 O0 Y0 ~~ ~~ ~~ ~~
+        ~~ __ __ __ Z0 U0 Y0 T0 ~~
+        ~~ #1 __ __ __ ~~ __ Q0 ~~
+        ~~ __ __ __ __ ~~ __ X0 ~~
+        ~~ __ __ __ __ ~~ #0 A0 ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
+
+      player_hand: RTUYIL
+      computer_hand: D
+
+      steps:
+        - description: |-
+            To win, the word touching your opponent's town or artifact has to be valid, but the rest of your words don't.
+
+            You will win if you play 'R' to form "YOUR", even though you have invalid words like "AXQT" on your board.
+          you: "R -> 1,2"
+          gets: "E"
+
+        - message: |-
+            'YOUR' wins the game, even though your board contains invalid words.
+
+    - name: "Word orientation"
+      description: "Your words are read left to right and top to bottom, and your opponent's words are the opposite"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ __ S0 __ __ ~~ ~~
+        ~~ ~~ ~~ __ __ D0 __ __ #0 ~~
+        ~~ __ __ T1 __ R0 U0 O0 Y0 |0
+        ~~ __ __ H1 __ O0 __ __ __ ~~
+        ~~ #1 __ E1 __ W0 __ __ __ ~~
+        ~~ __ __ I1 __ __ __ __ ~~ ~~
+        |1 W1 O1 R1 D1 S1 __ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: RTUYIL
+      computer_hand: D
+
+      steps:
+        - message: |-
+            Your words are written left to right and top to bottom as normal, but your opponent's words are reversed.
+
+            Right now, your opponent's words spell "THEIR WORDS".
+        - message: |-
+            To make sense of this, imagine that you are playing Truncate as a board game, and your opponent is sitting on the opposite side of the table.
+
+    - name: "Swapping"
+      description: "You can swap two tiles on the board"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        |1 __ __ __ __ __ __ __ ~~ ~~
+        ~~ #1 ~~ __ __ __ __ __ ~~ ~~
+        ~~ ~~ ~~ __ __ __ __ __ ~~ ~~
+        ~~ __ __ __ __ __ __ __ __ ~~
+        ~~ __ __ __ I0 D0 L0 A0 V0 |0
+        ~~ ~~ __ __ __ __ #0 ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: KFAGUMI
+      computer_hand: D
+
+      steps:
+        - message: |-
+            Instead of playing a tile from your hand, you can swap two tiles on the board.
+        - description: |-
+            You can swap by clicking one and then the other, or by dragging one onto the other.
+
+            Try turning "VALDI" into "VALID" by swapping the 'D' and 'I'. Note, you can't swap between the board and your hand.
+          you: "4,5 -> 5,5"
+          gets: "_"
+        - message: |-
+            This used up your turn, but now your word is valid!
+
+            You can't swap twice in a row, so your next turn would have to place a tile.
+          # TODO: Show the can't swap between disjoint groups rule
+  - category: Battles
+    scenarios:
+    - name: "Valid beats invalid"
+      description: "Valid words beat invalid words"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~
+        ~~ __ __ __ __ __ __ I0 ~~ ~~
+        ~~ __ __ N1 __ P0 O0 P0 __ ~~
+        ~~ __ __ I1 __ __ __ __ __ ~~
+        ~~ __ __ V1 __ __ __ __ __ ~~
+        ~~ __ __ A1 __ __ __ ~~ ~~ ~~
+        ~~ __ __ L1 __ __ __ ~~ ~~ ~~
+        ~~ #1 __ D1 __ __ __ __ ~~ ~~
+        ~~ __ __ I1 __ __ __ __ __ ~~
+        ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: UMSIKQU
+      computer_hand: D
+
+      steps:
+        - message: |-
+            When your tiles and the opponent's tiles touch, they battle.
+
+            Valid words beat invalid words, and the battle is between all touching words.
+          
+        - description: |-
+            Your opponent's word "NIVALDI" is invalid, so you can defeat it with a valid word.
+            
+            Try playing "POPS".
+          you: "S -> 4,2"
+          gets: "E"
+
+        - message: |-
+            Since "POPS" is valid, and "NIVALDI" was invalid, "NIVALDI" was removed from the board.
+
+    - name: "Combatants"
+      description: "Battles only involve touching words"
+      board: |-
+        ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ X0 Q0 Z0 __ __ __ ~~ ~~
+        ~~ __ X0 __ U0 O0 X0 Z0 __ ~~
+        ~~ __ __ __ __ __ __ __ ~~ ~~
+        ~~ ~~ __ __ __ F1 T1 __ ~~ ~~
+        ~~ __ __ __ __ __ O1 __ ~~ ~~
+        ~~ __ __ ~~ ~~ __ U1 __ __ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ R1 I1 G1 |1
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: YTIGHUI
+      computer_hand: D
+
+      steps:
+        - message: |-
+            Only words touching another player's words are involved in a battle. This means you can win battles even though your board contains invalid words.
+        - description: |-
+            Try playing "TO" against your opponent's "FT".
+          you: "T -> 5,3"
+          gets: "E"
+
+        - message: |-
+            Even though your board is mostly invalid, the only words involved in the battle were "TO" and "FT", so you won and "FT" was removed from the board.
+            
+    - name: "Long beats short"
+      description: "Long words beat short words"
+      board: |-
+        ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
+        ~~ #0 __ __ U0 __ ~~ ~~ ~~ ~~
+        ~~ __ __ __ M0 __ __ __ __ ~~
+        ~~ __ __ __ E0 G0 R0 A0 __ ~~
+        ~~ __ __ __ __ __ __ __ T1 ~~
+        ~~ __ __ __ __ ~~ __ __ I1 ~~
+        ~~ ~~ __ __ __ ~~ __ __ N1 ~~
+        ~~ ~~ ~~ __ ~~ ~~ __ #1 Y1 ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~
+
+      player_hand: ETHRLUF
+      computer_hand: D
+
+      steps:
+        - description: |-
+            Long valid words beat short words in a battle. "LARGE" is longer than "TINY" and would win in a battle.
+
+            Try playing an "L" to defeat your opponent's word.
+          you: "L -> 8,3"
+          gets: "F"
+
+        - message: |-
+            "LARGE" was valid, and longer than "TINY", so "TINY" was removed from the board.
+
+    - name: "Defender's advantage"
+      description: "The defender wins a tiebreak"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
+        ~~ __ ~~ ~~ #0 __ T0 __ ~~ ~~ ~~
+        ~~ __ ~~ __ __ __ A0 __ __ ~~ ~~
+        ~~ __ A1 __ A0 U0 Q0 E0 __ __ ~~
+        ~~ __ L1 __ __ __ __ __ __ __ ~~
+        ~~ __ I1 __ __ __ __ __ ~~ __ ~~
+        ~~ #1 K1 __ __ __ __ __ ~~ __ ~~
+        |1 M1 E1 __ ~~ ~~ __ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: TYUIGLI
+      computer_hand: H
+
+      steps:
+        - message: |-
+            In battles, defenders win a tiebreak. If the defending and attacking words are both valid, the attacking word must be longer than the defending word to win.
+        - description: |-
+            Let's demonstrate a failed attack by playing "EQUAL" against "ALIKE".
+          you: "L -> 3,3"
+          gets: "R"
+        - message: |-
+            "EQUAL" was valid, but was the same length as "ALIKE". Since it was the attacker, the attack failed.
+
+            When an attack fails, the attacker is destroyed.
+    
+    - name: "Weakest defender"
+      description: "The weakest defender is used"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~
+        ~~ __ #0 ~~ ~~ __ P0 __ ~~ ~~ ~~
+        ~~ __ __ __ __ __ A0 __ ~~ ~~ ~~
+        ~~ __ __ A0 G0 A0 R0 __ __ ~~ ~~
+        ~~ __ __ R0 __ __ __ __ __ __ ~~
+        ~~ __ Q1 __ C1 __ P1 I1 __ __ ~~
+        ~~ __ X1 __ A1 __ A1 __ __ __ ~~
+        ~~ __ A1 I1 L1 __ I1 __ __ __ ~~
+        ~~ __ ~~ __ F1 U1 R1 #1 __ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~
+
+      player_hand: PLTGHYY
+      computer_hand: R
+
+      steps:
+        - message: |-
+            Often multiple defenders will be involved in a battle.
+
+            In Truncate, the weakest defender determines the outcome of a battle.
+        - message: |-
+            This means that even if you have a strong word on the board, it can be undermined by one of your weaker words.
+        - description: |-
+            For example, you can attack "PAIR" with "TRAP". Normally, you wouldn't win due to the defender's advantage.
+            
+            However, since you're also attacking "PI", the battle will be in your favour.
+          you: "T -> 6,4"
+          gets: "E"
+        - message: |-
+            "PI" was destroyed since it was shorter than "TRAP", but "PAIR" was not. Even though you won the battle, you only destroyed words that were weaker than your attack.
+        - description: |-
+            Since the 'P' in "PAIR" was also in "PI", it was destroyed, shortening "PAIR" to "AIR".
+
+            Now your opponent will take their turn.
+          computer: "R -> 1,7"
+          gets: "O"
+        - message: |-
+            Now you can attack your opponent's invalid word "QXA".
+
+            You could play "RE" (the musical note), or you could play "ERA" and attack "CALF" at the same time.
+        - description: |-
+            Since the weakest defender determines the battle, you will win an attack against both "QXA" and "CALF".
+
+            Try playing "ERA".
+          you: "E -> 3,5"
+          gets: "A"
+          # TODO: consinder moving out to separate rule?
+        - message: |-
+            When an attack succeeds, all tiles touching the attack are removed, even if they were part of a surviving word.
+
+            As a result, the 'C' in "CALF" was destroyed.
+
+    - name: "Strongest attacker"
+      description: "The longest attacker is used"
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ __ ~~ ~~ __ __ __ __ ~~ ~~ ~~
+        ~~ __ __ __ __ __ __ __ __ __ ~~
+        |0 Q0 F0 R0 V0 A0 X0 __ __ __ ~~
+        ~~ A0 __ __ __ __ E0 __ __ __ ~~
+        ~~ H0 G0 U0 O0 N0 __ __ __ __ ~~
+        ~~ __ __ __ __ __ F1 O1 U1 R1 |1
+        ~~ ~~ ~~ ~~ __ __ __ __ __ #1 ~~
+        ~~ ~~ ~~ __ __ __ __ __ __ __ ~~
+        ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: ERTYELU
+      computer_hand: R
+
+      steps:
+        - description: |-
+            When there are multiple attackers, the strongest attacker determines the outcome of the battle.
+
+            Try playing "ENOUGH" and "EEX" against "FOUR".
+          you: "E -> 6,5"
+          gets: "I"
+        - message: |-
+            Since "ENOUGH" was longer than "FOUR" it wins the battle, and "EEX" is irrelevant despite being invalid and too short.
+
+    - name: "Truncation"
+      description: "Tiles disconnected from the artifact are truncated"
+      board: |-
+        ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ __ E0 #0 __ __ ~~ ~~ ~~
+        ~~ ~~ __ __ T0 __ __ ~~ ~~ ~~ ~~
+        ~~ __ __ __ A0 __ __ __ __ ~~ ~~
+        ~~ __ S1 __ T0 __ __ __ __ ~~ ~~
+        ~~ __ T1 __ S0 __ __ __ __ ~~ ~~
+        ~~ ~~ R1 __ E0 __ __ __ ~~ ~~ ~~
+        ~~ __ O1 __ __ __ __ ~~ ~~ ~~ ~~
+        ~~ __ N1 O1 T1 __ __ __ __ ~~ ~~
+        ~~ #1 G1 __ __ __ __ __ __ ~~ ~~
+        ~~ ~~ |1 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: ERTYELU
+      computer_hand: R
+
+      steps:
+        - description: |-
+            When a battle is lost and some tiles become disconnected from their artifact, they are removed ("Truncated").
+            
+            Try playing "RESTATE" against "NOT".
+          you: "R -> 4,7"
+          gets: "I"
+        - message: |-
+            "NOT" was defeated, because it was too short.
+
+            This leaves "STRO" disconnected from their artifact, causing it to be truncated.
+
+    - name: "Conclusion"
+      description: ""
+      board: |-
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+        ~~ ~~ ~~ #1 __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~ ~~ __ __ #0 __ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ __ __ __ #1 ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ |0 ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ |1 ~~ ~~ ~~
+        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ #1 __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ __ ~~ __ __ ~~ ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~
+        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ __ #1 __ __ ~~ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ __ __ __ ~~ ~~ ~~ ~~ ~~ ~~ __ __ ~~ ~~ ~~
+        ~~ ~~ ~~ __ __ ~~ ~~ ~~ ~~ __ __ ~~ ~~ __ |1 ~~ ~~ ~~ __ __ __ __ ~~ ~~ ~~ __ __ __ __ __ __ ~~ ~~ ~~ __ ~~ ~~ __ |0 ~~ ~~ #0 __ __ __ __ __ ~~ ~~ ~~
+        ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+      player_hand: ""
+      computer_hand: R
+
+      steps:
+        - message: |-
+            That's all of the rules!
+            
+        - end_message: |-
+            Now you're ready to tackle some puzzles, or play against a friend online!
