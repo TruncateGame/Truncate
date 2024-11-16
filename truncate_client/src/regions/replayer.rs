@@ -79,7 +79,7 @@ impl ReplayerState {
             destruction_tick: 0.05,
             destruction_duration: 0.6,
         };
-        let mapped_board = MappedBoard::new(ctx, &aesthetics, &game.board, as_player, true);
+        let mapped_board = MappedBoard::new(ctx, &aesthetics, &game.board, 2, as_player, true);
 
         let gameplay = GameplayDepot {
             room_code: "REPLAY".into(),

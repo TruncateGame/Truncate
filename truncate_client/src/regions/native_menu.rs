@@ -32,22 +32,13 @@ pub fn render_native_menu_if_required(
                     ui.ctx(),
                     outer.map_texture.clone(),
                     outer.theme.clone(),
+                    outer.launched_at_day,
                 )));
             }
             if ui.button("Tutorial: Rules").clicked() {
                 return Some(GameStatus::Tutorial(TutorialState::new(
                     "rules".to_string(),
-                    utils::includes::rules(),
-                    ui.ctx(),
-                    outer.map_texture.clone(),
-                    &outer.theme,
-                    outer.event_dispatcher.clone(),
-                )));
-            }
-            if ui.button("Tutorial: Example").clicked() {
-                return Some(GameStatus::Tutorial(TutorialState::new(
-                    "example_game".to_string(),
-                    utils::includes::example_game(),
+                    utils::includes::rules(outer.launched_at_day),
                     ui.ctx(),
                     outer.map_texture.clone(),
                     &outer.theme,
@@ -81,7 +72,7 @@ pub fn render_native_menu_if_required(
                 let behemoth_board =
                     Board::from_string(include_str!("../../tutorials/test_board.txt"));
                 let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
-                let rules_generation = GameRules::latest().0;
+                let rules_generation = GameRules::latest(Some(outer.launched_at_day)).0;
                 let behemoth_game = SinglePlayerState::new(
                     "behemoth".to_string(),
                     ui.ctx(),
@@ -99,7 +90,10 @@ pub fn render_native_menu_if_required(
                 return Some(GameStatus::SinglePlayer(behemoth_game));
             }
             if ui.button("New Game").clicked() {
-                send_to_server(PlayerMessage::NewGame(outer.name.clone()));
+                send_to_server(PlayerMessage::NewGame {
+                    player_name: outer.name.clone(),
+                    effective_day: outer.launched_at_day,
+                });
                 return Some(GameStatus::PendingCreate);
             }
             ui.text_edit_singleline(room_code);

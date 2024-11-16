@@ -1,0 +1,107 @@
+splash_message:
+  - Hello!
+  - Some rules have changed since the last time you played.
+  - Words now only need to be one tile longer to win an attack.
+  - Also, touching the opponent's starting position now behaves differently.
+  - To see the full explanation, click through to the scenario below.
+
+changelog_name: Battle length changes
+
+priority: High
+
+effective_day: 293
+
+rules:
+  - category: Update
+    scenarios:
+      - name: "Length changes"
+        description: "Words need only be one tile longer"
+        board: |-
+          ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
+          ~~ #0 __ __ U0 __ ~~ ~~ ~~ ~~
+          ~~ __ __ __ M0 __ __ __ __ ~~
+          ~~ __ __ __ E0 G0 R0 A0 __ ~~
+          ~~ __ __ __ __ __ __ __ T1 ~~
+          ~~ __ __ __ __ ~~ __ __ I1 ~~
+          ~~ ~~ __ __ __ ~~ __ __ N1 ~~
+          ~~ ~~ ~~ __ ~~ ~~ __ #1 Y1 ~~
+          ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ |1 ~~
+
+        player_hand: ETHRLUF
+        computer_hand: D
+
+        steps:
+          - message: |-
+              Previously, attackers needed to be two letters longer than a defender to win.
+
+              Now, they only have to be one letter longer.
+          - message: |-
+              This means a valid word beats any shorter word.
+          - description: |-
+              In this battle, "LARGE" will now beat "TINY", since it is longer by one.
+
+              Try playing an "L" to defeat the opponent's word.
+            you: "L -> 8,3"
+            gets: "F"
+          - message: |-
+              You'll also notice that a lot of the art has changed!
+
+      - name: "Artifacts"
+        description: "Docks are now artifacts"
+        board: |-
+          ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
+          ~~ ~~ ~~ __ __ __ #0 __ ~~
+          ~~ __ ~~ ~~ __ __ __ __ ~~
+          ~~ __ ~~ ~~ __ __ __ __ ~~
+          ~~ __ ~~ __ __ __ __ ~~ ~~
+          ~~ __ __ __ __ __ ~~ ~~ ~~
+          ~~ __ __ __ __ __ __ __ ~~
+          ~~ __ #1 __ |1 __ __ ~~ ~~
+          ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+        player_hand: ALIFIRE
+        computer_hand: D
+
+        steps:
+          - message: |-
+              The biggest visual change is that docks have been replaced by artifacts.
+          - description: |-
+              You now start the game by placing a tile adjacent to your artifact.
+
+              On this board, your artifact is at the bottom left of the board. Try playing an 'E' there.
+            you: "E -> 7,1"
+            gets: "S"
+          - message: |-
+              What happens when you touch an opponent's artifact has also changed.
+
+      - name: "Artifact win condition"
+        description: "Artifacts now behave like towns when attacked"
+        board: |-
+          ~~ ~~ ~~ ~~ ~~ ~~ ~~ |0 ~~
+          ~~ ~~ ~~ __ __ __ #0 E0 ~~
+          ~~ __ ~~ ~~ __ __ __ X0 ~~
+          ~~ __ ~~ ~~ __ E0 D0 A0 ~~
+          ~~ __ ~~ C1 __ T0 __ ~~ ~~
+          ~~ __ __ O1 __ A0 ~~ ~~ ~~
+          ~~ __ __ U1 __ L0 __ __ ~~
+          ~~ __ #1 P1 |1 __ __ ~~ ~~
+          ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
+
+        player_hand: ALIFIRS
+        computer_hand: D
+
+        steps:
+          - message: |-
+              Now, you win the game by touching your opponent's artifact, or their town.
+          - message: |-
+              Towns and artifacts have the same win condition.
+
+              To win, your word must be valid, otherwise your word will be destroyed.
+          - description: |-
+              Try playing an 'S' to attack their artifact with 'SLATE'.
+            you: "S -> 5,7"
+            gets: "E"
+          - message: |-
+              You won the game, without having to touch their town.
+          - end_message: |-
+              That's all of the changes!

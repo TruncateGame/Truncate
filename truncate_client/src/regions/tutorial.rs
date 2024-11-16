@@ -259,7 +259,7 @@ impl TutorialState {
             board.mark_all_validity(Some(dict));
 
             let mut game = Game {
-                rules: GameRules::latest().1,
+                rules: GameRules::latest(Some(tutorial.effective_day)).1,
                 players: vec![
                     Player {
                         name: "You".into(),

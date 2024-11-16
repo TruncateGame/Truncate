@@ -53,7 +53,7 @@ fn test_game(board: &str, hand: &str) -> Game {
         bag,
         players,
         next_player: Some(next_player),
-        ..Game::new(3, 1, None, GameRules::generation(0))
+        ..Game::new_legacy(3, 1, None, GameRules::generation(0))
     };
     game.players[next_player].hand = Hand(hand.chars().collect());
     game.start();
@@ -228,6 +228,7 @@ pub fn judge_benches(c: &mut Criterion) {
     let aliased_judge_word = format!("P{alias}RTITI{alias}N");
     let win_condition = rules::WinCondition::Destination {
         town_defense: rules::TownDefense::BeatenWithDefenseStrength(0),
+        artifact_defense: rules::ArtifactDefense::BeatenWithDefenseStrength(0),
     };
 
     c.bench_function("judge_with_double_alias", |b| {

@@ -45,21 +45,21 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-            toolchain: ${{ matrix.rust }}
-            target: ${{ matrix.target }}
-            override: true
-            default: true
-            components: rustfmt, clippy
-      
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+          override: true
+          default: true
+          components: rustfmt, clippy
+
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
         with:
           version: ${{env.WASM_PACK_VERSION}}
-      
+
       - name: Install Rust components
         if: matrix.workspace == 'truncate_client'
         run: |-
-          cargo install -f wasm-bindgen-cli  --version 0.2.92
+          cargo install -f wasm-bindgen-cli  --version 0.2.93
           rustup target add wasm32-unknown-unknown
 
       - name: Test

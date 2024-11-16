@@ -11,6 +11,7 @@ use crate::bag::TileBag;
 use crate::error::GamePlayError;
 use crate::judge::WordDict;
 use crate::reporting::Change;
+use crate::rules::{ArtifactDefense, GameRules, WinCondition};
 use crate::{player, rules};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -62,7 +63,7 @@ struct RedundantEdges {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Board {
     pub squares: Vec<Vec<Square>>,
-    pub docks: Vec<Coordinate>,
+    pub artifacts: Vec<Coordinate>,
     pub towns: Vec<Coordinate>,
     pub obelisks: Vec<Coordinate>,
     orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
@@ -76,19 +77,7 @@ pub struct Board {
 
 impl Board {
     pub fn new(land_width: usize, land_height: usize) -> Self {
-        // TODO: resolve discrepancy between width parameter, and the actual width of the board (which is returned by self.width()) where `actual == width + 2` because of the extra home rows.
-        // let roots = vec![
-        //     Coordinate {
-        //         x: land_width / 2 + land_width % 2 - 1,
-        //         y: 0,
-        //     },
-        //     Coordinate {
-        //         x: land_width / 2,
-        //         y: land_height + 1,
-        //     },
-        // ];
-
-        // Final board should have a ring of water around the land, in which to place the docks
+        // Final board should have a ring of water around the land
         let board_width = land_width + 2;
         let board_height = land_height + 2;
 
@@ -103,29 +92,90 @@ impl Board {
 
         let mut board = Board {
             squares,
-            docks: vec![],
+            artifacts: vec![],
             towns: vec![],
             obelisks: vec![],
             orientations: vec![Direction::North, Direction::South],
         };
 
-        let dock_x = board_width / 2;
+        let north_towns = [
+            Coordinate::new(board_width - 4, 1),
+            Coordinate::new(board_width - 2, 3),
+        ];
+        for town in north_towns {
+            board
+                .set_square(town, Square::town(0))
+                .expect("Town square should exist");
+        }
+        // North artifact
+        board
+            .set_square(Coordinate::new(board_width - 2, 1), Square::artifact(0))
+            .expect("Artifact square should exist");
+
+        let south_towns = [
+            Coordinate::new(1, board_height - 4),
+            Coordinate::new(3, board_height - 2),
+        ];
+        for town in south_towns {
+            board
+                .set_square(town, Square::town(1))
+                .expect("Town square should exist");
+        }
+        // South artifact
+        board
+            .set_square(Coordinate::new(1, board_height - 2), Square::artifact(1))
+            .expect("Artifact square should exist");
+
+        board.cache_special_squares();
+
+        board
+    }
+
+    pub fn new_legacy(land_width: usize, land_height: usize) -> Self {
+        // Final board should have a ring of water around the land
+        let board_width = land_width + 2;
+        let board_height = land_height + 2;
+
+        // Create a slice of land with water on the edges
+        let mut land_row = vec![Square::land(); land_width];
+        land_row.insert(0, Square::water());
+        land_row.push(Square::water());
+
+        let mut squares = vec![vec![Square::water(); board_width]]; // Start with our north row of water
+        squares.extend(vec![land_row.clone(); land_height]); // Build out the centre land of the board
+        squares.extend(vec![vec![Square::water(); board_width]]); // Finish with a south row of water
+
+        let mut board = Board {
+            squares,
+            artifacts: vec![],
+            towns: vec![],
+            obelisks: vec![],
+            orientations: vec![Direction::North, Direction::South],
+        };
+
+        let artifact_x = board_width / 2;
 
         let north_towns = (1..=land_width)
-            .filter(|x| *x != dock_x)
+            .filter(|x| *x != artifact_x)
             .map(|x| Coordinate { x, y: 1 });
         for town in north_towns {
             board
                 .set_square(town, Square::town(0))
                 .expect("Town square should exist on the land");
         }
-        // North dock
+        // North artifact
         board
-            .set_square(Coordinate { x: dock_x, y: 0 }, Square::dock(0))
-            .expect("Dock square should exist in the sea");
+            .set_square(
+                Coordinate {
+                    x: artifact_x,
+                    y: 0,
+                },
+                Square::artifact(0),
+            )
+            .expect("Artifact square should exist in the sea");
 
         let south_towns = (1..=land_width)
-            .filter(|x| *x != dock_x)
+            .filter(|x| *x != artifact_x)
             .map(|x| Coordinate {
                 x,
                 y: board_height - 2,
@@ -135,16 +185,16 @@ impl Board {
                 .set_square(town, Square::town(1))
                 .expect("Town square should exist on the land");
         }
-        // South dock
+        // South artifact
         board
             .set_square(
                 Coordinate {
-                    x: dock_x,
+                    x: artifact_x,
                     y: board_height - 1,
                 },
-                Square::dock(1),
+                Square::artifact(1),
             )
-            .expect("Dock square should exist in the sea");
+            .expect("Artifact square should exist in the sea");
 
         board.cache_special_squares();
 
@@ -175,6 +225,10 @@ impl Board {
         self.towns.iter()
     }
 
+    pub fn artifacts(&self) -> Iter<Coordinate> {
+        self.artifacts.iter()
+    }
+
     /// Adds water to all edges of the board
     pub fn grow(&mut self) {
         for row in &mut self.squares {
@@ -193,7 +247,7 @@ impl Board {
         let redundant = |s: &Square| {
             matches!(
                 s,
-                Square::Water { .. } | Square::Fog { .. } | Square::Dock { .. }
+                Square::Water { .. } | Square::Fog { .. } | Square::Artifact { .. }
             )
         };
 
@@ -260,7 +314,7 @@ impl Board {
             .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
             .map(|(x, y)| Coordinate { x, y });
 
-        self.docks.clear();
+        self.artifacts.clear();
         self.towns.clear();
 
         for coord in coords {
@@ -273,7 +327,7 @@ impl Board {
                 ) => {}
                 Ok(Square::Obelisk { .. }) => self.obelisks.push(coord),
                 Ok(Square::Town { .. }) => self.towns.push(coord),
-                Ok(Square::Dock { .. }) => self.docks.push(coord),
+                Ok(Square::Artifact { .. }) => self.artifacts.push(coord),
                 Err(e) => {
                     unreachable!(
                         "Iterating over the board should not return invalid positions: {e}"
@@ -334,7 +388,7 @@ impl Board {
         tile: char,
         ref_dict: Option<&WordDict>,
     ) -> Result<BoardChangeDetail, GamePlayError> {
-        if self.docks.get(player).is_none() {
+        if self.artifacts.get(player).is_none() {
             return Err(GamePlayError::NonExistentPlayer { index: player });
         }
 
@@ -395,7 +449,7 @@ impl Board {
                 | Fog { .. }
                 | Town { .. }
                 | Obelisk { .. }
-                | Dock { .. } => return Err(GamePlayError::UnoccupiedSwap),
+                | Artifact { .. } => return Err(GamePlayError::UnoccupiedSwap),
             };
         }
 
@@ -587,7 +641,7 @@ impl Board {
 
     pub fn truncate(&mut self, bag: &mut TileBag, ref_dict: Option<&WordDict>) -> Vec<Change> {
         let mut attatched = HashSet::new();
-        for root in self.docks.iter() {
+        for root in self.artifacts.iter() {
             attatched.extend(self.depth_first_search(*root));
         }
 
@@ -622,7 +676,7 @@ impl Board {
         fn dfs(b: &Board, position: Coordinate, visited: &mut HashSet<Coordinate>) {
             let player = match b.get(position) {
                 Ok(Square::Occupied { player, .. }) => Some(player),
-                Ok(Square::Dock { player, .. }) => Some(player),
+                Ok(Square::Artifact { player, .. }) => Some(player),
                 _ => None,
             };
             if let Some(player) = player {
@@ -652,7 +706,7 @@ impl Board {
             .ok()
             .map(|sq| match sq {
                 Square::Occupied { player, .. } => Some(player),
-                Square::Dock { player, .. } => Some(player),
+                Square::Artifact { player, .. } => Some(player),
                 _ => None,
             })
             .flatten();
@@ -787,7 +841,7 @@ impl Board {
 
         let Some(outermost_attacker) = outermost_attacker else {
             // Attacker has no tiles, cannot reach anywhere.
-            // TODO: count from docks?
+            // TODO: count from artifacts?
             return BoardDistances::new(self);
         };
 
@@ -837,6 +891,56 @@ impl Board {
                 Ok(_) => {
                     let neighbors = self.neighbouring_squares(pt);
                     direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                _ => continue,
+            }
+        }
+
+        distances
+    }
+
+    pub fn flood_fill_water_from_land(&self) -> BoardDistances {
+        let mut distances = BoardDistances::new(self);
+
+        let starting_pos = (0..self.height())
+            .flat_map(|y| (0..self.width()).zip(std::iter::repeat(y)))
+            .map(|(x, y)| Coordinate { x, y })
+            .find(|c| matches!(self.get(*c), Ok(Square::Land { .. })))
+            .expect("Board should not be a complete ocean");
+
+        distances.set_direct(&starting_pos, 0);
+        let initial_neighbors = self.neighbouring_squares(starting_pos);
+        let mut direct_pts: VecDeque<_> = initial_neighbors.iter().map(|n| (n.0, 0)).collect();
+
+        while !direct_pts.is_empty() {
+            let (pt, dist) = direct_pts.pop_front().unwrap();
+
+            match distances.direct_distance_mut(&pt) {
+                Some(Some(visited_dist)) => {
+                    if *visited_dist > dist {
+                        // We have now found a better path to this point, so we will reprocess it
+                        *visited_dist = dist;
+                    } else {
+                        // We have previously found a better (or equal) path to this point, move to the next
+                        continue;
+                    }
+                }
+                _ => {
+                    distances.set_direct(&pt, dist);
+                }
+            }
+
+            match self.get(pt) {
+                Ok(Square::Water { .. }) => {
+                    let neighbors = self.neighbouring_squares(pt);
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, dist + 1)));
+                }
+                Ok(_) => {
+                    let neighbors = self.neighbouring_squares(pt);
+
+                    // We found more land — search its neighbors with a new starting distance
+                    direct_pts.extend(neighbors.iter().map(|n| (n.0, 0)));
+                    distances.set_direct(&pt, 0);
                 }
                 _ => continue,
             }
@@ -1018,6 +1122,7 @@ impl Board {
         let owner = match self.get(position) {
             Ok(Square::Occupied { player, .. }) => player,
             Ok(Square::Town { .. }) => return vec![vec![position]],
+            Ok(Square::Artifact { .. }) => return vec![vec![position]],
             _ => return words,
         };
 
@@ -1075,8 +1180,16 @@ impl Board {
         &self,
         player: usize,
         position: Coordinate,
+        rules: &GameRules,
     ) -> (Vec<Vec<Coordinate>>, Vec<Vec<Coordinate>>) {
         let attackers = self.get_words(position);
+        let artifacts_are_combatants = matches!(
+            rules.win_condition,
+            WinCondition::Destination {
+                artifact_defense: ArtifactDefense::BeatenWithDefenseStrength(_),
+                ..
+            }
+        );
         // Any neighbouring square belonging to another player is attacked. The words containing those squares are the defenders.
         let defenders = self
             .neighbouring_squares(position)
@@ -1086,6 +1199,11 @@ impl Board {
                     player: adjacent_player,
                     ..
                 } => player != *adjacent_player,
+                Square::Artifact {
+                    player: adjacent_player,
+                    defeated,
+                    ..
+                } => artifacts_are_combatants && player != *adjacent_player && !defeated,
                 Square::Town {
                     player: adjacent_player,
                     defeated,
@@ -1110,15 +1228,12 @@ impl Board {
                 word.iter()
                     .map(|&square| match self.get(square) {
                         Ok(sq) => match sq {
-                            Water { .. }
-                            | Land { .. }
-                            | Fog { .. }
-                            | Dock { .. }
-                            | Obelisk { .. } => {
+                            Water { .. } | Land { .. } | Fog { .. } | Obelisk { .. } => {
                                 debug_assert!(false);
                                 err = Some(GamePlayError::EmptySquareInWord);
                                 '_'
                             }
+                            Artifact { .. } => '|',
                             Town { .. } => '#',
                             Occupied { tile, .. } => tile,
                         },
@@ -1146,14 +1261,14 @@ impl Board {
         let mut playable_squares = HashSet::new();
         match truncation {
             rules::Truncation::Root => {
-                for dock in &self.docks {
-                    let sq = self.get(*dock).unwrap();
-                    if !matches!(sq, Square::Dock{ player, .. } if player == for_player) {
+                for artifact in &self.artifacts {
+                    let sq = self.get(*artifact).unwrap();
+                    if !matches!(sq, Square::Artifact{ player, .. } if player == for_player) {
                         continue;
                     }
 
                     playable_squares.extend(
-                        self.depth_first_search(*dock)
+                        self.depth_first_search(*artifact)
                             .iter()
                             .flat_map(|sq| sq.neighbors_4_iter())
                             .collect::<HashSet<_>>(),
@@ -1173,7 +1288,7 @@ impl Board {
                         .filter(|c| {
                             matches!(
                                 self.get(*c),
-                                Ok(Square::Occupied{ player, .. } | Square::Dock { player, ..}) if player == for_player
+                                Ok(Square::Occupied{ player, .. } | Square::Artifact { player, ..}) if player == for_player
                             )
                         })
                         .flat_map(|sq| sq.neighbors_4_iter()),
@@ -1208,7 +1323,7 @@ impl Board {
             }
 
             match square {
-                Ok(Square::Dock { player, .. }) | Ok(Square::Town { player, .. })
+                Ok(Square::Artifact { player, .. }) | Ok(Square::Town { player, .. })
                     if player == player_index =>
                 {
                     let mut sqs = HashSet::new();
@@ -1319,7 +1434,7 @@ impl Board {
                                 | Square::Land { foggy }
                                 | Square::Obelisk { foggy }
                                 | Square::Town { foggy, .. }
-                                | Square::Dock { foggy, .. } => {
+                                | Square::Artifact { foggy, .. } => {
                                     *foggy = true;
                                     false
                                 }
@@ -1460,7 +1575,7 @@ impl Board {
                         match chars.next() {
                             Some('~') => Square::water(),
                             Some('_') => Square::land(),
-                            Some('|') => Square::dock(
+                            Some('|') => Square::artifact(
                                 chars
                                     .next()
                                     .expect("Square needs player")
@@ -1503,7 +1618,7 @@ impl Board {
         let mut board = Board {
             squares,
             towns: vec![],
-            docks: vec![],
+            artifacts: vec![],
             obelisks: vec![],
             orientations: vec![Direction::North, Direction::South],
         };
@@ -1626,6 +1741,82 @@ impl std::cmp::PartialEq<(usize, usize)> for Coordinate {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord, Deserialize, Serialize)]
+pub struct SignedCoordinate {
+    pub x: isize,
+    pub y: isize,
+}
+
+impl SignedCoordinate {
+    pub fn new(x: isize, y: isize) -> Self {
+        Self { x, y }
+    }
+
+    pub fn add(self, direction: Direction) -> Option<SignedCoordinate> {
+        use Direction::*;
+
+        Some(SignedCoordinate {
+            x: match direction {
+                West | NorthWest | SouthWest => isize::checked_sub(self.x, 1)?,
+                East | NorthEast | SouthEast => isize::checked_add(self.x, 1)?,
+                North | South => self.x,
+            },
+            y: match direction {
+                North | NorthEast | NorthWest => isize::checked_sub(self.y, 1)?,
+                South | SouthEast | SouthWest => isize::checked_add(self.y, 1)?,
+                East | West => self.y,
+            },
+        })
+    }
+
+    pub fn neighbors_4_iter(&self) -> Flatten<IntoIter<Option<SignedCoordinate>, 4>> {
+        self.neighbors_4().into_iter().flatten()
+    }
+
+    /// Return coordinates of the horizontal and vertical neighbors, from north clockwise
+    pub fn neighbors_4(&self) -> [Option<SignedCoordinate>; 4] {
+        use Direction::*;
+
+        [
+            self.add(North),
+            self.add(East),
+            self.add(South),
+            self.add(West),
+        ]
+    }
+
+    pub fn neighbors_8_iter(&self) -> Flatten<IntoIter<Option<SignedCoordinate>, 8>> {
+        self.neighbors_8().into_iter().flatten()
+    }
+
+    /// Return coordinates of the horizontal, vertical, and diagonal neighbors, from northwest clockwise
+    pub fn neighbors_8(&self) -> [Option<SignedCoordinate>; 8] {
+        use Direction::*;
+
+        [
+            self.add(NorthWest),
+            self.add(North),
+            self.add(NorthEast),
+            self.add(East),
+            self.add(SouthEast),
+            self.add(South),
+            self.add(SouthWest),
+            self.add(West),
+        ]
+    }
+
+    pub fn real_coord(&self) -> Option<Coordinate> {
+        if self.x.is_negative() || self.y.is_negative() {
+            None
+        } else {
+            Some(Coordinate {
+                x: self.x as _,
+                y: self.y as _,
+            })
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SquareValidity {
     Unknown,
@@ -1650,8 +1841,9 @@ pub enum Square {
     Obelisk {
         foggy: bool,
     },
-    Dock {
+    Artifact {
         player: usize,
+        defeated: bool,
         foggy: bool,
     },
     Occupied {
@@ -1688,9 +1880,10 @@ impl Square {
         }
     }
 
-    pub fn dock(player: usize) -> Self {
-        Self::Dock {
+    pub fn artifact(player: usize) -> Self {
+        Self::Artifact {
             player,
+            defeated: false,
             foggy: false,
         }
     }
@@ -1701,7 +1894,7 @@ impl Square {
             | Square::Land { foggy }
             | Square::Town { foggy, .. }
             | Square::Obelisk { foggy }
-            | Square::Dock { foggy, .. }
+            | Square::Artifact { foggy, .. }
             | Square::Occupied { foggy, .. } => *foggy,
             Square::Fog {} => true,
         }
@@ -1725,7 +1918,7 @@ impl fmt::Display for Square {
                 defeated: true,
                 ..
             } => write!(f, "⊭{p}"),
-            Square::Dock { player, .. } => write!(f, "|{player}"),
+            Square::Artifact { player, .. } => write!(f, "|{player}"),
             Square::Occupied {
                 player: p, tile, ..
             } => write!(f, "{tile}{p}"),
@@ -1876,40 +2069,34 @@ pub mod tests {
     #[test]
     fn makes_default_boards() {
         assert_eq!(
-            Board::new(3, 3).to_string(),
-            "~~ ~~ |0 ~~ ~~\n\
-             ~~ #0 __ #0 ~~\n\
-             ~~ __ __ __ ~~\n\
-             ~~ #1 __ #1 ~~\n\
-             ~~ ~~ |1 ~~ ~~"
+            Board::new(4, 4).to_string(),
+            "~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ __ #0 __ |0 ~~\n\
+             ~~ #1 __ __ __ ~~\n\
+             ~~ __ __ __ #0 ~~\n\
+             ~~ |1 __ #1 __ ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~"
         );
 
         assert_eq!(
-            Board::new(3, 2).to_string(),
-            "~~ ~~ |0 ~~ ~~\n\
-             ~~ #0 __ #0 ~~\n\
-             ~~ #1 __ #1 ~~\n\
-             ~~ ~~ |1 ~~ ~~"
-        );
-
-        // TODO: Balance uneven boards
-        assert_eq!(
-            Board::new(2, 2).to_string(),
-            "~~ ~~ |0 ~~\n\
-             ~~ #0 __ ~~\n\
-             ~~ #1 __ ~~\n\
-             ~~ ~~ |1 ~~"
+            Board::new(3, 4).to_string(),
+            "~~ ~~ ~~ ~~ ~~\n\
+             ~~ #0 __ |0 ~~\n\
+             ~~ #1 __ __ ~~\n\
+             ~~ __ __ #0 ~~\n\
+             ~~ |1 __ #1 ~~\n\
+             ~~ ~~ ~~ ~~ ~~"
         );
 
         assert_eq!(
             Board::new(5, 5).to_string(),
-            "~~ ~~ ~~ |0 ~~ ~~ ~~\n\
-             ~~ #0 #0 __ #0 #0 ~~\n\
+            "~~ ~~ ~~ ~~ ~~ ~~ ~~\n\
+             ~~ __ __ #0 __ |0 ~~\n\
              ~~ __ __ __ __ __ ~~\n\
+             ~~ #1 __ __ __ #0 ~~\n\
              ~~ __ __ __ __ __ ~~\n\
-             ~~ __ __ __ __ __ ~~\n\
-             ~~ #1 #1 __ #1 #1 ~~\n\
-             ~~ ~~ ~~ |1 ~~ ~~ ~~"
+             ~~ |1 __ #1 __ __ ~~\n\
+             ~~ ~~ ~~ ~~ ~~ ~~ ~~"
         );
     }
 
@@ -1932,7 +2119,7 @@ pub mod tests {
              __ W0 O0 R0 __\n\
              __ __ S0 __ __\n\
              __ __ __ __ __",
-            "Don't trim docks or land"
+            "Don't trim artifacts or land"
         );
 
         let mut b = Board::from_string(
@@ -2009,15 +2196,15 @@ pub mod tests {
              ~~ W0 O0 R0 ~~\n\
              ~~ __ S0 __ |0\n\
              ~~ ~~ ~~ ~~ ~~",
-            "Do trim unconnected docks"
+            "Do trim unconnected artifacts"
         );
     }
 
     #[test]
     fn width_height() {
-        let b = Board::new(6, 1);
+        let b = Board::new(6, 3);
         assert_eq!(b.width(), 8);
-        assert_eq!(b.height(), 3);
+        assert_eq!(b.height(), 5);
     }
 
     #[test]
@@ -2302,7 +2489,7 @@ pub mod tests {
             Some(4)
         );
 
-        // Player 1's dock
+        // Player 1's artifact
         assert_eq!(
             dists.attackable_distance(&Coordinate { x: 2, y: 6 }),
             Some(3)
@@ -2423,12 +2610,13 @@ pub mod tests {
 
     #[test]
     fn get_neighbours() {
-        // (0,0) (1,0) (2,0) (3,0) (4,0)
-        // (0,1) (1,1) (2,1) (3,1) (4,1)
-        // (0,2) (1,2) (2,2) (3,2) (4,2)
-        // (0,3) (1,3) (2,3) (3,3) (4,3)
-        // (0,4) (1,4) (2,4) (3,4) (4,4)
-        let b = Board::new(3, 3);
+        // (0,0) (1,0) (2,0) (3,0) (4,0) (5,0)
+        // (0,1) (1,1) (2,1) (3,1) (4,1) (5,1)
+        // (0,2) (1,2) (2,2) (3,2) (4,2) (5,2)
+        // (0,3) (1,3) (2,3) (3,3) (4,3) (5,3)
+        // (0,4) (1,4) (2,4) (3,4) (4,4) (5,4)
+        // (0,5) (1,5) (2,5) (3,5) (4,5) (5,5)
+        let b = Board::new(4, 4);
 
         assert_eq!(
             // TODO: should we allow you to find neighbours of an invalid square?
@@ -2440,21 +2628,21 @@ pub mod tests {
         );
 
         assert_eq!(
-            b.neighbouring_squares(Coordinate { x: 1, y: 0 }),
+            b.neighbouring_squares(Coordinate { x: 0, y: 4 }),
             [
-                (Coordinate { x: 2, y: 0 }, Square::dock(0)),
-                (Coordinate { x: 1, y: 1 }, Square::town(0)),
-                (Coordinate { x: 0, y: 0 }, Square::water()),
+                (Coordinate { x: 0, y: 3 }, Square::water()),
+                (Coordinate { x: 1, y: 4 }, Square::artifact(1)),
+                (Coordinate { x: 0, y: 5 }, Square::water()),
             ]
         );
 
         assert_eq!(
             b.neighbouring_squares(Coordinate { x: 2, y: 2 }),
             [
-                (Coordinate { x: 2, y: 1 }, Square::land()),
+                (Coordinate { x: 2, y: 1 }, Square::town(0)),
                 (Coordinate { x: 3, y: 2 }, Square::land()),
                 (Coordinate { x: 2, y: 3 }, Square::land()),
-                (Coordinate { x: 1, y: 2 }, Square::land()),
+                (Coordinate { x: 1, y: 2 }, Square::town(1)),
             ]
         );
     }
@@ -2761,7 +2949,7 @@ pub mod tests {
                     y: usize::wrapping_sub(y, 2),
                 };
                 match b.get(coord) {
-                    Ok(Square::Town { .. }) => {
+                    Ok(Square::Town { .. } | Square::Artifact { .. }) => {
                         assert_eq!(b.get_words(coord), vec![vec![coord]]);
                     }
                     _ => {

@@ -142,6 +142,7 @@ impl ActiveGame {
                 ctx,
                 &depot.aesthetics,
                 &board,
+                2,
                 player_number as usize,
                 theme.daytime,
             ),

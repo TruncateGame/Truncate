@@ -120,6 +120,10 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 continue;
             };
 
+            if tutorial.effective_day > outer.launched_at_day {
+                continue;
+            }
+
             if tutorial.priority == Some(ChangePriority::High) {
                 outer.event_dispatcher.event(format!("interrupt_{unread}"));
                 let changelog_ui = outer.inner_storage.changelog_ui.get_or_insert_with(|| {
@@ -149,7 +153,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                         .event(format!("interrupt_view_{unread}"));
                     outer
                         .tx_player
-                        .try_send(PlayerMessage::MarkChangelogRead)
+                        .try_send(PlayerMessage::MarkChangelogRead(unread.clone()))
                         .unwrap();
                     new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                         unread.clone(),
@@ -181,7 +185,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     outer.unread_changelogs = vec![];
                     outer
                         .tx_player
-                        .try_send(PlayerMessage::MarkChangelogRead)
+                        .try_send(PlayerMessage::MarkChangelogRead(unread.clone()))
                         .unwrap();
                     break;
                 }
@@ -195,7 +199,13 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
         outer.event_dispatcher.event(format!("updates_listing"));
         let mut changelog_ui = SplashUI::new(vec!["Latest updates".to_string()]);
 
-        for (changelog_id, changelog_tut) in changelogs() {
+        let mut ordered_changelogs = changelogs()
+            .into_iter()
+            .filter(|(_, log)| log.effective_day <= outer.launched_at_day)
+            .collect::<Vec<_>>();
+        ordered_changelogs.sort_by_key(|(_, log)| log.effective_day);
+
+        for (changelog_id, changelog_tut) in ordered_changelogs {
             changelog_ui = changelog_ui.with_button(
                 changelog_id,
                 changelog_tut
@@ -216,7 +226,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 .event(format!("updates_view_{requested_changelog}"));
             outer
                 .tx_player
-                .try_send(PlayerMessage::MarkChangelogRead)
+                .try_send(PlayerMessage::MarkChangelogRead(
+                    requested_changelog.to_string(),
+                ))
                 .unwrap();
             new_game_status = Some(GameStatus::Tutorial(TutorialState::new(
                 requested_changelog.to_string(),
@@ -260,7 +272,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
             if let Some(msg) = editor_state.render(ui, &outer.theme) {
                 match msg {
                     PlayerMessage::StartGame => {
-                        let rules_generation = GameRules::latest().0;
+                        let rules_generation = GameRules::latest(Some(outer.launched_at_day)).0;
                         let single_player_game = SinglePlayerState::new(
                             "classic".to_string(),
                             ui.ctx(),

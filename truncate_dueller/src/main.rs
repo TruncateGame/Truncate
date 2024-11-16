@@ -19,8 +19,8 @@ fn best_move(game: &Game, npc_params: &NPCParams, dicts: &Dicts) -> PlayerMessag
     ensure_dicts();
 
     let mut arb = truncate_core::npc::Arborist::pruning();
-    arb.capped(15000);
-    let search_depth = 12;
+    arb.capped(npc_params.evaluation_cap);
+    let search_depth = npc_params.max_depth;
 
     let (best_move, _score) = truncate_core::game::Game::best_move(
         game,
@@ -87,16 +87,16 @@ fn evaluate_single_seed(
                 });
             }
             Ok(None) => {
-                let post_board = game.board.to_string();
-
-                let zipped_board = pre_board
-                    .lines()
-                    .zip(post_board.lines())
-                    .map(|(a, b)| format!("{a}   >   {b}"))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-
                 if log {
+                    let post_board = game.board.to_string();
+
+                    let zipped_board = pre_board
+                        .lines()
+                        .zip(post_board.lines())
+                        .map(|(a, b)| format!("{a}   >   {b}"))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+
                     println!("\nPlayer {next_player} had tiles {pre_tiles:?}\nPicked {next_move:?}:\n{zipped_board}");
                 }
 
@@ -171,6 +171,7 @@ fn evaluate_seed(mut seed: BoardSeed, log: bool, latest_rules_generation: u32) -
 
     let mut seed_notes = seed_result.unwrap();
     seed_notes.rerolls = rerolls;
+    println!("........ {core_seed}, {seed_notes:#?}");
     (core_seed, seed_notes)
 }
 
@@ -196,7 +197,7 @@ fn verify_note(seed: &u32, note: &SeedNote) -> bool {
 }
 
 fn main() {
-    let quantity = 10;
+    let quantity = 30;
 
     let mut current_notes = load_file();
     ensure_dicts();
@@ -211,16 +212,18 @@ fn main() {
         panic!("One or more seeds failed to verify");
     }
 
-    let latest_rules_generation = GameRules::latest().0;
-
     let args = std::env::args().collect::<Vec<_>>();
 
     if let Some(seed) = args.get(1) {
-        let seed = BoardSeed::new(seed.parse().expect("Seed should be a number"));
-        let result = evaluate_seed(seed, true, latest_rules_generation);
+        let day = seed.parse().expect("Seed should be a number");
+        let seed = BoardSeed::new(day);
+        let rules = GameRules::latest(Some(day)).0;
+        let result = evaluate_seed(seed, true, rules);
         println!("{result:#?}");
         return;
     };
+
+    write_file(load_file());
 
     let mut starting_day = 0;
     while current_notes.notes.contains_key(&starting_day) {
@@ -230,8 +233,10 @@ fn main() {
     let results: Vec<_> = (0..quantity)
         .into_par_iter()
         .map(|offset| {
-            let seed = BoardSeed::new(starting_day + offset);
-            evaluate_seed(seed, false, latest_rules_generation)
+            let day = starting_day + offset;
+            let seed = BoardSeed::new(day);
+            let rules = GameRules::latest(Some(day)).0;
+            evaluate_seed(seed, false, rules)
         })
         .collect();
 

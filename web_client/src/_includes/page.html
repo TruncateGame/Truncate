@@ -1,1105 +1,1172 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <!-- Disable zooming: -->
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, user-scalable=no"
+        />
+        <link
+            rel="icon"
+            type="image/svg+xml"
+            href="data:image/svg+xml,%3Csvg width='318' height='320' viewBox='0 0 318 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 300H268V290H278V280H288V260H298V240H288V260H278V270H258V280H60V270H40V260H30V240H20V260H30V280H40V290H50V300Z' fill='%23ADADAD'/%3E%3Cpath d='M60 20V30H40V40H30V60H20V240H30V260H40V270H60V280H258V270H278V260H288V240H298V60H288V40H278V30H258V20H60Z' fill='white'/%3E%3Cpath d='M135.75 230.75V91.25H89.25V68H228.75V91.25H182.25V230.75H135.75Z' fill='black'/%3E%3C/svg%3E%0A"
+        />
 
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <!-- Disable zooming: -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <link rel="icon" type="image/svg+xml"
-        href="data:image/svg+xml,%3Csvg width='318' height='320' viewBox='0 0 318 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 300H268V290H278V280H288V260H298V240H288V260H278V270H258V280H60V270H40V260H30V240H20V260H30V280H40V290H50V300Z' fill='%23ADADAD'/%3E%3Cpath d='M60 20V30H40V40H30V60H20V240H30V260H40V270H60V280H258V270H278V260H288V240H298V60H288V40H278V30H258V20H60Z' fill='white'/%3E%3Cpath d='M135.75 230.75V91.25H89.25V68H228.75V91.25H182.25V230.75H135.75Z' fill='black'/%3E%3C/svg%3E%0A" />
+        <title>{{ title }}</title>
+        <meta content="{{ title }}" property="og:title" />
+        <meta content="{{ title }}" property="twitter:title" />
+        <meta content="en_US" property="og:locale" />
+        <meta content="{{ description }}" name="description" />
+        <meta content="{{ description }}" property="og:description" />
+        <meta content="{{ site_name }}" property="og:site_name" />
 
-    <title>{{ title }}</title>
-    <meta content="{{ title }}" property="og:title">
-    <meta content="{{ title }}" property="twitter:title">
-    <meta content="en_US" property="og:locale">
-    <meta content="{{ description }}" name="description">
-    <meta content="{{ description }}" property="og:description">
-    <meta content="{{ site_name }}" property="og:site_name">
+        <meta
+            content="https://truncate.town/static/og.png"
+            data-pagefind-meta="image[content]"
+            property="og:image"
+        />
+        <meta content="website" property="og:type" />
+        <meta content="summary_large_image" name="twitter:card" />
+        <meta
+            content="https://truncate.town/static/og.png"
+            property="twitter:image"
+        />
 
-    <meta content="https://truncate.town/static/og.png" data-pagefind-meta="image[content]" property="og:image">
-    <meta content="website" property="og:type">
-    <meta content="summary_large_image" name="twitter:card">
-    <meta content="https://truncate.town/static/og.png" property="twitter:image">
-
-    <style>
-        :root {
-            --water: #50a7e8;
-        }
-
-        @font-face {
-            font-family: Truncate;
-            src: url({{assets.font}});
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html {
-            /* Remove touch delay: */
-            touch-action: manipulation;
-        }
-
-        html,
-        body {
-            overflow: hidden;
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100%;
-            height: 100%;
-            font-family: Truncate;
-            background-color: var(--water);
-        }
-
-        a {
-            color: #5088e8;
-        }
-
-        .cent {
-            text-align: center;
-        }
-
-        #splash {
-            position: absolute;
-            top: 0;
-            left: 0;
-            transform: scale(0.5);
-            transform-origin: top left;
-            background-color: var(--water);
-            z-index: 1;
-        }
-
-        #truncate_canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            transform-origin: top left;
-            background-color: var(--water);
-            z-index: 0;
-        }
-
-        #controls {
-            z-index: 2;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 400px;
-            display: flex;
-            align-items: center;
-            flex-direction: column;
-            gap: 40px;
-            transition: opacity .2s ease;
-        }
-
-        #controls.unloaded {
-            opacity: 0;
-        }
-
-        #menu_region {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            width: 400px;
-            max-width: 100%;
-            padding-top: 15px;
-        }
-
-        .row {
-            display: flex;
-            flex-direction: row;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        #controls button {
-            flex: 1;
-            position: relative;
-            appearance: none;
-            border: 0;
-            background-color: #fff9d8;
-            font-family: Truncate;
-            font-size: clamp(10px, 2vw, 13px);
-            padding: 10px 15px;
-            cursor: pointer;
-            border-radius: 4px 4px 6px 6px;
-            border-bottom: solid 2px #e1d590;
-            z-index: 3;
-            transition: transform .1s ease-in;
-            text-transform: uppercase;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        #controls button:hover {
-            background-color: #fffef9;
-            border-bottom: solid 2px #efe5af;
-            transform: translateY(-2px);
-        }
-
-        #controls button.thin {
-            flex: unset;
-        }
-
-        #controls button[disabled] {
-            pointer-events: none;
-            color: #444;
-            background-color: transparent;
-            border: solid 2px #d2d2d288;
-        }
-
-        #controls button[hidden] {
-            display: none;
-        }
-
-        #controls button.special {
-            background-color: #edbbff;
-            border-bottom: solid 2px #c694d9;
-        }
-
-        #controls button.special:hover {
-            background-color: #f6dcff;
-            border-bottom: solid 2px #deb6ee;
-            transform: translateY(-2px);
-        }
-
-        #controls button span:first-of-type {
-            font-size: 0.6em;
-        }
-
-        #controls #about_control {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-        }
-
-        #controls input {
-            appearance: none;
-            border: 0;
-            background-color: #ffffffbb;
-            font-family: Truncate;
-            font-size: clamp(10px, 2vw, 14px);
-            padding: 11px 10px;
-            border-radius: 4px;
-            z-index: 3;
-            width: 250px;
-            text-transform: uppercase;
-        }
-
-        @media (max-width: 800px) {
-            #controls input {
-                width: 100%;
+        <style>
+            :root {
+                --water: #0badff;
             }
-        }
 
-        .back {
-            margin-top: 20px;
-            opacity: 0.6;
-        }
+            @font-face {
+                font-family: Truncate;
+                src: url({{assets.font}});
+            }
 
-        .back:hover {
-            opacity: 0.9;
-        }
+            * {
+                box-sizing: border-box;
+            }
 
-        #about_truncate {
-            position: fixed;
-            z-index: 10;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            background: transparent;
-            border: none;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
+            html {
+                /* Remove touch delay: */
+                touch-action: manipulation;
+            }
 
-        #about_truncate[open] {
-            display: flex;
-        }
+            html,
+            body {
+                overflow: hidden;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100%;
+                height: 100%;
+                font-family: Truncate;
+                background-color: var(--water);
+            }
 
-        #about_truncate .inner {
-            font-size: 14px;
-            position: relative;
-            width: calc(100% - clamp(20px, 8vw, 100px));
-            height: calc(100% - clamp(20px, 8vw, 100px));
-            max-width: 60ch;
-            background-color: #fff;
-            display: flex;
-            padding: clamp(10px, 2vw, 20px);
-            border: solid 4px black;
-            border-radius: 8px;
-        }
+            a {
+                color: #5088e8;
+            }
 
-        #about_truncate .content {
-            overflow-y: scroll;
-            padding-bottom: 100px;
-        }
+            .cent {
+                text-align: center;
+            }
 
-        #about_truncate h2 {
-            font-size: 14px;
-        }
+            #splash {
+                position: absolute;
+                top: 0;
+                left: 0;
+                transform: scale(0.5);
+                transform-origin: top left;
+                background-color: var(--water);
+                z-index: 1;
+            }
 
-        #about_truncate form {
-            position: absolute;
-            bottom: 0px;
-            left: 0px;
-            width: 100%;
-            height: 80px;
-            background-color: #ffffffdd;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-        }
+            #truncate_canvas {
+                position: absolute;
+                top: 0;
+                left: 0;
+                transform-origin: top left;
+                background-color: var(--water);
+                z-index: 0;
+            }
 
-        #about_truncate button {
-            border: solid 2px !important;
-            max-width: 500px;
-            width: 90%;
-        }
+            #controls {
+                z-index: 2;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 400px;
+                display: flex;
+                align-items: center;
+                flex-direction: column;
+                gap: 40px;
+                transition: opacity 0.2s ease;
+            }
 
-        .game_credit {
-            margin-bottom: 8px;
-        }
+            #controls.unloaded {
+                opacity: 0;
+            }
 
-        .game_credit .sub {
-            font-size: 0.9em;
-            font-style: italic;
-            padding-left: 1em;
-            color: #888;
-        }
-    </style>
-</head>
+            #menu_region {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+                width: 400px;
+                max-width: 100%;
+                padding-top: 15px;
+            }
 
-<body>
-    <canvas id="splash"></canvas>
-    <canvas id="truncate_canvas"></canvas>
+            .row {
+                display: flex;
+                flex-direction: row;
+                gap: 15px;
+                flex-wrap: wrap;
+            }
 
-    <div id="controls" class="unloaded" data-control-stage="root">
-        <button data-stage="root" id="about_control">UPDATES & CREDITS</button>
+            #controls button {
+                flex: 1;
+                position: relative;
+                appearance: none;
+                border: 0;
+                background-color: #fff9d8;
+                font-family: Truncate;
+                font-size: clamp(10px, 2vw, 13px);
+                padding: 10px 15px;
+                cursor: pointer;
+                border-radius: 4px 4px 6px 6px;
+                border-bottom: solid 2px #e1d590;
+                z-index: 3;
+                transition: transform 0.1s ease-in;
+                text-transform: uppercase;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
 
-        <div id="menu_region">
+            #controls button:hover {
+                background-color: #fffef9;
+                border-bottom: solid 2px #efe5af;
+                transform: translateY(-2px);
+            }
+
+            #controls button.thin {
+                flex: unset;
+            }
+
+            #controls button[disabled] {
+                pointer-events: none;
+                color: #444;
+                background-color: transparent;
+                border: solid 2px #d2d2d288;
+            }
+
+            #controls button[hidden] {
+                display: none;
+            }
+
+            #controls button.special {
+                background-color: #edbbff;
+                border-bottom: solid 2px #c694d9;
+            }
+
+            #controls button.special:hover {
+                background-color: #f6dcff;
+                border-bottom: solid 2px #deb6ee;
+                transform: translateY(-2px);
+            }
+
+            #controls button span:first-of-type {
+                font-size: 0.6em;
+            }
+
+            #controls #about_control {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+            }
+
+            #controls input {
+                appearance: none;
+                border: 0;
+                background-color: #ffffffbb;
+                font-family: Truncate;
+                font-size: clamp(10px, 2vw, 14px);
+                padding: 11px 10px;
+                border-radius: 4px;
+                z-index: 3;
+                width: 250px;
+                text-transform: uppercase;
+            }
+
+            @media (max-width: 800px) {
+                #controls input {
+                    width: 100%;
+                }
+            }
+
+            .back {
+                margin-top: 20px;
+                opacity: 0.6;
+            }
+
+            .back:hover {
+                opacity: 0.9;
+            }
+
+            #about_truncate {
+                position: fixed;
+                z-index: 10;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                background: transparent;
+                border: none;
+                display: none;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #about_truncate[open] {
+                display: flex;
+            }
+
+            #about_truncate .inner {
+                font-size: 14px;
+                position: relative;
+                width: calc(100% - clamp(20px, 8vw, 100px));
+                height: calc(100% - clamp(20px, 8vw, 100px));
+                max-width: 60ch;
+                background-color: #fff;
+                display: flex;
+                padding: clamp(10px, 2vw, 20px);
+                border: solid 4px black;
+                border-radius: 8px;
+            }
+
+            #about_truncate .content {
+                overflow-y: scroll;
+                padding-bottom: 100px;
+            }
+
+            #about_truncate h2 {
+                font-size: 14px;
+            }
+
+            #about_truncate form {
+                position: absolute;
+                bottom: 0px;
+                left: 0px;
+                width: 100%;
+                height: 80px;
+                background-color: #ffffffdd;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+            }
+
+            #about_truncate button {
+                border: solid 2px !important;
+                max-width: 500px;
+                width: 90%;
+            }
+
+            .game_credit {
+                margin-bottom: 8px;
+            }
+
+            .game_credit .sub {
+                font-size: 0.9em;
+                font-style: italic;
+                padding-left: 1em;
+                color: #888;
+            }
+        </style>
+    </head>
+
+    <body>
+        <canvas id="splash"></canvas>
+        <canvas id="truncate_canvas"></canvas>
+
+        <div id="controls" class="unloaded" data-control-stage="root">
+            <button data-stage="root" id="about_control">
+                UPDATES & CREDITS
+            </button>
+
+            <div id="menu_region"></div>
+
+            <dialog id="about_truncate">
+                <div class="inner">
+                    <div class="content">
+                        <p>
+                            Truncate was created by<br /><a
+                                target="_blank"
+                                href="https://github.com/bglw/"
+                                >Liam Bigelow</a
+                            >
+                            and
+                            <a
+                                target="_blank"
+                                href="https://github.com/BlakeMScurr/"
+                                >Blake McAlevey-Scurr</a
+                            >.
+                        </p>
+                        <p>
+                            Truncate's client and server are both available as
+                            open-source code on GitHub at
+                            <a
+                                target="_blank"
+                                href="https://github.com/TruncateGame/Truncate"
+                                >TruncateGame/Truncate</a
+                            >.
+                        </p>
+
+                        <p>
+                            Truncate's sprites are available to use under a
+                            <a
+                                href="https://creativecommons.org/licenses/by-sa/4.0/"
+                                >CC BY-SA 4.0 license</a
+                            >.
+                        </p>
+
+                        <h2>Many thanks to contributing artists:</h2>
+                        <ul>
+                            <li class="game_credit">
+                                <a target="_blank" href="https://joree.org/"
+                                    >Joree</a
+                                >
+                            </li>
+                        </ul>
+
+                        <h2>Many thanks to the audio assets:</h2>
+                        {% include "credits.html" credits: credits.audio_assets
+                        %}
+
+                        <h2>Many thanks to the font assets:</h2>
+                        {% include "credits.html" credits: credits.font_assets
+                        %}
+
+                        <h2>
+                            Many thanks to the notable open-source dependencies:
+                        </h2>
+                        {% include "credits.html" credits: credits.code_assets
+                        %}
+
+                        <h2>Many thanks to the word data sources:</h2>
+                        {% include "credits.html" credits: credits.data_assets
+                        %}
+                    </div>
+                    <form method="dialog">
+                        <button
+                            aria-label="Exit about dialog"
+                            data-control="cancel_to_root"
+                        >
+                            CLOSE
+                        </button>
+                    </form>
+                </div>
+            </dialog>
         </div>
 
-        <dialog id="about_truncate">
-            <div class="inner">
-                <div class="content">
-                    <p>Truncate was created by<br><a target="_blank" href="https://github.com/bglw/">Liam Bigelow</a>
-                        and
-                        <a target="_blank" href="https://github.com/BlakeMScurr/">Blake McAlevey-Scurr</a>.
-                    </p>
-                    <p>Truncate's client and server are both available as open-source code on GitHub at <a
-                            target="_blank" href="https://github.com/TruncateGame/Truncate">TruncateGame/Truncate</a>.
-                    </p>
+        <audio id="tr_move" src="/static/move.mp3"></audio>
 
-                    <h2>Many thanks to the art assets:</h2>
-                    {% include "credits.html" credits: credits.art_assets %}
+        <script
+            defer
+            src="/static/truncate_client.js?commit={{ env.commit }}"
+        ></script>
+        <script>
+            (function () {
+                let menu;
+                let remaining_day = () => {
+                    let el = document.querySelector(".REMAINING_TIME");
+                    if (el) {
+                        let now = new Date();
+                        let remaining_hours = 23 - now.getHours();
+                        let minutes = 59 - now.getMinutes();
+                        let seconds = 59 - now.getSeconds();
+                        el.innerText = `${remaining_hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")} REMAINING`;
+                    }
+                };
+                setInterval(remaining_day, 1000);
 
-                    <h2>Many thanks to the audio assets:</h2>
-                    {% include "credits.html" credits: credits.audio_assets %}
+                let about_control = document.querySelector("#about_control");
 
-                    <h2>Many thanks to the font assets:</h2>
-                    {% include "credits.html" credits: credits.font_assets %}
+                class TruncateRunner {
+                    constructor() {
+                        this.errored = false;
+                        this.started = false;
+                        this.startFn = null;
+                        this.pendingCreate = null;
+                        this.pendingJoin = null;
+                        this.pendingRejoin = null;
+                    }
 
-                    <h2>Many thanks to the notable open-source dependencies:</h2>
-                    {% include "credits.html" credits: credits.code_assets %}
+                    make_ready(startFn) {
+                        this.startFn = startFn;
+                        this.try_start();
+                    }
 
-                    <h2>Many thanks to the word data sources:</h2>
-                    {% include "credits.html" credits: credits.data_assets %}
-                </div>
-                <form method="dialog">
-                    <button aria-label="Exit about dialog" data-control="cancel_to_root">CLOSE</button>
-                </form>
-            </div>
-        </dialog>
-    </div>
+                    error(e) {
+                        this.errored = e;
+                        menu.errorStage();
+                    }
 
-    <audio id="tr_move" src="/static/move.mp3"></audio>
+                    create_game() {
+                        this.pendingCreate = true;
+                        this.try_start();
+                    }
 
-    <script defer src="/static/truncate_client.js?commit={{ env.commit }}"></script>
-    <script>
-        (function () {
-            let menu;
-            let remaining_day = () => {
-                let el = document.querySelector(".REMAINING_TIME");
-                if (el) {
-                    let now = new Date();
-                    let remaining_hours = 23 - now.getHours();
-                    let minutes = 59 - now.getMinutes();
-                    let seconds = 59 - now.getSeconds();
-                    el.innerText = `${remaining_hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")} REMAINING`;
-                }
-            };
-            setInterval(remaining_day, 1000);
+                    join_game(code) {
+                        this.pendingJoin = code;
+                        this.try_start();
+                    }
 
-            let about_control = document.querySelector("#about_control");
+                    rejoin_game() {
+                        this.pendingRejoin = true;
+                        this.try_start();
+                    }
 
-            class TruncateRunner {
-                constructor() {
-                    this.errored = false;
-                    this.started = false;
-                    this.startFn = null;
-                    this.pendingCreate = null;
-                    this.pendingJoin = null;
-                    this.pendingRejoin = null;
-                }
+                    try_start() {
+                        console.log("Trying to start Truncate...");
+                        if (this.errored || this.started) return;
+                        if (!this.startFn) {
+                            menu.loadingStage();
+                            return;
+                        };
 
-                make_ready(startFn) {
-                    this.startFn = startFn;
-                    this.try_start();
-                }
+                        if (this.pendingRejoin) {
+                            console.log(`Rejoining...`);
+                            this.startFn("__REJOIN__");
+                            this.register_start();
+                        } else if (this.pendingJoin && this.pendingJoin.length) {
+                            console.log(`Joining ${this.pendingJoin}...`);
+                            this.startFn(this.pendingJoin);
+                            this.register_start();
+                        } else if (this.pendingCreate) {
+                            console.log(`Creating a new game...`);
+                            this.startFn();
+                            this.register_start();
+                        }
+                    }
 
-                error(e) {
-                    this.errored = e;
-                    menu.errorStage();
-                }
-
-                create_game() {
-                    this.pendingCreate = true;
-                    this.try_start();
-                }
-
-                join_game(code) {
-                    this.pendingJoin = code;
-                    this.try_start();
-                }
-
-                rejoin_game() {
-                    this.pendingRejoin = true;
-                    this.try_start();
-                }
-
-                try_start() {
-                    console.log("Trying to start Truncate...");
-                    if (this.errored || this.started) return;
-                    if (!this.startFn) {
-                        menu.loadingStage();
-                        return;
-                    };
-
-                    if (this.pendingRejoin) {
-                        console.log(`Rejoining...`);
-                        this.startFn("__REJOIN__");
-                        this.register_start();
-                    } else if (this.pendingJoin && this.pendingJoin.length) {
-                        console.log(`Joining ${this.pendingJoin}...`);
-                        this.startFn(this.pendingJoin);
-                        this.register_start();
-                    } else if (this.pendingCreate) {
-                        console.log(`Creating a new game...`);
-                        this.startFn();
-                        this.register_start();
+                    register_start() {
+                        this.started = true;
+                        document.querySelector("#splash").style.display = "none";
+                        document.querySelector("#controls").style.display = "none";
+                        document.querySelector("#truncate_canvas").style.zIndex = "999";
+                        console.log(`Revealing the Truncate client...`);
                     }
                 }
+                const truncate_runner = new TruncateRunner();
 
-                register_start() {
-                    this.started = true;
-                    document.querySelector("#splash").style.display = "none";
-                    document.querySelector("#controls").style.display = "none";
-                    document.querySelector("#truncate_canvas").style.zIndex = "999";
-                    console.log(`Revealing the Truncate client...`);
-                }
-            }
-            const truncate_runner = new TruncateRunner();
+                class Menu {
+                    constructor(el) {
+                        this.el = el;
 
-            class Menu {
-                constructor(el) {
-                    this.el = el;
-
-                    // this.maintenanceStage();
-                    this.rootStage();
-                }
-
-                add(child) {
-                    this.el.appendChild(child);
-                }
-
-                button(text, onclick, classes) {
-                    let b = document.createElement("button");
-                    b.innerHTML = text.toUpperCase();
-                    if (classes) {
-                        b.className = classes;
+                        // this.maintenanceStage();
+                        this.rootStage();
                     }
-                    b.addEventListener("click", onclick);
-                    this.add(b);
-                }
 
-                reset() {
-                    this.el.innerHTML = "";
-                }
+                    add(child) {
+                        this.el.appendChild(child);
+                    }
 
-                backButton() {
-                    this.button("← Back", () => this.rootStage(), "back");
-                }
+                    button(text, onclick, classes) {
+                        let b = document.createElement("button");
+                        b.innerHTML = text.toUpperCase();
+                        if (classes) {
+                            b.className = classes;
+                        }
+                        b.addEventListener("click", onclick);
+                        this.add(b);
+                    }
 
-                maintenanceStage() {
-                    this.reset();
+                    reset() {
+                        this.el.innerHTML = "";
+                    }
 
-                    let p1 = document.createElement("p");
-                    p1.classList.add("cent");
-                    p1.innerText = "Maintenance underway...";
-                    this.add(p1);
+                    backButton() {
+                        this.button("← Back", () => this.rootStage(), "back");
+                    }
 
-                    let p2 = document.createElement("p");
-                    p2.classList.add("cent");
-                    p2.innerText = "Truncate will be right back!";
-                    this.add(p2);
-                }
+                    maintenanceStage() {
+                        this.reset();
 
-                rootStage() {
-                    this.reset();
+                        let p1 = document.createElement("p");
+                        p1.classList.add("cent");
+                        p1.innerText = "Maintenance underway...";
+                        this.add(p1);
 
-                    about_control.removeAttribute("hidden");
+                        let p2 = document.createElement("p");
+                        p2.classList.add("cent");
+                        p2.innerText = "Truncate will be right back!";
+                        this.add(p2);
+                    }
 
-                    const existing_game_token = window.localStorage.getItem("truncate_active_token");
-                    let has_played_tut = localStorage.getItem("tutorial_played");
+                    rootStage() {
+                        this.reset();
 
-                    if (existing_game_token) {
+                        about_control.removeAttribute("hidden");
 
-                        let row = document.createElement("div");
-                        row.classList.add("row");
+                        const existing_game_token = window.localStorage.getItem("truncate_active_token");
+                        let has_played_tut = localStorage.getItem("tutorial_played");
 
-                        let button = document.createElement("button");
-                        button.innerHTML = `Rejoin Game`;
-                        button.addEventListener("click", () => {
-                            truncate_runner.rejoin_game();
+                        if (existing_game_token) {
+
+                            let row = document.createElement("div");
+                            row.classList.add("row");
+
+                            let button = document.createElement("button");
+                            button.innerHTML = `Rejoin Game`;
+                            button.addEventListener("click", () => {
+                                truncate_runner.rejoin_game();
+                            });
+                            row.appendChild(button);
+
+                            let close = document.createElement("button");
+                            close.classList.add("thin");
+                            close.innerHTML = `x`;
+                            close.addEventListener("click", () => {
+                                window.localStorage.removeItem("truncate_active_token");
+                                this.rootStage();
+                            });
+                            row.appendChild(close);
+
+                            this.add(row);
+                        }
+
+                        if (!has_played_tut) {
+                            this.button("Learn To Play", () => {
+                                localStorage.setItem("tutorial_played", "true");
+                                truncate_runner.join_game('TUTORIAL_RULES');
+                            }, "special");
+                        }
+
+                        this.button("<span class='remaining_time'>__:__:__ remaining</span><span>Daily Puzzle</span>", () => {
+                            truncate_runner.join_game('DAILY_PUZZLE');
+                        }, has_played_tut ? "special" : "");
+                        remaining_day();
+
+                        this.button("Single Player", () => {
+                            this.singleStage();
                         });
-                        row.appendChild(button);
 
-                        let close = document.createElement("button");
-                        close.classList.add("thin");
-                        close.innerHTML = `x`;
-                        close.addEventListener("click", () => {
-                            window.localStorage.removeItem("truncate_active_token");
-                            this.rootStage();
+                        this.button("Multi Player", () => {
+                            this.multiStage();
                         });
-                        row.appendChild(close);
 
-                        this.add(row);
+                        if (has_played_tut) {
+                          this.button("Learn To Play", () => {
+                              localStorage.setItem("tutorial_played", "true");
+                              truncate_runner.join_game('TUTORIAL_RULES');
+                          });
+                          // Uncomment if adding back a second tutorial
+                          // this.button("Tutorials", () => {
+                          //     this.learnStage();
+                          // });
+                        }
                     }
 
-                    if (!has_played_tut) {
+                    learnStage() {
+                        this.reset();
+
                         this.button("Learn To Play", () => {
                             localStorage.setItem("tutorial_played", "true");
                             truncate_runner.join_game('TUTORIAL_RULES');
-                        }, "special");
+                        });
+
+                        this.button("Example Game", () => {
+                            truncate_runner.join_game('TUTORIAL_EXAMPLE');
+                        });
+
+                        this.backButton();
                     }
 
-                    this.button("<span class='remaining_time'>__:__:__ remaining</span><span>Daily Puzzle</span>", () => {
-                        truncate_runner.join_game('DAILY_PUZZLE');
-                    }, has_played_tut ? "special" : "");
-                    remaining_day();
+                    singleStage() {
+                        this.reset();
 
-                    this.button("Single Player", () => {
-                        this.singleStage();
-                    });
+                        this.button("Easy Puzzle", () => {
+                            truncate_runner.join_game("RANDOM_EASY_PUZZLE");
+                        });
 
-                    this.button("Multi Player", () => {
-                        this.multiStage();
-                    });
+                        this.button("Regular Puzzle", () => {
+                            truncate_runner.join_game("RANDOM_PUZZLE");
+                        });
 
-                    if (has_played_tut) {
-                      this.button("Tutorials", () => {
-                          this.learnStage();
-                      });
+                        this.button("Classic Board", () => {
+                            truncate_runner.join_game("SINGLE_PLAYER");
+                        });
+
+                        this.backButton();
+                    }
+
+                    multiStage() {
+                        this.reset();
+
+                        let row = document.createElement("form");
+                        row.setAttribute("action", "javascript:void(0);");
+                        row.classList.add("row");
+
+                        let input = document.createElement("input");
+                        input.setAttribute("aria-label", "Room code of an existing Truncate game");
+                        input.setAttribute("placeholder", "ROOM CODE");
+                        input.type = "text";
+                        row.appendChild(input);
+
+                        let join_button = document.createElement("button");
+                        join_button.innerHTML = `JOIN`;
+                        join_button.addEventListener("click", () => {
+                            const room = input.value;
+                            if (!room) {
+                                input.setAttribute("placeholder", "REQUIRED!");
+                                setTimeout(() => {
+                                    input.setAttribute("placeholder", "ROOM CODE");
+                                }, 500);
+                                return;
+                            }
+
+                            truncate_runner.join_game(room);
+                        });
+                        row.appendChild(join_button);
+                        input.addEventListener("keydown", e => {
+                            if (e?.key === "Enter") {
+                                join_button.click();
+                            }
+                        });
+                        this.add(row);
+
+                        this.button("Create Game", () => {
+                            truncate_runner.create_game();
+                        });
+
+                        this.backButton();
+                    }
+
+                    creditsStage() {
+                        this.reset();
+
+                        about_control.setAttribute("hidden", "true");
+
+                        this.button("What's New", () => {
+                            truncate_runner.join_game('CHANGE_LOG');
+                        });
+
+                        this.button("About & Credits", () => {
+                            let modal = document.querySelector("#about_truncate");
+                            if (modal) {
+                                modal.open = true;
+                            }
+                        });
+
+                        this.backButton();
+                    }
+
+                    loadingStage() {
+                        this.reset();
+
+                        let p = document.createElement("p");
+                        p.innerText = "Loading...";
+                        this.add(p);
+                    }
+
+                    errorStage() {
+                        this.reset();
+
+                        let p = document.createElement("p");
+                        p.innerText = "An error occurred loading Truncate";
+                        this.add(p);
+
+                    }
+                }
+                menu = new Menu(document.querySelector("#menu_region"));
+
+                about_control.addEventListener("click", () => {
+                    menu.creditsStage();
+                });
+
+                let initial_url = new URL(window.location);
+
+                let hash_room_code = initial_url.hash.substring(1);
+                let query_room_code = initial_url.searchParams.get("j");
+                if (query_room_code || hash_room_code) {
+                    truncate_runner.join_game(query_room_code || hash_room_code);
+                }
+
+                {% include "noise.js" %}
+                const islander = get_islander();
+                islander.seed(Math.random());
+
+                const island_threshold = 0.4;
+                const town_threshold = 0.45;
+                const decor_threshold = 0.6;
+                const artifact_neg_threshold = -0.7;
+
+                const TILES = JSON.parse(`{{ tiles | json }}`);
+                const TILEPACKS = {
+                    GRASSES: [TILES.BASE_GRASS, TILES.GRASS_0_WIND_0, TILES.GRASS_1_WIND_0, TILES.GRASS_2_WIND_0],
+                    HOUSES: [[TILES.HOUSE_0, TILES.ROOF_0], [TILES.HOUSE_1, TILES.ROOF_1], [TILES.HOUSE_2, TILES.ROOF_2], [TILES.HOUSE_3, TILES.ROOF_3]],
+                    DECOR: [[TILES.BUSH_0, TILES.BUSH_FLOWERS_0], [TILES.BUSH_1, TILES.BUSH_FLOWERS_1], [TILES.BUSH_2, TILES.BUSH_FLOWERS_2]],
+                }
+
+                const canvas = document.getElementById("splash");
+                const controls = document.getElementById("controls");
+                let output_size, midpoint;
+                let mobile = false;
+
+                const refit = () => {
+                    canvas.width = document.body.clientWidth * 2;
+                    canvas.height = document.body.clientHeight * 2;
+                    mobile = document.body.clientWidth < 900;
+
+                    const calc_output = () => {
+                        let size = canvas.width / 20;
+                        size = Math.min(size, 64);
+                        return size - (size % 2);
+                    }
+                    const calc_midpoint = () => {
+                        let x = Math.round(canvas.width / 2);
+                        let y = Math.round(canvas.height / 3);
+                        return [x - (x % 2), y - (y % 2)];
+                    }
+
+                    output_size = calc_output();
+                    midpoint = calc_midpoint();
+                }
+                refit();
+
+                const image = new Image();
+                image.src = "{{assets.tiles}}";
+
+                const paint = {
+                    tile_size: 16,
+                    get_source_xy: (index) => {
+                        const padded_tile_size = paint.tile_size + 2;
+
+                        if (image.naturalWidth % padded_tile_size) {
+                            console.error(`Tileset image must be divisible by ${padded_tile_size}`);
+                        }
+                        const tile_row_width = image.naturalWidth / padded_tile_size;
+
+                        const row = Math.floor(index / tile_row_width);
+                        const col = index % tile_row_width;
+
+                        const tile_x = col * (paint.tile_size + 2);
+                        const tile_y = row * (paint.tile_size + 2);
+
+                        return [tile_x, tile_y];
+                    },
+                    tinted: (index, x, y, tint) => {
+                        let [tile_x, tile_y] = paint.get_source_xy(index);
+
+                        const buffer = document.createElement('canvas');
+                        buffer.width = paint.tile_size;
+                        buffer.height = paint.tile_size;
+                        const btx = buffer.getContext('2d');
+
+                        btx.drawImage(
+                            image,
+                            tile_x + 1, tile_y + 1, paint.tile_size, paint.tile_size,
+                            0, 0, paint.tile_size, paint.tile_size
+                        );
+
+                        btx.fillStyle = tint;
+                        btx.globalCompositeOperation = 'multiply';
+                        btx.fillRect(0, 0, buffer.width, buffer.height);
+
+                        btx.globalCompositeOperation = 'destination-in';
+                        btx.drawImage(image,
+                            tile_x + 1, tile_y + 1, paint.tile_size, paint.tile_size,
+                            0, 0, paint.tile_size, paint.tile_size
+                        );
+
+                        ctx.drawImage(
+                            buffer,
+                            0, 0, buffer.width, buffer.height,
+                            x, y, output_size, output_size
+                        );
+                    },
+                    tile: (index, x, y, tint) => {
+                        if (tint) {
+                            paint.tinted(index, x, y, tint)
+                        } else if (Array.isArray(index)) {
+                            paint.tinted(index[0], x, y, index[1])
+                        } else {
+                            let [tile_x, tile_y] = paint.get_source_xy(index);
+
+                            ctx.drawImage(
+                                image,
+                                tile_x + 1, tile_y + 1, paint.tile_size, paint.tile_size,
+                                x, y, output_size, output_size
+                            );
+                        }
+                    },
+                    tiles: (indexes, x, y, tint) => {
+                        for (let row_i = 0; row_i < indexes.length; row_i += 1) {
+                            const row = indexes[row_i];
+                            for (let column_i = 0; column_i < row.length; column_i += 1) {
+                                const tile = parseInt(row[column_i]);
+                                paint.tile(tile, x + column_i * output_size, y + row_i * output_size, tint);
+                            }
+                        }
+                    },
+                };
+
+                const pick = {
+                    color: (seed, lightness = 80) => {
+                        return `hsl(${pick.num(seed + 99) % 360},100%,${lightness}%)`;
+                    },
+                    num: (seed) => {
+                        seed = Math.floor(seed * 50000);
+                        seed ^= seed << 13;
+                        seed ^= seed >> 7;
+                        seed ^= seed << 17;
+                        return Math.abs(seed);
+                    },
+                    grass: (seed) => {
+                        seed = pick.num(seed);
+                        return TILEPACKS.GRASSES[seed % TILEPACKS.GRASSES.length];
+                    },
+                    houses: (seed) => {
+                        if (seed < town_threshold) return [];
+
+                        const texs = [[], [], [], []];
+
+                        const house_seed = pick.num(seed + 4) % 100;
+                        let numhouses = 0;
+                        if (house_seed > 50) numhouses = 1;
+                        if (house_seed > 80) numhouses = 2;
+                        if (house_seed > 98) numhouses = 3;
+
+                        if (numhouses > 0 && seed > decor_threshold) {
+                            let decor_index = pick.num(seed + 123408);
+                            let texindex = pick.num(seed + 3442) % 4;
+                            texs[texindex] = TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length];
+                            texs[texindex][2] = [texs[texindex][1], pick.color(seed, 60)];
+                        }
+                        for (let i = 0; i < numhouses; i += 1) {
+                            let house_index = pick.num(seed + i);
+                            let texindex = pick.num(seed + 18 * i) % 4;
+                            texs[texindex] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
+                            texs[texindex][2] = [texs[texindex][1], pick.color(seed)];
+                        }
+                        return texs;
                     }
                 }
 
-                learnStage() {
-                    this.reset();
+                const render = {
+                    name: (name) => {
+                        name = name.toUpperCase();
+                        const name_width = name.length * (output_size * 2);
+                        const x = midpoint[0] - name_width / 2, y = midpoint[1] - output_size;
 
-                    this.button("Learn To Play", () => {
-                        localStorage.setItem("tutorial_played", "true");
-                        truncate_runner.join_game('TUTORIAL_RULES');
-                    });
+                        ctx.font = `${output_size * 0.9}px Truncate`;
+                        ctx.textAlign = `center`;
+                        ctx.textBaseline = `middle`;
 
-                    this.button("Example Game", () => {
-                        truncate_runner.join_game('TUTORIAL_EXAMPLE');
-                    });
+                        // Tiles
+                        const tiles = name.split('');
+                        for (let c = 0; c < name.length * 2; c += 2) {
+                            paint.tiles([
+                                [TILES.BASE_GRASS, TILES.BASE_GRASS],
+                                [TILES.BASE_GRASS, TILES.BASE_GRASS]
+                            ], x + c * output_size, y);
 
-                    this.backButton();
+                            paint.tiles(TILES.QUAD.GAME_PIECE, x + c * output_size, y);
+
+                            const tile = tiles.shift();
+                            const metric = ctx.measureText(tile);
+                            const shift = (metric.actualBoundingBoxLeft - metric.actualBoundingBoxRight) / 2;
+                            ctx.fillText(tile, x + c * output_size + output_size + shift, y + output_size - output_size * 0.03, output_size * 2);
+                        }
+
+                        return { x, y, name_width }
+                    },
+
+                    background: ({ x, y, seed, island, skip_render, empty }, neighbors) => {
+                        if (skip_render) return;
+
+                        if (island) {
+                            render.island(x, y, seed);
+                        } else {
+                            render.water_nw(x, y, neighbors[7], neighbors[0], neighbors[1]);
+                            render.water_ne(x + output_size, y, neighbors[1], neighbors[2], neighbors[3]);
+                            render.water_se(neighbors, x + output_size, y + output_size, neighbors[3], neighbors[4], neighbors[5]);
+                            render.water_sw(x, y + output_size, neighbors[5], neighbors[6], neighbors[7]);
+                        }
+                    },
+                    island: (x, y, seed) => {
+                        paint.tiles([
+                            [pick.grass(seed), pick.grass(seed + 0.2)],
+                            [pick.grass(seed + 0.3), pick.grass(seed + 0.5)]
+                        ], x, y);
+
+
+                        if (pick.num(seed + 234) % 30 === 0) {
+                            render.artifact(x, y, seed);
+                        } else {
+                          const houses = pick.houses(seed);
+                          for (const tex of houses?.[0] ?? []) paint.tile(tex, x, y);
+                          for (const tex of houses?.[1] ?? []) paint.tile(tex, x + output_size, y);
+                          for (const tex of houses?.[2] ?? []) paint.tile(tex, x + output_size, y + output_size);
+                          for (const tex of houses?.[3] ?? []) paint.tile(tex, x, y + output_size);
+                        }
+                    },
+                    artifact: (x, y, seed, _neighbors) => {
+                        // if (seed > artifact_neg_threshold) return;
+
+                        paint.tiles(TILES.QUAD.ARTIFACT, x, y);
+                        paint.tiles(TILES.QUAD.ARTIFACT_GLYPH, x, y, pick.color(seed));
+
+                        // TODO: Restore artifact directionality
+                        // if (neighbors[1]) {
+                        //     paint.tiles(TILES.QUAD.SOUTH_ARTIFACT, x, y);
+                        //     paint.tiles(TILES.QUAD.SOUTH_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
+                        // } else if (neighbors[5]) {
+                        //     paint.tiles(TILES.QUAD.NORTH_ARTIFACT, x, y);
+                        //     paint.tiles(TILES.QUAD.NORTH_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
+                        // } else if (neighbors[3]) {
+                        //     paint.tiles(TILES.QUAD.WEST_ARTIFACT, x, y);
+                        //     paint.tiles(TILES.QUAD.WEST_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
+                        // } else if (neighbors[7]) {
+                        //     paint.tiles(TILES.QUAD.EAST_ARTIFACT, x, y);
+                        //     paint.tiles(TILES.QUAD.EAST_ARTIFACT_SAIL_WIND_0, x, y, pick.color(seed));
+                        // }
+                    },
+                    water_nw: (x, y, w, nw, n) => {
+                        if (w && n) paint.tile(TILES.LAND_WITH_WATER_SE, x, y);
+                        else if (w) paint.tile(TILES.WATER_WITH_LAND_W, x, y);
+                        else if (n) paint.tile(TILES.WATER_WITH_LAND_N, x, y);
+                        else if (nw) paint.tile(TILES.WATER_WITH_LAND_NW, x, y);
+                    },
+                    water_ne: (x, y, n, ne, e) => {
+                        if (n && e) paint.tile(TILES.LAND_WITH_WATER_SW, x, y);
+                        else if (n) paint.tile(TILES.WATER_WITH_LAND_N, x, y);
+                        else if (e) paint.tile(TILES.WATER_WITH_LAND_E, x, y);
+                        else if (ne) paint.tile(TILES.WATER_WITH_LAND_NE, x, y);
+                    },
+                    water_se: (neighbors, x, y, e, se, s) => {
+                        if (e && s) paint.tile(TILES.LAND_WITH_WATER_NW, x, y);
+                        else if (e) paint.tile(TILES.WATER_WITH_LAND_E, x, y);
+                        else if (s) paint.tile(TILES.WATER_WITH_LAND_S, x, y);
+                        else if (se) paint.tile(TILES.WATER_WITH_LAND_SE, x, y);
+                    },
+                    water_sw: (x, y, s, sw, w) => {
+                        if (s && w) paint.tile(TILES.LAND_WITH_WATER_NE, x, y);
+                        else if (s) paint.tile(TILES.WATER_WITH_LAND_S, x, y);
+                        else if (w) paint.tile(TILES.WATER_WITH_LAND_W, x, y);
+                        else if (sw) paint.tile(TILES.WATER_WITH_LAND_SW, x, y);
+                    },
+                };
+
+                const ctx = canvas.getContext("2d");
+                const the_guts = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.imageSmoothingEnabled = false;
+                    const logical_tile_size = output_size * 2;
+
+                    const metrics = render.name("TRUNCATE");
+
+                    const horiz_tile_count = Math.ceil(canvas.width / output_size);
+                    const vert_tile_count = Math.ceil(canvas.height / output_size);
+                    const tile_from_x = metrics.x - (canvas.width - (canvas.width % logical_tile_size));
+                    const tile_from_y = metrics.y - (canvas.height - (canvas.height % logical_tile_size));
+
+                    const island_map = [];
+                    for (let col = 0; col < horiz_tile_count; col += 1) {
+                        island_map[col] = [];
+                        for (let row = 0; row < vert_tile_count; row += 1) {
+                            const seed = islander.simplex2(col, row);
+
+                            const tile_data = {
+                                x: tile_from_x + col * logical_tile_size,
+                                y: tile_from_y + row * logical_tile_size,
+                                seed,
+                                island: seed > island_threshold ? true : false,
+                                empty: false,
+                                skip_render: false
+                            };
+
+                            // Clear space around text
+                            const space_below = mobile ? 7 : 4;
+                            if (tile_data.x >= metrics.x - logical_tile_size
+                                && tile_data.x < metrics.x + metrics.name_width + logical_tile_size
+                                && tile_data.y >= metrics.y - logical_tile_size
+                                && tile_data.y < metrics.y + logical_tile_size * (2 + space_below)) {
+                                tile_data.island = false;
+                                tile_data.empty = true;
+                            }
+
+                            // Mark land behind text
+                            if (tile_data.x >= metrics.x
+                                && tile_data.x < metrics.x + metrics.name_width
+                                && tile_data.y >= metrics.y
+                                && tile_data.y < metrics.y + logical_tile_size) {
+                                tile_data.island = true;
+                                tile_data.skip_render = true;
+                            }
+
+                            island_map[col][row] = tile_data;
+                        }
+                    }
+
+                    // Clear single islands out
+                    for (let col = 0; col < horiz_tile_count; col += 1) {
+                        for (let row = 0; row < vert_tile_count; row += 1) {
+                            if (!island_map[col + 1]?.[row]?.island
+                                && !island_map[col - 1]?.[row]?.island
+                                && !island_map[col]?.[row + 1]?.island
+                                && !island_map[col]?.[row - 1]?.island) {
+                                island_map[col][row].island = false;
+                            }
+                        }
+                    }
+
+                    // Render all background tiles
+                    for (let col = 0; col < horiz_tile_count; col += 1) {
+                        for (let row = 0; row < vert_tile_count; row += 1) {
+                            const neighbors = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]].map(([x, y]) => {
+                                return island_map[col + x]?.[row + y]?.island ?? false;
+                            });
+                            render.background(island_map[col][row], neighbors);
+                        }
+                    }
+
+                    // Move HTML UI into position
+                    const screen_x = metrics.x / 2, screen_y = metrics.y / 2;
+                    const screen_tile = output_size / 2;
+
+                    controls.style.left = `${screen_x}px`;
+                    controls.style.top = `${screen_y + screen_tile * 3}px`;
+                    // controls.style.height = `${screen_tile * (mobile ? 8 : 5)}px`;
+                    controls.style.width = `${metrics.name_width / 2}px`;
+
+                    // Fade in controls
+                    document.querySelector("#controls").classList.remove("unloaded");
                 }
 
-                singleStage() {
-                    this.reset();
+                image.onload = function () {
+                    setTimeout(() => {
+                        the_guts();
+                        window.addEventListener("resize", () => {
+                            refit();
+                            the_guts();
+                        })
+                    }, 10);
+                };
 
-                    this.button("Easy Puzzle", () => {
-                        truncate_runner.join_game("RANDOM_EASY_PUZZLE");
-                    });
+                (async function () {
+                    const truncate_worker = new Worker('/static/worker.js?commit={{ env.commit }}');
 
-                    this.button("Regular Puzzle", () => {
-                        truncate_runner.join_game("RANDOM_PUZZLE");
-                    });
+                    const wasm_bytes = await (await fetch("/static/truncate_client_bg.wasm?commit={{ env.commit }}")).arrayBuffer();
 
-                    this.button("Classic Board", () => {
-                        truncate_runner.join_game("SINGLE_PLAYER");
-                    });
+                    while (typeof wasm_bindgen === "undefined") {
+                        await new Promise(r => setTimeout(r, 100));
+                    }
 
-                    this.backButton();
-                }
+                    wasm_bindgen(wasm_bytes)
+                        .then(on_wasm_loaded)
+                        .catch(on_wasm_error);
 
-                multiStage() {
-                    this.reset();
+                    const pending_msgs = [];
 
-                    let row = document.createElement("form");
-                    row.setAttribute("action", "javascript:void(0);");
-                    row.classList.add("row");
+                    truncate_worker.onmessage = function (e) {
+                        if (e.data.action === 'result' && e.data.result) {
+                            pending_msgs[e.data.id].result = e.data.result;
+                        }
+                    }
 
-                    let input = document.createElement("input");
-                    input.setAttribute("aria-label", "Room code of an existing Truncate game");
-                    input.setAttribute("placeholder", "ROOM CODE");
-                    input.type = "text";
-                    row.appendChild(input);
+                    // Whever we get an event for the end of an interaction,
+                    // we want to check if the wasm wants us to copy anything,
+                    // and write that to the clipboard.
+                    // Browsers like copies coming from short-lived user events,
+                    // so this is a good place to trigger the action.
+                    let pending_copy = null;
+                    const handleInteractionEnd = (e) => {
+                        if (!pending_copy) return;
+                        let text = pending_copy?.text;
 
-                    let join_button = document.createElement("button");
-                    join_button.innerHTML = `JOIN`;
-                    join_button.addEventListener("click", () => {
-                        const room = input.value;
-                        if (!room) {
-                            input.setAttribute("placeholder", "REQUIRED!");
-                            setTimeout(() => {
-                                input.setAttribute("placeholder", "ROOM CODE");
-                            }, 500);
+                        let clip = navigator?.clipboard?.writeText?.(text).catch(function (error) {
+                            console.error('Could not copy text to clipboard: ', error);
+                        });
+
+                        if (pending_copy?.share === "Text") {
+                            try {
+                                navigator.share({ title: "Truncate Town", text });
+                            } catch { }
+                        } else if (pending_copy?.share === "Url") {
+                            try {
+                                navigator.share({ title: "Truncate Town", url: text });
+                            } catch { }
+                        }
+
+                        pending_copy = null;
+
+                        return clip;
+                    }
+                    const truncate_canvas = document.querySelector("#truncate_canvas");
+                    truncate_canvas.addEventListener('mouseup', handleInteractionEnd);
+                    truncate_canvas.addEventListener('touchend', handleInteractionEnd);
+                    truncate_canvas.addEventListener('touchcancel', handleInteractionEnd);
+
+                    function backchannel_conduit(msg) {
+                        parsed_msg = JSON.parse(msg);
+                        // check if parsed_msg.type is for JS to consume, otherwise forward on
+                        if (parsed_msg.type === "QueryFor") {
+                            const id = parseInt(parsed_msg.content.id);
+                            if (pending_msgs[id].result !== null) {
+                                return pending_msgs[id].result;
+                            }
+                            return null;
+                        } else if (parsed_msg.type === "Copy") {
+                            pending_copy = parsed_msg.content;
                             return;
                         }
 
-                        truncate_runner.join_game(room);
-                    });
-                    row.appendChild(join_button);
-                    input.addEventListener("keydown", e => {
-                        if (e?.key === "Enter") {
-                            join_button.click();
-                        }
-                    });
-                    this.add(row);
-
-                    this.button("Create Game", () => {
-                        truncate_runner.create_game();
-                    });
-
-                    this.backButton();
-                }
-
-                creditsStage() {
-                    this.reset();
-
-                    about_control.setAttribute("hidden", "true");
-
-                    this.button("What's New", () => {
-                        truncate_runner.join_game('CHANGE_LOG');
-                    });
-
-                    this.button("About & Credits", () => {
-                        let modal = document.querySelector("#about_truncate");
-                        if (modal) {
-                            modal.open = true;
-                        }
-                    });
-
-                    this.backButton();
-                }
-
-                loadingStage() {
-                    this.reset();
-
-                    let p = document.createElement("p");
-                    p.innerText = "Loading...";
-                    this.add(p);
-                }
-
-                errorStage() {
-                    this.reset();
-
-                    let p = document.createElement("p");
-                    p.innerText = "An error occurred loading Truncate";
-                    this.add(p);
-
-                }
-            }
-            menu = new Menu(document.querySelector("#menu_region"));
-
-            about_control.addEventListener("click", () => {
-                menu.creditsStage();
-            });
-
-            let initial_url = new URL(window.location);
-
-            let hash_room_code = initial_url.hash.substring(1);
-            let query_room_code = initial_url.searchParams.get("j");
-            if (query_room_code || hash_room_code) {
-                truncate_runner.join_game(query_room_code || hash_room_code);
-            }
-
-            {% include "noise.js" %}
-            const islander = get_islander();
-            islander.seed(Math.random());
-
-            const island_threshold = 0.4;
-            const town_threshold = 0.45;
-            const decor_threshold = 0.6;
-            const dock_neg_threshold = -0.7;
-
-            const TILES = JSON.parse(`{{ tiles | json }}`);
-            const TILEPACKS = {
-                GRASSES: [TILES.BASE_GRASS, TILES.GRASS_0_WIND_0, TILES.GRASS_1_WIND_0, TILES.GRASS_2_WIND_0],
-                HOUSES: [[TILES.HOUSE_0, TILES.ROOF_0], [TILES.HOUSE_1, TILES.ROOF_1], [TILES.HOUSE_2, TILES.ROOF_2], [TILES.HOUSE_3, TILES.ROOF_3]],
-                DECOR: [[TILES.BUSH_0, TILES.BUSH_FLOWERS_0], [TILES.BUSH_1, TILES.BUSH_FLOWERS_1], [TILES.BUSH_2, TILES.BUSH_FLOWERS_2], [TILES.WHEAT, TILES.NONE], [TILES.WELL, TILES.NONE]],
-            }
-
-            const canvas = document.getElementById("splash");
-            const controls = document.getElementById("controls");
-            let output_size, midpoint;
-            let mobile = false;
-
-            const refit = () => {
-                canvas.width = document.body.clientWidth * 2;
-                canvas.height = document.body.clientHeight * 2;
-                mobile = document.body.clientWidth < 900;
-
-                const calc_output = () => {
-                    let size = canvas.width / 20;
-                    size = Math.min(size, 64);
-                    return size - (size % 2);
-                }
-                const calc_midpoint = () => {
-                    let x = Math.round(canvas.width / 2);
-                    let y = Math.round(canvas.height / 3);
-                    return [x - (x % 2), y - (y % 2)];
-                }
-
-                output_size = calc_output();
-                midpoint = calc_midpoint();
-            }
-            refit();
-
-            const image = new Image();
-            image.src = "{{assets.tiles}}";
-
-            const paint = {
-                tile_size: 16,
-                get_source_xy: (index) => {
-                    const padded_tile_size = paint.tile_size + 2;
-
-                    if (image.naturalWidth % padded_tile_size) {
-                        console.error(`Tileset image must be divisible by ${padded_tile_size}`);
-                    }
-                    const tile_row_width = image.naturalWidth / padded_tile_size;
-
-                    const row = Math.floor(index / tile_row_width);
-                    const col = index % tile_row_width;
-
-                    const tile_x = col * (paint.tile_size + 2);
-                    const tile_y = row * (paint.tile_size + 2);
-
-                    return [tile_x, tile_y];
-                },
-                tinted: (index, x, y, tint) => {
-                    let [tile_x, tile_y] = paint.get_source_xy(index);
-
-                    const buffer = document.createElement('canvas');
-                    buffer.width = paint.tile_size;
-                    buffer.height = paint.tile_size;
-                    const btx = buffer.getContext('2d');
-
-                    btx.drawImage(
-                        image,
-                        tile_x + 1, tile_y + 1, paint.tile_size, paint.tile_size,
-                        0, 0, paint.tile_size, paint.tile_size
-                    );
-
-                    btx.fillStyle = tint;
-                    btx.globalCompositeOperation = 'multiply';
-                    btx.fillRect(0, 0, buffer.width, buffer.height);
-
-                    btx.globalCompositeOperation = 'destination-in';
-                    btx.drawImage(image,
-                        tile_x + 1, tile_y + 1, paint.tile_size, paint.tile_size,
-                        0, 0, paint.tile_size, paint.tile_size
-                    );
-
-                    ctx.drawImage(
-                        buffer,
-                        0, 0, buffer.width, buffer.height,
-                        x, y, output_size, output_size
-                    );
-                },
-                tile: (index, x, y, tint) => {
-                    if (tint) {
-                        paint.tinted(index, x, y, tint)
-                    } else if (Array.isArray(index)) {
-                        paint.tinted(index[0], x, y, index[1])
-                    } else {
-                        let [tile_x, tile_y] = paint.get_source_xy(index);
-
-                        ctx.drawImage(
-                            image,
-                            tile_x + 1, tile_y + 1, paint.tile_size, paint.tile_size,
-                            x, y, output_size, output_size
-                        );
-                    }
-                },
-                tiles: (indexes, x, y, tint) => {
-                    for (let row_i = 0; row_i < indexes.length; row_i += 1) {
-                        const row = indexes[row_i];
-                        for (let column_i = 0; column_i < row.length; column_i += 1) {
-                            const tile = parseInt(row[column_i]);
-                            paint.tile(tile, x + column_i * output_size, y + row_i * output_size, tint);
-                        }
-                    }
-                },
-            };
-
-            const pick = {
-                color: (seed, lightness = 80) => {
-                    return `hsl(${pick.num(seed + 99) % 360},100%,${lightness}%)`;
-                },
-                num: (seed) => {
-                    seed = Math.floor(seed * 50000);
-                    seed ^= seed << 13;
-                    seed ^= seed >> 7;
-                    seed ^= seed << 17;
-                    return Math.abs(seed);
-                },
-                grass: (seed) => {
-                    seed = pick.num(seed);
-                    return TILEPACKS.GRASSES[seed % TILEPACKS.GRASSES.length];
-                },
-                houses: (seed) => {
-                    if (seed < town_threshold) return [];
-
-                    const texs = [[], [], [], []];
-
-                    const house_seed = pick.num(seed + 4) % 100;
-                    let numhouses = 0;
-                    if (house_seed > 50) numhouses = 1;
-                    if (house_seed > 80) numhouses = 2;
-                    if (house_seed > 98) numhouses = 3;
-
-                    if (numhouses > 0 && seed > decor_threshold) {
-                        let decor_index = pick.num(seed + 123408);
-                        let texindex = pick.num(seed + 3442) % 4;
-                        texs[texindex] = TILEPACKS.DECOR[decor_index % TILEPACKS.DECOR.length];
-                        texs[texindex][2] = [texs[texindex][1], pick.color(seed, 60)];
-                    }
-                    for (let i = 0; i < numhouses; i += 1) {
-                        let house_index = pick.num(seed + i);
-                        let texindex = pick.num(seed + 18 * i) % 4;
-                        texs[texindex] = TILEPACKS.HOUSES[house_index % TILEPACKS.HOUSES.length];
-                        texs[texindex][2] = [texs[texindex][1], pick.color(seed)];
-                    }
-                    return texs;
-                }
-            }
-
-            const render = {
-                name: (name) => {
-                    name = name.toUpperCase();
-                    const name_width = name.length * (output_size * 2);
-                    const x = midpoint[0] - name_width / 2, y = midpoint[1] - output_size;
-
-                    ctx.font = `${output_size * 0.9}px Truncate`;
-                    ctx.textAlign = `center`;
-                    ctx.textBaseline = `middle`;
-
-                    // Tiles
-                    const tiles = name.split('');
-                    for (let c = 0; c < name.length * 2; c += 2) {
-                        paint.tiles([
-                            [TILES.BASE_GRASS, TILES.BASE_GRASS],
-                            [TILES.BASE_GRASS, TILES.BASE_GRASS]
-                        ], x + c * output_size, y);
-
-                        paint.tiles(TILES.QUAD.GAME_PIECE, x + c * output_size, y);
-
-                        const tile = tiles.shift();
-                        const metric = ctx.measureText(tile);
-                        const shift = (metric.actualBoundingBoxLeft - metric.actualBoundingBoxRight) / 2;
-                        ctx.fillText(tile, x + c * output_size + output_size + shift, y + output_size - output_size * 0.03, output_size * 2);
+                        const msg_id = pending_msgs.length.toString();
+                        pending_msgs.push({ result: null });
+                        truncate_worker.postMessage({ action: 'backchannel', msg, id: msg_id });
+                        return msg_id;
                     }
 
-                    return { x, y, name_width }
-                },
+                    function on_wasm_loaded() {
+                        console.debug("Loaded Truncate webassembly");
+                        const default_server = window.location.host.includes("outpost") ? "wss://coup.truncate.town" : "wss://citadel.truncate.town";
+                        const local_server = window.location.host.includes("localhost") ? "ws://0.0.0.0:8080" : null;
+                        const server = new URLSearchParams(window.location.search).get("server") ?? local_server ?? default_server;
 
-                background: ({ x, y, seed, island, skip_render, empty }, neighbors) => {
-                    if (skip_render) return;
-
-                    if (island) {
-                        render.island(x, y, seed);
-                    } else {
-                        render.water_nw(x, y, neighbors[7], neighbors[0], neighbors[1]);
-                        render.water_ne(x + output_size, y, neighbors[1], neighbors[2], neighbors[3]);
-                        render.water_se(neighbors, x + output_size, y + output_size, neighbors[3], neighbors[4], neighbors[5]);
-                        render.water_sw(x, y + output_size, neighbors[5], neighbors[6], neighbors[7]);
-                        if (!empty) {
-                            render.dock(x, y, seed, neighbors);
-                        }
-                    }
-                },
-                island: (x, y, seed) => {
-                    paint.tiles([
-                        [pick.grass(seed), pick.grass(seed + 0.2)],
-                        [pick.grass(seed + 0.3), pick.grass(seed + 0.5)]
-                    ], x, y);
-
-                    const houses = pick.houses(seed);
-                    for (const tex of houses?.[0] ?? []) paint.tile(tex, x, y);
-                    for (const tex of houses?.[1] ?? []) paint.tile(tex, x + output_size, y);
-                    for (const tex of houses?.[2] ?? []) paint.tile(tex, x + output_size, y + output_size);
-                    for (const tex of houses?.[3] ?? []) paint.tile(tex, x, y + output_size);
-                },
-                dock: (x, y, seed, neighbors) => {
-                    if (seed > dock_neg_threshold) return;
-
-                    if (neighbors[1]) {
-                        paint.tiles(TILES.QUAD.SOUTH_DOCK, x, y);
-                        paint.tiles(TILES.QUAD.SOUTH_DOCK_SAIL_WIND_0, x, y, pick.color(seed));
-                    } else if (neighbors[5]) {
-                        paint.tiles(TILES.QUAD.NORTH_DOCK, x, y);
-                        paint.tiles(TILES.QUAD.NORTH_DOCK_SAIL_WIND_0, x, y, pick.color(seed));
-                    } else if (neighbors[3]) {
-                        paint.tiles(TILES.QUAD.WEST_DOCK, x, y);
-                        paint.tiles(TILES.QUAD.WEST_DOCK_SAIL_WIND_0, x, y, pick.color(seed));
-                    } else if (neighbors[7]) {
-                        paint.tiles(TILES.QUAD.EAST_DOCK, x, y);
-                        paint.tiles(TILES.QUAD.EAST_DOCK_SAIL_WIND_0, x, y, pick.color(seed));
-                    }
-                },
-                water_nw: (x, y, w, nw, n) => {
-                    if (w && n) paint.tile(TILES.LAND_WITH_WATER_SE, x, y);
-                    else if (w) paint.tile(TILES.WATER_WITH_LAND_W, x, y);
-                    else if (n) paint.tile(TILES.WATER_WITH_LAND_N, x, y);
-                    else if (nw) paint.tile(TILES.WATER_WITH_LAND_NW, x, y);
-                },
-                water_ne: (x, y, n, ne, e) => {
-                    if (n && e) paint.tile(TILES.LAND_WITH_WATER_SW, x, y);
-                    else if (n) paint.tile(TILES.WATER_WITH_LAND_N, x, y);
-                    else if (e) paint.tile(TILES.WATER_WITH_LAND_E, x, y);
-                    else if (ne) paint.tile(TILES.WATER_WITH_LAND_NE, x, y);
-                },
-                water_se: (neighbors, x, y, e, se, s) => {
-                    if (e && s) paint.tile(TILES.LAND_WITH_WATER_NW, x, y);
-                    else if (e) paint.tile(TILES.WATER_WITH_LAND_E, x, y);
-                    else if (s) paint.tile(TILES.WATER_WITH_LAND_S, x, y);
-                    else if (se) paint.tile(TILES.WATER_WITH_LAND_SE, x, y);
-                },
-                water_sw: (x, y, s, sw, w) => {
-                    if (s && w) paint.tile(TILES.LAND_WITH_WATER_NE, x, y);
-                    else if (s) paint.tile(TILES.WATER_WITH_LAND_S, x, y);
-                    else if (w) paint.tile(TILES.WATER_WITH_LAND_W, x, y);
-                    else if (sw) paint.tile(TILES.WATER_WITH_LAND_SW, x, y);
-                },
-            };
-
-            const ctx = canvas.getContext("2d");
-            const the_guts = () => {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.imageSmoothingEnabled = false;
-                const logical_tile_size = output_size * 2;
-
-                const metrics = render.name("TRUNCATE");
-
-                const horiz_tile_count = Math.ceil(canvas.width / output_size);
-                const vert_tile_count = Math.ceil(canvas.height / output_size);
-                const tile_from_x = metrics.x - (canvas.width - (canvas.width % logical_tile_size));
-                const tile_from_y = metrics.y - (canvas.height - (canvas.height % logical_tile_size));
-
-                const island_map = [];
-                for (let col = 0; col < horiz_tile_count; col += 1) {
-                    island_map[col] = [];
-                    for (let row = 0; row < vert_tile_count; row += 1) {
-                        const seed = islander.simplex2(col, row);
-
-                        const tile_data = {
-                            x: tile_from_x + col * logical_tile_size,
-                            y: tile_from_y + row * logical_tile_size,
-                            seed,
-                            island: seed > island_threshold ? true : false,
-                            empty: false,
-                            skip_render: false
-                        };
-
-                        // Clear space around text
-                        const space_below = mobile ? 7 : 4;
-                        if (tile_data.x >= metrics.x - logical_tile_size
-                            && tile_data.x < metrics.x + metrics.name_width + logical_tile_size
-                            && tile_data.y >= metrics.y - logical_tile_size
-                            && tile_data.y < metrics.y + logical_tile_size * (2 + space_below)) {
-                            tile_data.island = false;
-                            tile_data.empty = true;
+                        if (server) {
+                            console.debug(`Connecting to the server ${server}`);
+                        } else {
+                            console.debug("Connecting to the builtin server");
                         }
 
-                        // Mark land behind text
-                        if (tile_data.x >= metrics.x
-                            && tile_data.x < metrics.x + metrics.name_width
-                            && tile_data.y >= metrics.y
-                            && tile_data.y < metrics.y + logical_tile_size) {
-                            tile_data.island = true;
-                            tile_data.skip_render = true;
-                        }
+                        truncate_runner.make_ready((room_code) => {
+                            window.__truncate_handle = new wasm_bindgen.WebHandle();
+                            window.__truncate_handle.start("truncate_canvas", server, room_code ?? "", backchannel_conduit);
 
-                        island_map[col][row] = tile_data;
-                    }
-                }
-
-                // Clear single islands out
-                for (let col = 0; col < horiz_tile_count; col += 1) {
-                    for (let row = 0; row < vert_tile_count; row += 1) {
-                        if (!island_map[col + 1]?.[row]?.island
-                            && !island_map[col - 1]?.[row]?.island
-                            && !island_map[col]?.[row + 1]?.island
-                            && !island_map[col]?.[row - 1]?.island) {
-                            island_map[col][row].island = false;
-                        }
-                    }
-                }
-
-                // Render all background tiles
-                for (let col = 0; col < horiz_tile_count; col += 1) {
-                    for (let row = 0; row < vert_tile_count; row += 1) {
-                        const neighbors = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]].map(([x, y]) => {
-                            return island_map[col + x]?.[row + y]?.island ?? false;
+                            // TODO: periodically check for window.__truncate_handle.has_panicked()
                         });
-                        render.background(island_map[col][row], neighbors);
-                    }
-                }
 
-                // Move HTML UI into position
-                const screen_x = metrics.x / 2, screen_y = metrics.y / 2;
-                const screen_tile = output_size / 2;
+                        console.debug("Truncate game initialized");
 
-                controls.style.left = `${screen_x}px`;
-                controls.style.top = `${screen_y + screen_tile * 3}px`;
-                // controls.style.height = `${screen_tile * (mobile ? 8 : 5)}px`;
-                controls.style.width = `${metrics.name_width / 2}px`;
-
-                // Fade in controls
-                document.querySelector("#controls").classList.remove("unloaded");
-            }
-
-            image.onload = function () {
-                setTimeout(() => {
-                    the_guts();
-                    window.addEventListener("resize", () => {
-                        refit();
-                        the_guts();
-                    })
-                }, 10);
-            };
-
-            (async function () {
-                const truncate_worker = new Worker('/static/worker.js?commit={{ env.commit }}');
-
-                const wasm_bytes = await (await fetch("/static/truncate_client_bg.wasm?commit={{ env.commit }}")).arrayBuffer();
-
-                while (typeof wasm_bindgen === "undefined") {
-                    await new Promise(r => setTimeout(r, 100));
-                }
-
-                wasm_bindgen(wasm_bytes)
-                    .then(on_wasm_loaded)
-                    .catch(on_wasm_error);
-
-                const pending_msgs = [];
-
-                truncate_worker.onmessage = function (e) {
-                    if (e.data.action === 'result' && e.data.result) {
-                        pending_msgs[e.data.id].result = e.data.result;
-                    }
-                }
-
-                // Whever we get an event for the end of an interaction,
-                // we want to check if the wasm wants us to copy anything,
-                // and write that to the clipboard.
-                // Browsers like copies coming from short-lived user events,
-                // so this is a good place to trigger the action.
-                let pending_copy = null;
-                const handleInteractionEnd = (e) => {
-                    if (!pending_copy) return;
-                    let text = pending_copy?.text;
-
-                    let clip = navigator?.clipboard?.writeText?.(text).catch(function (error) {
-                        console.error('Could not copy text to clipboard: ', error);
-                    });
-
-                    if (pending_copy?.share === "Text") {
-                        try {
-                            navigator.share({ title: "Truncate Town", text });
-                        } catch { }
-                    } else if (pending_copy?.share === "Url") {
-                        try {
-                            navigator.share({ title: "Truncate Town", url: text });
-                        } catch { }
+                        // Initialize the backend that we use for single player algorithms
+                        truncate_worker.postMessage({
+                            action: 'loadWasm',
+                            backend: 'truncate_client.js?commit={{ env.commit }}',
+                            wasm_bytes
+                        }, [wasm_bytes]);
                     }
 
-                    pending_copy = null;
-
-                    return clip;
-                }
-                const truncate_canvas = document.querySelector("#truncate_canvas");
-                truncate_canvas.addEventListener('mouseup', handleInteractionEnd);
-                truncate_canvas.addEventListener('touchend', handleInteractionEnd);
-                truncate_canvas.addEventListener('touchcancel', handleInteractionEnd);
-
-                function backchannel_conduit(msg) {
-                    parsed_msg = JSON.parse(msg);
-                    // check if parsed_msg.type is for JS to consume, otherwise forward on
-                    if (parsed_msg.type === "QueryFor") {
-                        const id = parseInt(parsed_msg.content.id);
-                        if (pending_msgs[id].result !== null) {
-                            return pending_msgs[id].result;
-                        }
-                        return null;
-                    } else if (parsed_msg.type === "Copy") {
-                        pending_copy = parsed_msg.content;
-                        return;
+                    function on_wasm_error(error) {
+                        console.error("Failed to start: " + error);
+                        truncate_runner.error(error);
                     }
-
-                    const msg_id = pending_msgs.length.toString();
-                    pending_msgs.push({ result: null });
-                    truncate_worker.postMessage({ action: 'backchannel', msg, id: msg_id });
-                    return msg_id;
-                }
-
-                function on_wasm_loaded() {
-                    console.debug("Loaded Truncate webassembly");
-                    const default_server = window.location.host.includes("outpost") ? "wss://coup.truncate.town" : "wss://citadel.truncate.town";
-                    const local_server = window.location.host.includes("localhost") ? "ws://0.0.0.0:8080" : null;
-                    const server = new URLSearchParams(window.location.search).get("server") ?? local_server ?? default_server;
-
-                    if (server) {
-                        console.debug(`Connecting to the server ${server}`);
-                    } else {
-                        console.debug("Connecting to the builtin server");
-                    }
-
-                    truncate_runner.make_ready((room_code) => {
-                        window.__truncate_handle = new wasm_bindgen.WebHandle();
-                        window.__truncate_handle.start("truncate_canvas", server, room_code ?? "", backchannel_conduit);
-
-                        // TODO: periodically check for window.__truncate_handle.has_panicked() 
-                    });
-
-                    console.debug("Truncate game initialized");
-
-                    // Initialize the backend that we use for single player algorithms
-                    truncate_worker.postMessage({
-                        action: 'loadWasm',
-                        backend: 'truncate_client.js?commit={{ env.commit }}',
-                        wasm_bytes
-                    }, [wasm_bytes]);
-                }
-
-                function on_wasm_error(error) {
-                    console.error("Failed to start: " + error);
-                    truncate_runner.error(error);
-                }
+                })();
             })();
-        })();
-    </script>
-</body>
-
+        </script>
+    </body>
 </html>

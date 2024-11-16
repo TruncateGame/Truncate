@@ -26,7 +26,7 @@ impl Board {
             crate::board::Square::Land { .. } => land,
             crate::board::Square::Town { .. } => land,
             crate::board::Square::Obelisk { .. } => SQ_WHITE_IN_BLACK,
-            crate::board::Square::Dock { .. } => water,
+            crate::board::Square::Artifact { .. } => water,
             crate::board::Square::Occupied { player, .. } if won == Some(*player) => tile,
             crate::board::Square::Occupied { .. } => land,
         };

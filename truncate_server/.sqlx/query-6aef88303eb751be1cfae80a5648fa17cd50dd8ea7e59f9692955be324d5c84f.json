@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.changelog_id\n        FROM changelogs c\n        LEFT JOIN viewed_changelogs v_c ON c.changelog_id = v_c.changelog_id AND v_c.player_id = $1\n        WHERE v_c.read_timestamp IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "changelog_id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6aef88303eb751be1cfae80a5648fa17cd50dd8ea7e59f9692955be324d5c84f"
+}

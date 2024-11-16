@@ -100,7 +100,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 3, None, GameRules::generation(0))
         };
         assert_eq!(
             game.make_move(out_of_bounds, None, None, None),
@@ -140,10 +140,10 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 3, None, GameRules::generation(0))
         };
 
-        // Places beside dock
+        // Places beside artifact
         let changes = game.make_move(
             Move::Place {
                 player: 0,
@@ -318,7 +318,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 3, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 3, None, GameRules::generation(0))
         };
 
         assert_eq!(
@@ -386,7 +386,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            one_v_one.collect_combanants(0, middle),
+            one_v_one.collect_combanants(0, middle, &GameRules::generation(0)),
             (vec![middle_attacker.clone()], vec![middle_defender.clone()])
         );
 
@@ -403,7 +403,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            one_v_two.collect_combanants(0, middle),
+            one_v_two.collect_combanants(0, middle, &GameRules::generation(0)),
             (
                 vec![middle_attacker.clone()],
                 vec![right_defender.clone(), left_defender.clone()],
@@ -423,7 +423,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            one_v_three.collect_combanants(0, middle),
+            one_v_three.collect_combanants(0, middle, &GameRules::generation(0)),
             (
                 vec![middle_attacker.clone()],
                 vec![
@@ -447,10 +447,33 @@ mod tests {
             .set(middle, 0, 'A', Some(&short_dict().builtin_dictionary))
             .unwrap();
         assert_eq!(
-            two_v_two.collect_combanants(0, middle),
+            two_v_two.collect_combanants(0, middle, &GameRules::generation(0)),
             (
                 vec![middle_attacker, left_attacker],
                 vec![right_defender, middle_defender, short_cross_defender],
+            )
+        );
+    }
+
+    #[test]
+    fn collect_symbolic_combanants() {
+        let c = |x: usize, y: usize| Coordinate::new(x, y);
+        let mut board = Board::from_string(
+            "__ __ #0 __ __\n\
+             __ __ D0 A0 __\n\
+             __ |0 __ #0 __\n\
+             __ __ M1 __ __\n\
+             __ __ D1 |1 __",
+        );
+        board
+            .set(c(2, 2), 1, 'A', Some(&short_dict().builtin_dictionary))
+            .unwrap();
+
+        assert_eq!(
+            board.collect_combanants(1, c(2, 2), &GameRules::generation(2)),
+            (
+                vec![vec![c(2, 2), c(2, 3), c(2, 4)]],
+                vec![vec![c(3, 1), c(2, 1)], vec![c(3, 2)], vec![c(1, 2)]],
             )
         );
     }
@@ -476,7 +499,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(1, 1, None, GameRules::generation(0))
         };
 
         game.make_move(
@@ -522,7 +545,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
 
         game.make_move(
@@ -578,7 +601,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
 
         game.make_move(
@@ -632,7 +655,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
 
         game.make_move(
@@ -682,7 +705,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
         game.start();
 
@@ -741,7 +764,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
         game.start();
 
@@ -800,7 +823,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
         game.start();
 
@@ -859,7 +882,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
         game.start();
 
@@ -918,7 +941,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
         game.start();
 
@@ -976,7 +999,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
         game.start();
 
@@ -1032,7 +1055,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(3, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
 
         game.make_move(
@@ -1080,7 +1103,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(1, 1, None, GameRules::generation(0))
         };
 
         game.make_move(
@@ -1130,7 +1153,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            ..Game::new(1, 1, None, GameRules::generation(0))
+            ..Game::new_legacy(1, 1, None, GameRules::generation(0))
         };
 
         game.make_move(

@@ -102,6 +102,17 @@ impl Judge {
             }
         }
 
+        for artifact_coord in board.artifacts() {
+            if let Ok(Square::Artifact {
+                player,
+                defeated: true,
+                ..
+            }) = board.get(*artifact_coord)
+            {
+                return Some((player + 1) % 2);
+            }
+        }
+
         None
     }
 
@@ -210,21 +221,25 @@ impl Judge {
             return Some(battle_report);
         }
 
-        let non_town_words: Vec<_> = battle_report
+        let actually_words: Vec<_> = battle_report
             .defenders
             .iter()
             .enumerate()
-            .filter(|(_, word)| !word.original_word.contains('#'))
+            .filter(|(_, word)| {
+                !word.original_word.contains('#') && !word.original_word.contains('|')
+            })
             .collect();
 
-        let town_words: Vec<_> = battle_report
+        let symbolic_words: Vec<_> = battle_report
             .defenders
             .iter()
             .enumerate()
-            .filter(|(_, word)| word.original_word.contains('#'))
+            .filter(|(_, word)| {
+                word.original_word.contains('#') || word.original_word.contains('|')
+            })
             .collect();
 
-        let weak_word_defenders: Vec<_> = non_town_words
+        let weak_word_defenders: Vec<_> = actually_words
             .iter()
             .filter(|(_, word)| {
                 word.valid != Some(true)
@@ -235,7 +250,7 @@ impl Judge {
             .collect();
 
         // TODO: len() is bytes not characters
-        let weak_town_defenders: Vec<_> = town_words
+        let weak_symbolic_defenders: Vec<_> = symbolic_words
             .iter()
             .filter(|(_, word)| {
                 word.valid != Some(true)
@@ -245,8 +260,8 @@ impl Judge {
             .map(|(index, _)| *index)
             .collect();
 
-        // Normal battles without towns, easy cases.
-        if town_words.is_empty() {
+        // Normal battles without towns or artifacts, easy cases.
+        if symbolic_words.is_empty() {
             if weak_word_defenders.is_empty() {
                 battle_report.outcome = Outcome::DefenderWins;
             } else {
@@ -257,12 +272,12 @@ impl Judge {
         }
 
         // Towns were involved in this battle, resolve using the town battle rules
-        let has_beatable_towns = !weak_town_defenders.is_empty();
-        let has_words = !non_town_words.is_empty();
+        let has_beatable_towns = !weak_symbolic_defenders.is_empty();
+        let has_words = !actually_words.is_empty();
         let has_beatable_words = !weak_word_defenders.is_empty();
 
         let mut all_weak_defenders = weak_word_defenders.clone();
-        all_weak_defenders.extend(weak_town_defenders);
+        all_weak_defenders.extend(weak_symbolic_defenders);
 
         battle_report.outcome = match (has_beatable_towns, has_words, has_beatable_words) {
             // Towns can be beat, and there are also some weak real words
@@ -310,11 +325,28 @@ impl Judge {
 
             if word.as_ref().contains('#') {
                 return match win_rules {
-                    rules::WinCondition::Destination { town_defense } => match town_defense {
+                    rules::WinCondition::Destination { town_defense, .. } => match town_defense {
                         rules::TownDefense::BeatenByContact => None,
                         rules::TownDefense::BeatenByValidity => None,
                         rules::TownDefense::BeatenWithDefenseStrength(town_strength) => {
                             Some(vec!['#'; *town_strength].into_iter().collect())
+                        }
+                    },
+                    rules::WinCondition::Elimination => {
+                        debug_assert!(false);
+                        None
+                    }
+                };
+            }
+
+            if word.as_ref().contains('|') {
+                return match win_rules {
+                    rules::WinCondition::Destination {
+                        artifact_defense, ..
+                    } => match artifact_defense {
+                        rules::ArtifactDefense::Invincible => None,
+                        rules::ArtifactDefense::BeatenWithDefenseStrength(artifact_strength) => {
+                            Some(vec!['|'; *artifact_strength].into_iter().collect())
                         }
                     },
                     rules::WinCondition::Elimination => {
@@ -388,7 +420,7 @@ impl Judge {
         let valid = valid_inner(self, word, win_rules, external_dictionary, used_aliases);
 
         // Never cache the result of evaluating a town
-        if !word_str.contains('#') {
+        if !word_str.contains('#') && !word_str.contains('|') {
             if let Some(cached_word_judgements) = cached_word_judgements.as_mut() {
                 cached_word_judgements.insert(word_str, valid.is_some());
             }
@@ -410,6 +442,7 @@ mod tests {
     fn test_win_rules() -> rules::WinCondition {
         rules::WinCondition::Destination {
             town_defense: rules::TownDefense::BeatenWithDefenseStrength(0),
+            artifact_defense: rules::ArtifactDefense::BeatenWithDefenseStrength(0),
         }
     }
 

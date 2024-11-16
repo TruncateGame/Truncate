@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     board::Board,
     generation::{
-        BoardElements, BoardNoiseParams, BoardParams, BoardSeed, DockType, Symmetry, WaterLayer,
+        ArtifactType, BoardElements, BoardNoiseParams, BoardParams, BoardSeed, Symmetry, WaterLayer,
     },
 };
 
@@ -16,10 +16,19 @@ pub enum TownDefense {
     BeatenWithDefenseStrength(usize),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ArtifactDefense {
+    Invincible,
+    BeatenWithDefenseStrength(usize),
+}
+
 /// Conditions which, when hit, end the game and mark a winner
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WinCondition {
-    Destination { town_defense: TownDefense },
+    Destination {
+        town_defense: TownDefense,
+        artifact_defense: ArtifactDefense,
+    },
     Elimination, // TODO: Implement
 }
 
@@ -125,48 +134,81 @@ pub struct GameRules {
     pub board_genesis: BoardGenesis,
 }
 
-const RULE_GENERATIONS: [GameRules; 2] = [
-    GameRules {
-        generation: None, // hydrated on fetch
-        win_condition: WinCondition::Destination {
-            town_defense: TownDefense::BeatenWithDefenseStrength(0),
+#[derive(Debug, Clone, Copy)]
+struct EffectiveRuleDay(u32);
+
+const RULE_GENERATIONS: [(Option<EffectiveRuleDay>, GameRules); 3] = [
+    (
+        None,
+        GameRules {
+            generation: None, // hydrated on fetch
+            win_condition: WinCondition::Destination {
+                town_defense: TownDefense::BeatenWithDefenseStrength(0),
+                artifact_defense: ArtifactDefense::Invincible,
+            },
+            win_metric: WinMetric::TownProximity,
+            visibility: Visibility::Standard,
+            truncation: Truncation::Root,
+            timing: Timing::None,
+            hand_size: 7,
+            tile_generation: 0,
+            tile_bag_behaviour: TileBagBehaviour::Standard,
+            battle_rules: BattleRules { length_delta: 2 },
+            swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
+            battle_delay: 2,
+            max_turns: None,
+            board_genesis: BoardGenesis::Passthrough,
         },
-        win_metric: WinMetric::TownProximity,
-        visibility: Visibility::Standard,
-        truncation: Truncation::Root,
-        timing: Timing::None,
-        hand_size: 7,
-        tile_generation: 0,
-        tile_bag_behaviour: TileBagBehaviour::Standard,
-        battle_rules: BattleRules { length_delta: 2 },
-        swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
-        battle_delay: 2,
-        max_turns: None,
-        board_genesis: BoardGenesis::Passthrough,
-    },
-    GameRules {
-        generation: None, // hydrated on fetch
-        win_condition: WinCondition::Destination {
-            town_defense: TownDefense::BeatenWithDefenseStrength(0),
+    ),
+    (
+        None,
+        GameRules {
+            generation: None, // hydrated on fetch
+            win_condition: WinCondition::Destination {
+                town_defense: TownDefense::BeatenWithDefenseStrength(0),
+                artifact_defense: ArtifactDefense::Invincible,
+            },
+            win_metric: WinMetric::TownProximity,
+            visibility: Visibility::Standard,
+            truncation: Truncation::Root,
+            timing: Timing::None,
+            hand_size: 7,
+            tile_generation: 1,
+            tile_bag_behaviour: TileBagBehaviour::Standard,
+            battle_rules: BattleRules { length_delta: 2 },
+            swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
+            battle_delay: 2,
+            max_turns: None,
+            board_genesis: BoardGenesis::Passthrough,
         },
-        win_metric: WinMetric::TownProximity,
-        visibility: Visibility::Standard,
-        truncation: Truncation::Root,
-        timing: Timing::None,
-        hand_size: 7,
-        tile_generation: 1,
-        tile_bag_behaviour: TileBagBehaviour::Standard,
-        battle_rules: BattleRules { length_delta: 2 },
-        swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
-        battle_delay: 2,
-        max_turns: None,
-        board_genesis: BoardGenesis::Passthrough,
-    },
+    ),
+    (
+        Some(EffectiveRuleDay(293)),
+        GameRules {
+            generation: None, // hydrated on fetch
+            win_condition: WinCondition::Destination {
+                town_defense: TownDefense::BeatenWithDefenseStrength(0),
+                artifact_defense: ArtifactDefense::BeatenWithDefenseStrength(0),
+            },
+            win_metric: WinMetric::TownProximity,
+            visibility: Visibility::Standard,
+            truncation: Truncation::Root,
+            timing: Timing::None,
+            hand_size: 7,
+            tile_generation: 1,
+            tile_bag_behaviour: TileBagBehaviour::Standard,
+            battle_rules: BattleRules { length_delta: 1 },
+            swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
+            battle_delay: 2,
+            max_turns: None,
+            board_genesis: BoardGenesis::Passthrough,
+        },
+    ),
 ];
 
 impl GameRules {
     pub fn generation(gen: u32) -> Self {
-        let mut rules = RULE_GENERATIONS
+        let (_, mut rules) = RULE_GENERATIONS
             .get(gen as usize)
             .expect("rule generation should exist")
             .clone();
@@ -174,10 +216,22 @@ impl GameRules {
         rules
     }
 
-    pub fn latest() -> (u32, Self) {
-        assert!(!RULE_GENERATIONS.is_empty());
-        let generation = (RULE_GENERATIONS.len() - 1) as u32;
-        (generation, GameRules::generation(generation))
+    pub fn latest(effective_date: Option<u32>) -> (u32, Self) {
+        RULE_GENERATIONS
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(gen_id, gen)| match (gen.0, effective_date) {
+                (Some(EffectiveRuleDay(rule_date)), Some(today_date)) => {
+                    if today_date >= rule_date {
+                        Some((gen_id as u32, gen.1.clone()))
+                    } else {
+                        None
+                    }
+                }
+                _ => Some((gen_id as u32, gen.1.clone())),
+            })
+            .expect("Should always be an effective rule set")
     }
 
     pub fn tuesday() -> Self {
@@ -185,6 +239,7 @@ impl GameRules {
             generation: None, // hydrated on fetch
             win_condition: WinCondition::Destination {
                 town_defense: TownDefense::BeatenWithDefenseStrength(0),
+                artifact_defense: ArtifactDefense::Invincible,
             },
             win_metric: WinMetric::ObeliskProximity,
             visibility: Visibility::LandFog,
@@ -219,10 +274,10 @@ impl GameRules {
                 maximum_town_density: 0.2,
                 maximum_town_distance: 0.1,
                 minimum_choke: 3,
-                dock_type: DockType::Continental,
-                ideal_dock_extremity: 0.0,
+                artifact_type: ArtifactType::Continental,
+                ideal_artifact_extremity: 0.0,
                 elements: BoardElements {
-                    docks: true,
+                    artifacts: true,
                     towns: false,
                     obelisk: true,
                 },

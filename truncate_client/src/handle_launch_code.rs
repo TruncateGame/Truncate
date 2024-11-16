@@ -40,17 +40,7 @@ pub fn handle_launch_code(
         "TUTORIAL_RULES" => {
             return Some(GameStatus::Tutorial(TutorialState::new(
                 "rules".to_string(),
-                utils::includes::rules(),
-                ui.ctx(),
-                outer.map_texture.clone(),
-                &outer.theme,
-                outer.event_dispatcher.clone(),
-            )));
-        }
-        "TUTORIAL_EXAMPLE" => {
-            return Some(GameStatus::Tutorial(TutorialState::new(
-                "example_game".to_string(),
-                utils::includes::example_game(),
+                utils::includes::rules(outer.launched_at_day),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
@@ -82,7 +72,9 @@ pub fn handle_launch_code(
             )));
         }
         "DAILY_PUZZLE" => {
-            let day = get_puzzle_day(current_time!());
+            let day = outer.launched_at_day;
+            // let exact_current_day = get_puzzle_day(current_time!());
+            // TODO: Handle day not matching exact_current_day
             if let Some(token) = &outer.logged_in_as {
                 send_to_server(PlayerMessage::LoadDailyPuzzle(token.clone(), day));
             }
@@ -99,7 +91,7 @@ pub fn handle_launch_code(
                 title: format!("Regular Puzzle"),
                 attempt: None,
             };
-            let rules_generation = GameRules::latest().0;
+            let rules_generation = GameRules::latest(Some(outer.launched_at_day)).0;
             let puzzle_game = SinglePlayerState::new(
                 "jet".to_string(),
                 ui.ctx(),
@@ -125,7 +117,7 @@ pub fn handle_launch_code(
                 title: format!("Easy Puzzle"),
                 attempt: None,
             };
-            let rules_generation = GameRules::latest().0;
+            let rules_generation = GameRules::latest(Some(outer.launched_at_day)).0;
             let puzzle_game = SinglePlayerState::new(
                 "mellite".to_string(),
                 ui.ctx(),
@@ -144,7 +136,7 @@ pub fn handle_launch_code(
         "DEBUG_BEHEMOTH" => {
             let behemoth_board = Board::from_string(include_str!("../tutorials/test_board.txt"));
             let seed_for_hand_tiles = BoardSeed::new_with_generation(0, 1);
-            let rules_generation = GameRules::latest().0;
+            let rules_generation = GameRules::latest(Some(outer.launched_at_day)).0;
             let behemoth_game = SinglePlayerState::new(
                 "behemoth".to_string(),
                 ui.ctx(),
@@ -248,7 +240,10 @@ pub fn handle_launch_code(
 
     // No room code means we start a new game.
     if launch_code.is_empty() {
-        send_to_server(PlayerMessage::NewGame(outer.name.clone()));
+        send_to_server(PlayerMessage::NewGame {
+            player_name: outer.name.clone(),
+            effective_day: outer.launched_at_day,
+        });
         return Some(GameStatus::PendingCreate);
     }
 

@@ -8,6 +8,8 @@ changelog_name: Invalid secondary attackers
 
 priority: High
 
+effective_day: 236
+
 rules:
   - category: Update
     scenarios:

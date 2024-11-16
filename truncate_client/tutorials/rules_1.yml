@@ -1,3 +1,5 @@
+effective_day: 252
+
 rules:
   - category: Basics
     scenarios:

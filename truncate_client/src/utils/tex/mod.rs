@@ -3,7 +3,7 @@ use epaint::{
     hex_color, pos2, vec2, Color32, ColorImage, Mesh, Pos2, Rect, Shape, TextureHandle, TextureId,
     Vec2,
 };
-use truncate_core::board::{Coordinate, Direction, Square};
+use truncate_core::board::{BoardDistances, Coordinate, Direction, SignedCoordinate, Square};
 
 use crate::{app_outer::TEXTURE_MEASUREMENT, regions::lobby::BoardEditingMode};
 
@@ -111,8 +111,10 @@ impl From<&Square> for BGTexType {
     fn from(sq: &Square) -> Self {
         use truncate_core::board::Square::*;
         match sq {
-            Water { .. } | Fog { .. } | Dock { .. } => Self::WaterOrFog,
-            Land { .. } | Town { .. } | Obelisk { .. } | Occupied { .. } => Self::Land,
+            Water { .. } | Fog { .. } => Self::WaterOrFog,
+            Artifact { .. } | Land { .. } | Town { .. } | Obelisk { .. } | Occupied { .. } => {
+                Self::Land
+            }
         }
     }
 }
@@ -121,7 +123,7 @@ impl From<&Square> for BGTexType {
 pub enum FGTexType {
     None,
     Town(Color32),
-    Dock(Color32),
+    Artifact(Color32),
     Obelisk,
     Fog,
 }
@@ -136,8 +138,8 @@ impl From<(&Square, &Vec<Color32>)> for FGTexType {
             Square::Town { player, .. } => {
                 Self::Town(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
-            Square::Dock { player, .. } => {
-                Self::Dock(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
+            Square::Artifact { player, .. } => {
+                Self::Artifact(*player_colors.get(*player).unwrap_or(&Color32::WHITE))
             }
             Square::Occupied { .. } => Self::None,
         }
@@ -358,13 +360,13 @@ impl Tex {
         t
     }
 
-    pub fn dock_button(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
+    pub fn artifact_button(color: Option<Color32>, highlight: Option<Color32>) -> Vec<TexQuad> {
         let mut t = vec![
-            tiles::quad::DOCK_BUTTON,
+            tiles::quad::ARTIFACT_BUTTON,
             if let Some(color) = color {
-                tiles::quad::DOCK_BUTTON_SAIL.tint(color)
+                tiles::quad::ARTIFACT_BUTTON_GLYPH.tint(color)
             } else {
-                tiles::quad::DOCK_BUTTON_SAIL
+                tiles::quad::ARTIFACT_BUTTON_GLYPH
             },
         ];
         if let Some(highlight) = highlight {
@@ -426,65 +428,73 @@ impl Tex {
         .concat()
     }
 
-    fn dock(color: Color32, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
-        // TODO: Render docks with multiple edges somehow.
+    fn artifact(color: Color32, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
+        // TODO: Restore directional artifact textures as below:
 
-        let (dock, sails) = if matches!(neighbors[1], BGTexType::Land) {
-            (
-                tiles::quad::SOUTH_DOCK,
-                [
-                    tiles::quad::SOUTH_DOCK_SAIL_WIND_0,
-                    tiles::quad::SOUTH_DOCK_SAIL_WIND_1,
-                    tiles::quad::SOUTH_DOCK_SAIL_WIND_2,
-                ],
-            )
-        } else if matches!(neighbors[5], BGTexType::Land) {
-            (
-                tiles::quad::NORTH_DOCK,
-                [
-                    tiles::quad::NORTH_DOCK_SAIL_WIND_0,
-                    tiles::quad::NORTH_DOCK_SAIL_WIND_1,
-                    tiles::quad::NORTH_DOCK_SAIL_WIND_2,
-                ],
-            )
-        } else if matches!(neighbors[3], BGTexType::Land) {
-            (
-                tiles::quad::WEST_DOCK,
-                [
-                    tiles::quad::WEST_DOCK_SAIL_WIND_0,
-                    tiles::quad::WEST_DOCK_SAIL_WIND_1,
-                    tiles::quad::WEST_DOCK_SAIL_WIND_2,
-                ],
-            )
-        } else if matches!(neighbors[7], BGTexType::Land) {
-            (
-                tiles::quad::EAST_DOCK,
-                [
-                    tiles::quad::EAST_DOCK_SAIL_WIND_0,
-                    tiles::quad::EAST_DOCK_SAIL_WIND_1,
-                    tiles::quad::EAST_DOCK_SAIL_WIND_2,
-                ],
-            )
-        } else {
-            (
-                tiles::quad::FLOATING_DOCK,
-                [
-                    tiles::quad::FLOATING_DOCK_SAIL_WIND_0,
-                    tiles::quad::FLOATING_DOCK_SAIL_WIND_1,
-                    tiles::quad::FLOATING_DOCK_SAIL_WIND_2,
-                ],
-            )
-        };
+        let (artifact, glyph) = (tiles::quad::ARTIFACT, [tiles::quad::ARTIFACT_GLYPH]);
+
+        // let (artifact, sails) = if matches!(neighbors[1], BGTexType::Land) {
+        //     (
+        //         tiles::quad::SOUTH_ARTIFACT,
+        //         [
+        //             tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::SOUTH_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // } else if matches!(neighbors[5], BGTexType::Land) {
+        //     (
+        //         tiles::quad::NORTH_ARTIFACT,
+        //         [
+        //             tiles::quad::NORTH_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::NORTH_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::NORTH_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // } else if matches!(neighbors[3], BGTexType::Land) {
+        //     (
+        //         tiles::quad::WEST_ARTIFACT,
+        //         [
+        //             tiles::quad::WEST_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::WEST_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::WEST_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // } else if matches!(neighbors[7], BGTexType::Land) {
+        //     (
+        //         tiles::quad::EAST_ARTIFACT,
+        //         [
+        //             tiles::quad::EAST_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::EAST_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::EAST_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // } else {
+        //     (
+        //         tiles::quad::FLOATING_ARTIFACT,
+        //         [
+        //             tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_0,
+        //             tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_1,
+        //             tiles::quad::FLOATING_ARTIFACT_SAIL_WIND_2,
+        //         ],
+        //     )
+        // };
+
+        // TODO: Restore wind effects for the artifact as below
+        // TexLayers::default()
+        //     .with_structures(artifact)
+        //     .with_piece_texture(
+        //         match wind_at_coord {
+        //             calm!() => sails[0],
+        //             breeze!() => sails[1],
+        //             _ => sails[2],
+        //         },
+        //         Some(color),
+        //     )
+
         TexLayers::default()
-            .with_structures(dock)
-            .with_piece_texture(
-                match wind_at_coord {
-                    calm!() => sails[0],
-                    breeze!() => sails[1],
-                    _ => sails[2],
-                },
-                Some(color),
-            )
+            .with_structures(artifact)
+            .with_piece_texture(glyph[0], Some(color))
     }
 
     fn town(color: Color32, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
@@ -523,17 +533,18 @@ impl Tex {
         };
 
         let rand_decor = |n: usize| match quickrand(n) {
-            0..=20 => (tiles::BUSH_0, tiles::BUSH_FLOWERS_0),
-            21..=40 => (tiles::BUSH_1, tiles::BUSH_FLOWERS_1),
-            41..=60 => (tiles::BUSH_2, tiles::BUSH_FLOWERS_2),
-            61..=80 => (
-                match wind_at_coord {
-                    calm!() | breeze!() => tiles::WHEAT_WIND_0,
-                    _ => tiles::WHEAT_WIND_1,
-                },
-                tiles::NONE,
-            ),
-            _ => (tiles::WELL, tiles::NONE),
+            0..=33 => (tiles::BUSH_0, tiles::BUSH_FLOWERS_0),
+            34..=66 => (tiles::BUSH_1, tiles::BUSH_FLOWERS_1),
+            _ => (tiles::BUSH_2, tiles::BUSH_FLOWERS_2),
+            // TODO: Add wind back to decor as below:
+            // 61..=80 => (
+            //     match wind_at_coord {
+            //         calm!() | breeze!() => tiles::WHEAT_WIND_0,
+            //         _ => tiles::WHEAT_WIND_1,
+            //     },
+            //     tiles::NONE,
+            // ),
+            // _ => (tiles::WELL, tiles::NONE),
         };
 
         let rand_decor_colored = |n: usize| {
@@ -596,6 +607,54 @@ impl Tex {
             .with_piece_texture(tinted, Some(color))
     }
 
+    fn water(
+        seed: usize,
+        source_coord: SignedCoordinate,
+        board_size: (usize, usize),
+        distance_to_land: &BoardDistances,
+    ) -> Tex {
+        let mut added_distance = 0;
+        let mut lookup_x = 0;
+        let mut lookup_y = 0;
+
+        if source_coord.x < 0 {
+            added_distance += source_coord.x.unsigned_abs();
+        } else if source_coord.x as usize >= board_size.0 {
+            lookup_x = board_size.0 - 1;
+            added_distance += source_coord.x as usize - lookup_x;
+        } else {
+            lookup_x = source_coord.x as _;
+        }
+
+        if source_coord.y < 0 {
+            added_distance += source_coord.y.unsigned_abs();
+        } else if source_coord.y as usize >= board_size.1 {
+            lookup_y = board_size.1 - 1;
+            added_distance += source_coord.y as usize - lookup_y;
+        } else {
+            lookup_y = source_coord.y as _;
+        }
+
+        let dist = distance_to_land
+            .direct_distance(&Coordinate::new(lookup_x, lookup_y))
+            .unwrap_or_default()
+            + added_distance;
+
+        let rand = quickrand(seed + 1982367);
+        let threshold = match dist {
+            0 => 100,
+            1 => 70,
+            2 => 30,
+            _ => 0,
+        };
+
+        if threshold > rand {
+            tiles::BASE_WATER_WAVES
+        } else {
+            tiles::BASE_WATER
+        }
+    }
+
     /// Determine the tiles to use based on a given square and its neighbors,
     /// provided clockwise from northwest.
     pub fn terrain(
@@ -605,7 +664,9 @@ impl Tex {
         seed: usize,
         tick: u64,
         wind_at_coord: u8,
-        coord: Coordinate,
+        coord: SignedCoordinate,
+        board_size: (usize, usize),
+        distance_to_land: &BoardDistances,
     ) -> TexLayers {
         debug_assert_eq!(neighbors.len(), 8);
         if neighbors.len() != 8 {
@@ -658,7 +719,9 @@ impl Tex {
                 (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_W,
                 (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_N,
                 (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_NW,
-                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => {
+                    Tex::water(seed, coord, board_size, distance_to_land)
+                }
             },
         };
 
@@ -669,7 +732,9 @@ impl Tex {
                 (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_N,
                 (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_E,
                 (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_NE,
-                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => {
+                    Tex::water(seed + 1, coord, board_size, distance_to_land)
+                }
             },
         };
 
@@ -680,7 +745,9 @@ impl Tex {
                 (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_E,
                 (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_S,
                 (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_SE,
-                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => {
+                    Tex::water(seed + 2, coord, board_size, distance_to_land)
+                }
             },
         };
 
@@ -691,7 +758,9 @@ impl Tex {
                 (Land, Land | WaterOrFog, WaterOrFog) => tiles::WATER_WITH_LAND_S,
                 (WaterOrFog, Land | WaterOrFog, Land) => tiles::WATER_WITH_LAND_W,
                 (WaterOrFog, Land, WaterOrFog) => tiles::WATER_WITH_LAND_SW,
-                (WaterOrFog, WaterOrFog, WaterOrFog) => tiles::BASE_WATER,
+                (WaterOrFog, WaterOrFog, WaterOrFog) => {
+                    Tex::water(seed + 3, coord, board_size, distance_to_land)
+                }
             },
         };
 
@@ -702,8 +771,8 @@ impl Tex {
             FGTexType::Town(color) => {
                 layers = layers.merge_above_self(Tex::town(color, seed, tick, wind_at_coord))
             }
-            FGTexType::Dock(color) => {
-                layers = layers.merge_above_self(Tex::dock(color, neighbors, wind_at_coord))
+            FGTexType::Artifact(color) => {
+                layers = layers.merge_above_self(Tex::artifact(color, neighbors, wind_at_coord))
             }
             FGTexType::Obelisk => {
                 layers = layers
@@ -727,10 +796,10 @@ impl Tex {
         match (action, from) {
             (
                 BoardEditingMode::Land | BoardEditingMode::Town(_),
-                Square::Water { .. } | Square::Dock { .. },
+                Square::Water { .. } | Square::Artifact { .. },
             ) => Some(tiles::quad::ISLAND),
             (
-                BoardEditingMode::Land | BoardEditingMode::Dock(_),
+                BoardEditingMode::Land | BoardEditingMode::Artifact(_),
                 Square::Land { .. } | Square::Town { .. },
             ) => Some(tiles::quad::LAKE),
             _ => None,

@@ -4,8 +4,8 @@ use instant::Duration;
 use truncate_core::{
     game::Game,
     generation::{
-        self, generate_board, BoardElements, BoardGenerationResult, BoardNoiseParams, BoardParams,
-        BoardSeed, DockType, Symmetry, WaterLayer,
+        self, generate_board, ArtifactType, BoardElements, BoardGenerationResult, BoardNoiseParams,
+        BoardParams, BoardSeed, Symmetry, WaterLayer,
     },
     messages::GamePlayerMessage,
     rules::{BoardGenesis, GameRules},
@@ -24,8 +24,8 @@ pub struct GeneratorState {
 }
 
 impl GeneratorState {
-    pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: Theme) -> Self {
-        let mut game = Game::new(10, 10, None, GameRules::latest().1);
+    pub fn new(ctx: &egui::Context, map_texture: TextureHandle, theme: Theme, day: u32) -> Self {
+        let mut game = Game::new(10, 10, None, GameRules::latest(Some(day)).1);
         game.add_player("p1".into());
         let mut active_game = ActiveGame::new(
             ctx,
@@ -298,20 +298,23 @@ impl GeneratorState {
                     }
                     ui.end_row();
 
-                    ui.label(RichText::new("Dock Type").color(Color32::WHITE));
-                    if ui.button(format!("{:?}", self.params.dock_type)).clicked() {
-                        self.params.dock_type = match self.params.dock_type {
-                            DockType::IslandV1 => DockType::Coastal,
-                            DockType::Coastal => DockType::Continental,
-                            DockType::Continental => DockType::IslandV1,
+                    ui.label(RichText::new("Artifact Type").color(Color32::WHITE));
+                    if ui
+                        .button(format!("{:?}", self.params.artifact_type))
+                        .clicked()
+                    {
+                        self.params.artifact_type = match self.params.artifact_type {
+                            ArtifactType::IslandV1 => ArtifactType::Coastal,
+                            ArtifactType::Coastal => ArtifactType::Continental,
+                            ArtifactType::Continental => ArtifactType::IslandV1,
                         };
                         changed = true;
                     }
                     ui.end_row();
 
-                    ui.label(RichText::new("ideal_dock_extremity").color(Color32::WHITE));
+                    ui.label(RichText::new("ideal_artifact_extremity").color(Color32::WHITE));
                     let r = ui.add(
-                        DragValue::new(&mut self.params.ideal_dock_extremity)
+                        DragValue::new(&mut self.params.ideal_artifact_extremity)
                             .clamp_range(0.0..=1.0)
                             .speed(0.01),
                     );
