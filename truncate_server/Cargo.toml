@@ -38,6 +38,7 @@ sqlx = { version = "0.7", features = [
     "tls-rustls",
     "time",
 ] }
+clickhouse = { version = "0.13.1", features = ["inserter", "uuid", "time"] }
 woothee = "0.13.0"
 
 [profile.dev.package.sqlx-macros]

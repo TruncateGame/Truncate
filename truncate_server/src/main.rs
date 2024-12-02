@@ -1,8 +1,10 @@
 mod definitions;
 mod errors;
+mod event_stream;
 mod game_state;
 mod storage;
 
+use event_stream::ch_events;
 use parking_lot::Mutex;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
@@ -14,8 +16,8 @@ use definitions::WordDB;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
 use jwt_simple::prelude::*;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{self, unbounded_channel};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tungstenite::protocol::Message;
 
@@ -72,6 +74,7 @@ pub struct ServerState {
     word_db: Arc<Mutex<WordDB>>,
     nonces: Arc<Mutex<NonceTracker>>,
     truncate_db: Option<PgPool>,
+    event_stream: UnboundedSender<event_stream::Event>,
     jwt_key: HS256Key,
 }
 
@@ -1027,6 +1030,10 @@ async fn main() -> Result<(), IoError> {
         k
     };
 
+    let (event_stream_tx, event_stream_rx) = unbounded_channel();
+
+    tokio::spawn(ch_events(event_stream_rx));
+
     let mut server_state = ServerState {
         games: Arc::new(Mutex::new(HashMap::new())),
         assignments: Arc::new(Mutex::new(HashMap::new())),
@@ -1034,6 +1041,7 @@ async fn main() -> Result<(), IoError> {
         word_db: Arc::new(Mutex::new(read_defs())),
         nonces: Arc::new(Mutex::new(NonceTracker::default())),
         truncate_db: None,
+        event_stream: event_stream_tx,
         jwt_key,
     };
 

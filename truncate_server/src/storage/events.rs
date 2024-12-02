@@ -1,4 +1,4 @@
-use crate::{errors::TruncateServerError, ServerState};
+use crate::{errors::TruncateServerError, event_stream, ServerState};
 
 use super::accounts::AuthedTruncateToken;
 
@@ -12,6 +12,13 @@ pub async fn create_event(
     };
 
     println!("Tracking event: {event_type}");
+
+    if let Err(e) = server_state.event_stream.send(event_stream::Event {
+        event_type: event_type.to_owned(),
+        player: player_token.clone(),
+    }) {
+        eprintln!("Unable to send event to event stream: {e}");
+    }
 
     let Some(pool) = &server_state.truncate_db else {
         return Err(TruncateServerError::DatabaseOffline);
