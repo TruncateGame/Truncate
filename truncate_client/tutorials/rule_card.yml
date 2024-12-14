@@ -1,0 +1,45 @@
+# sects:
+#   - Orientation (and play one tile at a time)
+#   - Long beats short
+#   - Invalid beats valid
+#   - Starting position / win condition
+#   - Swapping
+#   - Truncation
+
+sections:
+  - title: Orientation
+    examples:
+      - ~  ~  ~  ~  ~  ~  ~  ~  ~
+      - W^ ~  ~  ~  ~  ~  ~  ~  ~
+      - W  ~  ~  ~  ~  ~  ~  ~  w^
+      - W  O^ ~  ~  ~  ~  ~  ~  w
+      - W  O  ~  ~  ~  ~  ~  o^ w
+      - W  O  R^ ~  ~  ~  ~  o  w
+      - W  O  R  ~  ~  ~  r^ o  w
+      - W  O  R  D^ ~  ~  r  o  w
+      - W  O  R  D  ~  d^ r  o  w
+    description: |-
+      Your words read top down and left to right,
+      your opponent's are the opposite.
+  - title: Long words beat short words
+    examples:
+      - W  O  R  D  ~  d  r  o  w
+      - W  O  R  D  Y^ d  r  o  w
+      - W  O  R  D  Y  d  r  o  w
+      - W  O  R  D  Y  d* r  o  w
+      - W  O  R  D  Y  d* r* o  w
+      - W  O  R  D  Y  d* r* o* w
+      - W  O  R  D  Y  d* r* o* w*
+    description: |-
+      Words battle when they touch, and long words beat short words.
+      "WORDY" is longer than "WORD", so "WORD" is removed from the board.
+  - title: Valid words beat invalid words
+    examples:
+      - G  E  T  x* e* d* r* o* w*
+    description: |-
+      beep beep boop boop
+  - title: Artifact
+    examples:
+      - $1 +1  E  T  x* e* d* r* +0 $0
+    description: |-
+      beep beep boop boop

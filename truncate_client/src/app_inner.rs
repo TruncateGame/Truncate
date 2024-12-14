@@ -17,6 +17,7 @@ use crate::{
         lobby::Lobby,
         native_menu::render_native_menu_if_required,
         replayer::ReplayerState,
+        rules::RulesState,
         single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
@@ -33,6 +34,7 @@ pub enum GameStatus {
     None(RoomCode, Option<TruncateToken>),
     Generator(GeneratorState),
     Tutorial(TutorialState),
+    Rules(RulesState),
     PendingSinglePlayer(Lobby),
     SinglePlayer(SinglePlayerState),
     PendingDaily,
@@ -408,6 +410,9 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
         }
         GameStatus::Replay(replay) => {
             replay.render(ui, &outer.theme, current_time, &outer.backchannel);
+        }
+        GameStatus::Rules(rules) => {
+            rules.render(ui, &outer.theme, current_time);
         }
         GameStatus::HardError(msg) => {
             let splash = SplashUI::new(msg.clone()).with_button(

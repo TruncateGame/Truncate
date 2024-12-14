@@ -428,10 +428,13 @@ impl Tex {
         .concat()
     }
 
-    fn artifact(color: Color32, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
+    pub fn artifact(color: Color32, neighbors: Vec<BGTexType>, wind_at_coord: u8) -> TexLayers {
         // TODO: Restore directional artifact textures as below:
 
-        let (artifact, glyph) = (tiles::quad::ARTIFACT, [tiles::quad::ARTIFACT_GLYPH]);
+        let (artifact, glyph) = (
+            tiles::quad::ARTIFACT,
+            [tiles::quad::ARTIFACT_GLYPH.tint(color)],
+        );
 
         // let (artifact, sails) = if matches!(neighbors[1], BGTexType::Land) {
         //     (
@@ -497,7 +500,7 @@ impl Tex {
             .with_piece_texture(glyph[0], Some(color))
     }
 
-    fn town(color: Color32, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
+    pub fn town(color: Color32, seed: usize, tick: u64, wind_at_coord: u8) -> TexLayers {
         let _anim_index = (quickrand(seed + 3) + tick as usize) % 30;
         let rand_house = |n: usize| match quickrand(n) {
             0..=25 => (
@@ -607,7 +610,7 @@ impl Tex {
             .with_piece_texture(tinted, Some(color))
     }
 
-    fn water(
+    pub fn water(
         seed: usize,
         source_coord: SignedCoordinate,
         board_size: (usize, usize),

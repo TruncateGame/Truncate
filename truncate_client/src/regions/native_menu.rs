@@ -38,7 +38,7 @@ pub fn render_native_menu_if_required(
             if ui.button("Tutorial: Rules").clicked() {
                 return Some(GameStatus::Tutorial(TutorialState::new(
                     "rules".to_string(),
-                    utils::includes::rules(outer.launched_at_day),
+                    utils::includes::tutorial(outer.launched_at_day),
                     ui.ctx(),
                     outer.map_texture.clone(),
                     &outer.theme,
