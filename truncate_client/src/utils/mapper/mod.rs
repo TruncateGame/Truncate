@@ -338,9 +338,9 @@ impl MappedBoard {
 
         let orient = |player: usize| {
             if player == self.for_player {
-                Direction::North
-            } else {
                 Direction::South
+            } else {
+                Direction::North
             }
         };
 
@@ -679,7 +679,7 @@ impl MappedBoard {
                             let tile_layers = Tex::board_game_tile(
                                 MappedTileVariant::Healthy,
                                 tile_char,
-                                Direction::North,
+                                Direction::South,
                                 Some(self_color.lighten()),
                                 None,
                                 TileDecoration::None,

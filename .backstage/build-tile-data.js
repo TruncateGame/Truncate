@@ -2,6 +2,37 @@
 
 const fs = require("fs");
 const path = require("path");
+const { Jimp } = require("jimp");
+
+async function processImage() {
+  const IMAGE_INPUT_PATH = path.join(
+    __dirname,
+    "../truncate_client/img/truncate_packed_pre.png",
+  );
+  const IMAGE_OUTPUT_PATH = path.join(
+    __dirname,
+    "../truncate_client/img/truncate_packed.png",
+  );
+
+  const image = await Jimp.read(IMAGE_INPUT_PATH);
+
+  image.scan((x, y, idx) => {
+    const red = image.bitmap.data[idx + 0];
+    const green = image.bitmap.data[idx + 1];
+    const blue = image.bitmap.data[idx + 2];
+
+    // Find pure magenta and make it transparent
+    if (red === 255 && green === 0 && blue === 255) {
+      image.bitmap.data[idx + 3] = 0;
+    }
+  });
+
+  await image.write(IMAGE_OUTPUT_PATH);
+}
+
+processImage().catch((err) => {
+  console.error("Error processing image:", err);
+});
 
 const INPUT_FILE = path.join(__dirname, "../truncate_client/img/tile_order");
 const OUTPUT_RUST = path.join(

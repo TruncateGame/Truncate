@@ -85,7 +85,7 @@ impl<'a> HandUI<'a> {
                         } else {
                             None
                         },
-                        orientation: truncate_core::board::Direction::North,
+                        orientation: truncate_core::board::Direction::South,
                     }
                 })
                 .collect(),

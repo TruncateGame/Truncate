@@ -3,12 +3,14 @@ use epaint::{
     hex_color, pos2, vec2, Color32, ColorImage, Mesh, Pos2, Rect, Shape, TextureHandle, TextureId,
     Vec2,
 };
+use letters::get_letter_quad;
 use truncate_core::board::{BoardDistances, Coordinate, Direction, SignedCoordinate, Square};
 
 use crate::{app_outer::TEXTURE_MEASUREMENT, regions::lobby::BoardEditingMode};
 
 use super::mapper::{quickrand, MappedTileVariant};
 
+pub mod letters;
 pub mod tiles;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -67,12 +69,11 @@ impl TexLayers {
     fn with_piece_character(
         mut self,
         char: char,
-        color: Color32,
-        flipped: IsFlipped,
-        y_offset: YOffset,
+        color: Option<Color32>,
+        orientation: Direction,
     ) -> Self {
-        self.pieces
-            .push(PieceLayer::Character(char, color, flipped, y_offset));
+        let quad = get_letter_quad(char, orientation);
+        self.pieces.push(PieceLayer::Texture(quad, color));
         self
     }
 
@@ -220,12 +221,7 @@ impl Tex {
                 tiles::quad::GAME_PIECE.tint(color.unwrap_or(Color32::WHITE)),
                 color,
             )
-            .with_piece_character(
-                character,
-                hex_color!("#333333"),
-                orientation != Direction::North,
-                -1,
-            );
+            .with_piece_character(character, None, orientation);
 
         if let Some(highlight) = highlight {
             layers =
@@ -334,12 +330,7 @@ impl Tex {
                         ],
                         color,
                     )
-                    .with_piece_character(
-                        character,
-                        hex_color!("#888888"),
-                        orientation != Direction::North,
-                        0,
-                    );
+                    .with_piece_character(character, Some(hex_color!("#cccccc")), orientation);
             }
         }
         layers

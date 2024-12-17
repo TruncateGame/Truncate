@@ -312,9 +312,9 @@ impl<'a> BoardUI<'a> {
                                                         orientation: if *square_player
                                                             == gameplay.player_number as usize
                                                         {
-                                                            Direction::North
-                                                        } else {
                                                             Direction::South
+                                                        } else {
+                                                            Direction::North
                                                         },
                                                     }],
                                                     aesthetics,
