@@ -717,8 +717,11 @@ mod tests {
         initial_board: &'a str,
         depth: usize,
         dict: &WordDict,
+        turn_count: u32,
     ) -> (&'a str, String) {
         let mut game = test_game(initial_board, hand);
+        game.turn_count = turn_count;
+
         let (best_move, pruned_checks, total_checks) = best_test_move(&game, &dict, depth);
 
         enact_move(&mut game, best_move.clone(), &dict);
@@ -986,6 +989,7 @@ mod tests {
                 "###,
                 3,
                 &dict,
+                0,
             );
 
             insta::with_settings!({
@@ -1027,6 +1031,7 @@ mod tests {
                 "###,
                 3,
                 &dict,
+                0,
             );
 
             insta::with_settings!({
@@ -1068,6 +1073,7 @@ mod tests {
                 "###,
                 3,
                 &dict,
+                0,
             );
 
             insta::with_settings!({
@@ -1109,6 +1115,7 @@ mod tests {
                 "###,
                 3,
                 &dict,
+                0,
             );
 
             insta::with_settings!({
@@ -1150,6 +1157,7 @@ mod tests {
                 "###,
                 3,
                 &dict,
+                0,
             );
 
             insta::with_settings!({
@@ -1194,6 +1202,7 @@ mod tests {
                 "###,
                 3,
                 &dict,
+                0,
             );
 
             insta::with_settings!({
@@ -1241,6 +1250,7 @@ mod tests {
                 "###,
                 4,
                 &dict,
+                0,
             );
 
             insta::with_settings!({
@@ -1294,6 +1304,7 @@ mod tests {
                 "###,
                 2,
                 &dict,
+                3, // any non zero turn count value will do
             );
 
             insta::with_settings!({

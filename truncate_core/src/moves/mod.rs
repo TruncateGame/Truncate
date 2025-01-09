@@ -143,6 +143,21 @@ mod tests {
             ..Game::new_legacy(3, 3, None, GameRules::generation(0))
         };
 
+        // Can't accidentally place beside opponent's artifact on first turn
+        assert_eq!(
+            game.make_move(
+                Move::Place {
+                    player: 0,
+                    tile: 'A',
+                    position: Coordinate { x: 2, y: 5 },
+                },
+                None,
+                None,
+                None,
+            ),
+            Err(GamePlayError::OpponentStartPlace)
+        );
+
         // Places beside artifact
         let changes = game.make_move(
             Move::Place {
@@ -999,6 +1014,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
+            turn_count: 1, // any non zero value will do to avoid hitting OpponentStartPlace error
             ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
         game.start();
