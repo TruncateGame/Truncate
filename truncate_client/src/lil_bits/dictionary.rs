@@ -27,6 +27,8 @@ pub struct DictionaryUI {
     is_valid: bool,
     focus_in_n_frames: usize,
     definitions: HashMap<String, Option<Vec<WordMeaning>>>,
+    prefix_matches: Vec<String>,
+    suffix_matches: Vec<String>,
 }
 
 impl DictionaryUI {
@@ -36,7 +38,45 @@ impl DictionaryUI {
             is_valid: false,
             focus_in_n_frames: if initial_focus { 2 } else { 0 },
             definitions: HashMap::new(),
+            prefix_matches: Vec::new(),
+            suffix_matches: Vec::new(),
         }
+    }
+
+    fn find_prefix_matches(&mut self, dict: &HashMap<String, impl std::any::Any>) {
+        if self.current_word.is_empty() {
+            self.prefix_matches.clear();
+            return;
+        }
+
+        self.prefix_matches = dict
+            .keys()
+            .filter(|word| word.starts_with(&self.current_word))
+            .filter(|word| *word != &self.current_word)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .min_by_key(|word| word.len())
+            .into_iter()
+            .cloned()
+            .collect();
+    }
+
+    fn find_suffix_matches(&mut self, dict: &HashMap<String, impl std::any::Any>) {
+        if self.current_word.is_empty() {
+            self.suffix_matches.clear();
+            return;
+        }
+
+        self.suffix_matches = dict
+            .keys()
+            .filter(|word| word.ends_with(&self.current_word))
+            .filter(|word| *word != &self.current_word)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .min_by_key(|word| word.len())
+            .into_iter()
+            .cloned()
+            .collect();
     }
 
     pub fn load_definitions(&mut self, definitions: Vec<(String, Option<Vec<WordMeaning>>)>) {
@@ -159,6 +199,8 @@ impl DictionaryUI {
             let dict = dict_lock.as_ref().unwrap();
 
             self.is_valid = dict.contains_key(&self.current_word);
+            self.find_prefix_matches(dict);
+            self.find_suffix_matches(dict);
 
             if self.is_valid && !self.definitions.contains_key(&self.current_word) {
                 msg = Some(PlayerMessage::RequestDefinitions(vec![self
@@ -188,15 +230,41 @@ impl DictionaryUI {
                 }])
             };
 
+            let mut defenders = vec![BattleWord {
+                original_word: self.current_word.clone(),
+                resolved_word: self.current_word.clone(),
+                meanings,
+                valid: Some(self.is_valid),
+            }];
+
+            if let Some(prefix_word) = self.prefix_matches.first() {
+                defenders.push(BattleWord {
+                    original_word: prefix_word.clone(),
+                    resolved_word: prefix_word.clone(),
+                    meanings: Some(vec![WordMeaning {
+                        pos: "".to_string(),
+                        defs: vec!["Possible prefix match".to_string()],
+                    }]),
+                    valid: Some(true),
+                });
+            }
+
+            if let Some(suffix_word) = self.suffix_matches.first() {
+                defenders.push(BattleWord {
+                    original_word: suffix_word.clone(),
+                    resolved_word: suffix_word.clone(),
+                    meanings: Some(vec![WordMeaning {
+                        pos: "".to_string(),
+                        defs: vec!["Possible suffix match".to_string()],
+                    }]),
+                    valid: Some(true),
+                });
+            }
+
             let report = BattleReport {
                 battle_number: None,
                 attackers: vec![],
-                defenders: vec![BattleWord {
-                    original_word: self.current_word.clone(),
-                    resolved_word: self.current_word.clone(),
-                    meanings,
-                    valid: Some(self.is_valid),
-                }],
+                defenders,
                 outcome: Outcome::DefenderWins,
             };
 
@@ -212,6 +280,7 @@ impl DictionaryUI {
             let battle_inner = battle_band.shrink2(vec2(inset, 0.0));
             let mut battle_ui = ui.child_ui(battle_inner, Layout::top_down(Align::LEFT));
 
+            depot.aesthetics.theme.letter_size = 48.0;
             BattleUI::new(&report, false).render(&mut battle_ui, depot);
         } else {
             depot.ui_state.dictionary_showing_definition = false;
