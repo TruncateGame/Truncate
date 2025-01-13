@@ -33,6 +33,8 @@ pub enum GamePlayError {
     OccupiedPlace,
     #[error("You can only place tiles touching your artifact or your existing tiles")]
     NonAdjacentPlace,
+    #[error("You are attempting to place a tile next to your opponent's artifact")]
+    OpponentStartPlace,
 
     #[error("Player {player:?} doesn't have a '{tile:?}' tile")]
     PlayerDoesNotHaveTile { player: usize, tile: char },
