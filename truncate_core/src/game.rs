@@ -566,7 +566,13 @@ impl Game {
                     return Err(GamePlayError::OccupiedPlace);
                 }
 
-                if !self.board.neighbouring_squares(position).iter().any(
+                let neighbors = self.board.neighbouring_squares(position);
+
+                if self.turn_count == 0 && neighbors.iter().any(|&(_, square)| matches!(square, Square::Artifact { player: p, .. } if p != player)) {
+                    return Err(GamePlayError::OpponentStartPlace);
+                }
+
+                if !neighbors.iter().any(
                     |&(_, square)| match square {
                         Square::Occupied { player: p, .. } => p == player,
                         Square::Artifact { player: p, .. } => p == player,
