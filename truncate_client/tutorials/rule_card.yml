@@ -3,13 +3,22 @@ sections:
     examples:
       - ~  ~  ~  ~  ~  ~  ~  ~  ~
       - W^ ~  ~  ~  ~  ~  ~  ~  ~
+      - W^ ~  ~  ~  ~  ~  ~  ~  ~
+      - W  ~  ~  ~  ~  ~  ~  ~  w^
       - W  ~  ~  ~  ~  ~  ~  ~  w^
       - W  O^ ~  ~  ~  ~  ~  ~  w
+      - W  O^ ~  ~  ~  ~  ~  ~  w
+      - W  O  ~  ~  ~  ~  ~  o^ w
       - W  O  ~  ~  ~  ~  ~  o^ w
       - W  O  R^ ~  ~  ~  ~  o  w
+      - W  O  R^ ~  ~  ~  ~  o  w
+      - W  O  R  ~  ~  ~  r^ o  w
       - W  O  R  ~  ~  ~  r^ o  w
       - W  O  R  D^ ~  ~  r  o  w
+      - W  O  R  D^ ~  ~  r  o  w
       - W  O  R  D  ~  d^ r  o  w
+      - W  O  R  D  ~  d^ r  o  w
+      - W  O  R  D  ~  d  r  o  w
     description: |-
       Each turn you play one tile.
       Your words read top down and left to right,
@@ -17,8 +26,10 @@ sections:
   - title: Long words beat short words
     examples:
       - W  O  R  D  ~  d  r  o  w
+      - W  O  R  D  ~  d  r  o  w
+      - W  O  R  D  ~  d  r  o  w
       - W  O  R  D  Y^ d  r  o  w
-      - W  O  R  D  Y  d  r  o  w
+      - W  O  R  D  Y^ d  r  o  w
       - W  O  R  D  Y  d* r  o  w
       - W  O  R  D  Y  d* r* o  w
       - W  O  R  D  Y  d* r* o* w
@@ -29,6 +40,9 @@ sections:
   - title: Valid words beat invalid words
     examples:
       - B  E  ~  x  e  d  r  o  w
+      - B  E  ~  x  e  d  r  o  w
+      - B  E  ~  x  e  d  r  o  w
+      - B  E  T^ x  e  d  r  o  w
       - B  E  T^ x  e  d  r  o  w
       - B  E  T  x* e  d  r  o  w
       - B  E  T  x* e* d  r  o  w
@@ -41,11 +55,18 @@ sections:
   - title: Artifacts
     examples:
       - $1  W^ ~  ~  ~  ~  ~  ~  $0
+      - $1  W^ ~  ~  ~  ~  ~  ~  $0
+      - $1  W  I^ ~  ~  ~  ~  ~  $0
       - $1  W  I^ ~  ~  ~  ~  ~  $0
       - $1  W  I  N^ ~  ~  ~  ~  $0
+      - $1  W  I  N^ ~  ~  ~  ~  $0
+      - $1  W  I  N  N^ ~  ~  ~  $0
       - $1  W  I  N  N^ ~  ~  ~  $0
       - $1  W  I  N  N  I^ ~  ~  $0
+      - $1  W  I  N  N  I^ ~  ~  $0
       - $1  W  I  N  N  I  N^ ~  $0
+      - $1  W  I  N  N  I  N^ ~  $0
+      - $1  W  I  N  N  I  N  G^ $0
       - $1  W  I  N  N  I  N  G^ $0
       - $1  W  I  N  N  I  N  G  $0
     description: |-
@@ -55,19 +76,28 @@ sections:
     examples:
       - |-
         ~  ~  ~  ~  ~  ~  +0 ~ ~
-        $1 W^ ~  ~  ~  ~  ~  ~ $0
+        $1 W  I  N  ~  ~  ~  ~ $0
       - |-
         ~  ~  ~  ~  ~  ~  +0 ~ ~
-        $1 W  I^ ~  ~  ~  ~  ~ $0
+        $1 W  I  N  ~  ~  ~  ~ $0
       - |-
         ~  ~  ~  ~  ~  ~  +0 ~ ~
-        $1 W  I  N^ ~  ~  ~  ~ $0
+        $1 W  I  N  ~  ~  ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N^ ~  ~  ~ $0
       - |-
         ~  ~  ~  ~  ~  ~  +0 ~ ~
         $1 W  I  N  N^ ~  ~  ~ $0
       - |-
         ~  ~  ~  ~  ~  ~  +0 ~ ~
         $1 W  I  N  N  E^ ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N  E^ ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N  E  R^ ~ $0
       - |-
         ~  ~  ~  ~  ~  ~  +0 ~ ~
         $1 W  I  N  N  E  R^ ~ $0
@@ -80,12 +110,25 @@ sections:
   - title: Swapping
     examples:
       - G^ ~  ~  ~  ~  ~
+      - G^ ~  ~  ~  ~  ~
+      - G^ ~  ~  ~  ~  ~
+      - G  R^ ~  ~  ~  ~
       - G  R^ ~  ~  ~  ~
       - G  R  I^ ~  ~  ~
+      - G  R  I^ ~  ~  ~
+      - G  R  I  N^ ~  ~
       - G  R  I  N^ ~  ~
       - G  R  I  N  B^ ~
+      - G  R  I  N  B^ ~
+      - G  R  I  N  B^ ~
+      - G  R  I  N  B^ ~
+      - B^ R  I  N  G^ ~
+      - B^ R  I  N  G^ ~
+      - B^ R  I  N  G^ ~
       - B^ R  I  N  G^ ~
       - B  R  I  N  G  S^
+      - B  R  I  N  G  S^
+      - B  R  I  N  G  S
     description: |-
       Instead of playing a tile,
       you can swap two tiles on the board.
@@ -96,9 +139,21 @@ sections:
         $1 ~  ~  ~  ~  a  r  e $0
         ~  ~  ~  ~  ~  r  ~  ~  ~
       - |-
+        W^ ~  ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  ~  ~  r  ~  ~  ~
+      - |-
         W  ~  ~  ~  ~  d  ~  ~  ~
         $1 ~  ~  ~  ~  a  r  e $0
         ~  ~  ~  ~  a^ r  ~  ~  ~
+      - |-
+        W  ~  ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  ~  a^ r  ~  ~  ~
+      - |-
+        W  O^ ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  ~  a  r  ~  ~  ~
       - |-
         W  O^ ~  ~  ~  d  ~  ~  ~
         $1 ~  ~  ~  ~  a  r  e $0
@@ -108,9 +163,21 @@ sections:
         $1 ~  ~  ~  ~  a  r  e $0
         ~  ~  ~  n^ a  r  ~  ~  ~
       - |-
+        W  O  ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  n^ a  r  ~  ~  ~
+      - |-
         W  O  R^ ~  ~  d  ~  ~  ~
         $1 ~  ~  ~  ~  a  r  e $0
         ~  ~  ~  n  a  r  ~  ~  ~
+      - |-
+        W  O  R^ ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  g^ n  a  r  ~  ~  ~
       - |-
         W  O  R  ~  ~  d  ~  ~  ~
         $1 ~  ~  ~  ~  a  r  e $0
@@ -120,9 +187,21 @@ sections:
         $1 ~  ~  ~  ~  a  r  e $0
         ~  ~  g  n  a  r  ~  ~  ~
       - |-
+        W  O  R  D^ ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  g  n  a  r  ~  ~  ~
+      - |-
         W  O  R  D  ~  d  ~  ~  ~
         $1 ~  ~  ~  ~  a  r  e $0
         ~  e^ g  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  e^ g  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D  Y^ d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  e  g  n  a  r  ~  ~  ~
       - |-
         W  O  R  D  Y^ d  ~  ~  ~
         $1 ~  ~  ~  ~  a  r  e $0

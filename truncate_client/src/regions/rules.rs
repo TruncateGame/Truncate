@@ -42,6 +42,7 @@ pub struct ParsedRuleCard {
 pub struct ParsedRuleCardSection {
     title: String,
     examples: Vec<ParsedRuleCardExample>,
+    started_animation_at: Option<usize>,
     description: String,
 }
 
@@ -62,6 +63,7 @@ fn parse_rule_card(rules: RuleCard) -> ParsedRuleCard {
                     .into_iter()
                     .map(parse_rule_example)
                     .collect(),
+                started_animation_at: None,
                 description: section.description,
             })
             .collect(),
@@ -104,62 +106,63 @@ impl RulesState {
 
     pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
         let glypher = GLYPHER.get().expect("Glypher should have been initialized");
+        let cur_animation_tick = get_qs_tick(current_time) as usize;
 
         egui::ScrollArea::new([false, true]).show(ui, |ui| {
-            for rule in &self.rules.sections {
+            for rule in &mut self.rules.sections {
                 ui.heading(&rule.title);
-                for example in &rule.examples {
-                    for row in example.textures.iter() {
-                        ui.horizontal(|ui| {
-                            for slot in row.iter() {
-                                let (rect, _) =
-                                    ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
-                                if let Some(structures) = slot.structures {
-                                    render_texs_clockwise(
-                                        structures.to_vec(),
-                                        rect,
-                                        &self.map_texture,
-                                        ui,
-                                    );
-                                }
-                                for piece in &slot.pieces {
-                                    match piece {
-                                        PieceLayer::Texture(texs, _) => {
-                                            render_texs_clockwise(
-                                                texs.to_vec(),
-                                                rect,
-                                                &self.map_texture,
-                                                ui,
-                                            );
+                if ui.button("replay").clicked() {
+                    rule.started_animation_at = None;
+                }
+
+                let started_at = rule.started_animation_at.get_or_insert(cur_animation_tick);
+
+                let cur_example = (cur_animation_tick - *started_at).min(rule.examples.len() - 1);
+                for row in rule.examples[cur_example].textures.iter() {
+                    ui.horizontal(|ui| {
+                        for slot in row.iter() {
+                            let (rect, _) =
+                                ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
+                            if let Some(structures) = slot.structures {
+                                render_texs_clockwise(
+                                    structures.to_vec(),
+                                    rect,
+                                    &self.map_texture,
+                                    ui,
+                                );
+                            }
+                            for piece in &slot.pieces {
+                                match piece {
+                                    PieceLayer::Texture(texs, _) => {
+                                        render_texs_clockwise(
+                                            texs.to_vec(),
+                                            rect,
+                                            &self.map_texture,
+                                            ui,
+                                        );
+                                    }
+                                    PieceLayer::Character(char, color, is_flipped, y_offset) => {
+                                        let mut glyph = glypher.paint(*char, 16);
+
+                                        if *is_flipped {
+                                            glyph.flip_y();
                                         }
-                                        PieceLayer::Character(
-                                            char,
-                                            color,
-                                            is_flipped,
-                                            y_offset,
-                                        ) => {
-                                            let mut glyph = glypher.paint(*char, 16);
 
-                                            if *is_flipped {
-                                                glyph.flip_y();
-                                            }
+                                        let offset = [
+                                            (32 - glyph.width()) / 2,
+                                            ((32 - glyph.height()) / 2)
+                                                .saturating_add_signed(*y_offset),
+                                        ];
 
-                                            let offset = [
-                                                (32 - glyph.width()) / 2,
-                                                ((32 - glyph.height()) / 2)
-                                                    .saturating_add_signed(*y_offset),
-                                            ];
+                                        glyph.recolor(color);
 
-                                            glyph.recolor(color);
-
-                                            // let texture =
-                                            // target.hard_overlay(&glyph, offset);
-                                        }
+                                        // let texture =
+                                        // target.hard_overlay(&glyph, offset);
                                     }
                                 }
                             }
-                        });
-                    }
+                        }
+                    });
                 }
                 ui.heading(&rule.description);
                 ui.add_space(48.0);
