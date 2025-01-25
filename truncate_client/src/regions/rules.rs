@@ -24,7 +24,7 @@ use crate::{
         text::TextHelper,
         timing::get_qs_tick,
         urls::back_to_menu,
-        Theme,
+        Lighten, Theme,
     },
 };
 
@@ -47,7 +47,7 @@ pub struct ParsedRuleCardSection {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParsedRuleCardExample {
-    textures: Vec<TexLayers>,
+    textures: Vec<Vec<TexLayers>>,
 }
 
 fn parse_rule_card(rules: RuleCard) -> ParsedRuleCard {
@@ -105,50 +105,66 @@ impl RulesState {
     pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
         let glypher = GLYPHER.get().expect("Glypher should have been initialized");
 
-        for rule in &self.rules.sections {
-            ui.label(&rule.title);
-            for example in &rule.examples {
-                ui.horizontal(|ui| {
-                    for slot in example.textures.iter() {
-                        let (rect, _) = ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
-                        if let Some(structures) = slot.structures {
-                            render_texs_clockwise(structures.to_vec(), rect, &self.map_texture, ui);
-                        }
-                        for piece in &slot.pieces {
-                            match piece {
-                                PieceLayer::Texture(texs, _) => {
+        egui::ScrollArea::new([false, true]).show(ui, |ui| {
+            for rule in &self.rules.sections {
+                ui.heading(&rule.title);
+                for example in &rule.examples {
+                    for row in example.textures.iter() {
+                        ui.horizontal(|ui| {
+                            for slot in row.iter() {
+                                let (rect, _) =
+                                    ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
+                                if let Some(structures) = slot.structures {
                                     render_texs_clockwise(
-                                        texs.to_vec(),
+                                        structures.to_vec(),
                                         rect,
                                         &self.map_texture,
                                         ui,
                                     );
                                 }
-                                PieceLayer::Character(char, color, is_flipped, y_offset) => {
-                                    let mut glyph = glypher.paint(*char, 16);
+                                for piece in &slot.pieces {
+                                    match piece {
+                                        PieceLayer::Texture(texs, _) => {
+                                            render_texs_clockwise(
+                                                texs.to_vec(),
+                                                rect,
+                                                &self.map_texture,
+                                                ui,
+                                            );
+                                        }
+                                        PieceLayer::Character(
+                                            char,
+                                            color,
+                                            is_flipped,
+                                            y_offset,
+                                        ) => {
+                                            let mut glyph = glypher.paint(*char, 16);
 
-                                    if *is_flipped {
-                                        glyph.flip_y();
+                                            if *is_flipped {
+                                                glyph.flip_y();
+                                            }
+
+                                            let offset = [
+                                                (32 - glyph.width()) / 2,
+                                                ((32 - glyph.height()) / 2)
+                                                    .saturating_add_signed(*y_offset),
+                                            ];
+
+                                            glyph.recolor(color);
+
+                                            // let texture =
+                                            // target.hard_overlay(&glyph, offset);
+                                        }
                                     }
-
-                                    let offset = [
-                                        (32 - glyph.width()) / 2,
-                                        ((32 - glyph.height()) / 2)
-                                            .saturating_add_signed(*y_offset),
-                                    ];
-
-                                    glyph.recolor(color);
-
-                                    // let texture =
-                                    // target.hard_overlay(&glyph, offset);
                                 }
                             }
-                        }
+                        });
                     }
-                });
+                }
+                ui.heading(&rule.description);
+                ui.add_space(48.0);
             }
-            ui.label(&rule.description);
-        }
+        });
 
         let text = TextHelper::heavy("rules :-)", 12.0, None, ui);
         text.paint_within(
@@ -162,62 +178,66 @@ impl RulesState {
 
 fn parse_rule_example(example: String) -> ParsedRuleCardExample {
     let textures = example
-        .split_whitespace()
-        .enumerate()
-        .map(|(i, square)| match square {
-            "~" => TexLayers::default(),
-            "$0" | "$1" => {
-                let color = if square == "$0" {
-                    RULE_PLAYER_COLORS[0]
-                } else {
-                    RULE_PLAYER_COLORS[1]
-                };
+        .split('\n')
+        .map(|row| {
+            row.split_whitespace()
+                .enumerate()
+                .map(|(i, square)| match square {
+                    "~" => TexLayers::default(),
+                    "$0" | "$1" => {
+                        let color = if square == "$0" {
+                            RULE_PLAYER_COLORS[0]
+                        } else {
+                            RULE_PLAYER_COLORS[1]
+                        };
 
-                Tex::artifact(color, vec![BGTexType::Land; 4], 0)
-            }
-            "+0" | "+1" => {
-                let color = if square == "+0" {
-                    RULE_PLAYER_COLORS[0]
-                } else {
-                    RULE_PLAYER_COLORS[1]
-                };
-
-                Tex::town(color, i, 0, 0)
-            }
-            c => {
-                let mut chars = c.chars();
-                let tile = chars.next().unwrap();
-                let modifier = chars.next();
-                let player = if tile.is_uppercase() { 1 } else { 0 };
-                let mut color = RULE_PLAYER_COLORS[player];
-                let orientation = if player == 0 {
-                    Direction::South
-                } else {
-                    Direction::North
-                };
-                let mut variant = MappedTileVariant::Healthy;
-                let mut highlight = None;
-
-                match modifier {
-                    Some('*') => {
-                        variant = MappedTileVariant::Dead;
-                        color = Color32::GRAY;
+                        Tex::artifact(color, vec![BGTexType::Land; 4], 0)
                     }
-                    Some('^') => highlight = Some(Color32::GREEN),
-                    Some(c) => panic!("Unknown modifier {c}"),
-                    None => {}
-                }
+                    "+0" | "+1" => {
+                        let color = if square == "+0" {
+                            RULE_PLAYER_COLORS[0]
+                        } else {
+                            RULE_PLAYER_COLORS[1]
+                        };
 
-                Tex::board_game_tile(
-                    variant,
-                    tile.to_ascii_uppercase(),
-                    orientation,
-                    Some(color),
-                    highlight,
-                    TileDecoration::None,
-                    i,
-                )
-            }
+                        Tex::town(color, i, 0, 0)
+                    }
+                    c => {
+                        let mut chars = c.chars();
+                        let tile = chars.next().unwrap();
+                        let modifier = chars.next();
+                        let player = if tile.is_uppercase() { 1 } else { 0 };
+                        let mut color = RULE_PLAYER_COLORS[player];
+                        let orientation = if player == 0 {
+                            Direction::North
+                        } else {
+                            Direction::South
+                        };
+                        let mut variant = MappedTileVariant::Healthy;
+                        let mut highlight = None;
+
+                        match modifier {
+                            Some('*') => {
+                                variant = MappedTileVariant::Dead;
+                                color = Color32::GRAY;
+                            }
+                            Some('^') => highlight = Some(Color32::GREEN),
+                            Some(c) => panic!("Unknown modifier {c}"),
+                            None => {}
+                        }
+
+                        Tex::board_game_tile(
+                            variant,
+                            tile.to_ascii_uppercase(),
+                            orientation,
+                            Some(color.lighten()),
+                            highlight,
+                            TileDecoration::None,
+                            i,
+                        )
+                    }
+                })
+                .collect()
         })
         .collect();
 
@@ -230,31 +250,36 @@ pub mod tests {
 
     #[test]
     fn parse() {
-        let example = "W  O*  R^  $0 $1  ~  +0 +1 r^  o*  w".to_string();
+        let example =
+            "~  w  ~  ~  ~  ~  ~  ~  ~  ~  ~\nW  O*  R^  $0 $1  ~  +0 +1 r^  o*  w".to_string();
         let parsed = parse_rule_example(example);
 
         assert!(matches!(
-            parsed.textures[0].pieces[1],
+            parsed.textures[0][1].pieces[1],
+            PieceLayer::Character('W', _, true, _),
+        ));
+        assert!(matches!(
+            parsed.textures[1][0].pieces[1],
             PieceLayer::Character('W', _, false, _),
         ));
         assert!(matches!(
-            parsed.textures[1].pieces[1],
+            parsed.textures[1][1].pieces[1],
             PieceLayer::Character('O', _, false, _),
         ));
         assert!(matches!(
-            parsed.textures[2].pieces[1],
+            parsed.textures[1][2].pieces[1],
             PieceLayer::Character('R', _, false, _),
         ));
         assert!(matches!(
-            parsed.textures[3].structures,
+            parsed.textures[1][3].structures,
             Some(tex::tiles::quad::ARTIFACT),
         ));
         assert!(matches!(
-            parsed.textures[4].structures,
+            parsed.textures[1][4].structures,
             Some(tex::tiles::quad::ARTIFACT),
         ));
-        assert!(matches!(parsed.textures[5].terrain, None,));
-        assert!(parsed.textures[6]
+        assert!(matches!(parsed.textures[1][5].terrain, None,));
+        assert!(parsed.textures[1][6]
             .structures
             .is_some_and(|texs| texs.iter().any(|t| matches!(
                 t,
@@ -263,7 +288,7 @@ pub mod tests {
                     | &tex::tiles::HOUSE_2
                     | &tex::tiles::HOUSE_3
             ))));
-        assert!(parsed.textures[7]
+        assert!(parsed.textures[1][7]
             .structures
             .is_some_and(|texs| texs.iter().any(|t| matches!(
                 t,
@@ -273,15 +298,15 @@ pub mod tests {
                     | &tex::tiles::HOUSE_3
             ))));
         assert!(matches!(
-            parsed.textures[8].pieces[1],
+            parsed.textures[1][8].pieces[1],
             PieceLayer::Character('R', _, true, _),
         ));
         assert!(matches!(
-            parsed.textures[9].pieces[1],
+            parsed.textures[1][9].pieces[1],
             PieceLayer::Character('O', _, true, _),
         ));
         assert!(matches!(
-            parsed.textures[10].pieces[1],
+            parsed.textures[1][10].pieces[1],
             PieceLayer::Character('W', _, true, _),
         ));
     }
