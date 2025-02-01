@@ -1,7 +1,7 @@
 use std::fmt::Alignment;
 
 use eframe::egui::{self, Align2, Sense};
-use epaint::{vec2, Color32, TextureHandle};
+use epaint::{hex_color, vec2, Color32, TextureHandle};
 use instant::Duration;
 use truncate_core::{
     board::Direction,
@@ -108,21 +108,52 @@ impl RulesState {
         let glypher = GLYPHER.get().expect("Glypher should have been initialized");
         let cur_animation_tick = get_qs_tick(current_time) as usize;
 
+        let bg = ui.available_rect_before_wrap();
+        ui.painter().rect_filled(bg, 0.0, hex_color!("#c8ecff"));
+
+        let heading_size = if bg.width() > 700.0 { 24.0 } else { 18.0 };
+        let text_size = if bg.width() > 700.0 { 32.0 } else { 24.0 };
+        let sprite_size = if bg.width() > 700.0 { 48.0 } else { 32.0 };
+
+        ui.spacing_mut().item_spacing.x = 0.0;
+
         egui::ScrollArea::new([false, true]).show(ui, |ui| {
+            ui.expand_to_include_x(ui.available_rect_before_wrap().right());
+
+            ui.add_space(bg.height() * 0.2);
+
             for rule in &mut self.rules.sections {
-                ui.heading(&rule.title);
-                if ui.button("replay").clicked() {
-                    rule.started_animation_at = None;
-                }
+                let t = TextHelper::heavy_centered(
+                    &rule.title,
+                    heading_size,
+                    Some((ui.available_width() - 16.0).max(0.0)),
+                    ui,
+                );
+
+                let (heading_rect, _) = ui.allocate_at_least(
+                    vec2(ui.available_width(), t.mesh_size().y * 2.0),
+                    Sense::hover(),
+                );
+                t.paint_within(heading_rect, Align2::CENTER_CENTER, theme.text, ui);
+
+                // if ui.button("replay").clicked() {
+                //     rule.started_animation_at = None;
+                // }
 
                 let started_at = rule.started_animation_at.get_or_insert(cur_animation_tick);
 
                 let cur_example = (cur_animation_tick - *started_at).min(rule.examples.len() - 1);
                 for row in rule.examples[cur_example].textures.iter() {
                     ui.horizontal(|ui| {
+                        let row_width = row.len() as f32 * sprite_size;
+                        let buffer = (ui.available_width() - row_width) / 2.0;
+                        ui.add_space(buffer);
+
                         for slot in row.iter() {
-                            let (rect, _) =
-                                ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
+                            let (rect, _) = ui.allocate_exact_size(
+                                vec2(sprite_size, sprite_size),
+                                Sense::hover(),
+                            );
                             if let Some(structures) = slot.structures {
                                 render_texs_clockwise(
                                     structures.to_vec(),
@@ -142,30 +173,28 @@ impl RulesState {
                                         );
                                     }
                                     PieceLayer::Character(char, color, is_flipped, y_offset) => {
-                                        let mut glyph = glypher.paint(*char, 16);
-
-                                        if *is_flipped {
-                                            glyph.flip_y();
-                                        }
-
-                                        let offset = [
-                                            (32 - glyph.width()) / 2,
-                                            ((32 - glyph.height()) / 2)
-                                                .saturating_add_signed(*y_offset),
-                                        ];
-
-                                        glyph.recolor(color);
-
-                                        // let texture =
-                                        // target.hard_overlay(&glyph, offset);
+                                        assert!(false);
                                     }
                                 }
                             }
                         }
                     });
                 }
-                ui.heading(&rule.description);
-                ui.add_space(48.0);
+
+                let description = TextHelper::light_centered(
+                    &rule.description,
+                    text_size,
+                    Some((ui.available_width() - 16.0).max(0.0)),
+                    ui,
+                );
+                let final_size = description.mesh_size();
+                let (text_area, _) = ui.allocate_at_least(
+                    vec2(ui.available_width(), final_size.y + text_size * 2.0),
+                    Sense::hover(),
+                );
+                description.paint_within(text_area, Align2::CENTER_CENTER, theme.text, ui);
+
+                ui.add_space(heading_size * 5.0);
             }
         });
 
