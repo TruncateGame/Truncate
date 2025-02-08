@@ -19,6 +19,12 @@ pub struct Tex {
     tint: Option<Color32>,
 }
 
+impl Tex {
+    pub fn current_tint(&self) -> Option<Color32> {
+        self.tint
+    }
+}
+
 pub type TexQuad = [Tex; 4];
 pub type IsFlipped = bool;
 pub type YOffset = isize;

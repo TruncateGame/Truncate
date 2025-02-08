@@ -1,7 +1,7 @@
 use std::fmt::Alignment;
 
 use eframe::egui::{self, Align2, Sense};
-use epaint::{hex_color, vec2, Color32, TextureHandle};
+use epaint::{hex_color, vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
     board::Direction,
@@ -19,12 +19,12 @@ use crate::{
         mapper::{ImageMusher, MappedBoard, MappedTileVariant},
         tex::{
             self, render_texs_clockwise, BGTexType, PieceLayer, Tex, TexLayers, TexQuad,
-            TileDecoration,
+            TileDecoration, Tint,
         },
         text::TextHelper,
         timing::get_qs_tick,
         urls::back_to_menu,
-        Lighten, Theme,
+        Diaphanize, Lighten, Theme,
     },
 };
 
@@ -76,6 +76,7 @@ pub struct RulesState {
     theme: Theme,
     aesthetics: AestheticDepot,
     rules: ParsedRuleCard,
+    active_rule: usize,
 }
 
 impl RulesState {
@@ -101,6 +102,7 @@ impl RulesState {
             theme,
             aesthetics,
             rules: parsed_rules,
+            active_rule: 0,
         }
     }
 
@@ -116,70 +118,117 @@ impl RulesState {
         let sprite_size = if bg.width() > 700.0 { 48.0 } else { 32.0 };
 
         ui.spacing_mut().item_spacing.x = 0.0;
+        let screen_height = ui.available_height();
+        let screen_width = ui.available_width();
+        let rulebox = (screen_height / 2.0).max(310.0);
+        let text_padding = 20.0;
 
         egui::ScrollArea::new([false, true]).show(ui, |ui| {
             ui.expand_to_include_x(ui.available_rect_before_wrap().right());
 
-            ui.add_space(bg.height() * 0.2);
+            let scroll_pos = ui.next_widget_position().y * -1.0;
+            let ideal_active_rule = ((scroll_pos + (rulebox / 2.0)) / rulebox) as usize;
 
-            for rule in &mut self.rules.sections {
+            if self.active_rule != ideal_active_rule {
+                let backlash = (scroll_pos + (rulebox / 2.0)) % rulebox;
+
+                if backlash > 50.0 && backlash < (rulebox - 50.0) {
+                    self.active_rule = ideal_active_rule;
+                }
+            }
+
+            ui.add_space(rulebox / 2.0);
+
+            for (rulenum, rule) in self.rules.sections.iter_mut().enumerate() {
+                let is_active = self.active_rule == rulenum;
+                let texture_gamma = if is_active { 1.0 } else { 0.2 };
+                let animated_gamma =
+                    ui.ctx()
+                        .animate_value_with_time(ui.id().with(rulenum), texture_gamma, 0.3);
+                if animated_gamma != texture_gamma {
+                    ui.ctx().request_repaint_after(Duration::from_millis(16));
+                }
+
+                let text_color = theme.text.gamma_multiply(animated_gamma);
+
+                let (rule_rect, _) =
+                    ui.allocate_exact_size(vec2(ui.available_width(), rulebox), Sense::hover());
+
+                let started_at = rule.started_animation_at.get_or_insert(cur_animation_tick);
+
+                let cur_example =
+                    &rule.examples[(cur_animation_tick - *started_at).min(rule.examples.len() - 1)];
+                let example_height = (cur_example.textures.len() as f32 * sprite_size);
+                let mut example_corner = rule_rect.left_center();
+                example_corner.y -= example_height / 2.0;
+
+                for (rownum, row) in cur_example.textures.iter().enumerate() {
+                    let row_width = row.len() as f32 * sprite_size;
+                    let left_buffer = (ui.available_width() - row_width) / 2.0;
+                    let top_buffer = rownum as f32 * sprite_size;
+
+                    for (colnum, slot) in row.iter().enumerate() {
+                        let rect = Rect::from_min_size(
+                            Pos2::new(
+                                example_corner.x + left_buffer + colnum as f32 * sprite_size,
+                                example_corner.y + top_buffer,
+                            ),
+                            Vec2::splat(sprite_size),
+                        );
+
+                        if let Some(structures) = slot.structures {
+                            let structures = structures
+                                .iter()
+                                .map(|s| {
+                                    s.tint(
+                                        s.current_tint()
+                                            .unwrap_or(Color32::WHITE)
+                                            .gamma_multiply(animated_gamma),
+                                    )
+                                })
+                                .collect();
+                            render_texs_clockwise(structures, rect, &self.map_texture, ui);
+                        }
+                        for piece in &slot.pieces {
+                            match piece {
+                                PieceLayer::Texture(texs, _) => {
+                                    let texs = texs
+                                        .iter()
+                                        .map(|t| {
+                                            t.tint(
+                                                t.current_tint()
+                                                    .unwrap_or(Color32::WHITE)
+                                                    .gamma_multiply(animated_gamma),
+                                            )
+                                        })
+                                        .collect();
+
+                                    render_texs_clockwise(texs, rect, &self.map_texture, ui);
+                                }
+                                PieceLayer::Character(char, color, is_flipped, y_offset) => {
+                                    assert!(false);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 let t = TextHelper::heavy_centered(
                     &rule.title,
                     heading_size,
                     Some((ui.available_width() - 16.0).max(0.0)),
                     ui,
                 );
-
-                let (heading_rect, _) = ui.allocate_at_least(
-                    vec2(ui.available_width(), t.mesh_size().y * 2.0),
-                    Sense::hover(),
+                let heading_height = t.mesh_size().y;
+                let heading_rect = Rect::from_min_size(
+                    Pos2::new(
+                        example_corner.x,
+                        example_corner.y - text_padding - heading_height,
+                    ),
+                    vec2(screen_width, heading_height),
                 );
-                t.paint_within(heading_rect, Align2::CENTER_CENTER, theme.text, ui);
 
-                // if ui.button("replay").clicked() {
-                //     rule.started_animation_at = None;
-                // }
-
-                let started_at = rule.started_animation_at.get_or_insert(cur_animation_tick);
-
-                let cur_example = (cur_animation_tick - *started_at).min(rule.examples.len() - 1);
-                for row in rule.examples[cur_example].textures.iter() {
-                    ui.horizontal(|ui| {
-                        let row_width = row.len() as f32 * sprite_size;
-                        let buffer = (ui.available_width() - row_width) / 2.0;
-                        ui.add_space(buffer);
-
-                        for slot in row.iter() {
-                            let (rect, _) = ui.allocate_exact_size(
-                                vec2(sprite_size, sprite_size),
-                                Sense::hover(),
-                            );
-                            if let Some(structures) = slot.structures {
-                                render_texs_clockwise(
-                                    structures.to_vec(),
-                                    rect,
-                                    &self.map_texture,
-                                    ui,
-                                );
-                            }
-                            for piece in &slot.pieces {
-                                match piece {
-                                    PieceLayer::Texture(texs, _) => {
-                                        render_texs_clockwise(
-                                            texs.to_vec(),
-                                            rect,
-                                            &self.map_texture,
-                                            ui,
-                                        );
-                                    }
-                                    PieceLayer::Character(char, color, is_flipped, y_offset) => {
-                                        assert!(false);
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
+                t.paint_within(heading_rect, Align2::CENTER_CENTER, text_color, ui);
 
                 let description = TextHelper::light_centered(
                     &rule.description,
@@ -187,15 +236,29 @@ impl RulesState {
                     Some((ui.available_width() - 16.0).max(0.0)),
                     ui,
                 );
-                let final_size = description.mesh_size();
-                let (text_area, _) = ui.allocate_at_least(
-                    vec2(ui.available_width(), final_size.y + text_size * 2.0),
-                    Sense::hover(),
+                let text_height = description.mesh_size().y;
+                let text_area = Rect::from_min_size(
+                    Pos2::new(
+                        example_corner.x,
+                        example_corner.y + example_height + text_padding,
+                    ),
+                    vec2(screen_width, text_height),
                 );
-                description.paint_within(text_area, Align2::CENTER_CENTER, theme.text, ui);
 
-                ui.add_space(heading_size * 5.0);
+                description.paint_within(text_area, Align2::CENTER_CENTER, text_color, ui);
+
+                // let obscured =
+                //     rule_top.y > screen_height * 0.6 || rule_bottom.y < screen_height * 0.4;
+
+                // if obscured {
+                //     let paint_over = Rect::from_two_pos(rule_top, rule_bottom);
+
+                //     ui.painter()
+                //         .rect_filled(paint_over, 0.0, hex_color!("#c8ecff").diaphanize());
+                // }
             }
+
+            ui.add_space(rulebox / 2.0);
         });
 
         let text = TextHelper::heavy("rules :-)", 12.0, None, ui);
