@@ -154,10 +154,14 @@ impl RulesState {
                 let (rule_rect, _) =
                     ui.allocate_exact_size(vec2(ui.available_width(), rulebox), Sense::hover());
 
-                let started_at = rule.started_animation_at.get_or_insert(cur_animation_tick);
+                let started_at = if is_active {
+                    *rule.started_animation_at.get_or_insert(cur_animation_tick)
+                } else {
+                    cur_animation_tick
+                };
 
                 let cur_example =
-                    &rule.examples[(cur_animation_tick - *started_at).min(rule.examples.len() - 1)];
+                    &rule.examples[(cur_animation_tick - started_at).min(rule.examples.len() - 1)];
                 let example_height = (cur_example.textures.len() as f32 * sprite_size);
                 let mut example_corner = rule_rect.left_center();
                 example_corner.y -= example_height / 2.0;
