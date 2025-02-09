@@ -29,11 +29,12 @@ sections:
       - W  O  R  D  ~  d  r  o  w
       - W  O  R  D  ~  d  r  o  w
       - W  O  R  D  Y^ d  r  o  w
-      - W  O  R  D  Y^ d  r  o  w
       - W  O  R  D  Y  d* r  o  w
       - W  O  R  D  Y  d* r* o  w
       - W  O  R  D  Y  d* r* o* w
       - W  O  R  D  Y  d* r* o* w*
+      - W  O  R  D  Y  d* r* o* w*
+      - W  O  R  D  Y  ~  ~  ~  ~
     description: |-
       Words battle when they touch, and long words beat short words.
       "WORDY" is longer than "WORD", so "WORD" is removed from the board.
@@ -43,13 +44,14 @@ sections:
       - B  E  ~  x  e  d  r  o  w
       - B  E  ~  x  e  d  r  o  w
       - B  E  T^ x  e  d  r  o  w
-      - B  E  T^ x  e  d  r  o  w
       - B  E  T  x* e  d  r  o  w
       - B  E  T  x* e* d  r  o  w
       - B  E  T  x* e* d* r  o  w
       - B  E  T  x* e* d* r* o  w
       - B  E  T  x* e* d* r* o* w
       - B  E  T  x* e* d* r* o* w*
+      - B  E  T  x* e* d* r* o* w*
+      - B  E  T  ~  ~  ~  ~  ~  ~
     description: |-
       Valid words beat invalid words, regardless of length.
   - title: Artifacts
@@ -203,10 +205,6 @@ sections:
         $1 ~  ~  ~  ~  a  r  e $0
         ~  e  g  n  a  r  ~  ~  ~
       - |-
-        W  O  R  D  Y^ d  ~  ~  ~
-        $1 ~  ~  ~  ~  a  r  e $0
-        ~  e  g  n  a  r  ~  ~  ~
-      - |-
         W  O  R  D  Y  d* ~  ~  ~
         $1 ~  ~  ~  ~  a  r  e $0
         ~  e  g  n  a  r  ~  ~  ~
@@ -223,25 +221,37 @@ sections:
         $1 ~  ~  ~  ~  a* r  e $0
         ~  e  g  n  a  r* ~  ~  ~
       - |-
-        W  O  R  D  Y  d* ~  ~  ~
-        $1 ~  ~  ~  ~  a* r  e $0
-        ~  e  g  n  a  r* ~  ~  ~
+        W  O  R  D  Y  ~  ~  ~  ~
+        $1 ~  ~  ~  ~  ~  r  e $0
+        ~  e  g  n  a  ~  ~  ~  ~
       - |-
-        W  O  R  D  Y  d* ~  ~  ~
-        $1 ~  ~  ~  ~  a* r  e $0
-        ~  e  g  n  a* r* ~  ~  ~
+        W  O  R  D  Y  ~  ~  ~  ~
+        $1 ~  ~  ~  ~  ~  r  e $0
+        ~  e  g  n  a  ~  ~  ~  ~
       - |-
-        W  O  R  D  Y  d* ~  ~  ~
-        $1 ~  ~  ~  ~  a* r  e $0
-        ~  e  g  n* a* r* ~  ~  ~
+        W  O  R  D  Y  ~  ~  ~  ~
+        $1 ~  ~  ~  ~  ~  r  e $0
+        ~  e  g  n  a* ~  ~  ~  ~
       - |-
-        W  O  R  D  Y  d* ~  ~  ~
-        $1 ~  ~  ~  ~  a* r  e $0
-        ~  e  g* n* a* r* ~  ~  ~
+        W  O  R  D  Y  ~  ~  ~  ~
+        $1 ~  ~  ~  ~  ~  r  e $0
+        ~  e  g  n* a* ~  ~  ~  ~
       - |-
-        W  O  R  D  Y  d* ~  ~  ~
-        $1 ~  ~  ~  ~  a* r  e $0
-        ~  e* g* n* a* r* ~  ~  ~
+        W  O  R  D  Y  ~  ~  ~  ~
+        $1 ~  ~  ~  ~  ~  r  e $0
+        ~  e  g* n* a* ~  ~  ~  ~
+      - |-
+        W  O  R  D  Y  ~  ~  ~  ~
+        $1 ~  ~  ~  ~  ~  r  e $0
+        ~  e* g* n* a* ~  ~  ~  ~
+      - |-
+        W  O  R  D  Y  ~  ~  ~  ~
+        $1 ~  ~  ~  ~  ~  r  e $0
+        ~  e* g* n* a* ~  ~  ~  ~
+      - |-
+        W  O  R  D  Y  ~  ~  ~  ~
+        $1 ~  ~  ~  ~  ~  r  e $0
+        ~  ~  ~  ~  ~  ~  ~  ~  ~
     description: |-
       When your letters become disconnected from your Artifact,
       they are Truncated and removed from the board.
