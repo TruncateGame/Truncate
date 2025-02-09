@@ -43,6 +43,7 @@ pub struct ParsedRuleCardSection {
     title: String,
     examples: Vec<ParsedRuleCardExample>,
     started_animation_at: Option<usize>,
+    ended_animation_at: Option<usize>,
     description: String,
 }
 
@@ -64,6 +65,7 @@ fn parse_rule_card(rules: RuleCard) -> ParsedRuleCard {
                     .map(parse_rule_example)
                     .collect(),
                 started_animation_at: None,
+                ended_animation_at: None,
                 description: section.description,
             })
             .collect(),
@@ -154,14 +156,45 @@ impl RulesState {
                 let (rule_rect, _) =
                     ui.allocate_exact_size(vec2(ui.available_width(), rulebox), Sense::hover());
 
-                let started_at = if is_active {
-                    *rule.started_animation_at.get_or_insert(cur_animation_tick)
-                } else {
-                    cur_animation_tick
-                };
+                let started_at = rule.started_animation_at.unwrap_or(cur_animation_tick);
+                if is_active && rule.started_animation_at.is_none() {
+                    rule.started_animation_at = Some(started_at);
+                }
 
-                let cur_example =
-                    &rule.examples[(cur_animation_tick - started_at).min(rule.examples.len() - 1)];
+                let final_stage = rule.examples.len() - 1;
+                let current_stage =
+                    (cur_animation_tick.saturating_sub(started_at)).min(final_stage);
+
+                if current_stage == final_stage && rule.ended_animation_at.is_none() {
+                    rule.ended_animation_at = Some(cur_animation_tick);
+                }
+
+                let ended_ago = rule
+                    .ended_animation_at
+                    .map(|e| cur_animation_tick.saturating_sub(e))
+                    .unwrap_or_default();
+
+                let target_retrigger_gamma = if ended_ago > 6 { 0.0 } else { 1.0 };
+                let retrigger_gamma = ui.ctx().animate_value_with_time(
+                    ui.id().with(rulenum).with("retrigger"),
+                    target_retrigger_gamma,
+                    0.3,
+                );
+                if retrigger_gamma != target_retrigger_gamma {
+                    ui.ctx().request_repaint_after(Duration::from_millis(16));
+                }
+                let blended_gamma = animated_gamma * retrigger_gamma;
+
+                if ended_ago > 9 {
+                    rule.started_animation_at = if is_active {
+                        Some(cur_animation_tick + 2)
+                    } else {
+                        None
+                    };
+                    rule.ended_animation_at = None;
+                }
+
+                let cur_example = &rule.examples[current_stage];
                 let example_height = (cur_example.textures.len() as f32 * sprite_size);
                 let mut example_corner = rule_rect.left_center();
                 example_corner.y -= example_height / 2.0;
@@ -187,7 +220,7 @@ impl RulesState {
                                     s.tint(
                                         s.current_tint()
                                             .unwrap_or(Color32::WHITE)
-                                            .gamma_multiply(animated_gamma),
+                                            .gamma_multiply(blended_gamma),
                                     )
                                 })
                                 .collect();
@@ -202,7 +235,7 @@ impl RulesState {
                                             t.tint(
                                                 t.current_tint()
                                                     .unwrap_or(Color32::WHITE)
-                                                    .gamma_multiply(animated_gamma),
+                                                    .gamma_multiply(blended_gamma),
                                             )
                                         })
                                         .collect();
@@ -250,16 +283,6 @@ impl RulesState {
                 );
 
                 description.paint_within(text_area, Align2::CENTER_CENTER, text_color, ui);
-
-                // let obscured =
-                //     rule_top.y > screen_height * 0.6 || rule_bottom.y < screen_height * 0.4;
-
-                // if obscured {
-                //     let paint_over = Rect::from_two_pos(rule_top, rule_bottom);
-
-                //     ui.painter()
-                //         .rect_filled(paint_over, 0.0, hex_color!("#c8ecff").diaphanize());
-                // }
             }
 
             ui.add_space(rulebox / 2.0);
