@@ -1,6 +1,6 @@
 use std::fmt::Alignment;
 
-use eframe::egui::{self, Align2, Sense};
+use eframe::egui::{self, Align2, Layout, Sense};
 use epaint::{hex_color, vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
 use instant::Duration;
 use truncate_core::{
@@ -11,7 +11,7 @@ use truncate_core::{
 };
 
 use crate::{
-    app_outer::{Backchannel, GLYPHER},
+    app_outer::{Backchannel, EventDispatcher, GLYPHER},
     utils::{
         depot::{AestheticDepot, GameplayDepot, TimingDepot},
         game_evals::get_main_dict,
@@ -44,6 +44,7 @@ pub struct ParsedRuleCardSection {
     examples: Vec<ParsedRuleCardExample>,
     started_animation_at: Option<usize>,
     ended_animation_at: Option<usize>,
+    seen: bool,
     description: String,
 }
 
@@ -52,7 +53,7 @@ pub struct ParsedRuleCardExample {
     textures: Vec<Vec<TexLayers>>,
 }
 
-fn parse_rule_card(rules: RuleCard) -> ParsedRuleCard {
+fn parse_rule_card(rules: RuleCard, theme: &Theme) -> ParsedRuleCard {
     ParsedRuleCard {
         sections: rules
             .sections
@@ -62,10 +63,11 @@ fn parse_rule_card(rules: RuleCard) -> ParsedRuleCard {
                 examples: section
                     .examples
                     .into_iter()
-                    .map(parse_rule_example)
+                    .map(|r| parse_rule_example(r, theme))
                     .collect(),
                 started_animation_at: None,
                 ended_animation_at: None,
+                seen: false,
                 description: section.description,
             })
             .collect(),
@@ -75,10 +77,11 @@ fn parse_rule_card(rules: RuleCard) -> ParsedRuleCard {
 #[derive(Clone)]
 pub struct RulesState {
     map_texture: TextureHandle,
-    theme: Theme,
     aesthetics: AestheticDepot,
     rules: ParsedRuleCard,
     active_rule: usize,
+    finished: bool,
+    event_dispatcher: EventDispatcher,
 }
 
 impl RulesState {
@@ -87,9 +90,10 @@ impl RulesState {
         map_texture: TextureHandle,
         theme: Theme,
         rules: RuleCard,
+        mut event_dispatcher: EventDispatcher,
     ) -> Self {
         let aesthetics = AestheticDepot {
-            theme: Theme::day(),
+            theme,
             qs_tick: 0,
             map_texture: map_texture.clone(),
             player_colors: vec![Color32::from_rgb(255, 0, 0), Color32::from_rgb(0, 255, 0)],
@@ -97,14 +101,17 @@ impl RulesState {
             destruction_duration: 0.6,
         };
 
-        let parsed_rules = parse_rule_card(rules);
+        event_dispatcher.event(format!("tutorial_core_rules"));
+
+        let parsed_rules = parse_rule_card(rules, &aesthetics.theme);
 
         Self {
             map_texture,
-            theme,
             aesthetics,
             rules: parsed_rules,
             active_rule: 0,
+            finished: false,
+            event_dispatcher,
         }
     }
 
@@ -129,7 +136,7 @@ impl RulesState {
             ui.expand_to_include_x(ui.available_rect_before_wrap().right());
 
             let scroll_pos = ui.next_widget_position().y * -1.0;
-            let ideal_active_rule = ((scroll_pos + (rulebox / 2.0)) / rulebox) as usize;
+            let ideal_active_rule = ((scroll_pos + (rulebox / 2.0)) / rulebox).max(0.0) as usize;
 
             if self.active_rule != ideal_active_rule {
                 let backlash = (scroll_pos + (rulebox / 2.0)) % rulebox;
@@ -139,10 +146,26 @@ impl RulesState {
                 }
             }
 
-            ui.add_space(rulebox / 2.0);
+            let (top_rect, _) =
+                ui.allocate_exact_size(vec2(ui.available_width(), rulebox / 2.0), Sense::hover());
+
+            let t = TextHelper::heavy_centered(
+                "Truncate, abridged.",
+                heading_size,
+                Some((ui.available_width() - 16.0).max(0.0)),
+                ui,
+            );
+            t.paint_within(top_rect, Align2::CENTER_CENTER, theme.text, ui);
 
             for (rulenum, rule) in self.rules.sections.iter_mut().enumerate() {
                 let is_active = self.active_rule == rulenum;
+                if is_active {
+                    if !rule.seen {
+                        self.event_dispatcher
+                            .event(format!("tutorial_core_rules_seen_{}", rulenum));
+                        rule.seen = true;
+                    }
+                }
                 let texture_gamma = if is_active { 1.0 } else { 0.2 };
                 let animated_gamma =
                     ui.ctx()
@@ -256,7 +279,8 @@ impl RulesState {
                     Some((ui.available_width() - 16.0).max(0.0)),
                     ui,
                 );
-                let heading_height = t.mesh_size().y;
+                // Adding an extra smidge of height for visual centering
+                let heading_height = t.mesh_size().y + 5.0;
                 let heading_rect = Rect::from_min_size(
                     Pos2::new(
                         example_corner.x,
@@ -265,7 +289,7 @@ impl RulesState {
                     vec2(screen_width, heading_height),
                 );
 
-                t.paint_within(heading_rect, Align2::CENTER_CENTER, text_color, ui);
+                t.paint_within(heading_rect, Align2::CENTER_TOP, text_color, ui);
 
                 let description = TextHelper::light_centered(
                     &rule.description,
@@ -282,23 +306,78 @@ impl RulesState {
                     vec2(screen_width, text_height),
                 );
 
-                description.paint_within(text_area, Align2::CENTER_CENTER, text_color, ui);
+                description.paint_within(text_area, Align2::CENTER_TOP, text_color, ui);
+            }
+            ui.add_space(rulebox * 0.5);
+
+            let is_post_rules = self.active_rule >= self.rules.sections.len();
+
+            if is_post_rules && !self.finished {
+                self.event_dispatcher
+                    .event(format!("tutorial_core_rules_finished"));
+                self.finished = true;
             }
 
-            ui.add_space(rulebox / 2.0);
-        });
+            let end_gamma = if is_post_rules { 1.0 } else { 0.2 };
+            let animated_gamma =
+                ui.ctx()
+                    .animate_value_with_time(ui.id().with("post_rules"), end_gamma, 0.3);
+            if animated_gamma != end_gamma {
+                ui.ctx().request_repaint_after(Duration::from_millis(16));
+            }
+            let text_color = theme.text.gamma_multiply(animated_gamma);
 
-        let text = TextHelper::heavy("rules :-)", 12.0, None, ui);
-        text.paint_within(
-            ui.available_rect_before_wrap(),
-            Align2::CENTER_CENTER,
-            Color32::KHAKI,
-            ui,
-        );
+            let t = TextHelper::heavy_centered(
+                "Next steps",
+                heading_size,
+                Some((ui.available_width() - 16.0).max(0.0)),
+                ui,
+            );
+            let (heading_rect, _) =
+                ui.allocate_at_least(vec2(ui.available_width(), t.mesh_size().y), Sense::hover());
+            t.paint_within(heading_rect, Align2::CENTER_CENTER, text_color, ui);
+            ui.add_space(text_padding);
+
+            let desc = [
+                "That covers the core mechanics of Truncate.",
+                "If you want to learn more, you can explore the in-depth Tutorial,",
+                "or, you can jump straight into a game and learn as you play!",
+            ]
+            .join("\n");
+            let d = TextHelper::light_centered(
+                &desc,
+                heading_size,
+                Some((ui.available_width() - 16.0).max(0.0)),
+                ui,
+            );
+            let (desc_rect, _) =
+                ui.allocate_at_least(vec2(ui.available_width(), d.mesh_size().y), Sense::hover());
+            d.paint_within(desc_rect, Align2::CENTER_CENTER, text_color, ui);
+            ui.add_space(text_padding * 2.0);
+
+            let back_text = TextHelper::heavy("RETURN TO MENU", 14.0, None, ui);
+            if back_text
+                .centered_button(theme.water.lighten(), theme.text, &self.map_texture, ui)
+                .clicked()
+            {
+                back_to_menu();
+            }
+            ui.add_space(text_padding);
+
+            let tut_text = TextHelper::heavy("PLAY TUTORIAL", 14.0, None, ui);
+            if tut_text
+                .centered_button(theme.water.lighten(), theme.text, &self.map_texture, ui)
+                .clicked()
+            {
+                back_to_menu();
+            }
+
+            ui.add_space(rulebox * 0.5);
+        });
     }
 }
 
-fn parse_rule_example(example: String) -> ParsedRuleCardExample {
+fn parse_rule_example(example: String, theme: &Theme) -> ParsedRuleCardExample {
     let textures = example
         .split('\n')
         .map(|row| {
@@ -330,6 +409,7 @@ fn parse_rule_example(example: String) -> ParsedRuleCardExample {
                         let modifier = chars.next();
                         let player = if tile.is_uppercase() { 1 } else { 0 };
                         let mut color = RULE_PLAYER_COLORS[player];
+                        let mut text_color = None;
                         let orientation = if player == 0 {
                             Direction::North
                         } else {
@@ -343,7 +423,13 @@ fn parse_rule_example(example: String) -> ParsedRuleCardExample {
                                 variant = MappedTileVariant::Dead;
                                 color = Color32::GRAY;
                             }
-                            Some('^') => highlight = Some(Color32::GREEN),
+                            Some('-') => {
+                                variant = MappedTileVariant::Healthy;
+                                color = Color32::GRAY.gamma_multiply(0.3);
+                                text_color = Some(Color32::GRAY.gamma_multiply(0.6));
+                            }
+                            Some('^') => highlight = Some(theme.ring_added),
+                            Some('<') => highlight = Some(theme.ring_modified),
                             Some(c) => panic!("Unknown modifier {c}"),
                             None => {}
                         }
@@ -353,6 +439,7 @@ fn parse_rule_example(example: String) -> ParsedRuleCardExample {
                             tile.to_ascii_uppercase(),
                             orientation,
                             Some(color.lighten()),
+                            text_color,
                             highlight,
                             TileDecoration::None,
                             i,
@@ -372,9 +459,10 @@ pub mod tests {
 
     #[test]
     fn parse() {
+        let theme = Theme::day();
         let example =
             "~  w  ~  ~  ~  ~  ~  ~  ~  ~  ~\nW  O*  R^  $0 $1  ~  +0 +1 r^  o*  w".to_string();
-        let parsed = parse_rule_example(example);
+        let parsed = parse_rule_example(example, &theme);
 
         assert!(matches!(
             parsed.textures[0][1].pieces[1],

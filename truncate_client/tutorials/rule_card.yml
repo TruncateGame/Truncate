@@ -33,7 +33,7 @@ sections:
       - W  O  R  D  Y  d* r* o  w
       - W  O  R  D  Y  d* r* o* w
       - W  O  R  D  Y  d* r* o* w*
-      - W  O  R  D  Y  d* r* o* w*
+      - W  O  R  D  Y  d- r- o- w-
       - W  O  R  D  Y  ~  ~  ~  ~
     description: |-
       Words battle when they touch, and long words beat short words.
@@ -50,7 +50,7 @@ sections:
       - B  E  T  x* e* d* r* o  w
       - B  E  T  x* e* d* r* o* w
       - B  E  T  x* e* d* r* o* w*
-      - B  E  T  x* e* d* r* o* w*
+      - B  E  T  x- e- d- r- o- w-
       - B  E  T  ~  ~  ~  ~  ~  ~
     description: |-
       Valid words beat invalid words, regardless of length.
@@ -124,10 +124,10 @@ sections:
       - G  R  I  N  B^ ~
       - G  R  I  N  B^ ~
       - G  R  I  N  B^ ~
-      - B^ R  I  N  G^ ~
-      - B^ R  I  N  G^ ~
-      - B^ R  I  N  G^ ~
-      - B^ R  I  N  G^ ~
+      - B< R  I  N  G< ~
+      - B< R  I  N  G< ~
+      - B< R  I  N  G< ~
+      - B< R  I  N  G< ~
       - B  R  I  N  G  S^
       - B  R  I  N  G  S^
       - B  R  I  N  G  S
@@ -221,33 +221,45 @@ sections:
         $1 ~  ~  ~  ~  a* r  e $0
         ~  e  g  n  a  r* ~  ~  ~
       - |-
-        W  O  R  D  Y  ~  ~  ~  ~
-        $1 ~  ~  ~  ~  ~  r  e $0
-        ~  e  g  n  a  ~  ~  ~  ~
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a  r- ~  ~  ~
       - |-
-        W  O  R  D  Y  ~  ~  ~  ~
-        $1 ~  ~  ~  ~  ~  r  e $0
-        ~  e  g  n  a  ~  ~  ~  ~
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a  r- ~  ~  ~
       - |-
-        W  O  R  D  Y  ~  ~  ~  ~
-        $1 ~  ~  ~  ~  ~  r  e $0
-        ~  e  g  n  a* ~  ~  ~  ~
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a  r- ~  ~  ~
       - |-
-        W  O  R  D  Y  ~  ~  ~  ~
-        $1 ~  ~  ~  ~  ~  r  e $0
-        ~  e  g  n* a* ~  ~  ~  ~
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a  r- ~  ~  ~
       - |-
-        W  O  R  D  Y  ~  ~  ~  ~
-        $1 ~  ~  ~  ~  ~  r  e $0
-        ~  e  g* n* a* ~  ~  ~  ~
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a* r- ~  ~  ~
       - |-
-        W  O  R  D  Y  ~  ~  ~  ~
-        $1 ~  ~  ~  ~  ~  r  e $0
-        ~  e* g* n* a* ~  ~  ~  ~
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n* a* r- ~  ~  ~
       - |-
-        W  O  R  D  Y  ~  ~  ~  ~
-        $1 ~  ~  ~  ~  ~  r  e $0
-        ~  e* g* n* a* ~  ~  ~  ~
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g* n* a* r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e* g* n* a* r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e* g* n* a* r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e- g- n- a- r- ~  ~  ~
       - |-
         W  O  R  D  Y  ~  ~  ~  ~
         $1 ~  ~  ~  ~  ~  r  e $0

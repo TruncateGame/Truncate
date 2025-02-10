@@ -68,7 +68,10 @@ impl TexLayers {
     }
 
     fn with_piece_texture(mut self, quad: TexQuad, color: Option<Color32>) -> Self {
-        self.pieces.push(PieceLayer::Texture(quad, color));
+        // TODO: Pull this from the theme
+        let text_color = color.unwrap_or(hex_color!("#444444"));
+        let qq = quad.map(|q| q.tint(text_color));
+        self.pieces.push(PieceLayer::Texture(qq, Some(text_color)));
         self
     }
 
@@ -78,8 +81,11 @@ impl TexLayers {
         color: Option<Color32>,
         orientation: Direction,
     ) -> Self {
+        // TODO: Pull this from the theme
+        let text_color = color.unwrap_or(hex_color!("#444444"));
         let quad = get_letter_quad(char, orientation);
-        self.pieces.push(PieceLayer::Texture(quad, color));
+        let qq = quad.map(|q| q.tint(text_color));
+        self.pieces.push(PieceLayer::Texture(qq, Some(text_color)));
         self
     }
 
@@ -220,6 +226,7 @@ impl Tex {
         character: char,
         orientation: Direction,
         color: Option<Color32>,
+        text_color: Option<Color32>,
         highlight: Option<Color32>,
     ) -> TexLayers {
         let mut layers = TexLayers::default()
@@ -227,7 +234,7 @@ impl Tex {
                 tiles::quad::GAME_PIECE.tint(color.unwrap_or(Color32::WHITE)),
                 color,
             )
-            .with_piece_character(character, None, orientation);
+            .with_piece_character(character, text_color, orientation);
 
         if let Some(highlight) = highlight {
             layers =
@@ -242,11 +249,12 @@ impl Tex {
         character: char,
         orientation: Direction,
         color: Option<Color32>,
+        text_color: Option<Color32>,
         highlight: Option<Color32>,
         decoration: TileDecoration,
         seed: usize,
     ) -> TexLayers {
-        let mut layers = Tex::game_tile(character, orientation, color, highlight);
+        let mut layers = Tex::game_tile(character, orientation, color, text_color, highlight);
         if matches!(decoration, TileDecoration::Grass) {
             layers = layers.with_piece_texture(
                 [

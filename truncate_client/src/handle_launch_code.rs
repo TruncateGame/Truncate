@@ -53,6 +53,7 @@ pub fn handle_launch_code(
                 outer.map_texture.clone(),
                 outer.theme.clone(),
                 rule_card(),
+                outer.event_dispatcher.clone(),
             )));
         }
         "SINGLE_PLAYER" => {
