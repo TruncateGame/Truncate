@@ -68,10 +68,7 @@ impl TexLayers {
     }
 
     fn with_piece_texture(mut self, quad: TexQuad, color: Option<Color32>) -> Self {
-        // TODO: Pull this from the theme
-        let text_color = color.unwrap_or(hex_color!("#444444"));
-        let qq = quad.map(|q| q.tint(text_color));
-        self.pieces.push(PieceLayer::Texture(qq, Some(text_color)));
+        self.pieces.push(PieceLayer::Texture(quad, color));
         self
     }
 
