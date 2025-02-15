@@ -1,4 +1,4 @@
-use std::fmt::Alignment;
+use std::{fmt::Alignment, ops::Sub};
 
 use eframe::egui::{self, Align2, Layout, Sense};
 use epaint::{hex_color, vec2, Color32, Pos2, Rect, TextureHandle, Vec2};
@@ -32,6 +32,11 @@ pub const RULE_PLAYER_COLORS: [Color32; 2] = [
     Color32::from_rgb(GAME_COLORS[1].0, GAME_COLORS[1].1, GAME_COLORS[1].2),
     Color32::from_rgb(GAME_COLORS[0].0, GAME_COLORS[0].1, GAME_COLORS[0].2),
 ];
+
+pub enum RuleCardAction {
+    DailyPuzzle,
+    Tutorial,
+}
 
 #[derive(Debug, Clone)]
 pub struct ParsedRuleCard {
@@ -81,6 +86,7 @@ pub struct RulesState {
     rules: ParsedRuleCard,
     active_rule: usize,
     finished: bool,
+    started_at: Option<Duration>,
     event_dispatcher: EventDispatcher,
 }
 
@@ -111,13 +117,25 @@ impl RulesState {
             rules: parsed_rules,
             active_rule: 0,
             finished: false,
+            started_at: None,
             event_dispatcher,
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, theme: &Theme, current_time: Duration) {
-        let glypher = GLYPHER.get().expect("Glypher should have been initialized");
+    #[must_use]
+    pub fn render(
+        &mut self,
+        ui: &mut egui::Ui,
+        theme: &Theme,
+        current_time: Duration,
+    ) -> Option<RuleCardAction> {
+        let mut action = None;
         let cur_animation_tick = get_qs_tick(current_time) as usize;
+        let page_started_at = self.started_at.get_or_insert(current_time).to_owned();
+        let mut time_on_page = (current_time - page_started_at)
+            .as_secs_f32()
+            .sub(0.2)
+            .max(0.0);
 
         let bg = ui.available_rect_before_wrap();
         ui.painter().rect_filled(bg, 0.0, hex_color!("#c8ecff"));
@@ -138,6 +156,10 @@ impl RulesState {
             let scroll_pos = ui.next_widget_position().y * -1.0;
             let ideal_active_rule = ((scroll_pos + (rulebox / 2.0)) / rulebox).max(0.0) as usize;
 
+            if scroll_pos != 0.0 {
+                time_on_page = f32::MAX;
+            }
+
             if self.active_rule != ideal_active_rule {
                 let backlash = (scroll_pos + (rulebox / 2.0)) % rulebox;
 
@@ -149,13 +171,24 @@ impl RulesState {
             let (top_rect, _) =
                 ui.allocate_exact_size(vec2(ui.available_width(), rulebox / 2.0), Sense::hover());
 
-            let t = TextHelper::heavy_centered(
-                "Truncate, abridged.",
-                heading_size,
+            let main_heading = TextHelper::heavy_centered(
+                "Truncate\nQuick Start",
+                heading_size * 1.25,
                 Some((ui.available_width() - 16.0).max(0.0)),
                 ui,
             );
-            t.paint_within(top_rect, Align2::CENTER_CENTER, theme.text, ui);
+            let animated_main_heading = main_heading.get_partial_char_slice(time_on_page, ui);
+            let animating_heading = animated_main_heading.is_some();
+            if animating_heading {
+                ui.ctx().request_repaint();
+            }
+            let final_size = main_heading.mesh_size();
+            let main_heading_pos = top_rect.center() - vec2(0.0, final_size.y / 2.0);
+            animated_main_heading.unwrap_or(main_heading).paint_at(
+                main_heading_pos,
+                theme.text,
+                ui,
+            );
 
             for (rulenum, rule) in self.rules.sections.iter_mut().enumerate() {
                 let is_active = self.active_rule == rulenum;
@@ -166,7 +199,13 @@ impl RulesState {
                         rule.seen = true;
                     }
                 }
-                let texture_gamma = if is_active { 1.0 } else { 0.2 };
+                let texture_gamma = if animating_heading {
+                    0.0
+                } else if is_active {
+                    1.0
+                } else {
+                    0.2
+                };
                 let animated_gamma =
                     ui.ctx()
                         .animate_value_with_time(ui.id().with(rulenum), texture_gamma, 0.3);
@@ -180,7 +219,7 @@ impl RulesState {
                     ui.allocate_exact_size(vec2(ui.available_width(), rulebox), Sense::hover());
 
                 let started_at = rule.started_animation_at.unwrap_or(cur_animation_tick);
-                if is_active && rule.started_animation_at.is_none() {
+                if is_active && rule.started_animation_at.is_none() && !animating_heading {
                     rule.started_animation_at = Some(started_at);
                 }
 
@@ -339,14 +378,13 @@ impl RulesState {
             ui.add_space(text_padding);
 
             let desc = [
-                "That covers the core mechanics of Truncate.",
-                "If you want to learn more, you can explore the in-depth Tutorial,",
-                "or, you can jump straight into a game and learn as you play!",
+                "Play the daily puzzle and learn as you go,",
+                "or view the interactive tutorial for a full walkthrough.",
             ]
             .join("\n");
             let d = TextHelper::light_centered(
                 &desc,
-                heading_size,
+                text_size,
                 Some((ui.available_width() - 16.0).max(0.0)),
                 ui,
             );
@@ -354,6 +392,23 @@ impl RulesState {
                 ui.allocate_at_least(vec2(ui.available_width(), d.mesh_size().y), Sense::hover());
             d.paint_within(desc_rect, Align2::CENTER_CENTER, text_color, ui);
             ui.add_space(text_padding * 2.0);
+
+            let back_text = TextHelper::heavy("PLAY TODAY'S PUZZLE", 14.0, None, ui);
+            if back_text
+                .centered_button(theme.button_emphasis, theme.text, &self.map_texture, ui)
+                .clicked()
+            {
+                action = Some(RuleCardAction::DailyPuzzle);
+            }
+            ui.add_space(text_padding * 2.0);
+
+            let tut_text = TextHelper::heavy("EXPLORE TUTORIAL", 14.0, None, ui);
+            if tut_text
+                .centered_button(theme.water.lighten(), theme.text, &self.map_texture, ui)
+                .clicked()
+            {
+                action = Some(RuleCardAction::Tutorial);
+            }
 
             let back_text = TextHelper::heavy("RETURN TO MENU", 14.0, None, ui);
             if back_text
@@ -364,16 +419,10 @@ impl RulesState {
             }
             ui.add_space(text_padding);
 
-            let tut_text = TextHelper::heavy("PLAY TUTORIAL", 14.0, None, ui);
-            if tut_text
-                .centered_button(theme.water.lighten(), theme.text, &self.map_texture, ui)
-                .clicked()
-            {
-                back_to_menu();
-            }
-
             ui.add_space(rulebox * 0.5);
         });
+
+        action
     }
 }
 

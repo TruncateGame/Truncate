@@ -99,7 +99,7 @@ impl ChangelogSplashUI {
                         return;
                     }
                     let block_time = (current_time - self.animate_from).as_secs_f32();
-                    let animated_text = block.get_partial_slice(block_time, ui);
+                    let animated_text = block.get_partial_word_slice(block_time, ui);
 
                     match animated_text {
                         Some(animated_block) => {

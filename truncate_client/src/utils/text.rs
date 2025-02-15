@@ -14,6 +14,7 @@ pub enum TextStyle {
 
 pub struct TextHelper<'a> {
     original_text: &'a str,
+    centered: bool,
     size: f32,
     max_width: Option<f32>,
     galley: Arc<Galley>,
@@ -63,6 +64,7 @@ impl<'a> TextHelper<'a> {
 
         Self {
             original_text: text,
+            centered,
             size,
             max_width,
             galley,
@@ -112,6 +114,7 @@ impl<'a> TextHelper<'a> {
 
         Self {
             original_text: text,
+            centered,
             size,
             max_width,
             galley,
@@ -127,34 +130,49 @@ impl<'a> TextHelper<'a> {
         self.galley.mesh_bounds.size()
     }
 
-    pub fn get_partial_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
+    pub fn get_partial_char_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
+        let animation_duration = self.original_text.len() as f32 * DIALOG_TIME_PER_CHAR;
+        if time_passed > animation_duration {
+            return None;
+        }
+
+        let char_point =
+            (self.original_text.len() as f32 * (time_passed / animation_duration)) as usize;
+        self.inner_partial_slice(char_point, ui)
+    }
+
+    pub fn get_partial_word_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
         let mut breaks = self
             .original_text
             .char_indices()
             .filter_map(|(i, c)| if c == ' ' { Some(i) } else { None })
             .collect::<Vec<_>>();
-        breaks.push(self.original_text.len() - 1);
+        breaks.push(self.original_text.len());
         let animation_duration = breaks.len() as f32 * DIALOG_TIME_PER_CHAR;
         if time_passed > animation_duration {
             return None;
         }
 
         let word_count = (breaks.len() as f32 * (time_passed / animation_duration)) as usize;
-        let shortened_text = &self.original_text[0..=breaks[word_count.saturating_sub(1)]];
+        self.inner_partial_slice(breaks[word_count.saturating_sub(1)], ui)
+    }
+
+    fn inner_partial_slice(&self, at: usize, ui: &mut egui::Ui) -> Option<Self> {
+        let shortened_text = &self.original_text[0..at];
 
         match self.text_style {
             TextStyle::Light => Some(TextHelper::light_inner(
                 &shortened_text,
                 self.size,
                 self.max_width,
-                false,
+                self.centered,
                 ui,
             )),
             TextStyle::Heavy => Some(TextHelper::heavy_inner(
                 &shortened_text,
                 self.size,
                 self.max_width,
-                false,
+                self.centered,
                 ui,
             )),
         }

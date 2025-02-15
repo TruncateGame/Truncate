@@ -31,6 +31,7 @@ pub fn get_letter_quad(letter: char, orientation: Direction) -> TexQuad {
             'X' => tiles::quad::LETTER_NORTH_X,
             'Y' => tiles::quad::LETTER_NORTH_Y,
             'Z' => tiles::quad::LETTER_NORTH_Z,
+            ' ' => [tiles::NONE; 4],
             _ => unimplemented!("No texture for character {}", letter),
         },
         Direction::South => match letter.to_ascii_uppercase() {
@@ -60,6 +61,7 @@ pub fn get_letter_quad(letter: char, orientation: Direction) -> TexQuad {
             'X' => tiles::quad::LETTER_SOUTH_X,
             'Y' => tiles::quad::LETTER_SOUTH_Y,
             'Z' => tiles::quad::LETTER_SOUTH_Z,
+            ' ' => [tiles::NONE; 4],
             _ => unimplemented!("No texture for character {}", letter),
         },
         _ => unimplemented!("Need letter textures for direction {orientation:?}"),
