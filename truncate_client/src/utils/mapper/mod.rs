@@ -436,13 +436,18 @@ impl MappedBoard {
                                     None
                                 };
                             let (variant, color) = animated_variant(player);
+                            let text_color = if matches!(variant, MappedTileVariant::Gone) {
+                                Some(hex_color!("#a6caa0"))
+                            } else {
+                                None
+                            };
 
                             let tile_layers = Tex::board_game_tile(
                                 variant,
                                 tile,
                                 orient(player),
                                 validity_color.or(color),
-                                None,
+                                text_color,
                                 None,
                                 TileDecoration::Grass,
                                 seed_at_coord,
@@ -461,13 +466,18 @@ impl MappedBoard {
                         } = change.detail.square
                         {
                             let (variant, color) = animated_variant(player);
+                            let text_color = if matches!(variant, MappedTileVariant::Gone) {
+                                Some(hex_color!("#a6caa0"))
+                            } else {
+                                None
+                            };
 
                             let tile_layers = Tex::board_game_tile(
                                 variant,
                                 tile,
                                 orient(player),
-                                None,
                                 color,
+                                text_color,
                                 None,
                                 TileDecoration::Grass,
                                 seed_at_coord,
@@ -486,13 +496,18 @@ impl MappedBoard {
                         } = change.detail.square
                         {
                             let (variant, color) = animated_variant(player);
+                            let text_color = if matches!(variant, MappedTileVariant::Gone) {
+                                Some(hex_color!("#a6caa0"))
+                            } else {
+                                None
+                            };
 
                             let tile_layers = Tex::board_game_tile(
                                 variant,
                                 tile,
                                 orient(player),
-                                None,
                                 color,
+                                text_color,
                                 None,
                                 TileDecoration::Grass,
                                 seed_at_coord,

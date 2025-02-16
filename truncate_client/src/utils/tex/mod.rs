@@ -341,7 +341,7 @@ impl Tex {
                         ],
                         color,
                     )
-                    .with_piece_character(character, Some(hex_color!("#cccccc")), orientation);
+                    .with_piece_character(character, text_color, orientation);
             }
         }
         layers
