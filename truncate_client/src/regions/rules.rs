@@ -398,6 +398,8 @@ impl RulesState {
                 .centered_button(theme.button_emphasis, theme.text, &self.map_texture, ui)
                 .clicked()
             {
+                self.event_dispatcher
+                    .event(format!("tutorial_core_rules_go_puzzle"));
                 action = Some(RuleCardAction::DailyPuzzle);
             }
             ui.add_space(text_padding * 2.0);
@@ -407,6 +409,8 @@ impl RulesState {
                 .centered_button(theme.water.lighten(), theme.text, &self.map_texture, ui)
                 .clicked()
             {
+                self.event_dispatcher
+                    .event(format!("tutorial_core_rules_go_tutorial"));
                 action = Some(RuleCardAction::Tutorial);
             }
 
@@ -415,6 +419,8 @@ impl RulesState {
                 .centered_button(theme.water.lighten(), theme.text, &self.map_texture, ui)
                 .clicked()
             {
+                self.event_dispatcher
+                    .event(format!("tutorial_core_rules_go_menu"));
                 back_to_menu();
             }
             ui.add_space(text_padding);
