@@ -560,27 +560,23 @@
                         });
 
                         if (has_played_tut) {
-                          this.button("Learn To Play", () => {
-                              localStorage.setItem("tutorial_played", "true");
-                              truncate_runner.join_game('RULE_CARD');
+                          this.button("Tutorials", () => {
+                              this.learnStage();
                           });
-                          // Uncomment if adding back a second tutorial
-                          // this.button("Tutorials", () => {
-                          //     this.learnStage();
-                          // });
                         }
                     }
 
                     learnStage() {
                         this.reset();
 
-                        this.button("Learn To Play", () => {
+                        this.button("Quick Start", () => {
                             localStorage.setItem("tutorial_played", "true");
-                            truncate_runner.join_game('TUTORIAL_RULES');
+                            truncate_runner.join_game('RULE_CARD');
                         });
 
-                        this.button("Example Game", () => {
-                            truncate_runner.join_game('TUTORIAL_EXAMPLE');
+                        this.button("Interactive Tutorial", () => {
+                            localStorage.setItem("tutorial_played", "true");
+                            truncate_runner.join_game('TUTORIAL_RULES');
                         });
 
                         this.backButton();
