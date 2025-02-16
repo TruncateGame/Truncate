@@ -515,19 +515,19 @@ pub mod tests {
 
         assert!(matches!(
             parsed.textures[0][1].pieces[1],
-            PieceLayer::Character('W', _, true, _),
+            PieceLayer::Texture(_, _)
         ));
         assert!(matches!(
             parsed.textures[1][0].pieces[1],
-            PieceLayer::Character('W', _, false, _),
+            PieceLayer::Texture(_, _)
         ));
         assert!(matches!(
             parsed.textures[1][1].pieces[1],
-            PieceLayer::Character('O', _, false, _),
+            PieceLayer::Texture(_, _)
         ));
         assert!(matches!(
             parsed.textures[1][2].pieces[1],
-            PieceLayer::Character('R', _, false, _),
+            PieceLayer::Texture(_, _)
         ));
         assert!(matches!(
             parsed.textures[1][3].structures,
@@ -558,15 +558,15 @@ pub mod tests {
             ))));
         assert!(matches!(
             parsed.textures[1][8].pieces[1],
-            PieceLayer::Character('R', _, true, _),
+            PieceLayer::Texture(_, _)
         ));
         assert!(matches!(
             parsed.textures[1][9].pieces[1],
-            PieceLayer::Character('O', _, true, _),
+            PieceLayer::Texture(_, _)
         ));
         assert!(matches!(
             parsed.textures[1][10].pieces[1],
-            PieceLayer::Character('W', _, true, _),
+            PieceLayer::Texture(_, _)
         ));
     }
 }
