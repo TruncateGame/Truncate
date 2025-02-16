@@ -52,7 +52,7 @@ pub enum ChangePriority {
     Low,
 }
 
-pub fn rules(for_day: u32) -> Tutorial {
+pub fn tutorial(for_day: u32) -> Tutorial {
     [
         serde_yaml::from_slice::<Tutorial>(include_bytes!("../../tutorials/rules_2.yml"))
             .expect("Tutorial should match Tutorial format"),
@@ -79,4 +79,21 @@ pub fn changelogs() -> HashMap<&'static str, Tutorial> {
                 .expect("Tutorial should match Tutorial format"),
         ),
     ])
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct RuleCard {
+    pub sections: Vec<RuleCardSection>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct RuleCardSection {
+    pub title: String,
+    pub examples: Vec<String>,
+    pub description: String,
+}
+
+pub fn rule_card() -> RuleCard {
+    serde_yaml::from_slice::<RuleCard>(include_bytes!("../../tutorials/rule_card.yml"))
+        .expect("Rules should match RuleCard format")
 }

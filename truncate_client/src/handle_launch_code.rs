@@ -11,10 +11,10 @@ use truncate_core::{
 use crate::{
     app_inner::GameStatus,
     regions::{
-        active_game::HeaderType, lobby::Lobby, single_player::SinglePlayerState,
+        active_game::HeaderType, lobby::Lobby, rules::RulesState, single_player::SinglePlayerState,
         tutorial::TutorialState,
     },
-    utils::{self, daily::get_puzzle_day, macros::current_time},
+    utils::{self, daily::get_puzzle_day, includes::rule_card, macros::current_time},
 };
 
 use super::OuterApplication;
@@ -40,10 +40,19 @@ pub fn handle_launch_code(
         "TUTORIAL_RULES" => {
             return Some(GameStatus::Tutorial(TutorialState::new(
                 "rules".to_string(),
-                utils::includes::rules(outer.launched_at_day),
+                utils::includes::tutorial(outer.launched_at_day),
                 ui.ctx(),
                 outer.map_texture.clone(),
                 &outer.theme,
+                outer.event_dispatcher.clone(),
+            )));
+        }
+        "RULE_CARD" => {
+            return Some(GameStatus::Rules(RulesState::new(
+                ui.ctx(),
+                outer.map_texture.clone(),
+                outer.theme.clone(),
+                rule_card(),
                 outer.event_dispatcher.clone(),
             )));
         }

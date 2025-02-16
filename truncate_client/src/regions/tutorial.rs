@@ -611,7 +611,7 @@ impl TutorialState {
                                 );
 
                                 let animated_text =
-                                    dialog_text.get_partial_slice(time_in_stage, ui);
+                                    dialog_text.get_partial_word_slice(time_in_stage, ui);
                                 if animated_text.is_some() {
                                     ui.ctx().request_repaint();
                                 }
@@ -639,7 +639,7 @@ impl TutorialState {
                                 );
 
                                 let animated_text =
-                                    dialog_text.get_partial_slice(time_in_stage, ui);
+                                    dialog_text.get_partial_word_slice(time_in_stage, ui);
                                 let has_animation = animated_text.is_some();
                                 if has_animation {
                                     ui.ctx().request_repaint();
@@ -691,7 +691,7 @@ impl TutorialState {
                                 );
 
                                 let animated_text =
-                                    dialog_text.get_partial_slice(time_in_stage, ui);
+                                    dialog_text.get_partial_word_slice(time_in_stage, ui);
                                 let has_animation = animated_text.is_some();
                                 if has_animation {
                                     ui.ctx().request_repaint();
@@ -746,7 +746,7 @@ impl TutorialState {
                                 );
 
                                 let animated_text =
-                                    dialog_text.get_partial_slice(time_in_stage, ui);
+                                    dialog_text.get_partial_word_slice(time_in_stage, ui);
                                 let has_animation = animated_text.is_some();
                                 if has_animation {
                                     ui.ctx().request_repaint();

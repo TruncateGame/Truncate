@@ -6,6 +6,7 @@ kaikki*
 node_modules
 word_definitions/package-lock.json
 truncate_client/img/package-lock.json
+truncate_client/img/truncate_packed_pre.png
 _site
 # ungzipped word definition db
 defs.db
@@ -18,3 +19,4 @@ dict_builder/support_data/generated_scowl_wordlists
 dict_builder/support_data/en_word_freqs.txt
 dict_builder/support_data/objectionable.json
 dict_builder/support_data/wordnik_wordlist.txt
+.backstage/package-lock.json

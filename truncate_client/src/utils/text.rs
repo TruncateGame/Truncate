@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eframe::egui::{self, Sense};
+use eframe::egui::{self, Align, Sense};
 use epaint::{emath::Align2, pos2, vec2, Color32, Galley, Pos2, Rect, TextureHandle, Vec2};
 
 use super::tex::{paint_dialog_background, render_texs_clockwise, Tex, Tint};
@@ -14,6 +14,7 @@ pub enum TextStyle {
 
 pub struct TextHelper<'a> {
     original_text: &'a str,
+    centered: bool,
     size: f32,
     max_width: Option<f32>,
     galley: Arc<Galley>,
@@ -27,16 +28,43 @@ impl<'a> TextHelper<'a> {
         max_width: Option<f32>,
         ui: &mut egui::Ui,
     ) -> TextHelper<'a> {
+        TextHelper::heavy_inner(text, size, max_width, false, ui)
+    }
+    pub fn heavy_centered(
+        text: &'a str,
+        size: f32,
+        max_width: Option<f32>,
+        ui: &mut egui::Ui,
+    ) -> TextHelper<'a> {
+        TextHelper::heavy_inner(text, size, max_width, true, ui)
+    }
+
+    fn heavy_inner(
+        text: &'a str,
+        size: f32,
+        max_width: Option<f32>,
+        centered: bool,
+        ui: &mut egui::Ui,
+    ) -> TextHelper<'a> {
         let font = egui::FontSelection::FontId(egui::FontId {
-            size: size,
+            size,
             family: egui::FontFamily::Name("Truncate-Heavy".into()),
         });
-        let galley = egui::WidgetText::RichText(
+
+        let mut lj = egui::WidgetText::RichText(
             egui::RichText::new(text).line_height(Some((size * 1.34).round())),
         )
-        .into_galley(ui, None, max_width.unwrap_or(10000.0), font);
+        .into_layout_job(&egui::Style::default(), font, Align::Center);
+        if centered {
+            lj.halign = Align::Center;
+        }
+        lj.wrap.max_width = max_width.unwrap_or(10000.0);
+
+        let galley = ui.ctx().fonts(|f| f.layout_job(lj));
+
         Self {
             original_text: text,
+            centered,
             size,
             max_width,
             galley,
@@ -50,18 +78,43 @@ impl<'a> TextHelper<'a> {
         max_width: Option<f32>,
         ui: &mut egui::Ui,
     ) -> TextHelper<'a> {
+        TextHelper::light_inner(text, size, max_width, false, ui)
+    }
+    pub fn light_centered(
+        text: &'a str,
+        size: f32,
+        max_width: Option<f32>,
+        ui: &mut egui::Ui,
+    ) -> TextHelper<'a> {
+        TextHelper::light_inner(text, size, max_width, true, ui)
+    }
+
+    fn light_inner(
+        text: &'a str,
+        size: f32,
+        max_width: Option<f32>,
+        centered: bool,
+        ui: &mut egui::Ui,
+    ) -> TextHelper<'a> {
         let font = egui::FontSelection::FontId(egui::FontId {
-            size: size,
+            size,
             family: egui::FontFamily::Proportional,
         });
-        let galley = egui::WidgetText::RichText(egui::RichText::new(text)).into_galley(
-            ui,
-            None,
-            max_width.unwrap_or(10000.0),
+        let mut lj = egui::WidgetText::RichText(egui::RichText::new(text)).into_layout_job(
+            &egui::Style::default(),
             font,
+            Align::Center,
         );
+        if centered {
+            lj.halign = Align::Center;
+        }
+        lj.wrap.max_width = max_width.unwrap_or(10000.0);
+
+        let galley = ui.ctx().fonts(|f| f.layout_job(lj));
+
         Self {
             original_text: text,
+            centered,
             size,
             max_width,
             galley,
@@ -77,32 +130,49 @@ impl<'a> TextHelper<'a> {
         self.galley.mesh_bounds.size()
     }
 
-    pub fn get_partial_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
+    pub fn get_partial_char_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
+        let animation_duration = self.original_text.len() as f32 * DIALOG_TIME_PER_CHAR;
+        if time_passed > animation_duration {
+            return None;
+        }
+
+        let char_point =
+            (self.original_text.len() as f32 * (time_passed / animation_duration)) as usize;
+        self.inner_partial_slice(char_point, ui)
+    }
+
+    pub fn get_partial_word_slice(&self, time_passed: f32, ui: &mut egui::Ui) -> Option<Self> {
         let mut breaks = self
             .original_text
             .char_indices()
             .filter_map(|(i, c)| if c == ' ' { Some(i) } else { None })
             .collect::<Vec<_>>();
-        breaks.push(self.original_text.len() - 1);
+        breaks.push(self.original_text.len());
         let animation_duration = breaks.len() as f32 * DIALOG_TIME_PER_CHAR;
         if time_passed > animation_duration {
             return None;
         }
 
         let word_count = (breaks.len() as f32 * (time_passed / animation_duration)) as usize;
-        let shortened_text = &self.original_text[0..=breaks[word_count.saturating_sub(1)]];
+        self.inner_partial_slice(breaks[word_count.saturating_sub(1)], ui)
+    }
+
+    fn inner_partial_slice(&self, at: usize, ui: &mut egui::Ui) -> Option<Self> {
+        let shortened_text = &self.original_text[0..at];
 
         match self.text_style {
-            TextStyle::Light => Some(TextHelper::light(
+            TextStyle::Light => Some(TextHelper::light_inner(
                 &shortened_text,
                 self.size,
                 self.max_width,
+                self.centered,
                 ui,
             )),
-            TextStyle::Heavy => Some(TextHelper::heavy(
+            TextStyle::Heavy => Some(TextHelper::heavy_inner(
                 &shortened_text,
                 self.size,
                 self.max_width,
+                self.centered,
                 ui,
             )),
         }
@@ -116,10 +186,14 @@ impl<'a> TextHelper<'a> {
     pub fn paint_within(self, bounds: Rect, alignment: Align2, color: Color32, ui: &mut egui::Ui) {
         let dims = self.mesh_size();
         let Align2([ha, va]) = alignment;
-        let x_pos = match ha {
-            egui::Align::Min => bounds.left(),
-            egui::Align::Center => bounds.left() + (bounds.width() - dims.x) / 2.0,
-            egui::Align::Max => bounds.left() + (bounds.width() - dims.x),
+        let x_pos = match self.galley.job.halign {
+            Align::Min => match ha {
+                egui::Align::Min => bounds.left(),
+                egui::Align::Center => bounds.left() + (bounds.width() - dims.x) / 2.0,
+                egui::Align::Max => bounds.left() + (bounds.width() - dims.x),
+            },
+            Align::Center => bounds.center().x,
+            Align::Max => unimplemented!("No right aligned text."),
         };
         let y_pos = match va {
             egui::Align::Min => bounds.top(),

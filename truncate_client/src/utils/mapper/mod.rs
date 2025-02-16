@@ -338,9 +338,9 @@ impl MappedBoard {
 
         let orient = |player: usize| {
             if player == self.for_player {
-                Direction::North
-            } else {
                 Direction::South
+            } else {
+                Direction::North
             }
         };
 
@@ -436,12 +436,18 @@ impl MappedBoard {
                                     None
                                 };
                             let (variant, color) = animated_variant(player);
+                            let text_color = if matches!(variant, MappedTileVariant::Gone) {
+                                Some(hex_color!("#a6caa0"))
+                            } else {
+                                None
+                            };
 
                             let tile_layers = Tex::board_game_tile(
                                 variant,
                                 tile,
                                 orient(player),
                                 validity_color.or(color),
+                                text_color,
                                 None,
                                 TileDecoration::Grass,
                                 seed_at_coord,
@@ -460,12 +466,18 @@ impl MappedBoard {
                         } = change.detail.square
                         {
                             let (variant, color) = animated_variant(player);
+                            let text_color = if matches!(variant, MappedTileVariant::Gone) {
+                                Some(hex_color!("#a6caa0"))
+                            } else {
+                                None
+                            };
 
                             let tile_layers = Tex::board_game_tile(
                                 variant,
                                 tile,
                                 orient(player),
                                 color,
+                                text_color,
                                 None,
                                 TileDecoration::Grass,
                                 seed_at_coord,
@@ -484,12 +496,18 @@ impl MappedBoard {
                         } = change.detail.square
                         {
                             let (variant, color) = animated_variant(player);
+                            let text_color = if matches!(variant, MappedTileVariant::Gone) {
+                                Some(hex_color!("#a6caa0"))
+                            } else {
+                                None
+                            };
 
                             let tile_layers = Tex::board_game_tile(
                                 variant,
                                 tile,
                                 orient(player),
                                 color,
+                                text_color,
                                 None,
                                 TileDecoration::Grass,
                                 seed_at_coord,
@@ -627,6 +645,7 @@ impl MappedBoard {
                     render_as_swap.unwrap_or(*tile),
                     orient(*player),
                     color,
+                    None,
                     highlight,
                     TileDecoration::Grass,
                     seed_at_coord,
@@ -651,6 +670,7 @@ impl MappedBoard {
                     *tile,
                     orient(*player),
                     Some(validity_color),
+                    None,
                     None,
                     TileDecoration::None,
                     seed_at_coord,
@@ -679,8 +699,9 @@ impl MappedBoard {
                             let tile_layers = Tex::board_game_tile(
                                 MappedTileVariant::Healthy,
                                 tile_char,
-                                Direction::North,
+                                Direction::South,
                                 Some(self_color.lighten()),
+                                None,
                                 None,
                                 TileDecoration::None,
                                 seed_at_coord,
@@ -715,6 +736,7 @@ impl MappedBoard {
                         ' ',
                         Direction::North,
                         Some(aesthetics.theme.ring_selected_hovered),
+                        None,
                         None,
                         TileDecoration::Grass,
                         seed_at_coord,
@@ -1184,6 +1206,7 @@ impl MappedTiles {
                 slot.character,
                 slot.orientation,
                 color,
+                None,
                 slot.highlight,
                 TileDecoration::None,
                 0,
