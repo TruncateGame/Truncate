@@ -91,11 +91,11 @@ cd truncate_dueller && cargo run --release
     - **Trim Cels**: unchecked
     - **Extrude**: CHECKED!
   - **Output**:
-    - **Output File**: `truncate_packed.png`
+    - **Output File**: `truncate_packed_pre.png`
     - **JSON Data** unchecked
 
-If you modified the tile order at all:
+Then:
 - Edit `truncate_client/img/tile_order` to match the new ordering of tiles
 - If you added something 32x32, and thus taking up four tiles, suffix their tile names with `_NW`, `_NE`, `_SW`, and `_SE`
 - From the root of the repo, run `.backstage/build-tile-data.js` to rerun the codegen for using tiles
-
+- This also generates the final truncate_packed.png that slightly modified the export (e.g. removes magenta mask)

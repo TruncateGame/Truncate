@@ -1,0 +1,269 @@
+sections:
+  - title: Orientation
+    examples:
+      - ~  ~  ~  ~  ~  ~  ~  ~  ~
+      - W^ ~  ~  ~  ~  ~  ~  ~  ~
+      - W^ ~  ~  ~  ~  ~  ~  ~  ~
+      - W  ~  ~  ~  ~  ~  ~  ~  w^
+      - W  ~  ~  ~  ~  ~  ~  ~  w^
+      - W  O^ ~  ~  ~  ~  ~  ~  w
+      - W  O^ ~  ~  ~  ~  ~  ~  w
+      - W  O  ~  ~  ~  ~  ~  o^ w
+      - W  O  ~  ~  ~  ~  ~  o^ w
+      - W  O  R^ ~  ~  ~  ~  o  w
+      - W  O  R^ ~  ~  ~  ~  o  w
+      - W  O  R  ~  ~  ~  r^ o  w
+      - W  O  R  ~  ~  ~  r^ o  w
+      - W  O  R  D^ ~  ~  r  o  w
+      - W  O  R  D^ ~  ~  r  o  w
+      - W  O  R  D  ~  d^ r  o  w
+      - W  O  R  D  ~  d^ r  o  w
+      - W  O  R  D  ~  d  r  o  w
+    description: |-
+      Each turn you play one tile.
+      Your words read top down and left to right,
+      your opponent's are the opposite.
+  - title: Long words beat short words
+    examples:
+      - W  O  R  D  ~  d  r  o  w
+      - W  O  R  D  ~  d  r  o  w
+      - W  O  R  D  ~  d  r  o  w
+      - W  O  R  D  Y^ d  r  o  w
+      - W  O  R  D  Y  d* r  o  w
+      - W  O  R  D  Y  d* r* o  w
+      - W  O  R  D  Y  d* r* o* w
+      - W  O  R  D  Y  d* r* o* w*
+      - W  O  R  D  Y  d- r- o- w-
+      - W  O  R  D  Y  ~  ~  ~  ~
+    description: |-
+      Words battle when they touch, and long words beat short words.
+      "WORDY" is longer than "WORD", so "WORD" is removed from the board.
+  - title: Valid words beat invalid words
+    examples:
+      - B  E  ~  x  e  d  r  o  w
+      - B  E  ~  x  e  d  r  o  w
+      - B  E  ~  x  e  d  r  o  w
+      - B  E  T^ x  e  d  r  o  w
+      - B  E  T  x* e  d  r  o  w
+      - B  E  T  x* e* d  r  o  w
+      - B  E  T  x* e* d* r  o  w
+      - B  E  T  x* e* d* r* o  w
+      - B  E  T  x* e* d* r* o* w
+      - B  E  T  x* e* d* r* o* w*
+      - B  E  T  x- e- d- r- o- w-
+      - B  E  T  ~  ~  ~  ~  ~  ~
+    description: |-
+      Valid words beat invalid words, regardless of length.
+  - title: Artifacts
+    examples:
+      - $1  W^ ~  ~  ~  ~  ~  ~  $0
+      - $1  W^ ~  ~  ~  ~  ~  ~  $0
+      - $1  W  I^ ~  ~  ~  ~  ~  $0
+      - $1  W  I^ ~  ~  ~  ~  ~  $0
+      - $1  W  I  N^ ~  ~  ~  ~  $0
+      - $1  W  I  N^ ~  ~  ~  ~  $0
+      - $1  W  I  N  N^ ~  ~  ~  $0
+      - $1  W  I  N  N^ ~  ~  ~  $0
+      - $1  W  I  N  N  I^ ~  ~  $0
+      - $1  W  I  N  N  I^ ~  ~  $0
+      - $1  W  I  N  N  I  N^ ~  $0
+      - $1  W  I  N  N  I  N^ ~  $0
+      - $1  W  I  N  N  I  N  G^ $0
+      - $1  W  I  N  N  I  N  G^ $0
+      - $1  W  I  N  N  I  N  G  $0
+    description: |-
+      You start the game at your artifact,
+      and can win by touching your opponent's artifact with a valid word.
+  - title: Towns
+    examples:
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  ~  ~  ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  ~  ~  ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  ~  ~  ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N^ ~  ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N^ ~  ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N  E^ ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N  E^ ~  ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N  E  R^ ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N  E  R^ ~ $0
+      - |-
+        ~  ~  ~  ~  ~  ~  +0 ~ ~
+        $1 W  I  N  N  E  R  ~ $0
+    description: |-
+      You can also win by touching one of your
+      opponent's towns with a valid word.
+  - title: Swapping
+    examples:
+      - G^ ~  ~  ~  ~  ~
+      - G^ ~  ~  ~  ~  ~
+      - G^ ~  ~  ~  ~  ~
+      - G  R^ ~  ~  ~  ~
+      - G  R^ ~  ~  ~  ~
+      - G  R  I^ ~  ~  ~
+      - G  R  I^ ~  ~  ~
+      - G  R  I  N^ ~  ~
+      - G  R  I  N^ ~  ~
+      - G  R  I  N  B^ ~
+      - G  R  I  N  B^ ~
+      - G  R  I  N  B^ ~
+      - G  R  I  N  B^ ~
+      - B< R  I  N  G< ~
+      - B< R  I  N  G< ~
+      - B< R  I  N  G< ~
+      - B< R  I  N  G< ~
+      - B  R  I  N  G  S^
+      - B  R  I  N  G  S^
+      - B  R  I  N  G  S
+    description: |-
+      Instead of playing a tile,
+      you can swap two tiles on the board.
+  - title: Truncation
+    examples:
+      - |-
+        W^ ~  ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  ~  ~  r  ~  ~  ~
+      - |-
+        W^ ~  ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  ~  ~  r  ~  ~  ~
+      - |-
+        W  ~  ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  ~  a^ r  ~  ~  ~
+      - |-
+        W  ~  ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  ~  a^ r  ~  ~  ~
+      - |-
+        W  O^ ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  ~  a  r  ~  ~  ~
+      - |-
+        W  O^ ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  ~  a  r  ~  ~  ~
+      - |-
+        W  O  ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  n^ a  r  ~  ~  ~
+      - |-
+        W  O  ~  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  n^ a  r  ~  ~  ~
+      - |-
+        W  O  R^ ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  n  a  r  ~  ~  ~
+      - |-
+        W  O  R^ ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  ~  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  g^ n  a  r  ~  ~  ~
+      - |-
+        W  O  R  ~  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  g^ n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D^ ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  g  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D^ ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  ~  g  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  e^ g  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D  ~  d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  e^ g  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D  Y^ d  ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  e  g  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D  Y  d* ~  ~  ~
+        $1 ~  ~  ~  ~  a  r  e $0
+        ~  e  g  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D  Y  d* ~  ~  ~
+        $1 ~  ~  ~  ~  a* r  e $0
+        ~  e  g  n  a  r  ~  ~  ~
+      - |-
+        W  O  R  D  Y  d* ~  ~  ~
+        $1 ~  ~  ~  ~  a* r  e $0
+        ~  e  g  n  a  r* ~  ~  ~
+      - |-
+        W  O  R  D  Y  d* ~  ~  ~
+        $1 ~  ~  ~  ~  a* r  e $0
+        ~  e  g  n  a  r* ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a  r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a  r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a  r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a  r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n  a* r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g  n* a* r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e  g* n* a* r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e* g* n* a* r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e* g* n* a* r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  d- ~  ~  ~
+        $1 ~  ~  ~  ~  a- r  e $0
+        ~  e- g- n- a- r- ~  ~  ~
+      - |-
+        W  O  R  D  Y  ~  ~  ~  ~
+        $1 ~  ~  ~  ~  ~  r  e $0
+        ~  ~  ~  ~  ~  ~  ~  ~  ~
+    description: |-
+      When your letters become disconnected from your Artifact,
+      they are Truncated and removed from the board.
