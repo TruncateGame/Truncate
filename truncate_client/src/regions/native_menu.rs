@@ -98,11 +98,7 @@ pub fn render_native_menu_if_required(
             }
             ui.text_edit_singleline(room_code);
             if ui.button("Join Game").clicked() {
-                send_to_server(PlayerMessage::JoinGame(
-                    room_code.clone(),
-                    outer.name.clone(),
-                    token.clone(),
-                ));
+                outer.launched_code = Some(room_code.clone());
                 return Some(GameStatus::PendingJoin(room_code.clone()));
             }
             if let Some(existing_token) = token {
