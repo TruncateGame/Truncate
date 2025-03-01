@@ -25,6 +25,8 @@ self.onmessage = function (e) {
             console.log("[WORKER] Successfully loaded Truncate");
 
             loadedWasm = true;
+            wasm_bindgen.backchannel_setup();
+            
         }
 
         function on_wasm_error(error) {

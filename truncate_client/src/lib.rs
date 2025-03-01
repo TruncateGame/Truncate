@@ -126,6 +126,18 @@ impl WebHandle {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn backchannel_setup() {
+    use web_sys::console;
+
+    // Make sure panics are logged using `console.error`.
+    console_error_panic_hook::set_once();
+
+    // Redirect tracing to console.log and friends:
+    tracing_wasm::set_as_global_default();
+}
+
 // Functions used in the web worker
 // Used to evaluate games as the NPC using a separate thread,
 // preventing the UI from hanging during computation.

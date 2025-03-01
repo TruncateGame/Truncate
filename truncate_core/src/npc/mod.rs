@@ -89,7 +89,6 @@ impl Game {
         let evaluation_player = game
             .next_player
             .expect("Minimax only works in non-periodic playmodes");
-
         let mut internal_arborist = if npc_params.pruning {
             Arborist::pruning()
         } else {
@@ -140,15 +139,15 @@ impl Game {
         };
 
         if log {
-            println!(
+            tracing::debug!(
                 "Bot checked {} boards, going to a depth of {looked}",
                 arborist.assessed()
             );
-            println!("Bot has the hand: {}", game.players[evaluation_player].hand);
+            tracing::debug!("Bot has the hand: {}", game.players[evaluation_player].hand);
 
-            println!("Chosen tree has the score {best_score:#?}");
+            tracing::debug!("Chosen tree has the score {best_score:#?}");
             if let Some(board) = &best_score.board {
-                println!("Bot is aiming for the board {board}");
+                tracing::debug!("Bot is aiming for the board {board}");
             }
         }
 
@@ -717,10 +716,8 @@ mod tests {
         initial_board: &'a str,
         depth: usize,
         dict: &WordDict,
-        turn_count: u32,
     ) -> (&'a str, String) {
         let mut game = test_game(initial_board, hand);
-        game.turn_count = turn_count;
 
         let (best_move, pruned_checks, total_checks) = best_test_move(&game, &dict, depth);
 
@@ -989,7 +986,6 @@ mod tests {
                 "###,
                 3,
                 &dict,
-                0,
             );
 
             insta::with_settings!({
@@ -1031,7 +1027,6 @@ mod tests {
                 "###,
                 3,
                 &dict,
-                0,
             );
 
             insta::with_settings!({
@@ -1073,7 +1068,6 @@ mod tests {
                 "###,
                 3,
                 &dict,
-                0,
             );
 
             insta::with_settings!({
@@ -1115,7 +1109,6 @@ mod tests {
                 "###,
                 3,
                 &dict,
-                0,
             );
 
             insta::with_settings!({
@@ -1157,7 +1150,6 @@ mod tests {
                 "###,
                 3,
                 &dict,
-                0,
             );
 
             insta::with_settings!({
@@ -1202,7 +1194,6 @@ mod tests {
                 "###,
                 3,
                 &dict,
-                0,
             );
 
             insta::with_settings!({
@@ -1250,7 +1241,6 @@ mod tests {
                 "###,
                 4,
                 &dict,
-                0,
             );
 
             insta::with_settings!({
@@ -1304,7 +1294,6 @@ mod tests {
                 "###,
                 2,
                 &dict,
-                3, // any non zero turn count value will do
             );
 
             insta::with_settings!({
