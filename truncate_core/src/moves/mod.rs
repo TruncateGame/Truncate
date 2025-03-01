@@ -1014,7 +1014,7 @@ mod tests {
             players,
             player_turn_count: vec![0, 0],
             judge: short_dict(),
-            turn_count: 1, // any non zero value will do to avoid hitting OpponentStartPlace error
+            turn_count: 0,
             ..Game::new_legacy(3, 1, None, GameRules::generation(0))
         };
         game.start();
