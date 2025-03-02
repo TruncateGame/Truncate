@@ -296,6 +296,7 @@ impl TutorialState {
                 // TODO: Use some special infinite bag?
                 bag: TileBag::latest(None).1,
                 judge: Judge::new(vec![]),
+                move_sequence: vec![],
                 battle_count: 0,
                 turn_count: 0,
                 player_turn_count: vec![0, 0],
