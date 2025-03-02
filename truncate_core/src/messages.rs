@@ -181,6 +181,7 @@ pub struct GameStateMessage {
     pub next_player_number: Option<PlayerNumber>,
     pub board: Board,
     pub hand: Hand,
+    pub packed_move_sequence: String,
     pub changes: Vec<Change>,
     pub game_ends_at: Option<u64>,
     pub remaining_turns: Option<u64>,

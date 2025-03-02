@@ -7,7 +7,7 @@ use truncate_core::{
     game::Game,
     generation::{ArtifactType, BoardParams},
     messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
-    moves::Move,
+    moves::{packing::pack_moves, Move},
     reporting::Change,
     rules::GameRules,
 };
@@ -168,6 +168,10 @@ impl GameManager {
             next_player_number: self.core_game.next().map(|n| n as u64),
             board,
             hand,
+            packed_move_sequence: pack_moves(
+                &self.core_game.move_sequence,
+                self.core_game.players.len(),
+            ),
             changes,
             game_ends_at: self.core_game.game_ends_at,
             paused: self.core_game.paused,

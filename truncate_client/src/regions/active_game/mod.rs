@@ -4,6 +4,7 @@ use truncate_core::{
     board::{Board, Coordinate},
     generation::BoardSeed,
     messages::{GamePlayerMessage, GameStateMessage, PlayerMessage, RoomCode},
+    moves::{packing::unpack_moves, Move},
     npc::scoring::NPCPersonality,
     player::Hand,
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, TimeChange},
@@ -62,6 +63,7 @@ pub struct ActiveGame {
     pub mapped_hand: MappedTiles,
     pub mapped_overlay: MappedTiles,
     pub hand: Hand,
+    pub move_sequence: Vec<Move>,
     pub board_changes: HashMap<Coordinate, BoardChange>,
     pub new_hand_tiles: Vec<usize>,
     pub time_changes: Vec<TimeChange>,
@@ -152,6 +154,7 @@ impl ActiveGame {
             players,
             board,
             hand,
+            move_sequence: vec![],
             board_changes: HashMap::new(),
             new_hand_tiles: vec![],
             time_changes: vec![],
@@ -267,6 +270,7 @@ impl ActiveGame {
             players,
             player_number: _,
             next_player_number: _,
+            packed_move_sequence: _,
             board: _,
             hand: _,
             changes: _,
@@ -287,6 +291,7 @@ impl ActiveGame {
             players,
             player_number: _,
             next_player_number,
+            packed_move_sequence,
             board,
             hand,
             changes,
@@ -324,6 +329,10 @@ impl ActiveGame {
         self.depot.gameplay.remaining_turns = remaining_turns;
 
         self.depot.gameplay.changes = changes.clone();
+
+        if let Ok(moves) = unpack_moves(&packed_move_sequence, self.players.len()) {
+            self.move_sequence = moves;
+        }
 
         self.board_changes.clear();
         for board_change in changes.iter().filter_map(|c| match c {
