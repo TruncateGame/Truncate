@@ -83,6 +83,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                 players,
                 player_number,
                 next_player_number,
+                packed_move_sequence,
                 board,
                 hand,
                 changes: _,
@@ -99,6 +100,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                             players,
                             player_number,
                             next_player_number,
+                            packed_move_sequence,
                             board,
                             hand,
                             changes: vec![], // TODO: Try get latest changes on reconnect without dupes
