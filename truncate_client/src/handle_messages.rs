@@ -253,7 +253,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                     }
                     _ => {}
                 }
-                puzzle_game.move_sequence = latest_puzzle_state.current_moves.clone();
+                puzzle_game.game.move_sequence = latest_puzzle_state.current_moves.clone();
 
                 let delay = puzzle_game.game.rules.battle_delay;
                 puzzle_game.game.rules.battle_delay = 0;

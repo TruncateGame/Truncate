@@ -47,7 +47,6 @@ pub struct SinglePlayerState {
     pub best_game: Option<Game>,
     splash: Option<ResultModalUI>,
     hide_splash: bool,
-    pub move_sequence: Vec<Move>,
     event_dispatcher: EventDispatcher,
 }
 
@@ -134,7 +133,6 @@ impl SinglePlayerState {
             best_game: None,
             splash: None,
             hide_splash: false,
-            move_sequence: vec![],
             event_dispatcher,
         }
     }
@@ -237,7 +235,6 @@ impl SinglePlayerState {
         self.turns = 0;
         self.next_response_at = None;
         self.winner = None;
-        self.move_sequence = vec![];
         self.event_dispatcher = self.event_dispatcher.clone();
 
         if backchannel.is_open() {
@@ -668,8 +665,6 @@ impl SinglePlayerState {
 
         if let Some(next_move) = next_move {
             if let Ok(battle_words) = self.handle_move(next_move.clone(), backchannel, true) {
-                self.move_sequence.push(next_move.clone());
-
                 if let Some(seed) = &self.active_game.depot.board_info.board_seed {
                     if seed.day.is_some() {
                         if let Some(token) = logged_in_as {
@@ -677,7 +672,7 @@ impl SinglePlayerState {
                                 player_token: token.clone(),
                                 day: seed.day.unwrap(),
                                 human_player: human_player as u32,
-                                moves: self.move_sequence.clone(),
+                                moves: self.game.move_sequence.clone(),
                                 won: self.winner == Some(human_player),
                             });
 
