@@ -38,6 +38,7 @@ impl GeneratorState {
                 .collect(),
             0,
             Some(0),
+            game.rules.clone(),
             game.board.clone(),
             game.players[0].hand.clone(),
             map_texture.clone(),
