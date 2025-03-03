@@ -104,6 +104,7 @@ impl SinglePlayerState {
                 .collect(),
             if human_starts { 0 } else { 1 },
             Some(0),
+            game.rules.clone(),
             filtered_board.clone(),
             game.players[if human_starts { 0 } else { 1 }].hand.clone(),
             map_texture.clone(),
@@ -216,6 +217,7 @@ impl SinglePlayerState {
                 .collect(),
             if self.human_starts { 0 } else { 1 },
             Some(0),
+            game.rules.clone(),
             game.board.clone(),
             game.players[if self.human_starts { 0 } else { 1 }]
                 .hand
@@ -365,6 +367,7 @@ impl SinglePlayerState {
                         &self.game.move_sequence,
                         self.game.players.len(),
                     ),
+                    rules: self.game.rules.clone(),
                     board: self.game.board.clone(),
                     hand: self.game.players[human_player].hand.clone(),
                     changes,

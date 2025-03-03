@@ -8,6 +8,7 @@ use truncate_core::{
     npc::scoring::NPCPersonality,
     player::Hand,
     reporting::{BoardChange, BoardChangeAction, BoardChangeDetail, Change, TimeChange},
+    rules::GameRules,
 };
 
 use eframe::{
@@ -58,6 +59,7 @@ pub enum GameLocation {
 pub struct ActiveGame {
     pub depot: TruncateDepot,
     pub players: Vec<GamePlayerMessage>,
+    pub rules: GameRules,
     pub board: Board,
     pub mapped_board: MappedBoard,
     pub mapped_hand: MappedTiles,
@@ -81,6 +83,7 @@ impl ActiveGame {
         players: Vec<GamePlayerMessage>,
         player_number: u64,
         next_player_number: Option<u64>,
+        rules: GameRules,
         board: Board,
         hand: Hand,
         map_texture: TextureHandle,
@@ -152,6 +155,7 @@ impl ActiveGame {
             mapped_overlay: MappedTiles::new(ctx, 1),
             depot,
             players,
+            rules,
             board,
             hand,
             move_sequence: vec![],
@@ -271,6 +275,7 @@ impl ActiveGame {
             player_number: _,
             next_player_number: _,
             packed_move_sequence: _,
+            rules: _,
             board: _,
             hand: _,
             changes: _,
@@ -292,6 +297,7 @@ impl ActiveGame {
             player_number: _,
             next_player_number,
             packed_move_sequence,
+            rules,
             board,
             hand,
             changes,
@@ -304,6 +310,7 @@ impl ActiveGame {
         // assert_eq!(self.player_number, player_number);
         self.players = players;
         self.board = board;
+        self.rules = rules;
 
         #[cfg(target_arch = "wasm32")]
         if !self.depot.audio.muted {

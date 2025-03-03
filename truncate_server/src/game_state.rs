@@ -166,6 +166,7 @@ impl GameManager {
                 .collect(),
             player_number: player_index as u64,
             next_player_number: self.core_game.next().map(|n| n as u64),
+            rules: self.core_game.rules.clone(),
             board,
             hand,
             packed_move_sequence: pack_moves(

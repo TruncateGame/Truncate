@@ -12,6 +12,7 @@ use crate::{
     moves::Move,
     player::{Hand, Player},
     reporting::{Change, WordMeaning},
+    rules::GameRules,
 };
 
 pub type RoomCode = String;
@@ -179,6 +180,7 @@ pub struct GameStateMessage {
     pub players: Vec<GamePlayerMessage>,
     pub player_number: PlayerNumber,
     pub next_player_number: Option<PlayerNumber>,
+    pub rules: GameRules,
     pub board: Board,
     pub hand: Hand,
     pub packed_move_sequence: String,
