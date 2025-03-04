@@ -64,6 +64,7 @@ impl ReplayerState {
         as_player: usize,
     ) -> Self {
         game.rules.battle_delay = 0;
+        game.rules.timing = truncate_core::rules::Timing::None;
 
         let player_colors: Vec<_> = game
             .players
