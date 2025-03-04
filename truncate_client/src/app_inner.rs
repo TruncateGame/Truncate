@@ -405,7 +405,7 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     outer.map_texture.clone(),
                     outer.theme.clone(),
                     new_game,
-                    move_sequence,
+                    move_sequence.unwrap_or_default(),
                     game.depot.gameplay.player_number as usize,
                 );
 
