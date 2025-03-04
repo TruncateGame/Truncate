@@ -270,6 +270,8 @@ impl ReplayerState {
 
         let mut board_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
+        // TODO: Add a semi-interactive board
+        // (panning + zooming okay, interacting with tiles not okay)
         BoardUI::new(&self.game.board).interactive(true).render(
             &self.game.players[0].hand,
             &mut board_space_ui,
