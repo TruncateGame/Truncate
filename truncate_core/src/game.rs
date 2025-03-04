@@ -33,6 +33,7 @@ pub const GAME_COLORS: [(u8, u8, u8); 5] = [
 
 #[derive(Debug, Clone)]
 pub struct Game {
+    pub seed: u64,
     pub rules: GameRules,
     pub players: Vec<Player>,
     pub board: Board,
@@ -59,7 +60,9 @@ pub fn now() -> u64 {
 }
 
 impl Game {
-    pub fn new(width: usize, height: usize, tile_seed: Option<u64>, rules: GameRules) -> Self {
+    pub fn new(width: usize, height: usize, seed: Option<u64>, rules: GameRules) -> Self {
+        let seed = seed.unwrap_or_else(|| now());
+
         let mut board = Board::new(width, height);
         board.grow();
 
@@ -69,9 +72,10 @@ impl Game {
         };
 
         Self {
+            seed,
             players: Vec::with_capacity(2),
             board,
-            bag: TileBag::generation(rules.tile_generation, tile_seed),
+            bag: TileBag::generation(rules.tile_generation, seed),
             judge: Judge::default(),
             move_sequence: vec![],
             battle_count: 0,
@@ -87,12 +91,9 @@ impl Game {
         }
     }
 
-    pub fn new_legacy(
-        width: usize,
-        height: usize,
-        tile_seed: Option<u64>,
-        rules: GameRules,
-    ) -> Self {
+    pub fn new_legacy(width: usize, height: usize, seed: Option<u64>, rules: GameRules) -> Self {
+        let seed = seed.unwrap_or_else(|| now());
+
         let mut board = Board::new_legacy(width, height);
         board.grow();
 
@@ -102,9 +103,10 @@ impl Game {
         };
 
         Self {
+            seed,
             players: Vec::with_capacity(2),
             board,
-            bag: TileBag::generation(rules.tile_generation, tile_seed),
+            bag: TileBag::generation(rules.tile_generation, seed),
             judge: Judge::default(),
             move_sequence: vec![],
             battle_count: 0,

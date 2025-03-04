@@ -103,7 +103,7 @@ pub struct TileBag {
 }
 
 impl TileBag {
-    pub fn generation(gen: u32, seed: Option<u64>) -> Self {
+    pub fn generation(gen: u32, seed: u64) -> Self {
         TileBag::custom(
             TILE_GENERATIONS
                 .get(gen as usize)
@@ -113,36 +113,26 @@ impl TileBag {
         )
     }
 
-    pub fn latest(seed: Option<u64>) -> (u32, Self) {
+    pub fn latest(seed: u64) -> (u32, Self) {
         assert!(!TILE_GENERATIONS.is_empty());
         let generation = (TILE_GENERATIONS.len() - 1) as u32;
         (generation, TileBag::generation(generation as u32, seed))
     }
 
-    pub fn custom(letter_distribution: [usize; 26], seed: Option<u64>) -> Self {
+    pub fn custom(letter_distribution: [usize; 26], seed: u64) -> Self {
         let mut tile_bag = TileBag {
             bag: Vec::new(),
-            rng: Rand32::new(seed.unwrap_or_else(|| {
-                instant::SystemTime::now()
-                    .duration_since(instant::SystemTime::UNIX_EPOCH)
-                    .expect("Please don't play Truncate earlier than 1970")
-                    .as_secs()
-            })),
+            rng: Rand32::new(seed),
             letter_distribution: Some(letter_distribution),
         };
         tile_bag.fill();
         tile_bag
     }
 
-    pub fn explicit(tiles: Vec<char>, seed: Option<u64>) -> Self {
+    pub fn explicit(tiles: Vec<char>, seed: u64) -> Self {
         TileBag {
             bag: tiles,
-            rng: Rand32::new(seed.unwrap_or_else(|| {
-                instant::SystemTime::now()
-                    .duration_since(instant::SystemTime::UNIX_EPOCH)
-                    .expect("Please don't play Truncate earlier than 1970")
-                    .as_secs()
-            })),
+            rng: Rand32::new(seed),
             letter_distribution: None,
         }
     }
@@ -201,12 +191,12 @@ pub mod tests {
         let mut dist = [0; 26];
         dist[0] = 1; // There is 1 A and
         dist[1] = 1; // 1 B in the bag
-        TileBag::custom(dist, Some(12345))
+        TileBag::custom(dist, 12345)
     }
 
     pub fn trivial_bag() -> TileBag {
         let mut dist = [0; 26];
         dist[0] = 1;
-        TileBag::custom(dist, Some(12345))
+        TileBag::custom(dist, 12345)
     }
 }
