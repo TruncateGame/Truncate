@@ -65,7 +65,7 @@ pub struct ActiveGame {
     pub mapped_hand: MappedTiles,
     pub mapped_overlay: MappedTiles,
     pub hand: Hand,
-    pub move_sequence: Vec<Move>,
+    pub move_sequence: Option<Vec<Move>>,
     pub board_changes: HashMap<Coordinate, BoardChange>,
     pub new_hand_tiles: Vec<usize>,
     pub time_changes: Vec<TimeChange>,
@@ -158,7 +158,7 @@ impl ActiveGame {
             rules,
             board,
             hand,
-            move_sequence: vec![],
+            move_sequence: None,
             board_changes: HashMap::new(),
             new_hand_tiles: vec![],
             time_changes: vec![],
@@ -337,7 +337,10 @@ impl ActiveGame {
 
         self.depot.gameplay.changes = changes.clone();
 
-        if let Ok(moves) = unpack_moves(&packed_move_sequence, self.players.len()) {
+        if let Ok(moves) = packed_move_sequence
+            .map(|m| unpack_moves(&m, self.players.len()))
+            .transpose()
+        {
             self.move_sequence = moves;
         }
 

@@ -363,10 +363,10 @@ impl SinglePlayerState {
                         .collect(),
                     player_number: human_player as u64,
                     next_player_number: self.game.next_player.map(|p| p as u64),
-                    packed_move_sequence: pack_moves(
+                    packed_move_sequence: Some(pack_moves(
                         &self.game.move_sequence,
                         self.game.players.len(),
-                    ),
+                    )),
                     rules: self.game.rules.clone(),
                     board: self.game.board.clone(),
                     hand: self.game.players[human_player].hand.clone(),

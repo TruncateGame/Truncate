@@ -183,7 +183,7 @@ pub struct GameStateMessage {
     pub rules: GameRules,
     pub board: Board,
     pub hand: Hand,
-    pub packed_move_sequence: String,
+    pub packed_move_sequence: Option<String>,
     pub changes: Vec<Change>,
     pub game_ends_at: Option<u64>,
     pub remaining_turns: Option<u64>,

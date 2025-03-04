@@ -156,6 +156,20 @@ impl GameManager {
             .max_turns
             .map(|max| max.saturating_sub(self.core_game.turn_count as u64));
 
+        let send_move_seq = self.core_game.winner.is_some()
+            || matches!(
+                self.core_game.rules.visibility,
+                truncate_core::rules::Visibility::Standard
+            );
+        let move_seq = if send_move_seq {
+            Some(pack_moves(
+                &self.core_game.move_sequence,
+                self.core_game.players.len(),
+            ))
+        } else {
+            None
+        };
+
         GameStateMessage {
             room_code: self.game_id.clone(),
             players: self
@@ -169,10 +183,7 @@ impl GameManager {
             rules: self.core_game.rules.clone(),
             board,
             hand,
-            packed_move_sequence: pack_moves(
-                &self.core_game.move_sequence,
-                self.core_game.players.len(),
-            ),
+            packed_move_sequence: move_seq,
             changes,
             game_ends_at: self.core_game.game_ends_at,
             paused: self.core_game.paused,
