@@ -148,6 +148,21 @@ impl ActiveGame {
 
                             ui.add_space(20.0);
                         }
+
+                        let text = TextHelper::heavy("VIEW REPLAY", 12.0, None, ui);
+                        if text
+                            .centered_button(
+                                self.depot.aesthetics.theme.button_primary,
+                                self.depot.aesthetics.theme.text,
+                                &self.depot.aesthetics.map_texture,
+                                ui,
+                            )
+                            .clicked()
+                        {
+                            msg = Some(PlayerMessage::LoadReplay("__THIS__".to_string()));
+                        }
+
+                        ui.add_space(20.0);
                     }
 
                     let menu_buttons_vertical = self.depot.ui_state.is_mobile;

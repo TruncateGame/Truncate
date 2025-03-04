@@ -383,11 +383,36 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 send(msg);
             }
         }
-        GameStatus::Concluded(game, _winner) => {
-            if let Some(PlayerMessage::Rematch) = game.render(ui, current_time, None) {
-                send(PlayerMessage::Rematch);
+        GameStatus::Concluded(game, _winner) => match game.render(ui, current_time, None) {
+            Some(PlayerMessage::Rematch) => send(PlayerMessage::Rematch),
+            Some(PlayerMessage::LoadReplay(s)) if s == "__THIS__" => {
+                let mut new_game =
+                    truncate_core::game::Game::new(9, 9, Some(1243), game.rules.clone());
+
+                let mut board = game.board.clone();
+                board.reset();
+                board.cache_special_squares();
+                new_game.board = board.clone();
+
+                for p in &game.players {
+                    new_game.add_player(p.name.clone());
+                }
+
+                let move_sequence = game.move_sequence.clone();
+
+                let replayer = ReplayerState::new(
+                    ui.ctx(),
+                    outer.map_texture.clone(),
+                    outer.theme.clone(),
+                    new_game,
+                    move_sequence,
+                    game.depot.gameplay.player_number as usize,
+                );
+
+                new_game_status = Some(GameStatus::Replay(replayer));
             }
-        }
+            _ => {}
+        },
         GameStatus::PendingReplay => {
             let splash = SplashUI::new(if let Some(error) = &outer.error {
                 vec![error.clone()]
