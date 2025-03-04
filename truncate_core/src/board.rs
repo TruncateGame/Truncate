@@ -316,6 +316,7 @@ impl Board {
 
         self.artifacts.clear();
         self.towns.clear();
+        self.obelisks.clear();
 
         for coord in coords {
             match self.get(coord) {
