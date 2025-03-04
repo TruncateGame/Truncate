@@ -334,7 +334,7 @@ mod tests {
 
     #[test]
     fn invalid_player_or_tile() {
-        let mut bag = TileBag::latest(None).1;
+        let mut bag = TileBag::latest(1234).1;
         let players = vec![
             Player::new("A".into(), 0, 7, &mut bag, None, (0, 0, 0)),
             Player::new("B".into(), 1, 7, &mut bag, None, (0, 0, 0)),

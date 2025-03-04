@@ -140,7 +140,7 @@ impl TutorialStage {
             Some(ScenarioStep::ComputerMove { gets, .. }) => Some(gets),
             _ => None,
         } {
-            self.game.bag = TileBag::explicit(vec![*next_tile], None);
+            self.game.bag = TileBag::explicit(vec![*next_tile], 1);
         }
 
         let dict_lock = get_main_dict();
@@ -265,6 +265,7 @@ impl TutorialState {
             board.mark_all_validity(Some(dict));
 
             let mut game = Game {
+                seed: 1,
                 rules: GameRules::latest(Some(tutorial.effective_day)).1,
                 players: vec![
                     Player {
@@ -300,7 +301,7 @@ impl TutorialState {
                 ],
                 board,
                 // TODO: Use some special infinite bag?
-                bag: TileBag::latest(None).1,
+                bag: TileBag::latest(0).1,
                 judge: Judge::new(vec![]),
                 move_sequence: vec![],
                 battle_count: 0,
