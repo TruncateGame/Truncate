@@ -118,6 +118,17 @@ impl ReplayerState {
             return;
         };
 
+        match next_move {
+            Move::Place { player, tile, .. } => {
+                if !self.game.players[*player].has_tile(*tile) {
+                    // Escape hatch — if we have the wrong tile seed in the replay
+                    // we don't want to error out, so we carry on blindly.
+                    self.game.players[*player].hand.add(*tile);
+                }
+            }
+            _ => {}
+        }
+
         let dict_lock = get_main_dict();
         let dict = dict_lock.as_ref().unwrap();
         _ = self
