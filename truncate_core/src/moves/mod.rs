@@ -2,6 +2,8 @@ pub mod packing;
 
 use serde::{Deserialize, Serialize};
 
+use crate::game::Game;
+
 use super::board::Coordinate;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,6 +18,54 @@ pub enum Move {
         player: usize,
         positions: [Coordinate; 2],
     },
+}
+
+impl Game {
+    pub fn remap_player_move_to_game(&self, player_move: Move) -> Move {
+        match player_move {
+            Move::Place {
+                player,
+                tile,
+                position: player_reported_position,
+            } => {
+                let new_position = self.board.map_player_coord_to_game(
+                    player,
+                    player_reported_position,
+                    &self.rules.visibility,
+                    &self.players[player].seen_tiles,
+                );
+                Move::Place {
+                    player,
+                    tile,
+                    position: new_position,
+                }
+            }
+            Move::Swap {
+                player,
+                positions: player_reported_positions,
+            } => {
+                let new_positions = [
+                    self.board.map_player_coord_to_game(
+                        player,
+                        player_reported_positions[0],
+                        &self.rules.visibility,
+                        &self.players[player].seen_tiles,
+                    ),
+                    self.board.map_player_coord_to_game(
+                        player,
+                        player_reported_positions[1],
+                        &self.rules.visibility,
+                        &self.players[player].seen_tiles,
+                    ),
+                ];
+
+                Move::Swap {
+                    player,
+                    positions: new_positions,
+                }
+            }
+        }
+    }
 }
 
 impl PartialEq for Move {

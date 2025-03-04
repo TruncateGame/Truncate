@@ -416,8 +416,12 @@ impl Game {
             return Err("Player's turn has not yet started".into());
         }
 
+        let game_space_move = self.remap_player_move_to_game(next_move.clone());
+        // TODO: Throw a special error if the player tries to play into a foggy coordinate
+        // (To prevent leaking information about something that can't see through the error message)
+
         self.recent_changes = match self.make_move(
-            next_move.clone(),
+            game_space_move.clone(),
             attacker_dictionary,
             defender_dictionary,
             cached_word_judgements,
@@ -428,7 +432,7 @@ impl Game {
                 return Err(format!("{msg}"));
             }
         };
-        self.move_sequence.push(next_move);
+        self.move_sequence.push(game_space_move);
 
         // Track any new tiles that the player may have gained vision of from this turn
         {
@@ -556,18 +560,11 @@ impl Game {
                 player,
                 slot,
                 tile,
-                position: player_reported_position,
+                position,
             } => {
                 if self.get_player(player).is_none() {
                     return Err(GamePlayError::NonExistentPlayer { index: player });
                 }
-
-                let position = self.board.map_player_coord_to_game(
-                    player,
-                    player_reported_position,
-                    &self.rules.visibility,
-                    &self.players[player].seen_tiles,
-                );
 
                 if let Square::Occupied { .. } = self.board.get(position)? {
                     return Err(GamePlayError::OccupiedPlace);
@@ -626,23 +623,8 @@ impl Game {
             }
             Move::Swap {
                 player: player_index,
-                positions: player_reported_positions,
+                positions,
             } => {
-                let positions = [
-                    self.board.map_player_coord_to_game(
-                        player_index,
-                        player_reported_positions[0],
-                        &self.rules.visibility,
-                        &self.players[player_index].seen_tiles,
-                    ),
-                    self.board.map_player_coord_to_game(
-                        player_index,
-                        player_reported_positions[1],
-                        &self.rules.visibility,
-                        &self.players[player_index].seen_tiles,
-                    ),
-                ];
-
                 let player = &mut self.players[player_index];
                 let swap_rules = match &self.rules.swapping {
                     rules::Swapping::Contiguous(rules) => Some(rules),
