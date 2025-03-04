@@ -253,7 +253,6 @@ impl ActiveGame {
             .interactive(!self.depot.interactions.view_only)
             .render(
                 &self.hand,
-                &self.board_changes,
                 &mut game_space_ui,
                 &mut self.mapped_board,
                 &mut self.mapped_overlay,

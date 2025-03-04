@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, Align, Align2, Layout, Order};
 use epaint::{vec2, Color32, TextureHandle};
 use instant::Duration;
 use truncate_core::{
@@ -9,10 +9,14 @@ use truncate_core::{
 
 use crate::{
     app_outer::Backchannel,
+    lil_bits::BoardUI,
     utils::{
-        depot::{AestheticDepot, GameplayDepot, TimingDepot},
+        depot::{
+            AestheticDepot, AudioDepot, BoardDepot, GameplayDepot, InteractionDepot, RegionDepot,
+            TimingDepot, TruncateDepot, UIStateDepot,
+        },
         game_evals::get_main_dict,
-        mapper::MappedBoard,
+        mapper::{MappedBoard, MappedTiles},
         text::TextHelper,
         timing::get_qs_tick,
         urls::back_to_menu,
@@ -44,14 +48,13 @@ pub struct ReplayerState {
     game: Game,
     map_texture: TextureHandle,
     mapped_board: MappedBoard,
+    mapped_overlay: MappedTiles,
     theme: Theme,
     move_sequence: Vec<Move>,
     next_move: usize,
     played_at_tick: Option<u64>,
     playback_speed: PlaybackSpeed,
-    aesthetics: AestheticDepot,
-    timing: TimingDepot,
-    gameplay: GameplayDepot,
+    depot: TruncateDepot,
 }
 
 impl ReplayerState {
@@ -95,22 +98,32 @@ impl ReplayerState {
             remaining_turns: None,
         };
 
+        let depot = TruncateDepot {
+            gameplay,
+            aesthetics,
+            interactions: InteractionDepot::default(),
+            regions: RegionDepot::default(),
+            ui_state: UIStateDepot::default(),
+            board_info: BoardDepot::default(),
+            timing: TimingDepot::default(),
+            audio: AudioDepot::default(),
+        };
+
         game.start();
 
         Self {
+            depot,
             as_player,
             base_game: game.clone(),
             game,
             map_texture,
             mapped_board,
+            mapped_overlay: MappedTiles::new(ctx, 1),
             theme,
             move_sequence,
             next_move: 0,
             played_at_tick: None,
             playback_speed: PlaybackSpeed::Regular,
-            aesthetics,
-            timing: TimingDepot::default(),
-            gameplay,
         }
     }
 
@@ -138,10 +151,10 @@ impl ReplayerState {
 
         self.next_move += 1;
 
-        self.timing.last_turn_change = current_time;
+        self.depot.timing.last_turn_change = current_time;
 
-        self.gameplay.next_player_number = self.game.next_player.map(|p| p as u64);
-        self.gameplay.changes = self.game.recent_changes.clone();
+        self.depot.gameplay.next_player_number = self.game.next_player.map(|p| p as u64);
+        self.depot.gameplay.changes = self.game.recent_changes.clone();
 
         let battle_occurred = self
             .game
@@ -149,20 +162,8 @@ impl ReplayerState {
             .iter()
             .any(|change| matches!(change, Change::Battle(_)));
 
-        self.gameplay.last_battle_origin =
-            self.game
-                .recent_changes
-                .iter()
-                .find_map(|change| match change {
-                    Change::Board(BoardChange {
-                        detail: BoardChangeDetail { coordinate, .. },
-                        action: BoardChangeAction::Added,
-                    }) => Some(*coordinate),
-                    _ => None,
-                });
-
         if battle_occurred {
-            self.gameplay.last_battle_origin =
+            self.depot.gameplay.last_battle_origin =
                 self.game
                     .recent_changes
                     .iter()
@@ -174,7 +175,7 @@ impl ReplayerState {
                         _ => None,
                     });
         } else {
-            self.gameplay.last_battle_origin = None;
+            self.depot.gameplay.last_battle_origin = None;
         }
 
         // Add a delay after a battle to let animations play out
@@ -198,63 +199,83 @@ impl ReplayerState {
         let now = get_qs_tick(current_time);
         let elapsed = now.saturating_sub(*start);
 
-        self.timing.current_time = current_time.clone();
+        self.depot.timing.current_time = current_time.clone();
 
         if elapsed >= self.playback_speed.ticks() {
             self.play_next_turn(current_time, now);
         }
 
-        ui.add_space(20.0);
+        let mut game_space = ui.available_rect_before_wrap();
+        let replay_control_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
-        let text = TextHelper::heavy("BACK TO MENU", 12.0, None, ui);
-        if text
-            .centered_button(theme.button_primary, theme.text, &self.map_texture, ui)
-            .clicked()
-        {
-            back_to_menu();
-        }
+        let area_id = egui::Id::new("replay_controls_layer");
+        let area = egui::Area::new(area_id)
+            .movable(false)
+            .order(Order::Foreground)
+            .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
+        let last_size = ui.memory(|m| m.area_rect(area_id));
 
-        ui.add_space(20.0);
+        let resp = area.show(replay_control_ui.ctx(), |ui| {
+            if let Some(last_size) = last_size {
+                ui.painter().clone().rect_filled(
+                    last_size,
+                    0.0,
+                    self.depot.aesthetics.theme.water.gamma_multiply(0.9),
+                );
+            }
+            ui.allocate_ui_with_layout(
+                vec2(game_space.width(), 10.0),
+                Layout::top_down(Align::LEFT),
+                |ui| {
+                    ui.add_space(20.0);
 
-        let text = TextHelper::heavy("RESTART REPLAY", 12.0, None, ui);
-        if text
-            .centered_button(theme.button_primary, theme.text, &self.map_texture, ui)
-            .clicked()
-        {
-            *self = Self::new(
-                ui.ctx(),
-                self.map_texture.clone(),
-                theme.clone(),
-                self.base_game.clone(),
-                self.move_sequence.clone(),
-                self.as_player,
+                    let text = TextHelper::heavy("BACK TO MENU", 12.0, None, ui);
+                    if text
+                        .centered_button(theme.button_primary, theme.text, &self.map_texture, ui)
+                        .clicked()
+                    {
+                        back_to_menu();
+                    }
+
+                    ui.add_space(20.0);
+
+                    let text = TextHelper::heavy("RESTART REPLAY", 12.0, None, ui);
+                    if text
+                        .centered_button(theme.button_primary, theme.text, &self.map_texture, ui)
+                        .clicked()
+                    {
+                        *self = Self::new(
+                            ui.ctx(),
+                            self.map_texture.clone(),
+                            theme.clone(),
+                            self.base_game.clone(),
+                            self.move_sequence.clone(),
+                            self.as_player,
+                        );
+                    }
+                },
             );
-        }
+        });
+        let replay_control_rect = resp.response.rect;
+        game_space.set_top(replay_control_rect.bottom());
 
         self.mapped_board.remap_texture(
             ui.ctx(),
-            &self.aesthetics,
-            &self.timing,
-            None,
-            Some(&self.gameplay),
+            &self.depot.aesthetics,
+            &self.depot.timing,
+            Some(&self.depot.interactions),
+            Some(&self.depot.gameplay),
             &self.game.board,
         );
 
-        let mut board_space = ui.available_rect_before_wrap().shrink(10.0);
-        let height_from_width = self.game.board.height() as f32 / self.game.board.width() as f32;
-        let target_height = board_space.width() * height_from_width;
+        let mut board_space_ui = ui.child_ui(game_space, Layout::top_down(Align::LEFT));
 
-        if target_height <= board_space.height() {
-            let diff = (board_space.height() - target_height) / 2.0;
-            board_space = board_space.shrink2(vec2(0.0, diff));
-        } else {
-            let width_from_height =
-                self.game.board.width() as f32 / self.game.board.height() as f32;
-            let target_width = board_space.height() * width_from_height;
-            let diff = (board_space.width() - target_width) / 2.0;
-            board_space = board_space.shrink2(vec2(diff, 0.0));
-        }
-
-        self.mapped_board.render_to_rect(board_space, None, ui);
+        BoardUI::new(&self.game.board).interactive(true).render(
+            &self.game.players[0].hand,
+            &mut board_space_ui,
+            &mut self.mapped_board,
+            &mut self.mapped_overlay,
+            &mut self.depot,
+        );
     }
 }
