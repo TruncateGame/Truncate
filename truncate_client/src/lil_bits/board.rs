@@ -41,7 +41,6 @@ impl<'a> BoardUI<'a> {
     pub fn render(
         self,
         hand: &Hand,
-        _board_changes: &HashMap<Coordinate, BoardChange>,
         ui: &mut egui::Ui,
         mapped_board: &mut MappedBoard,
         mapped_overlay: &mut MappedTiles,
