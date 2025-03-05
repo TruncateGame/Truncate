@@ -29,6 +29,7 @@ enum PlaybackSpeed {
     Fast,
     Regular,
     Slow,
+    Paused,
 }
 
 impl PlaybackSpeed {
@@ -37,6 +38,7 @@ impl PlaybackSpeed {
             PlaybackSpeed::Fast => 1,
             PlaybackSpeed::Regular => 2,
             PlaybackSpeed::Slow => 3,
+            PlaybackSpeed::Paused => u64::MAX,
         }
     }
 }
@@ -231,28 +233,64 @@ impl ReplayerState {
 
                     let text = TextHelper::heavy("BACK TO MENU", 12.0, None, ui);
                     if text
-                        .centered_button(theme.button_primary, theme.text, &self.map_texture, ui)
+                        .button(theme.button_primary, theme.text, &self.map_texture, ui)
                         .clicked()
                     {
                         back_to_menu();
                     }
 
-                    ui.add_space(20.0);
+                    ui.add_space(10.0);
 
-                    let text = TextHelper::heavy("RESTART REPLAY", 12.0, None, ui);
-                    if text
-                        .centered_button(theme.button_primary, theme.text, &self.map_texture, ui)
-                        .clicked()
-                    {
-                        *self = Self::new(
-                            ui.ctx(),
-                            self.map_texture.clone(),
-                            theme.clone(),
-                            self.base_game.clone(),
-                            self.move_sequence.clone(),
-                            self.as_player,
-                        );
-                    }
+                    ui.horizontal(|ui| {
+                        let text = TextHelper::heavy("RESTART REPLAY", 12.0, None, ui);
+                        if text
+                            .button(theme.button_primary, theme.text, &self.map_texture, ui)
+                            .clicked()
+                        {
+                            *self = Self::new(
+                                ui.ctx(),
+                                self.map_texture.clone(),
+                                theme.clone(),
+                                self.base_game.clone(),
+                                self.move_sequence.clone(),
+                                self.as_player,
+                            );
+                        }
+
+                        let text = TextHelper::heavy("PAUSE", 12.0, None, ui);
+                        if text
+                            .button(theme.button_primary, theme.text, &self.map_texture, ui)
+                            .clicked()
+                        {
+                            self.playback_speed = PlaybackSpeed::Paused
+                        }
+
+                        let text = TextHelper::heavy("SLOW", 12.0, None, ui);
+                        if text
+                            .button(theme.button_primary, theme.text, &self.map_texture, ui)
+                            .clicked()
+                        {
+                            self.playback_speed = PlaybackSpeed::Slow
+                        }
+
+                        let text = TextHelper::heavy("PLAY", 12.0, None, ui);
+                        if text
+                            .button(theme.button_primary, theme.text, &self.map_texture, ui)
+                            .clicked()
+                        {
+                            self.playback_speed = PlaybackSpeed::Regular
+                        }
+
+                        let text = TextHelper::heavy("FAST", 12.0, None, ui);
+                        if text
+                            .button(theme.button_primary, theme.text, &self.map_texture, ui)
+                            .clicked()
+                        {
+                            self.playback_speed = PlaybackSpeed::Fast
+                        }
+                    });
+
+                    ui.add_space(10.0);
                 },
             );
         });
