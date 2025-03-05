@@ -265,6 +265,14 @@ impl ReplayerState {
                             self.playback_speed = PlaybackSpeed::Paused
                         }
 
+                        let text = TextHelper::heavy("TICK", 12.0, None, ui);
+                        if text
+                            .button(theme.button_primary, theme.text, &self.map_texture, ui)
+                            .clicked()
+                        {
+                            self.play_next_turn(current_time, now);
+                        }
+
                         let text = TextHelper::heavy("SLOW", 12.0, None, ui);
                         if text
                             .button(theme.button_primary, theme.text, &self.map_texture, ui)
