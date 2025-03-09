@@ -62,7 +62,7 @@ impl Arborist {
 
 pub struct Caches {
     cached_floods: HashMap<Vec<u64>, (BoardDistances, BoardDistances), xxh3::Xxh3Builder>,
-    cached_scores: HashMap<(Coordinate, char, usize), usize, xxh3::Xxh3Builder>,
+    cached_scores: HashMap<(Move, usize), usize, xxh3::Xxh3Builder>,
     cached_words: HashMap<String, bool, xxh3::Xxh3Builder>,
 }
 
@@ -96,7 +96,15 @@ impl Game {
         };
         let mut caches = Caches::new();
 
-        let mut run_mini = |partial_depth: usize, arborist: &mut Arborist| {
+        let base_score = game.static_eval(
+            self_dictionary,
+            evaluation_player,
+            depth,
+            &mut caches,
+            npc_params,
+        );
+
+        let mut run_mini = |partial_depth: usize, swapping: bool, arborist: &mut Arborist| {
             Game::minimax(
                 game.clone(),
                 self_dictionary,
@@ -107,6 +115,7 @@ impl Game {
                 BoardScore::neg_inf(),
                 BoardScore::inf(),
                 evaluation_player,
+                swapping,
                 arborist,
                 &mut caches,
                 npc_params,
@@ -115,11 +124,14 @@ impl Game {
 
         let mut latest = None;
         let mut looked = 0;
-
         let arborist = counter.unwrap_or_else(|| &mut internal_arborist);
+
+        let swaplatest = Some(run_mini(1, true, arborist));
+
+        arborist.assessed = 0;
         for d in 1..depth {
-            let maybelatest = Some(run_mini(d, arborist));
-            if arborist.assessed > arborist.cap {
+            let maybelatest = Some(run_mini(d, false, arborist));
+            if latest.is_some() && arborist.assessed > arborist.cap {
                 break;
             }
             latest = maybelatest;
@@ -127,31 +139,63 @@ impl Game {
         }
 
         if arborist.assessed < arborist.cap {
-            let maybelatest = Some(run_mini(depth, arborist));
+            let maybelatest = Some(run_mini(depth, false, arborist));
             if arborist.assessed < arborist.cap {
                 latest = maybelatest;
                 looked = depth;
             }
         }
 
-        let Some((best_score, Some((position, tile)))) = latest else {
+        let Some((mut best_score, Some(mut next_move))) = latest else {
             panic!("Expected a valid position to be playable");
         };
 
         if log {
+            tracing::debug!("- - - - - - - - - - - - - - - - - - - - - - -");
             tracing::debug!(
                 "Bot checked {} boards, going to a depth of {looked}",
                 arborist.assessed()
             );
             tracing::debug!("Bot has the hand: {}", game.players[evaluation_player].hand);
 
-            tracing::debug!("Chosen tree has the score {best_score:#?}");
+            tracing::debug!("Chosen tree for {next_move:?} has the score {best_score:#?}");
             if let Some(board) = &best_score.board {
                 tracing::debug!("Bot is aiming for the board {board}");
             }
         }
 
-        (PlayerMessage::Place(position, tile), best_score)
+        if let Some((swapscore, Some(swapmove))) = swaplatest {
+            if log {
+                tracing::debug!("Chosen swap tree for {swapmove:?} has the score {swapscore:#?}");
+                if let Some(board) = &swapscore.board {
+                    tracing::debug!("Bot is aiming for the board {board}");
+                }
+                tracing::debug!(
+                    "Swap is better than move? {:?}",
+                    swapscore.partial_cmp(&best_score)
+                );
+                tracing::debug!(
+                    "Swap is better than base? {:?}",
+                    swapscore.partial_cmp(&base_score)
+                );
+            }
+
+            if swapscore >= base_score || swapscore >= best_score {
+                best_score = swapscore;
+                next_move = swapmove;
+            }
+        }
+
+        match next_move {
+            Move::Place {
+                player,
+                tile,
+                position,
+            } => (PlayerMessage::Place(position, tile), best_score),
+            Move::Swap { player, positions } => {
+                (PlayerMessage::Swap(positions[0], positions[1]), best_score)
+            }
+        }
     }
 
     fn minimax(
@@ -164,10 +208,11 @@ impl Game {
         mut alpha: BoardScore,
         mut beta: BoardScore,
         for_player: usize,
+        swapping: bool,
         arborist: &mut Arborist,
         caches: &mut Caches,
         npc_params: &NPCParams,
-    ) -> (BoardScore, Option<(Coordinate, char)>) {
+    ) -> (BoardScore, Option<Move>) {
         game.instrument_unknown_game_state(for_player, total_depth, depth);
         let pruning = arborist.prune();
 
@@ -178,88 +223,91 @@ impl Game {
             );
         }
 
-        let mut possible_moves = game.possible_moves();
-        possible_moves.sort_by_cached_key(|(position, tile)| {
+        let mut possible_moves = if swapping {
+            game.possible_swaps()
+        } else {
+            game.possible_moves()
+        };
+
+        possible_moves.sort_by_cached_key(|m| {
             std::usize::MAX
                 - caches
                     .cached_scores
-                    .get(&(*position, *tile, layer))
+                    .get(&(m.clone(), layer))
                     .unwrap_or(&std::usize::MAX)
         });
 
-        let mut turn_score =
-            |game: &Game, tile: char, position: Coordinate, alpha: BoardScore, beta: BoardScore| {
-                arborist.tick();
-                if arborist.assessed > arborist.cap {
-                    return None;
-                }
-                let mut next_turn = game.clone();
+        let mut turn_score = |game: &Game, next_move: Move, alpha: BoardScore, beta: BoardScore| {
+            arborist.tick();
+            if arborist.assessed > arborist.cap {
+                return None;
+            }
+            let mut next_turn = game.clone();
 
-                let next_player = game.next_player.unwrap();
+            let next_player = game.next_player.unwrap();
 
-                let (attacker_dict, defender_dict) = if next_player == for_player {
-                    (self_dictionary, opponent_dictionary)
-                } else {
-                    (opponent_dictionary, self_dictionary)
-                };
-
-                let is_players_turn = next_player == for_player;
-
-                next_turn
-                    .play_turn(
-                        Move::Place {
-                            player: next_player,
-                            tile,
-                            position,
-                        },
-                        attacker_dict,
-                        defender_dict,
-                        Some(&mut caches.cached_words),
-                    )
-                    .expect("Should be exploring valid turns");
-                let score = Game::minimax(
-                    next_turn,
-                    self_dictionary,
-                    opponent_dictionary,
-                    total_depth,
-                    depth - 1,
-                    layer + 1,
-                    alpha,
-                    beta,
-                    for_player,
-                    arborist,
-                    caches,
-                    npc_params,
-                )
-                .0;
-
-                if is_players_turn {
-                    caches
-                        .cached_scores
-                        .insert((position, tile, layer), score.usize_rank());
-                } else {
-                    caches.cached_scores.insert(
-                        (position, tile, layer),
-                        std::usize::MAX - score.usize_rank(),
-                    );
-                }
-
-                Some(score)
+            let (attacker_dict, defender_dict) = if next_player == for_player {
+                (self_dictionary, opponent_dictionary)
+            } else {
+                (opponent_dictionary, self_dictionary)
             };
+
+            let is_players_turn = next_player == for_player;
+
+            if next_turn
+                .play_turn(
+                    next_move.clone(),
+                    attacker_dict,
+                    defender_dict,
+                    Some(&mut caches.cached_words),
+                )
+                .is_err()
+            {
+                return None;
+            }
+            let score = Game::minimax(
+                next_turn,
+                self_dictionary,
+                opponent_dictionary,
+                total_depth,
+                depth - 1,
+                layer + 1,
+                alpha,
+                beta,
+                for_player,
+                swapping,
+                arborist,
+                caches,
+                npc_params,
+            )
+            .0;
+
+            if is_players_turn {
+                caches
+                    .cached_scores
+                    .insert((next_move, layer), score.usize_rank());
+            } else {
+                caches
+                    .cached_scores
+                    .insert((next_move, layer), std::usize::MAX - score.usize_rank());
+            }
+
+            Some(score)
+        };
 
         if game.next_player.unwrap() == for_player {
             let mut max_score = BoardScore::neg_inf();
             let mut relevant_move = None;
 
-            for (position, tile) in possible_moves {
-                let Some(score) = turn_score(&game, tile, position, alpha.clone(), beta.clone())
+            for next_move in possible_moves {
+                let Some(score) = turn_score(&game, next_move.clone(), alpha.clone(), beta.clone())
                 else {
                     break;
                 };
 
                 if score > max_score {
                     max_score = score.clone();
-                    relevant_move = Some((position, tile));
+                    relevant_move = Some(next_move);
                 }
                 if max_score > alpha {
                     alpha = score;
@@ -277,15 +325,15 @@ impl Game {
             let mut min_score = BoardScore::inf();
             let mut relevant_move = None;
 
-            for (position, tile) in possible_moves {
-                let Some(score) = turn_score(&game, tile, position, alpha.clone(), beta.clone())
+            for next_move in possible_moves {
+                let Some(score) = turn_score(&game, next_move.clone(), alpha.clone(), beta.clone())
                 else {
                     break;
                 };
 
                 if score < min_score {
                     min_score = score.clone();
-                    relevant_move = Some((position, tile));
+                    relevant_move = Some(next_move);
                 }
                 if min_score < beta {
                     beta = score;
@@ -302,7 +350,7 @@ impl Game {
         }
     }
 
-    fn possible_moves(&self) -> Vec<(Coordinate, char)> {
+    fn possible_moves(&self) -> Vec<Move> {
         let mut playable_tiles: Vec<_> = self
             .players
             .get(self.next_player.unwrap())
@@ -316,9 +364,10 @@ impl Game {
 
         playable_tiles.sort();
 
+        let for_player = self.next_player.unwrap();
         let playable_squares = self
             .board
-            .playable_positions(self.next_player.unwrap(), &self.rules.truncation);
+            .playable_positions(for_player, &self.rules.truncation);
 
         let mut coords: Vec<_> = playable_squares
             .into_iter()
@@ -335,6 +384,36 @@ impl Game {
         });
 
         coords
+            .into_iter()
+            .map(|(position, tile)| Move::Place {
+                player: for_player,
+                tile,
+                position,
+            })
+            .collect()
+    }
+
+    fn possible_swaps(&self) -> Vec<Move> {
+        let for_player = self.next_player.unwrap();
+        let playable_clusters = self.board.swappable_positions(for_player);
+
+        let mut playable_swaps = vec![];
+
+        for cluster in playable_clusters {
+            for (a_pos, a_tile) in &cluster {
+                for (b_pos, b_tile) in &cluster {
+                    if a_tile == b_tile {
+                        continue;
+                    }
+                    playable_swaps.push(Move::Swap {
+                        player: for_player,
+                        positions: [*a_pos, *b_pos],
+                    });
+                }
+            }
+        }
+
+        playable_swaps
     }
 
     fn instrument_unknown_game_state(
@@ -423,7 +502,7 @@ impl Game {
                 caches.cached_floods.get(&shape).unwrap()
             };
 
-        BoardScore::default()
+        let mut score = BoardScore::default()
             .npc_params(*npc_params)
             .turn_number(depth)
             .word_quality(word_quality)
@@ -464,7 +543,11 @@ impl Game {
                 ),
             )
             .self_win(self.winner == Some(for_player))
-            .opponent_win(self.winner == Some(for_opponent))
+            .opponent_win(self.winner == Some(for_opponent));
+
+        score = score.board(self.board.clone());
+
+        score
     }
 
     pub fn eval_min_distance_to_towns(
