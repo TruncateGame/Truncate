@@ -180,7 +180,7 @@ impl Game {
                 );
             }
 
-            if swapscore >= base_score || swapscore >= best_score {
+            if swapscore > base_score || swapscore >= best_score {
                 best_score = swapscore;
                 next_move = swapmove;
             }
