@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::board::Coordinate;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq)]
 pub enum Move {
     Place {
         player: usize,

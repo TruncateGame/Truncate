@@ -1296,10 +1296,49 @@ impl Board {
             }
             rules::Truncation::Larger => unimplemented!(),
         }
+
         playable_squares
             .into_iter()
             .filter(|sq| matches!(self.get(*sq), Ok(Square::Land { .. })))
             .collect()
+    }
+
+    pub fn swappable_positions(&self, for_player: usize) -> Vec<HashSet<(Coordinate, char)>> {
+        let mut clusters = vec![];
+        let mut visited = HashSet::new();
+
+        let rows = self.height();
+        let cols = self.width();
+
+        let all_squares = (0..rows)
+            .flat_map(|y| (0..cols).zip(std::iter::repeat(y)))
+            .map(|(x, y)| Coordinate { x, y });
+
+        for coord in all_squares {
+            if visited.contains(&coord) {
+                continue;
+            }
+
+            let sq = self.get(coord);
+            match sq {
+                Ok(Square::Occupied { player, .. }) if player == for_player => {
+                    let squares = self.depth_first_search(coord);
+                    visited.extend(squares.iter().cloned());
+
+                    let hydrated_squares = squares
+                        .into_iter()
+                        .flat_map(|c| match self.get(c) {
+                            Ok(Square::Occupied { tile, .. }) => Some((c, tile)),
+                            _ => None,
+                        })
+                        .collect();
+                    clusters.push(hydrated_squares);
+                }
+                _ => {}
+            }
+        }
+
+        clusters
     }
 
     pub fn fog_of_war(
