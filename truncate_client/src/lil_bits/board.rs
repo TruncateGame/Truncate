@@ -173,13 +173,14 @@ impl<'a> BoardUI<'a> {
                                                     interactions.selected_tile_on_board = None;
                                                 }
 
-                                                if let Some((tile, _)) =
+                                                if let Some((tile_index, tile)) =
                                                     interactions.selected_tile_in_hand
                                                 {
-                                                    msg = Some(PlayerMessage::Place(
+                                                    msg = Some(PlayerMessage::Place {
                                                         coord,
-                                                        *hand.get(tile).unwrap(),
-                                                    ));
+                                                        slot: Some(tile_index),
+                                                        tile,
+                                                    });
 
                                                     interactions.selected_tile_in_hand = None;
                                                     interactions.selected_square_on_board = None;
@@ -197,12 +198,15 @@ impl<'a> BoardUI<'a> {
                                                 }
                                             }
 
-                                            if let Some(tile) = interactions.released_tile {
-                                                if tile.1 == coord {
-                                                    msg = Some(PlayerMessage::Place(
+                                            if let Some((tile_index, tile, released_coord)) =
+                                                interactions.released_tile
+                                            {
+                                                if released_coord == coord {
+                                                    msg = Some(PlayerMessage::Place {
                                                         coord,
-                                                        *hand.get(tile.0).unwrap(),
-                                                    ));
+                                                        slot: Some(tile_index),
+                                                        tile,
+                                                    });
                                                     interactions.selected_tile_in_hand = None;
                                                     interactions.selected_tile_on_board = None;
                                                     interactions.released_tile = None;

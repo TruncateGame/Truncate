@@ -38,4 +38,11 @@ pub enum GamePlayError {
 
     #[error("Player {player:?} doesn't have a '{tile:?}' tile")]
     PlayerDoesNotHaveTile { player: usize, tile: char },
+
+    #[error("Player {player:?} doesn't have a '{tile:?}' tile in slot {slot}")]
+    PlayerDoesNotHaveTileInSlot {
+        player: usize,
+        tile: char,
+        slot: usize,
+    },
 }

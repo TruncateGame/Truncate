@@ -52,6 +52,7 @@ fn action_to_move(player: usize, action: &str) -> Move {
     } else if from.len() == 1 {
         Move::Place {
             player,
+            slot: None,
             tile: from.chars().next().unwrap(),
             position: to_pos,
         }
@@ -548,10 +549,11 @@ impl TutorialState {
             }
 
             let Some(game_move) = (match msg {
-                PlayerMessage::Place(position, tile) => Some(Move::Place {
+                PlayerMessage::Place { coord, slot, tile } => Some(Move::Place {
                     player: 0,
+                    slot,
                     tile,
-                    position,
+                    position: coord,
                 }),
                 PlayerMessage::Swap(from, to) => Some(Move::Swap {
                     player: 0,

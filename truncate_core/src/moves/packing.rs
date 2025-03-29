@@ -42,6 +42,7 @@ pub fn pack_moves(moves: &Vec<Move>, player_count: usize) -> String {
         match m {
             Move::Place {
                 player,
+                slot: _,
                 tile,
                 position,
             } => {
@@ -131,6 +132,7 @@ pub fn unpack_moves(packed_moves: &String, player_count: usize) -> Result<Vec<Mo
                     let position = unpack_coord(s)?;
                     moves.push(Move::Place {
                         player: incr_player(&mut player),
+                        slot: None,
                         tile: c,
                         position,
                     });
@@ -180,16 +182,19 @@ mod tests {
         let moves = vec![
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 12, y: 3 },
             },
             Move::Place {
                 player: 1,
+                slot: None,
                 tile: 'B',
                 position: Coordinate { x: 1, y: 1 },
             },
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'J',
                 position: Coordinate { x: 1, y: 301 },
             },
@@ -199,6 +204,7 @@ mod tests {
             },
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'R',
                 position: Coordinate { x: 3, y: 3 },
             },
@@ -218,16 +224,19 @@ mod tests {
         let moves = vec![
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 12, y: 3 },
             },
             Move::Place {
                 player: 1,
+                slot: None,
                 tile: 'B',
                 position: Coordinate { x: 1, y: 1 },
             },
             Move::Place {
                 player: 2,
+                slot: None,
                 tile: 'J',
                 position: Coordinate { x: 1, y: 301 },
             },
@@ -237,6 +246,7 @@ mod tests {
             },
             Move::Place {
                 player: 1,
+                slot: None,
                 tile: 'R',
                 position: Coordinate { x: 3, y: 3 },
             },
@@ -256,16 +266,19 @@ mod tests {
         let moves = vec![
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 12, y: 3 },
             },
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'B',
                 position: Coordinate { x: 1, y: 1 },
             },
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'J',
                 position: Coordinate { x: 1, y: 301 },
             },
@@ -275,16 +288,19 @@ mod tests {
             },
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'E',
                 position: Coordinate { x: 2, y: 2 },
             },
             Move::Place {
                 player: 1,
+                slot: None,
                 tile: 'R',
                 position: Coordinate { x: 3, y: 3 },
             },
             Move::Place {
                 player: 9,
+                slot: None,
                 tile: 'X',
                 position: Coordinate { x: 0, y: 0 },
             },

@@ -649,10 +649,11 @@ impl SinglePlayerState {
         }
 
         let next_move = match next_msg {
-            Some((player, PlayerMessage::Place(position, tile))) => Some(Move::Place {
+            Some((player, PlayerMessage::Place { coord, slot, tile })) => Some(Move::Place {
                 player,
+                slot,
                 tile,
-                position,
+                position: coord,
             }),
             Some((player, PlayerMessage::Swap(from, to))) => Some(Move::Swap {
                 player,

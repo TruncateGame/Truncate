@@ -538,11 +538,11 @@ async fn handle_player_msg(
                 todo!("Handle player not being enrolled in a game");
             }
         }
-        Place(position, tile) => {
+        Place { coord, slot, tile } => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
                 let mut game_manager = existing_game.lock();
                 for (player, message) in
-                    game_manager.play(player_addr, position, tile, server_state.words())
+                    game_manager.play(player_addr, coord, slot, tile, server_state.words())
                 {
                     let Some(socket) = player.socket else {
                         continue;

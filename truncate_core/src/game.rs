@@ -552,6 +552,7 @@ impl Game {
         match game_move {
             Move::Place {
                 player,
+                slot,
                 tile,
                 position: player_reported_position,
             } => {
@@ -583,8 +584,21 @@ impl Game {
                     return Err(GamePlayError::NonAdjacentPlace);
                 }
 
-                if !self.players[player].has_tile(tile) {
-                    return Err(GamePlayError::PlayerDoesNotHaveTile { player, tile });
+                match slot {
+                    Some(slot) => {
+                        if !self.players[player].has_tile_in_slot(tile, slot) {
+                            return Err(GamePlayError::PlayerDoesNotHaveTileInSlot {
+                                player,
+                                tile,
+                                slot,
+                            });
+                        }
+                    }
+                    None => {
+                        if !self.players[player].has_tile(tile) {
+                            return Err(GamePlayError::PlayerDoesNotHaveTile { player, tile });
+                        }
+                    }
                 }
 
                 changes.push(Change::Board(BoardChange {
@@ -593,7 +607,7 @@ impl Game {
                         .set(position, player, tile, attacker_dictionary)?,
                     action: BoardChangeAction::Added,
                 }));
-                changes.push(self.players[player].use_tile(tile, &mut self.bag)?);
+                changes.push(self.players[player].use_tile(tile, slot, &mut self.bag)?);
 
                 self.resolve_attack(
                     player,
