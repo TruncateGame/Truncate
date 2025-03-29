@@ -288,7 +288,7 @@ impl ActiveGame {
             player_number: _,
             next_player_number,
             board,
-            hand: _,
+            hand,
             changes,
             game_ends_at,
             paused,
@@ -334,19 +334,7 @@ impl ActiveGame {
                 .insert(board_change.detail.coordinate, board_change.clone());
         }
 
-        for hand_change in changes.iter().filter_map(|c| match c {
-            Change::Hand(change) => Some(change),
-            _ => None,
-        }) {
-            for removed in &hand_change.removed {
-                if let Some(pos) = self.hand.iter().position(|t| t == removed) {
-                    self.hand.remove(pos);
-                }
-            }
-            let reduced_length = self.hand.len();
-            self.hand.0.extend(&hand_change.added);
-            self.new_hand_tiles = (reduced_length..self.hand.len()).collect();
-        }
+        self.hand = hand;
 
         self.time_changes = changes
             .iter()

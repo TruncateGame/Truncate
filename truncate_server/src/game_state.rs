@@ -248,6 +248,7 @@ impl GameManager {
         &mut self,
         player: SocketAddr,
         position: Coordinate,
+        slot: Option<usize>,
         tile: char,
         words: Arc<Mutex<WordDB>>,
     ) -> Vec<(&Player, GameMessage)> {
@@ -258,6 +259,7 @@ impl GameManager {
             match self.core_game.play_turn(
                 Move::Place {
                     player: player_index,
+                    slot,
                     tile,
                     position,
                 },

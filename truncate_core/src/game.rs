@@ -38,6 +38,7 @@ pub struct Game {
     pub board: Board,
     pub bag: TileBag,
     pub judge: Judge,
+    pub move_sequence: Vec<Move>,
     pub battle_count: u32,
     pub turn_count: u32,
     pub player_turn_count: Vec<u32>,
@@ -72,6 +73,7 @@ impl Game {
             board,
             bag: TileBag::generation(rules.tile_generation, tile_seed),
             judge: Judge::default(),
+            move_sequence: vec![],
             battle_count: 0,
             turn_count: 0,
             player_turn_count: Vec::with_capacity(2),
@@ -104,6 +106,7 @@ impl Game {
             board,
             bag: TileBag::generation(rules.tile_generation, tile_seed),
             judge: Judge::default(),
+            move_sequence: vec![],
             battle_count: 0,
             turn_count: 0,
             player_turn_count: Vec::with_capacity(2),
@@ -412,7 +415,7 @@ impl Game {
         }
 
         self.recent_changes = match self.make_move(
-            next_move,
+            next_move.clone(),
             attacker_dictionary,
             defender_dictionary,
             cached_word_judgements,
@@ -423,6 +426,7 @@ impl Game {
                 return Err(format!("{msg}"));
             }
         };
+        self.move_sequence.push(next_move);
 
         // Track any new tiles that the player may have gained vision of from this turn
         {
@@ -548,6 +552,7 @@ impl Game {
         match game_move {
             Move::Place {
                 player,
+                slot,
                 tile,
                 position: player_reported_position,
             } => {
@@ -579,8 +584,21 @@ impl Game {
                     return Err(GamePlayError::NonAdjacentPlace);
                 }
 
-                if !self.players[player].has_tile(tile) {
-                    return Err(GamePlayError::PlayerDoesNotHaveTile { player, tile });
+                match slot {
+                    Some(slot) => {
+                        if !self.players[player].has_tile_in_slot(tile, slot) {
+                            return Err(GamePlayError::PlayerDoesNotHaveTileInSlot {
+                                player,
+                                tile,
+                                slot,
+                            });
+                        }
+                    }
+                    None => {
+                        if !self.players[player].has_tile(tile) {
+                            return Err(GamePlayError::PlayerDoesNotHaveTile { player, tile });
+                        }
+                    }
                 }
 
                 changes.push(Change::Board(BoardChange {
@@ -589,7 +607,7 @@ impl Game {
                         .set(position, player, tile, attacker_dictionary)?,
                     action: BoardChangeAction::Added,
                 }));
-                changes.push(self.players[player].use_tile(tile, &mut self.bag)?);
+                changes.push(self.players[player].use_tile(tile, slot, &mut self.bag)?);
 
                 self.resolve_attack(
                     player,

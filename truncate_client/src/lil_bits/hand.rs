@@ -189,7 +189,7 @@ impl<'a> HandUI<'a> {
                                 coord: Some(coord), ..
                             }) = depot.interactions.hovered_unoccupied_square_on_board
                             {
-                                depot.interactions.released_tile = Some((i, coord));
+                                depot.interactions.released_tile = Some((i, *char, coord));
                             }
                         }
 

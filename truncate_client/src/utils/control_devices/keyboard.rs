@@ -130,7 +130,11 @@ pub fn handle_input(
                 let current_selection = ensure_board_selection(depot);
 
                 if let Some(char) = hand.get(key) {
-                    msg = Some(PlayerMessage::Place(current_selection, *char))
+                    msg = Some(PlayerMessage::Place {
+                        coord: current_selection,
+                        slot: Some(key),
+                        tile: *char,
+                    });
                 }
             }
         }
@@ -143,10 +147,11 @@ pub fn handle_input(
             ) {
                 let current_selection = ensure_board_selection(depot);
 
-                msg = Some(PlayerMessage::Place(
-                    current_selection,
-                    letter.chars().next().unwrap(),
-                ))
+                msg = Some(PlayerMessage::Place {
+                    coord: current_selection,
+                    slot: None,
+                    tile: letter.chars().next().unwrap(),
+                })
             }
         }
 

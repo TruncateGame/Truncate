@@ -43,7 +43,11 @@ pub enum PlayerMessage {
     EditName(String),
     StartGame,
     Resign,
-    Place(Coordinate, char),
+    Place {
+        coord: Coordinate,
+        slot: Option<usize>,
+        tile: char,
+    },
     Swap(Coordinate, Coordinate),
     Rematch,
     Pause,
@@ -103,7 +107,9 @@ impl fmt::Display for PlayerMessage {
             PlayerMessage::EditName(name) => write!(f, "Set name to {name}"),
             PlayerMessage::StartGame => write!(f, "Start the game"),
             PlayerMessage::Resign => write!(f, "Resign"),
-            PlayerMessage::Place(coord, tile) => write!(f, "Place {} at {}", tile, coord),
+            PlayerMessage::Place { coord, slot, tile } => {
+                write!(f, "Place slot {:?} ({}) at {}", slot, tile, coord)
+            }
             PlayerMessage::Swap(a, b) => write!(f, "Swap the tiles at {} and {}", a, b),
             PlayerMessage::Rematch => write!(f, "Rematch!"),
             PlayerMessage::Pause => write!(f, "Pause!"),

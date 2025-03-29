@@ -52,6 +52,7 @@ fn action_to_move(player: usize, action: &str) -> Move {
     } else if from.len() == 1 {
         Move::Place {
             player,
+            slot: None,
             tile: from.chars().next().unwrap(),
             position: to_pos,
         }
@@ -296,6 +297,7 @@ impl TutorialState {
                 // TODO: Use some special infinite bag?
                 bag: TileBag::latest(None).1,
                 judge: Judge::new(vec![]),
+                move_sequence: vec![],
                 battle_count: 0,
                 turn_count: 0,
                 player_turn_count: vec![0, 0],
@@ -547,10 +549,11 @@ impl TutorialState {
             }
 
             let Some(game_move) = (match msg {
-                PlayerMessage::Place(position, tile) => Some(Move::Place {
+                PlayerMessage::Place { coord, slot, tile } => Some(Move::Place {
                     player: 0,
+                    slot,
                     tile,
-                    position,
+                    position: coord,
                 }),
                 PlayerMessage::Swap(from, to) => Some(Move::Swap {
                     player: 0,
