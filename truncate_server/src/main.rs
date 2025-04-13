@@ -570,6 +570,15 @@ async fn handle_player_msg(
                 todo!("Handle player not being enrolled in a game");
             }
         }
+        RearrangeHand(hand) => {
+            if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
+                let mut game_manager = existing_game.lock();
+                game_manager.rearrange_hand(player_addr, hand);
+                // TODO: Catch an error here and return to the client
+            } else {
+                todo!("Handle player not being enrolled in a game");
+            }
+        }
         Rematch => {
             if let Some(existing_game) = server_state.get_game_by_player(&player_addr) {
                 let connection_player = connection_info_mutex.lock().player.clone();

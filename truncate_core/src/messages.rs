@@ -49,6 +49,7 @@ pub enum PlayerMessage {
         tile: char,
     },
     Swap(Coordinate, Coordinate),
+    RearrangeHand(Hand),
     Rematch,
     Pause,
     Unpause,
@@ -111,6 +112,9 @@ impl fmt::Display for PlayerMessage {
                 write!(f, "Place slot {:?} ({}) at {}", slot, tile, coord)
             }
             PlayerMessage::Swap(a, b) => write!(f, "Swap the tiles at {} and {}", a, b),
+            PlayerMessage::RearrangeHand(hand) => {
+                write!(f, "Rearrange the hand to {hand}")
+            }
             PlayerMessage::Rematch => write!(f, "Rematch!"),
             PlayerMessage::Pause => write!(f, "Pause!"),
             PlayerMessage::Unpause => write!(f, "Unpause!"),

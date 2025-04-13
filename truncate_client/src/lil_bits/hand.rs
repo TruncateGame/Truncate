@@ -1,5 +1,5 @@
 use instant::Duration;
-use truncate_core::player::Hand;
+use truncate_core::{messages::PlayerMessage, player::Hand};
 
 use eframe::egui::{self, CursorIcon, Id, Order, Sense};
 use epaint::{emath::Align2, pos2, vec2, Rect, Vec2};
@@ -43,7 +43,7 @@ impl<'a> HandUI<'a> {
         ui: &mut egui::Ui,
         depot: &mut TruncateDepot,
         mapped_tiles: &mut MappedTiles,
-    ) {
+    ) -> Option<PlayerMessage> {
         let TruncateDepot {
             interactions,
             aesthetics,
@@ -51,10 +51,12 @@ impl<'a> HandUI<'a> {
             ..
         } = depot;
 
+        let mut msg = None;
         let mut started_interaction = false;
-        let rearrange = None;
+        let mut rearrange = None;
         let mut next_selection = None;
         let mut highlights = interactions.highlight_tiles.clone();
+        let hand_animation_generation = interactions.hand_animation_generation;
         interactions.hovered_tile_in_hand = None;
         if !ui.memory(|m| m.is_anything_being_dragged()) {
             interactions.rearranging_tiles = false;
@@ -108,7 +110,10 @@ impl<'a> HandUI<'a> {
         };
 
         for (i, char) in self.hand.iter().enumerate() {
-            let tile_id = Id::new("Hand").with(i).with(char);
+            let tile_id = Id::new("Hand")
+                .with(i)
+                .with(char)
+                .with(hand_animation_generation);
             let raw_dragged = ui.memory(|mem| mem.is_being_dragged(tile_id));
             let is_decidedly_dragging = ui.ctx().input(|inp| inp.pointer.is_decidedly_dragging());
 
@@ -126,7 +131,10 @@ impl<'a> HandUI<'a> {
 
         if self.interactive {
             for (i, char) in self.hand.iter().enumerate() {
-                let tile_id = Id::new("Hand").with(i).with(char);
+                let tile_id = Id::new("Hand")
+                    .with(i)
+                    .with(char)
+                    .with(hand_animation_generation);
 
                 // TODO: Remove?
                 let _highlight = if let Some(highlights) = highlights.as_mut() {
@@ -140,7 +148,7 @@ impl<'a> HandUI<'a> {
                     false
                 };
 
-                let mut base_rect = render_slots[i].clone();
+                let base_rect = render_slots[i].clone();
 
                 // TODO: Remove magic number somehow (currently 2px/16px for tile sprite border)
                 let tile_margin = aesthetics.theme.grid_size * 0.125;
@@ -164,11 +172,18 @@ impl<'a> HandUI<'a> {
 
                     started_interaction = true;
                 } else if tile_response.drag_released() && dragging_tile.is_some() {
+                    interactions.hand_animation_generation += 1;
                     if let Some(HoveredRegion {
                         coord: Some(coord), ..
                     }) = interactions.hovered_unoccupied_square_on_board
                     {
                         interactions.released_tile = Some((i, *char, coord));
+                    }
+
+                    if let Some(dropped_slot) = hovered_slot {
+                        if dropped_slot != i {
+                            rearrange = Some((i, dropped_slot));
+                        }
                     }
                 }
 
@@ -230,7 +245,10 @@ impl<'a> HandUI<'a> {
         );
 
         for (i, char) in self.hand.iter().enumerate() {
-            let tile_id = Id::new("Hand").with(i).with(char);
+            let tile_id = Id::new("Hand")
+                .with(i)
+                .with(char)
+                .with(hand_animation_generation);
             let mut base_rect = render_slots[i].clone();
 
             if let (Some(hovered_slot), Some(dragging_tile)) = (hovered_slot, dragging_tile) {
@@ -273,12 +291,10 @@ impl<'a> HandUI<'a> {
 
             let tile_id = Id::new("Hand")
                 .with(dragging_tile)
-                .with(self.hand.get(dragging_tile));
-            let drag_id: Duration = ui
-                .memory(|mem| mem.data.get_temp(tile_id))
-                .unwrap_or_default();
+                .with(self.hand.get(dragging_tile))
+                .with(hand_animation_generation);
 
-            let area = egui::Area::new(tile_id.with("floating").with(drag_id))
+            let area = egui::Area::new(tile_id.with("floating"))
                 .movable(false)
                 .order(Order::Tooltip)
                 .anchor(Align2::LEFT_TOP, vec2(0.0, 0.0));
@@ -292,7 +308,7 @@ impl<'a> HandUI<'a> {
                     };
 
                 let bouncy_width = ui.ctx().animate_value_with_time(
-                    area.layer().id.with("width"),
+                    tile_id.with("width"),
                     ideal_width,
                     aesthetics.theme.animation_time,
                 );
@@ -331,12 +347,12 @@ impl<'a> HandUI<'a> {
 
                 let animated_position = pos2(
                     ui.ctx().animate_value_with_time(
-                        area.layer().id.with("delta_x"),
+                        tile_id.with("delta_x"),
                         position.x,
                         aesthetics.theme.animation_time,
                     ),
                     ui.ctx().animate_value_with_time(
-                        area.layer().id.with("delta_y"),
+                        tile_id.with("delta_y"),
                         position.y,
                         aesthetics.theme.animation_time,
                     ),
@@ -356,6 +372,7 @@ impl<'a> HandUI<'a> {
 
         if let Some((from, to)) = rearrange {
             self.hand.rearrange(from, to);
+            msg = Some(PlayerMessage::RearrangeHand(self.hand.clone()));
         }
 
         if let Some(new_selection) = next_selection {
@@ -371,5 +388,7 @@ impl<'a> HandUI<'a> {
             interactions.selected_square_on_board = None;
             interactions.selected_tile_on_board = None;
         }
+
+        msg
     }
 }

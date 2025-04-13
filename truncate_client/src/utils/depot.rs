@@ -38,6 +38,7 @@ pub struct InteractionDepot {
     pub highlight_tiles: Option<Vec<char>>,
     pub highlight_squares: Option<Vec<Coordinate>>,
     pub rearranging_tiles: bool,
+    pub hand_animation_generation: usize,
 }
 
 #[derive(Clone, Default)]
