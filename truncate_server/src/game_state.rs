@@ -8,6 +8,7 @@ use truncate_core::{
     generation::{ArtifactType, BoardParams},
     messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
     moves::{packing::pack_moves, Move},
+    player::Hand,
     reporting::Change,
     rules::GameRules,
 };
@@ -368,6 +369,13 @@ impl GameManager {
             }
         } else {
             todo!("Handle missing player");
+        }
+    }
+
+    pub fn rearrange_hand(&mut self, player: SocketAddr, new_hand: Hand) {
+        if let Some(player_index) = self.get_player_index(player) {
+            // TODO: Return this error to the player
+            _ = self.core_game.players[player_index].rearrange_hand(new_hand);
         }
     }
 

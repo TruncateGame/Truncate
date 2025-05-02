@@ -294,11 +294,15 @@ impl ActiveGame {
                                     .next_player_number
                                     .is_some_and(|n| n == self.depot.gameplay.player_number);
 
-                            HandUI::new(&mut self.hand).active(active_hand).render(
+                            let hand_msg = HandUI::new(&mut self.hand).active(active_hand).render(
                                 &mut hand_ui,
                                 &mut self.depot,
                                 &mut self.mapped_hand,
                             );
+
+                            if hand_msg.is_some() {
+                                msg = hand_msg;
+                            }
                         },
                     );
 
