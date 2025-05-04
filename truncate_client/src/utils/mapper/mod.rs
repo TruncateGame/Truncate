@@ -336,13 +336,7 @@ impl MappedBoard {
             layers.mist = Some([tex::tiles::BASE_WATER; 4]);
         }
 
-        let orient = |player: usize| {
-            if player == self.for_player {
-                Direction::South
-            } else {
-                Direction::North
-            }
-        };
+        let orient = |player: usize, board: &Board| board.orientations[player];
 
         let square_is_highlighted = interactions.is_some_and(|i| {
             coord
@@ -445,7 +439,7 @@ impl MappedBoard {
                             let tile_layers = Tex::board_game_tile(
                                 variant,
                                 tile,
-                                orient(player),
+                                orient(player, board),
                                 validity_color.or(color),
                                 text_color,
                                 None,
@@ -475,7 +469,7 @@ impl MappedBoard {
                             let tile_layers = Tex::board_game_tile(
                                 variant,
                                 tile,
-                                orient(player),
+                                orient(player, board),
                                 color,
                                 text_color,
                                 None,
@@ -505,7 +499,7 @@ impl MappedBoard {
                             let tile_layers = Tex::board_game_tile(
                                 variant,
                                 tile,
-                                orient(player),
+                                orient(player, board),
                                 color,
                                 text_color,
                                 None,
@@ -643,7 +637,7 @@ impl MappedBoard {
                 let tile_layers = Tex::board_game_tile(
                     variant,
                     render_as_swap.unwrap_or(*tile),
-                    orient(*player),
+                    orient(*player, board),
                     color,
                     None,
                     highlight,
@@ -668,7 +662,7 @@ impl MappedBoard {
                 let validity_layers = Tex::board_game_tile(
                     MappedTileVariant::Healthy,
                     *tile,
-                    orient(*player),
+                    orient(*player, board),
                     Some(validity_color),
                     None,
                     None,
