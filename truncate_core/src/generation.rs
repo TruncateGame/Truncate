@@ -1261,7 +1261,7 @@ impl BoardGenerator for Board {
                     let _ = self.set_square(
                         coord,
                         Square::Occupied {
-                            player: if inverted { 3 } else { 4 },
+                            player: if inverted { 2 } else { 3 },
                             tile: tile_char,
                             validity: SquareValidity::Valid,
                             foggy: false,
