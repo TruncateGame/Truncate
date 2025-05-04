@@ -1173,7 +1173,7 @@ impl BoardGenerator for Board {
         garbo_dicts::ensure_dicts();
         let d = garbo_dicts::get_dicts();
         let mut word_rand = Rand32::new(seed as u64);
-        for _ in 0..100 {
+        for _ in 0..200 {
             let random_word = d
                 .total
                 .keys()
@@ -1262,6 +1262,17 @@ impl BoardGenerator for Board {
                         coord,
                         Square::Occupied {
                             player: if inverted { 3 } else { 2 },
+                            tile: tile_char,
+                            validity: SquareValidity::Valid,
+                            foggy: false,
+                        },
+                    );
+
+                    let op = self.reciprocal_coordinate(coord);
+                    let _ = self.set_square(
+                        op,
+                        Square::Occupied {
+                            player: if inverted { 2 } else { 3 },
                             tile: tile_char,
                             validity: SquareValidity::Valid,
                             foggy: false,
