@@ -66,8 +66,8 @@ pub struct Board {
     pub artifacts: Vec<Coordinate>,
     pub towns: Vec<Coordinate>,
     pub obelisks: Vec<Coordinate>,
-    orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
-                                  // TODO: Move orientations off the Board and have them tagged against specific players
+    pub orientations: Vec<Direction>, // The side of the board that the player is sitting at, and the direction that their vertical words go in
+                                      // TODO: Move orientations off the Board and have them tagged against specific players
 }
 
 // TODO: provide a way to validate the board

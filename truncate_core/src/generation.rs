@@ -8,7 +8,7 @@ use oorandom::Rand32;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    board::{Board, BoardDistances, Coordinate, Square, SquareValidity},
+    board::{Board, BoardDistances, Coordinate, Direction, Square, SquareValidity},
     game::Game,
 };
 
@@ -471,6 +471,8 @@ pub fn generate_board(
         }
     }
 
+    board.generate_inert_enemies(seed);
+
     Ok(BoardGenerationResult {
         board,
         iterations: current_iteration,
@@ -513,6 +515,8 @@ trait BoardGenerator {
         main_road: &Vec<Coordinate>,
         symmetric: Symmetry,
     ) -> Result<(), ()>;
+
+    fn generate_inert_enemies(&mut self, seed: u32);
 }
 
 impl BoardGenerator for Board {
@@ -1158,6 +1162,202 @@ impl BoardGenerator for Board {
         }
 
         Ok(())
+    }
+
+    fn generate_inert_enemies(&mut self, seed: u32) {
+        self.cache_special_squares();
+
+        self.orientations.push(Direction::North);
+        self.orientations.push(Direction::South);
+
+        garbo_dicts::ensure_dicts();
+        let d = garbo_dicts::get_dicts();
+        let mut word_rand = Rand32::new(seed as u64);
+        for _ in 0..100 {
+            let random_word = d
+                .total
+                .keys()
+                .nth(word_rand.rand_range(0..d.total.len() as u32) as usize)
+                .unwrap();
+
+            // Hey, we're going to try to plant this random word on contiguous land squares
+            // with a safe buffer away from any artifact.
+
+            let word_len = random_word.chars().count() as isize;
+
+            // Grab the artifact positions once to check distance
+            let artifacts = &self.artifacts;
+            // Decide orientation (horizontal vs vertical) and direction (forward vs inverted)
+            let horizontal = word_rand.rand_range(0..2) == 0;
+            let inverted = word_rand.rand_range(0..2) == 0;
+
+            // We'll make a handful of tries to find a valid placement
+            for _try in 0..50 {
+                // Pick a random starting point within board bounds
+                let start_x = word_rand.rand_range(0..self.width() as u32);
+                let start_y = word_rand.rand_range(0..self.height() as u32);
+
+                // Build the candidate coordinates for each letter
+                let mut coords = Vec::with_capacity(word_len as usize);
+                for i in 0..word_len {
+                    let (dx, dy) = if horizontal {
+                        ((if inverted { -i } else { i }), 0)
+                    } else {
+                        (0, (if inverted { -i } else { i }))
+                    };
+                    let cx = (start_x as usize).saturating_add_signed(dx);
+                    let cy = (start_y as usize).saturating_add_signed(dy);
+                    // If we fall off the board, bail out early
+                    if cx == 0 || cy == 0 || cx >= self.width() || cy >= self.height() {
+                        coords.clear();
+                        break;
+                    }
+                    coords.push(Coordinate::new(cx as usize, cy as usize));
+                }
+                if coords.len() != word_len as usize {
+                    // That candidate went off-grid, try again
+                    continue;
+                }
+
+                // Ensure all chosen squares are pure land
+                if coords
+                    .iter()
+                    .any(|&c| !matches!(self.get(c), Ok(Square::Land { .. })))
+                {
+                    continue;
+                }
+
+                // Enforce a safety margin: Manhattan distance > (word length + 3)
+                let min_safe = (word_len as usize) + 3;
+                if coords
+                    .iter()
+                    .any(|&c| artifacts.iter().any(|&art| c.distance_to(&art) <= min_safe))
+                {
+                    continue;
+                }
+
+                // Enforce a safety margin: fixed distance of 1 from any other `Square::Occupied`
+                let occupied_coords: Vec<Coordinate> = (0..self.height())
+                    .flat_map(|y| (0..self.width()).map(move |x| Coordinate::new(x, y)))
+                    .filter(|&coord| matches!(self.get(coord), Ok(Square::Occupied { .. })))
+                    .collect();
+                if coords
+                    .iter()
+                    .any(|&c| occupied_coords.iter().any(|&occ| c.distance_to(&occ) <= 1))
+                {
+                    continue;
+                }
+
+                // If we reach here, we have a valid placement. Drop the letters.
+                for (idx, &coord) in coords.iter().enumerate() {
+                    // Pick the character in correct order based on 'inverted' flag
+                    let char_idx = if inverted {
+                        (word_len as usize - 1) - idx
+                    } else {
+                        idx
+                    };
+                    let tile_char = random_word.chars().nth(char_idx).unwrap();
+                    // I'm using Occupied squares for these inert enemy words.
+                    let _ = self.set_square(
+                        coord,
+                        Square::Occupied {
+                            player: if inverted { 3 } else { 4 },
+                            tile: tile_char,
+                            validity: SquareValidity::Valid,
+                            foggy: false,
+                        },
+                    );
+                }
+
+                break;
+            }
+        }
+    }
+}
+
+mod garbo_dicts {
+    use std::sync::Mutex;
+
+    use crate::judge::{WordData, WordDict};
+
+    pub static TRUNCATE_DICT: &str = include_str!("../../dict_builder/final_wordlist.txt");
+
+    pub struct Dicts {
+        pub total: WordDict,
+        pub restricted: WordDict,
+    }
+
+    impl Dicts {
+        pub fn remember(&mut self, word: &String) {
+            if let Some(word_data) = self.total.get(word).cloned() {
+                self.restricted.insert(word.clone(), word_data.clone());
+            }
+        }
+    }
+
+    pub fn get_dicts() -> Dicts {
+        let total_dict = TOTAL_DICT.lock().unwrap();
+        let restricted_dict = RESTRICTED_DICT.lock().unwrap();
+
+        Dicts {
+            total: total_dict.as_ref().expect("dict has been created").clone(),
+            restricted: restricted_dict
+                .as_ref()
+                .expect("dict has been created")
+                .clone(),
+        }
+    }
+
+    pub static TOTAL_DICT: Mutex<Option<WordDict>> = Mutex::new(None);
+    pub static RESTRICTED_DICT: Mutex<Option<WordDict>> = Mutex::new(None);
+
+    pub fn ensure_dicts() {
+        let mut total_dict = TOTAL_DICT.lock().unwrap();
+        let mut restricted_dict = RESTRICTED_DICT.lock().unwrap();
+
+        if total_dict.is_none() {
+            let mut valid_words = std::collections::HashMap::new();
+            let mut restricted_words = std::collections::HashMap::new();
+            let lines = TRUNCATE_DICT.lines();
+
+            for line in lines {
+                let mut chunks = line.split(' ');
+
+                let mut word = chunks.next().unwrap().to_string();
+                let extensions = chunks.next().unwrap().parse().unwrap();
+                let rel_freq = chunks.next().unwrap().parse().unwrap();
+
+                let objectionable = word.chars().next() == Some('*');
+                if objectionable {
+                    word.remove(0);
+                }
+
+                valid_words.insert(
+                    word.clone(),
+                    WordData {
+                        extensions,
+                        rel_freq,
+                        objectionable,
+                    },
+                );
+
+                // These are the words the NPC will think it recognizes,
+                // and won't challenge if they're on the board.
+                if rel_freq > 0.90 {
+                    restricted_words.insert(
+                        word,
+                        WordData {
+                            extensions,
+                            rel_freq,
+                            objectionable,
+                        },
+                    );
+                }
+            }
+
+            _ = total_dict.insert(valid_words);
+            _ = restricted_dict.insert(restricted_words);
+        }
     }
 }
 

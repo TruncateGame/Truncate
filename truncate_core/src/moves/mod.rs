@@ -25,6 +25,7 @@ impl Game {
         match player_move {
             Move::Place {
                 player,
+                slot,
                 tile,
                 position: player_reported_position,
             } => {
@@ -36,6 +37,7 @@ impl Game {
                 );
                 Move::Place {
                     player,
+                    slot,
                     tile,
                     position: new_position,
                 }
