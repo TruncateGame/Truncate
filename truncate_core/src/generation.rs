@@ -1173,12 +1173,17 @@ impl BoardGenerator for Board {
         garbo_dicts::ensure_dicts();
         let d = garbo_dicts::get_dicts();
         let mut word_rand = Rand32::new(seed as u64);
+        let keys: Vec<&String> = d.total.keys().collect();
         for _ in 0..200 {
-            let random_word = d
-                .total
-                .keys()
-                .nth(word_rand.rand_range(0..d.total.len() as u32) as usize)
-                .unwrap();
+            let random_word = {
+                let idx1 = word_rand.rand_range(0..keys.len() as u32) as usize;
+                let idx2 = word_rand.rand_range(0..keys.len() as u32) as usize;
+                let idx3 = word_rand.rand_range(0..keys.len() as u32) as usize;
+                let idx4 = word_rand.rand_range(0..keys.len() as u32) as usize;
+                let words = [keys[idx1], keys[idx2], keys[idx3], keys[idx4]];
+                let selected = words.iter().min_by_key(|w| w.len()).unwrap();
+                *selected
+            };
 
             // Hey, we're going to try to plant this random word on contiguous land squares
             // with a safe buffer away from any artifact.
