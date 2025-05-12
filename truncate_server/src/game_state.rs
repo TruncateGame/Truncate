@@ -30,18 +30,24 @@ pub struct GameManager {
     pub game_id: String,
     pub players: Vec<Player>,
     pub core_game: Game,
+    pub seed: Option<u32>,
+    pub board_params: Option<BoardParams>,
+    pub move_sequence: Vec<Move>,
     pub effective_day: u32,
 }
 
 impl GameManager {
     pub fn new(game_id: String, effective_day: u32) -> Self {
-        let game = Game::new(9, 9, None, GameRules::latest(Some(effective_day)).1);
-        // let game = Game::new(9, 9, None, GameRules::tuesday());
+        // let game = Game::new(9, 9, None, GameRules::latest(Some(effective_day)).1);
+        let game = Game::new(9, 9, None, GameRules::tuesday());
 
         Self {
             game_id,
             players: vec![],
             core_game: game,
+            seed: None,
+            board_params: None,
+            move_sequence: vec![],
             effective_day,
         }
     }
@@ -200,14 +206,17 @@ impl GameManager {
             truncate_core::rules::BoardGenesis::SpecificBoard(_) => unimplemented!(),
             truncate_core::rules::BoardGenesis::Classic(_, _) => unimplemented!(),
             truncate_core::rules::BoardGenesis::Random(params) => {
+                let seed = (instant::SystemTime::now()
+                    .duration_since(instant::SystemTime::UNIX_EPOCH)
+                    .expect("Please don't play Truncate earlier than 1970")
+                    .as_micros()
+                    % 287520520) as u32;
+                self.seed = Some(seed);
+                self.board_params = Some(params.clone());
                 let rand_board = truncate_core::generation::generate_board(
                     truncate_core::generation::BoardSeed {
                         generation: 9999,
-                        seed: (instant::SystemTime::now()
-                            .duration_since(instant::SystemTime::UNIX_EPOCH)
-                            .expect("Please don't play Truncate earlier than 1970")
-                            .as_micros()
-                            % 287520520) as u32,
+                        seed,
                         day: None,
                         params: params.clone(),
                         current_iteration: 0,
@@ -273,18 +282,21 @@ impl GameManager {
 
         if let Some(player_index) = self.get_player_index(player) {
             let words_db = words.lock();
+            let place_move = Move::Place {
+                player: player_index,
+                slot,
+                tile,
+                position,
+            };
             match self.core_game.play_turn(
-                Move::Place {
-                    player: player_index,
-                    slot,
-                    tile,
-                    position,
-                },
+                place_move.clone(),
                 Some(&words_db.valid_words),
                 Some(&words_db.valid_words),
                 None,
             ) {
                 Ok(Some(winner)) => {
+                    self.move_sequence.push(place_move);
+                    self.print_game();
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player,
@@ -297,6 +309,8 @@ impl GameManager {
                     return messages;
                 }
                 Ok(None) => {
+                    self.move_sequence.push(place_move);
+                    self.print_game();
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player,
@@ -334,11 +348,12 @@ impl GameManager {
 
         if let Some(player_index) = self.get_player_index(player) {
             let words_db = words.lock();
+            let swap_move = Move::Swap {
+                player: player_index,
+                positions: [from, to],
+            };
             match self.core_game.play_turn(
-                Move::Swap {
-                    player: player_index,
-                    positions: [from, to],
-                },
+                swap_move.clone(),
                 Some(&words_db.valid_words),
                 Some(&words_db.valid_words),
                 None,
@@ -347,6 +362,9 @@ impl GameManager {
                     unreachable!("Cannot win by swapping")
                 }
                 Ok(None) => {
+                    self.move_sequence.push(swap_move);
+                    self.print_game();
+
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player,
@@ -370,6 +388,15 @@ impl GameManager {
         } else {
             todo!("Handle missing player");
         }
+    }
+
+    pub fn print_game(&self) {
+        println!(
+            "---\n{:?}\n{:?}\n{:?}\n---",
+            self.seed,
+            self.board_params,
+            pack_moves(&self.move_sequence, self.players.len())
+        )
     }
 
     pub fn rearrange_hand(&mut self, player: SocketAddr, new_hand: Hand) {

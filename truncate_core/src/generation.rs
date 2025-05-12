@@ -1176,13 +1176,21 @@ impl BoardGenerator for Board {
         let keys: Vec<&String> = d.total.keys().collect();
         for _ in 0..200 {
             let random_word = {
-                let idx1 = word_rand.rand_range(0..keys.len() as u32) as usize;
-                let idx2 = word_rand.rand_range(0..keys.len() as u32) as usize;
-                let idx3 = word_rand.rand_range(0..keys.len() as u32) as usize;
-                let idx4 = word_rand.rand_range(0..keys.len() as u32) as usize;
-                let words = [keys[idx1], keys[idx2], keys[idx3], keys[idx4]];
-                let selected = words.iter().min_by_key(|w| w.len()).unwrap();
-                *selected
+                const SAMPLE_SIZE: usize = 16;
+                let key_count = keys.len() as u32;
+                // Initialize with a random candidate
+                let mut selected = keys[word_rand.rand_range(0..key_count) as usize];
+                // Sample several words and pick the shortest to bias towards shorter words
+                for _ in 1..SAMPLE_SIZE {
+                    let candidate = keys[word_rand.rand_range(0..key_count) as usize];
+                    if candidate.len() < selected.len() {
+                        selected = candidate;
+                    }
+                    if candidate.len() <= 2 {
+                        break;
+                    }
+                }
+                selected
             };
 
             // Hey, we're going to try to plant this random word on contiguous land squares
@@ -1205,11 +1213,7 @@ impl BoardGenerator for Board {
                 // Build the candidate coordinates for each letter
                 let mut coords = Vec::with_capacity(word_len as usize);
                 for i in 0..word_len {
-                    let (dx, dy) = if horizontal {
-                        ((if inverted { -i } else { i }), 0)
-                    } else {
-                        (0, (if inverted { -i } else { i }))
-                    };
+                    let (dx, dy) = if horizontal { (i, 0) } else { (0, i) };
                     let cx = (start_x as usize).saturating_add_signed(dx);
                     let cy = (start_y as usize).saturating_add_signed(dy);
                     // If we fall off the board, bail out early
@@ -1232,8 +1236,8 @@ impl BoardGenerator for Board {
                     continue;
                 }
 
-                // Enforce a safety margin: Manhattan distance > (word length + 3)
-                let min_safe = (word_len as usize) + 3;
+                // Enforce a safety margin: Manhattan distance > (word length + 1)
+                let min_safe = (word_len as usize) + 1;
                 if coords
                     .iter()
                     .any(|&c| artifacts.iter().any(|&art| c.distance_to(&art) <= min_safe))
@@ -1261,12 +1265,16 @@ impl BoardGenerator for Board {
                     } else {
                         idx
                     };
-                    let tile_char = random_word.chars().nth(char_idx).unwrap();
+                    let tile_char = random_word
+                        .chars()
+                        .nth(char_idx)
+                        .unwrap()
+                        .to_ascii_uppercase();
                     // I'm using Occupied squares for these inert enemy words.
                     let _ = self.set_square(
                         coord,
                         Square::Occupied {
-                            player: if inverted { 3 } else { 2 },
+                            player: if inverted { 2 } else { 3 },
                             tile: tile_char,
                             validity: SquareValidity::Valid,
                             foggy: false,
@@ -1277,7 +1285,7 @@ impl BoardGenerator for Board {
                     let _ = self.set_square(
                         op,
                         Square::Occupied {
-                            player: if inverted { 2 } else { 3 },
+                            player: if inverted { 3 } else { 2 },
                             tile: tile_char,
                             validity: SquareValidity::Valid,
                             foggy: false,

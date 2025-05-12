@@ -245,7 +245,7 @@ impl GameRules {
             visibility: Visibility::LandFog,
             truncation: Truncation::None,
             timing: Timing::PerPlayer {
-                time_allowance: 75 * 60,
+                time_allowance: 50 * 60,
                 overtime_rule: OvertimeRule::Elimination,
             },
             hand_size: 7,
@@ -254,7 +254,7 @@ impl GameRules {
             battle_rules: BattleRules { length_delta: 1 },
             swapping: Swapping::Contiguous(SwapPenalty::Disallowed { allowed_swaps: 1 }),
             battle_delay: 2,
-            max_turns: Some(1050),
+            max_turns: Some(600),
             board_genesis: BoardGenesis::Random(BoardParams {
                 land_layer: BoardNoiseParams {
                     dispersion: [3.0, 3.0],

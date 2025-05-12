@@ -242,7 +242,8 @@ impl OuterApplication {
         }
 
         let theme = if launched_at_day >= ART_CHANGE_DAY {
-            Theme::day()
+            // Theme::day();
+            Theme::fog()
         } else {
             Theme::old_day()
         };

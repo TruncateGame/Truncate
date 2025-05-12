@@ -262,6 +262,8 @@ impl<'a> TimerUI<'a> {
             }
         }
 
+        let time_string = self.calculate_time();
+
         let text = if let Some(ends_at) = self.depot.timing.game_ends_at {
             let now = self.depot.timing.current_time.as_secs();
             let remaining = ends_at.saturating_sub(now);
@@ -284,7 +286,6 @@ impl<'a> TimerUI<'a> {
             text.paint_at(bar.left_bottom() + vec2(0.0, 10.0), timer_color, ui);
         }
 
-        let time_string = self.calculate_time();
         let text = TextHelper::heavy(&time_string, font_z, None, ui);
         let time_size = text.size();
 
@@ -297,7 +298,13 @@ impl<'a> TimerUI<'a> {
             text.paint_at(pos, timer_color, ui);
         }
 
-        let byline_string = self.calculate_byline();
+        let mut byline_string = self.calculate_byline();
+
+        if let Some(turns_remaining) = self.depot.gameplay.remaining_turns {
+            let time_per = self.time.as_seconds_f32() / ((turns_remaining / 2) as f32);
+            byline_string = format!("{:.2}s : {byline_string}", time_per);
+        }
+
         let text = TextHelper::heavy(&byline_string, font_z_small, None, ui);
         let byline_size = text.size();
         let byline_y_offset = vec2(0.0, 10.0 + name_size.y + 5.0);

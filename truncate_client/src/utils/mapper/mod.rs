@@ -336,7 +336,13 @@ impl MappedBoard {
             layers.mist = Some([tex::tiles::BASE_WATER; 4]);
         }
 
-        let orient = |player: usize, board: &Board| board.orientations[player];
+        let orient = |player: usize, board: &Board| {
+            if self.for_player == 0 {
+                board.orientations[player].opposite()
+            } else {
+                board.orientations[player]
+            }
+        };
 
         let square_is_highlighted = interactions.is_some_and(|i| {
             coord
@@ -1059,6 +1065,14 @@ impl MappedBoard {
                 }
 
                 let source_coord = SignedCoordinate::new(source_col, source_row);
+
+                if source_coord
+                    .real_coord()
+                    .and_then(|c| board.get(c).ok())
+                    .is_none()
+                {
+                    continue;
+                }
 
                 let square = source_coord
                     .real_coord()
