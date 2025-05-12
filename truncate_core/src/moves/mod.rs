@@ -8,6 +8,7 @@ use super::board::Coordinate;
 pub enum Move {
     Place {
         player: usize,
+        slot: Option<usize>,
         tile: char,
         position: Coordinate,
     },
@@ -23,11 +24,13 @@ impl PartialEq for Move {
             (
                 Self::Place {
                     player: l_player,
+                    slot: _,
                     tile: l_tile,
                     position: l_position,
                 },
                 Self::Place {
                     player: r_player,
+                    slot: _,
                     tile: r_tile,
                     position: r_position,
                 },
@@ -92,6 +95,7 @@ mod tests {
         let position = Coordinate { x: 11, y: 11 };
         let out_of_bounds = Move::Place {
             player: 0,
+            slot: None,
             tile: 'A',
             position,
         };
@@ -110,6 +114,7 @@ mod tests {
         let position = Coordinate { x: 11, y: 1 };
         let out_of_bounds = Move::Place {
             player: 0,
+            slot: None,
             tile: 'A',
             position,
         };
@@ -121,6 +126,7 @@ mod tests {
         let position = Coordinate { x: 2, y: 1 };
         let dead = Move::Place {
             player: 0,
+            slot: None,
             tile: 'A',
             position,
         };
@@ -148,6 +154,7 @@ mod tests {
             game.make_move(
                 Move::Place {
                     player: 0,
+                    slot: None,
                     tile: 'A',
                     position: Coordinate { x: 2, y: 5 },
                 },
@@ -162,6 +169,7 @@ mod tests {
         let changes = game.make_move(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 3, y: 2 },
             },
@@ -201,7 +209,7 @@ mod tests {
                     })
                     .collect::<Vec<_>>()
             }),
-            Ok(vec![(0, vec!['A'])])
+            Ok(vec![(0, vec![(0, 'A')])])
         );
 
         // Can't place on the same place again
@@ -209,6 +217,7 @@ mod tests {
             game.make_move(
                 Move::Place {
                     player: 0,
+                    slot: None,
                     tile: 'B',
                     position: Coordinate { x: 3, y: 2 }
                 },
@@ -224,6 +233,7 @@ mod tests {
             game.make_move(
                 Move::Place {
                     player: 0,
+                    slot: None,
                     tile: 'B',
                     position: Coordinate { x: 4, y: 3 }
                 },
@@ -239,6 +249,7 @@ mod tests {
             game.make_move(
                 Move::Place {
                     player: 0,
+                    slot: None,
                     tile: 'B',
                     position: Coordinate { x: 3, y: 3 }
                 },
@@ -270,6 +281,7 @@ mod tests {
             game.make_move(
                 Move::Place {
                     player: 0,
+                    slot: None,
                     tile: 'B',
                     position: Coordinate { x: 3, y: 3 }
                 },
@@ -340,6 +352,7 @@ mod tests {
             game.make_move(
                 Move::Place {
                     player: 2,
+                    slot: None,
                     tile: 'A',
                     position: Coordinate { x: 3, y: 3 }
                 },
@@ -354,6 +367,7 @@ mod tests {
             game.make_move(
                 Move::Place {
                     player: 0,
+                    slot: None,
                     tile: '&',
                     position: Coordinate { x: 2, y: 1 }
                 },
@@ -520,6 +534,7 @@ mod tests {
         game.make_move(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
@@ -566,6 +581,7 @@ mod tests {
         game.make_move(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
@@ -622,6 +638,7 @@ mod tests {
         game.make_move(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
@@ -676,6 +693,7 @@ mod tests {
         game.make_move(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 2, y: 3 },
             },
@@ -727,6 +745,7 @@ mod tests {
         _ = game.play_turn(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
@@ -786,6 +805,7 @@ mod tests {
         _ = game.play_turn(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
@@ -845,6 +865,7 @@ mod tests {
         _ = game.play_turn(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
@@ -904,6 +925,7 @@ mod tests {
         _ = game.play_turn(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 0, y: 5 },
             },
@@ -963,6 +985,7 @@ mod tests {
         _ = game.play_turn(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 2, y: 5 },
             },
@@ -1022,6 +1045,7 @@ mod tests {
         _ = game.play_turn(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
@@ -1077,6 +1101,7 @@ mod tests {
         game.make_move(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 2, y: 0 },
             },
@@ -1125,6 +1150,7 @@ mod tests {
         game.make_move(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },
@@ -1175,6 +1201,7 @@ mod tests {
         game.make_move(
             Move::Place {
                 player: 0,
+                slot: None,
                 tile: 'A',
                 position: Coordinate { x: 1, y: 3 },
             },

@@ -24,7 +24,7 @@ pub struct HoveredRegion {
 #[derive(Clone, Default)]
 pub struct InteractionDepot {
     pub view_only: bool,
-    pub released_tile: Option<(usize, Coordinate)>,
+    pub released_tile: Option<(usize, char, Coordinate)>,
     pub dragging_tile_on_board: Option<(Coordinate, Square)>,
     pub selected_tile_on_board: Option<(Coordinate, Square)>,
     pub hovered_tile_on_board: Option<(Coordinate, Square)>,

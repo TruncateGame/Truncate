@@ -53,10 +53,11 @@ fn evaluate_single_seed(
         let next_player = game.next_player.unwrap();
 
         let next_move = match best_move_for_next_player {
-            PlayerMessage::Place(position, tile) => Move::Place {
+            PlayerMessage::Place { coord, slot, tile } => Move::Place {
                 player: next_player,
+                slot,
                 tile,
-                position,
+                position: coord,
             },
             PlayerMessage::Swap(from, to) => Move::Swap {
                 player: next_player,

@@ -113,30 +113,44 @@ impl Player {
         self.hand.0.contains(&tile)
     }
 
-    pub fn use_tile(&mut self, tile: char, bag: &mut TileBag) -> Result<Change, GamePlayError> {
-        match self.hand.iter().position(|t| t == &tile) {
-            None => Err(GamePlayError::PlayerDoesNotHaveTile {
-                player: self.index,
-                tile,
-            }),
-            Some(index) => {
-                if self.hand.len() > self.hand_capacity {
-                    // They have too many tiles, so we don't give them a new one
-                    self.hand.remove(index);
-                    Ok(Change::Hand(HandChange {
+    pub fn has_tile_in_slot(&self, tile: char, slot: usize) -> bool {
+        self.hand.0.get(slot).is_some_and(|t| *t == tile)
+    }
+
+    pub fn use_tile(
+        &mut self,
+        tile: char,
+        slot: Option<usize>,
+        bag: &mut TileBag,
+    ) -> Result<Change, GamePlayError> {
+        let index = match slot {
+            Some(slot) => slot,
+            None => match self.hand.iter().position(|t| t == &tile) {
+                None => {
+                    return Err(GamePlayError::PlayerDoesNotHaveTile {
                         player: self.index,
-                        removed: vec![tile],
-                        added: vec![],
-                    }))
-                } else {
-                    self.hand.replace(index, bag.draw_tile());
-                    Ok(Change::Hand(HandChange {
-                        player: self.index,
-                        removed: vec![tile],
-                        added: vec![*self.hand.get(index).unwrap()],
-                    }))
+                        tile,
+                    })
                 }
-            }
+                Some(index) => index,
+            },
+        };
+
+        if self.hand.len() > self.hand_capacity {
+            // They have too many tiles, so we don't give them a new one
+            self.hand.remove(index);
+            Ok(Change::Hand(HandChange {
+                player: self.index,
+                removed: vec![(index, tile)],
+                added: vec![],
+            }))
+        } else {
+            self.hand.replace(index, bag.draw_tile());
+            Ok(Change::Hand(HandChange {
+                player: self.index,
+                removed: vec![(index, tile)],
+                added: vec![(index, *self.hand.get(index).unwrap())],
+            }))
         }
     }
 
@@ -145,7 +159,7 @@ impl Player {
         Change::Hand(HandChange {
             player: self.index,
             removed: vec![],
-            added: vec![tile],
+            added: vec![(self.hand.len() - 1, tile)],
         })
     }
 }

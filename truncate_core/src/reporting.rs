@@ -55,18 +55,16 @@ impl fmt::Display for BoardChange {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HandChange {
     pub player: usize,
-    pub removed: Vec<char>,
-    pub added: Vec<char>,
+    pub removed: Vec<(usize, char)>,
+    pub added: Vec<(usize, char)>,
 }
 
 impl fmt::Display for HandChange {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Player {} used tiles {} and gained tiles {}",
-            self.player,
-            self.removed.iter().collect::<String>(),
-            self.added.iter().collect::<String>()
+            "Player {} used tiles {:?} and gained tiles {:?}",
+            self.player, self.removed, self.added
         )
     }
 }

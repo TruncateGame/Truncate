@@ -151,7 +151,14 @@ impl Game {
             }
         }
 
-        (PlayerMessage::Place(position, tile), best_score)
+        (
+            PlayerMessage::Place {
+                coord: position,
+                slot: None,
+                tile,
+            },
+            best_score,
+        )
     }
 
     fn minimax(
@@ -209,6 +216,7 @@ impl Game {
                     .play_turn(
                         Move::Place {
                             player: next_player,
+                            slot: None,
                             tile,
                             position,
                         },
@@ -630,10 +638,11 @@ mod tests {
     /// Read a PlayerMessage and play the relevant turn on the given game
     fn enact_move(game: &mut Game, msg: PlayerMessage, dict: &WordDict) {
         let Some(next_move) = (match msg {
-            PlayerMessage::Place(position, tile) => Some(Move::Place {
+            PlayerMessage::Place { coord, slot, tile } => Some(Move::Place {
                 player: game.next_player.unwrap(),
+                slot,
                 tile,
-                position,
+                position: coord,
             }),
             PlayerMessage::Swap(from, to) => Some(Move::Swap {
                 player: game.next_player.unwrap(),
@@ -996,7 +1005,7 @@ mod tests {
                 Evaluating:
                   - 1592 possible leaves
                   - 438 after pruning
-                  - Move: Place S at (3, 5)
+                  - Move: Place slot None (S) at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ S0 O0 __ __
@@ -1037,7 +1046,7 @@ mod tests {
                 Evaluating:
                   - 1618 possible leaves
                   - 415 after pruning
-                  - Move: Place S at (3, 5)
+                  - Move: Place slot None (S) at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
@@ -1078,7 +1087,7 @@ mod tests {
                 Evaluating:
                   - 1608 possible leaves
                   - 450 after pruning
-                  - Move: Place S at (3, 5)
+                  - Move: Place slot None (S) at (3, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
@@ -1119,7 +1128,7 @@ mod tests {
                 Evaluating:
                   - 1611 possible leaves
                   - 481 after pruning
-                  - Move: Place T at (1, 5)
+                  - Move: Place slot None (T) at (1, 5)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
@@ -1160,7 +1169,7 @@ mod tests {
                 Evaluating:
                   - 1656 possible leaves
                   - 455 after pruning
-                  - Move: Place E at (3, 6)
+                  - Move: Place slot None (E) at (3, 6)
 
                 ~~ ~~ |0 ~~ ~~
                 __ T0 O0 __ __
@@ -1204,7 +1213,7 @@ mod tests {
                 Evaluating:
                   - 13594 possible leaves
                   - 1671 after pruning
-                  - Move: Place S at (3, 9)
+                  - Move: Place slot None (S) at (3, 9)
 
                 ~~ ~~ |0 ~~ ~~ ~~ ~~
                 __ __ R0 __ __ __ __
@@ -1251,7 +1260,7 @@ mod tests {
                 Evaluating:
                   - 6130 possible leaves
                   - 802 after pruning
-                  - Move: Place E at (4, 7)
+                  - Move: Place slot None (E) at (4, 7)
 
                 ~~ ~~ ~~ ~~ ~~ |0 ~~ ~~ ~~ ~~ ~~
                 ~~ #0 #0 #0 #0 E0 #0 #0 #0 #0 ~~
@@ -1304,7 +1313,7 @@ mod tests {
                 Evaluating:
                   - 61 possible leaves
                   - 47 after pruning
-                  - Move: Place A at (2, 3)
+                  - Move: Place slot None (A) at (2, 3)
 
                 ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~
                 ~~ ~~ ~~ ~~ __ ~~ __ ~~ ~~ ~~ ~~
