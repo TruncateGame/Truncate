@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc};
 use truncate_core::{
     board::{Board, Coordinate},
     game::Game,
-    generation::{ArtifactType, BoardParams},
+    generation::{generate_board, ArtifactType, BoardParams, BoardSeed},
     messages::{GameMessage, GamePlayerMessage, GameStateMessage, LobbyPlayerMessage},
     moves::{packing::pack_moves, Move},
     player::Hand,
@@ -30,6 +30,7 @@ pub struct GameManager {
     pub game_id: String,
     pub players: Vec<Player>,
     pub core_game: Game,
+    pub board_seed: Option<BoardSeed>,
     pub seed: Option<u32>,
     pub board_params: Option<BoardParams>,
     pub move_sequence: Vec<Move>,
@@ -47,6 +48,7 @@ impl GameManager {
             core_game: game,
             seed: None,
             board_params: None,
+            board_seed: None,
             move_sequence: vec![],
             effective_day,
         }
@@ -213,19 +215,19 @@ impl GameManager {
                     % 287520520) as u32;
                 self.seed = Some(seed);
                 self.board_params = Some(params.clone());
-                let rand_board = truncate_core::generation::generate_board(
-                    truncate_core::generation::BoardSeed {
-                        generation: 9999,
-                        seed,
-                        day: None,
-                        params: params.clone(),
-                        current_iteration: 0,
-                        width_resize_state: None,
-                        height_resize_state: None,
-                        water_level: 0.5,
-                        max_attempts: 10000,
-                    },
-                );
+                let board_seed = BoardSeed {
+                    generation: 9999,
+                    seed,
+                    day: None,
+                    params: params.clone(),
+                    current_iteration: 0,
+                    width_resize_state: None,
+                    height_resize_state: None,
+                    water_level: 0.5,
+                    max_attempts: 10000,
+                };
+                let rand_board = truncate_core::generation::generate_board(board_seed.clone());
+                self.board_seed = Some(board_seed);
                 self.core_game.board = rand_board.expect("Board can be resolved").board;
             }
         }
@@ -253,13 +255,19 @@ impl GameManager {
             self.core_game.resign_player(player_index);
             let mut messages = Vec::with_capacity(self.players.len());
 
+            let original_board = self.original_board();
+
             if let Some(winner) = self.core_game.winner {
                 for (player_index, player) in self.players.iter().enumerate() {
                     let mut end_game_msg = self.game_msg(player_index, None);
                     end_game_msg.changes = vec![];
                     messages.push((
                         player,
-                        GameMessage::GameEnd(self.game_msg(player_index, None), winner as u64),
+                        GameMessage::GameEnd(
+                            self.game_msg(player_index, None),
+                            winner as u64,
+                            original_board.clone(),
+                        ),
                     ));
                 }
             }
@@ -297,12 +305,17 @@ impl GameManager {
                 Ok(Some(winner)) => {
                     self.move_sequence.push(place_move);
                     self.print_game();
+
+                    let original_board = self.original_board();
+                    println!("{original_board}");
+
                     for (player_index, player) in self.players.iter().enumerate() {
                         messages.push((
                             player,
                             GameMessage::GameEnd(
                                 self.game_msg(player_index, Some(&words_db)),
                                 winner as u64,
+                                original_board.clone(),
                             ),
                         ));
                     }
@@ -388,6 +401,18 @@ impl GameManager {
         } else {
             todo!("Handle missing player");
         }
+    }
+
+    pub fn original_board(&self) -> Board {
+        self.board_seed
+            .clone()
+            .map(|p| generate_board(p).expect("can re-gen").board)
+            .unwrap_or_else(|| {
+                let mut b = self.core_game.board.clone();
+                b.reset();
+                b.cache_special_squares();
+                b
+            })
     }
 
     pub fn print_game(&self) {

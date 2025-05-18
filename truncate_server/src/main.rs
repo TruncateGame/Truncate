@@ -8,6 +8,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
+use truncate_core::generation::generate_board;
 use uuid::Uuid;
 
 use definitions::WordDB;
@@ -975,10 +976,14 @@ async fn check_game_over(game_id: String, check_in_ms: i128, server_state: Serve
                 continue;
             };
             let mut end_game_msg = game_manager.game_msg(player_index, Some(&words_db.lock()));
+            let original_board = game_manager.original_board();
             // Don't send any of the latest battles or hand changes
             end_game_msg.changes = vec![];
             server_state
-                .send_to_player(&socket, GameMessage::GameEnd(end_game_msg, winner as u64))
+                .send_to_player(
+                    &socket,
+                    GameMessage::GameEnd(end_game_msg, winner as u64, original_board),
+                )
                 .unwrap();
         }
     }

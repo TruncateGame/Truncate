@@ -282,7 +282,7 @@ pub enum GameMessage {
     StartedGame(GameStateMessage),
     GameTimingUpdate(GameStateMessage),
     GameUpdate(GameStateMessage),
-    GameEnd(GameStateMessage, PlayerNumber),
+    GameEnd(GameStateMessage, PlayerNumber, Board),
     GameError(RoomCode, PlayerNumber, String),
     GenericError(String),
     SupplyDefinitions(Vec<(String, Option<Vec<WordMeaning>>)>),
@@ -328,7 +328,7 @@ impl fmt::Display for GameMessage {
             GameMessage::StartedGame(game) => write!(f, "Started game:\n{}", game),
             GameMessage::GameTimingUpdate(game) => write!(f, "Update to timing:\n{}", game),
             GameMessage::GameUpdate(game) => write!(f, "Update to game:\n{}", game),
-            GameMessage::GameEnd(game, winner) => {
+            GameMessage::GameEnd(game, winner, _) => {
                 write!(f, "Conclusion of game, winner was {}:\n{}", winner, game)
             }
             GameMessage::GameError(_, _, msg) => write!(f, "Error in game: {}", msg),

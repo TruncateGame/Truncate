@@ -157,7 +157,7 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                     ])
                 }
             },
-            GameMessage::GameEnd(state_message, winner) => {
+            GameMessage::GameEnd(state_message, winner, original_board) => {
                 #[cfg(target_arch = "wasm32")]
                 {
                     let local_storage =
@@ -169,7 +169,8 @@ pub fn handle_server_msg(outer: &mut OuterApplication, ui: &mut egui::Ui) {
                     GameStatus::Active(game) => {
                         game.apply_new_state(state_message);
                         game.depot.gameplay.winner = Some(winner as usize);
-                        outer.game_status = GameStatus::Concluded(game.clone(), winner);
+                        outer.game_status =
+                            GameStatus::Concluded(game.clone(), winner, original_board);
                     }
                     _ => {}
                 }

@@ -212,6 +212,7 @@ pub struct BoardGenerationResult {
 pub fn generate_board(
     mut board_seed: BoardSeed,
 ) -> Result<BoardGenerationResult, BoardGenerationResult> {
+    let generated_with_seed = board_seed.clone();
     let BoardSeed {
         generation: _,
         seed,

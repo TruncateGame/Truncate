@@ -42,7 +42,7 @@ pub enum GameStatus {
     PendingCreate,
     PendingStart(Lobby),
     Active(ActiveGame),
-    Concluded(ActiveGame, u64),
+    Concluded(ActiveGame, u64, truncate_core::board::Board),
     PendingReplay,
     Replay(ReplayerState),
     HardError(Vec<String>),
@@ -383,36 +383,36 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                 send(msg);
             }
         }
-        GameStatus::Concluded(game, _winner) => match game.render(ui, current_time, None) {
-            Some(PlayerMessage::Rematch) => send(PlayerMessage::Rematch),
-            Some(PlayerMessage::LoadReplay(s)) if s == "__THIS__" => {
-                let mut new_game =
-                    truncate_core::game::Game::new(9, 9, Some(1243), game.rules.clone());
+        GameStatus::Concluded(game, _winner, original_board) => {
+            match game.render(ui, current_time, None) {
+                Some(PlayerMessage::Rematch) => send(PlayerMessage::Rematch),
+                Some(PlayerMessage::LoadReplay(s)) if s == "__THIS__" => {
+                    let mut new_game =
+                        truncate_core::game::Game::new(9, 9, Some(1243), game.rules.clone());
 
-                let mut board = game.board.clone();
-                board.reset();
-                board.cache_special_squares();
-                new_game.board = board.clone();
+                    original_board.cache_special_squares();
+                    new_game.board = original_board.clone();
 
-                for p in &game.players {
-                    new_game.add_player(p.name.clone());
+                    for p in &game.players {
+                        new_game.add_player(p.name.clone());
+                    }
+
+                    let move_sequence = game.move_sequence.clone();
+
+                    let replayer = ReplayerState::new(
+                        ui.ctx(),
+                        outer.map_texture.clone(),
+                        outer.theme.clone(),
+                        new_game,
+                        move_sequence.unwrap_or_default(),
+                        game.depot.gameplay.player_number as usize,
+                    );
+
+                    new_game_status = Some(GameStatus::Replay(replayer));
                 }
-
-                let move_sequence = game.move_sequence.clone();
-
-                let replayer = ReplayerState::new(
-                    ui.ctx(),
-                    outer.map_texture.clone(),
-                    outer.theme.clone(),
-                    new_game,
-                    move_sequence.unwrap_or_default(),
-                    game.depot.gameplay.player_number as usize,
-                );
-
-                new_game_status = Some(GameStatus::Replay(replayer));
+                _ => {}
             }
-            _ => {}
-        },
+        }
         GameStatus::PendingReplay => {
             let splash = SplashUI::new(if let Some(error) = &outer.error {
                 vec![error.clone()]
