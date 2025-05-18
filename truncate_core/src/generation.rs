@@ -1200,6 +1200,7 @@ impl BoardGenerator for Board {
 
             // Grab the artifact positions once to check distance
             let artifacts = &self.artifacts;
+            let obelisks = &self.obelisks;
             // Decide orientation (horizontal vs vertical) and direction (forward vs inverted)
             let horizontal = word_rand.rand_range(0..2) == 0;
             let inverted = word_rand.rand_range(0..2) == 0;
@@ -1241,6 +1242,12 @@ impl BoardGenerator for Board {
                 if coords
                     .iter()
                     .any(|&c| artifacts.iter().any(|&art| c.distance_to(&art) <= min_safe))
+                {
+                    continue;
+                }
+                if coords
+                    .iter()
+                    .any(|&c| obelisks.iter().any(|&art| c.distance_to(&art) <= min_safe))
                 {
                     continue;
                 }
