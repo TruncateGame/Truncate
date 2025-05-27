@@ -30,6 +30,7 @@ pub struct GameManager {
     pub game_id: String,
     pub players: Vec<Player>,
     pub core_game: Game,
+    pub original_board: Option<Board>,
     pub board_seed: Option<BoardSeed>,
     pub seed: Option<u32>,
     pub board_params: Option<BoardParams>,
@@ -46,6 +47,7 @@ impl GameManager {
             game_id,
             players: vec![],
             core_game: game,
+            original_board: None,
             seed: None,
             board_params: None,
             board_seed: None,
@@ -234,6 +236,7 @@ impl GameManager {
 
         // Trim off all edges and add one back for our land edges to show in the gui
         self.core_game.board.trim();
+        self.original_board = Some(self.core_game.board.clone());
 
         self.core_game.start();
         let mut messages = Vec::with_capacity(self.players.len());
@@ -404,15 +407,17 @@ impl GameManager {
     }
 
     pub fn original_board(&self) -> Board {
-        self.board_seed
-            .clone()
-            .map(|p| generate_board(p).expect("can re-gen").board)
-            .unwrap_or_else(|| {
-                let mut b = self.core_game.board.clone();
-                b.reset();
-                b.cache_special_squares();
-                b
-            })
+        self.original_board.clone().unwrap_or_else(|| {
+            self.board_seed
+                .clone()
+                .map(|p| generate_board(p).expect("can re-gen").board)
+                .unwrap_or_else(|| {
+                    let mut b = self.core_game.board.clone();
+                    b.reset();
+                    b.cache_special_squares();
+                    b
+                })
+        })
     }
 
     pub fn print_game(&self) {
