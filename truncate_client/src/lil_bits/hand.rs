@@ -104,7 +104,11 @@ impl<'a> HandUI<'a> {
             .inner;
 
         let hovered_slot = if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-            render_slots.iter().position(|s| s.contains(pointer_pos))
+            render_slots.iter().position(|s| {
+                s.expand2(vec2(0.0, 25.0))
+                    .translate(vec2(0.0, 25.0))
+                    .contains(pointer_pos)
+            })
         } else {
             None
         };
@@ -321,7 +325,12 @@ impl<'a> HandUI<'a> {
                 if interactions.rearranging_tiles {
                     let hovered_hand_rect = hovered_slot.map(|hovered_slot| {
                         let rect = render_slots[hovered_slot].clone();
-                        rect.translate(vec2(0.0, -(rect.height() / 4.0)))
+                        let lift_height = if depot.ui_state.is_touch {
+                            rect.height() / 2.0
+                        } else {
+                            rect.height() / 4.0
+                        };
+                        rect.translate(vec2(0.0, -lift_height))
                     });
 
                     snap_to_rect = snap_to_rect.or(hovered_hand_rect);
