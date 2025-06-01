@@ -7,8 +7,16 @@ RUN apt-get update && apt-get install -y \
     cmake \
     curl \
     git \
-    binaryen \
     jq
+
+# Install latest binaryen release
+RUN mkdir -p /tmp/binaryen \
+    && curl -L https://github.com/WebAssembly/binaryen/releases/download/version_123/binaryen-version_123-x86_64-linux.tar.gz -o /tmp/binaryen.tar.gz \
+    && tar -xzf /tmp/binaryen.tar.gz -C /tmp/binaryen --strip-components=1 \
+    && cp -r /tmp/binaryen/bin/* /usr/local/bin/ \
+    && cp -r /tmp/binaryen/lib/* /usr/local/lib/ \
+    && cp -r /tmp/binaryen/include/* /usr/local/include/ \
+    && rm -rf /tmp/binaryen /tmp/binaryen.tar.gz
 
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt-get install -y nodejs
