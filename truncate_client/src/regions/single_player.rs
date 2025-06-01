@@ -434,7 +434,9 @@ impl SinglePlayerState {
             .render(&mut ui, current_time, Some(&self.game))
             .map(|msg| (human_player, msg));
 
-        if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
+        if let Some((player_index, PlayerMessage::RearrangeHand(new_hand))) = next_msg.as_ref() {
+            _ = self.game.players[*player_index].rearrange_hand(new_hand.clone());
+        } else if matches!(next_msg, Some((_, PlayerMessage::Rematch))) {
             self.reset(current_time, ui.ctx(), backchannel);
             return msgs_to_server;
         } else if matches!(next_msg, Some((_, PlayerMessage::Resign))) {

@@ -1,0 +1,12 @@
+splash_message:
+  - Hello!
+  - "New feature: You can now rearrange the tiles in your hand by dragging them."
+  - Have a good day :-)
+
+changelog_name: ""
+
+priority: High
+
+effective_day: 480
+
+rules: []

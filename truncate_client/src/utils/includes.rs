@@ -78,6 +78,11 @@ pub fn changelogs() -> HashMap<&'static str, Tutorial> {
             serde_yaml::from_slice(include_bytes!("../../tutorials/update_02.yml"))
                 .expect("Tutorial should match Tutorial format"),
         ),
+        (
+            "update_03",
+            serde_yaml::from_slice(include_bytes!("../../tutorials/update_03.yml"))
+                .expect("Tutorial should match Tutorial format"),
+        ),
     ])
 }
 

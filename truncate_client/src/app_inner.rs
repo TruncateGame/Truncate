@@ -128,24 +128,30 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
 
             if tutorial.priority == Some(ChangePriority::High) {
                 outer.event_dispatcher.event(format!("interrupt_{unread}"));
-                let changelog_ui = outer.inner_storage.changelog_ui.get_or_insert_with(|| {
-                    ChangelogSplashUI::new(splash_message.clone(), current_time)
-                        .with_button(
-                            "view",
-                            "VIEW SCENARIO".to_string(),
-                            outer.theme.button_primary,
-                        )
-                        .with_button(
-                            "skip",
-                            "REMIND ME LATER".to_string(),
-                            outer.theme.button_primary,
-                        )
-                        .with_button(
-                            "ignore",
-                            "IGNORE FOREVER".to_string(),
-                            outer.theme.button_scary,
-                        )
-                });
+                let changelog_ui =
+                    outer.inner_storage.changelog_ui.get_or_insert_with(|| {
+                        if tutorial.rules.is_empty() {
+                            ChangelogSplashUI::new(splash_message.clone(), current_time)
+                                .with_button("okay", "OKAY".to_string(), outer.theme.button_primary)
+                        } else {
+                            ChangelogSplashUI::new(splash_message.clone(), current_time)
+                                .with_button(
+                                    "view",
+                                    "VIEW SCENARIO".to_string(),
+                                    outer.theme.button_primary,
+                                )
+                                .with_button(
+                                    "skip",
+                                    "REMIND ME LATER".to_string(),
+                                    outer.theme.button_primary,
+                                )
+                                .with_button(
+                                    "ignore",
+                                    "IGNORE FOREVER".to_string(),
+                                    outer.theme.button_scary,
+                                )
+                        }
+                    });
 
                 let resp = changelog_ui.render(ui, &outer.theme, current_time, &outer.map_texture);
 
@@ -184,6 +190,18 @@ pub fn render(outer: &mut OuterApplication, ui: &mut egui::Ui, current_time: Dur
                     outer
                         .event_dispatcher
                         .event(format!("interrupt_ignore_{unread}"));
+                    outer.unread_changelogs = vec![];
+                    outer
+                        .tx_player
+                        .try_send(PlayerMessage::MarkChangelogRead(unread.clone()))
+                        .unwrap();
+                    break;
+                }
+
+                if resp.clicked == Some("okay") {
+                    outer
+                        .event_dispatcher
+                        .event(format!("interrupt_okay_{unread}"));
                     outer.unread_changelogs = vec![];
                     outer
                         .tx_player
