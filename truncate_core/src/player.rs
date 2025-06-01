@@ -62,6 +62,15 @@ impl Hand {
         let c = self.0.remove(from);
         self.0.insert(to, c);
     }
+
+    pub fn is_equivalent_to(&self, other: &Hand) -> bool {
+        let mut ours = self.0.clone();
+        let mut theirs = other.0.clone();
+        ours.sort();
+        theirs.sort();
+
+        ours == theirs
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -106,6 +115,15 @@ impl Player {
             penalties_incurred: 0,
             color,
             seen_tiles: HashSet::new(),
+        }
+    }
+
+    pub fn rearrange_hand(&mut self, new_hand: Hand) -> Result<(), ()> {
+        if self.hand.is_equivalent_to(&new_hand) {
+            self.hand = new_hand;
+            Ok(())
+        } else {
+            Err(())
         }
     }
 
