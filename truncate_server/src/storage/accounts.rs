@@ -29,8 +29,7 @@ struct PlayerClaims {
 }
 
 pub fn get_player_token(server_state: &ServerState, player_id: Uuid) -> AuthedTruncateToken {
-    let claims =
-        Claims::with_custom_claims(PlayerClaims { player_id }, Duration::from_days(100000));
+    let claims = Claims::with_custom_claims(PlayerClaims { player_id }, Duration::from_days(2000));
 
     let token = server_state
         .jwt_key
@@ -54,7 +53,21 @@ pub fn auth_player_token(
 ) -> Result<AuthedTruncateToken, jwt_simple::Error> {
     server_state
         .jwt_key
-        .verify_token::<PlayerClaims>(&token, None)
+        .verify_token::<PlayerClaims>(
+            &token,
+            Some(VerificationOptions {
+                reject_before: None,
+                accept_future: true,
+                required_subject: None,
+                required_key_id: None,
+                required_public_key: None,
+                required_nonce: None,
+                allowed_issuers: None,
+                allowed_audiences: None,
+                time_tolerance: Some(Duration::from_days(2000)),
+                max_validity: Some(Duration::from_days(2000)),
+            }),
+        )
         .map(|t| AuthedTruncateToken {
             token,
             player_id: t.custom.player_id,
