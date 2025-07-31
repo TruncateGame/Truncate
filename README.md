@@ -10,4 +10,4 @@ Truncate can be played for free in your browser at https://truncate.town
 
 ## Working on Truncate
 
-See the CONTRIBUTING.md file for technical information.
+See the CONTRIBUTING.md file for technical information
