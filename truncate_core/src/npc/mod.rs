@@ -566,7 +566,7 @@ impl Game {
                         .expect("There should be words from a tile");
 
                     num_words += words.len();
-                    for word in words {
+                    for (_, word) in words {
                         let resolved = self.judge.valid(
                             word,
                             &crate::rules::WinCondition::Elimination,

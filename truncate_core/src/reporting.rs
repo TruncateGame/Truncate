@@ -11,10 +11,12 @@ use crate::{
 pub enum BoardChangeAction {
     Added,
     Swapped,
-    Victorious,
-    Defeated,
+    Victorious { related_players: HashSet<usize> },
+    Defeated { related_players: HashSet<usize> },
+    // TODO: Also track the responsible player(s) for truncation
+    // so they can see what they truncated
     Truncated,
-    Exploded,
+    Exploded { related_players: HashSet<usize> },
 }
 
 impl fmt::Display for BoardChangeAction {
@@ -22,10 +24,10 @@ impl fmt::Display for BoardChangeAction {
         match self {
             BoardChangeAction::Added => write!(f, "Added"),
             BoardChangeAction::Swapped => write!(f, "Swapped"),
-            BoardChangeAction::Victorious => write!(f, "Victorious"),
-            BoardChangeAction::Defeated => write!(f, "Defeated"),
-            BoardChangeAction::Truncated => write!(f, "Truncated"),
-            BoardChangeAction::Exploded => write!(f, "Exploded"),
+            BoardChangeAction::Victorious { .. } => write!(f, "Victorious"),
+            BoardChangeAction::Defeated { .. } => write!(f, "Defeated"),
+            BoardChangeAction::Truncated { .. } => write!(f, "Truncated"),
+            BoardChangeAction::Exploded { .. } => write!(f, "Exploded"),
         }
     }
 }
@@ -81,6 +83,7 @@ pub struct BattleWord {
     pub resolved_word: String,
     pub meanings: Option<Vec<WordMeaning>>,
     pub valid: Option<bool>,
+    pub player: usize,
 }
 
 impl fmt::Display for BattleWord {
@@ -209,24 +212,58 @@ pub(crate) fn filter_to_player(
                     return Some(relative_change);
                 }
 
-                if action == &BoardChangeAction::Victorious
-                    || action == &BoardChangeAction::Defeated
-                    || action == &BoardChangeAction::Truncated
-                    || action == &BoardChangeAction::Exploded
+                // You're allowed to see the tiles that defeated you
+                // You're allowed to see tiles that you defeated,
+                // You're allowed to see tiles that were yours that have been defeated
+                if let BoardChangeAction::Victorious { related_players }
+                | BoardChangeAction::Defeated { related_players }
+                | BoardChangeAction::Exploded { related_players } = action
                 {
-                    return Some(relative_change);
+                    return match visibility {
+                        rules::Visibility::Standard => Some(relative_change),
+                        rules::Visibility::TileFog
+                        | rules::Visibility::LandFog
+                        | rules::Visibility::OnlyHouseFog => {
+                            match visible_board.get(relative_coord) {
+                                Ok(Square::Occupied { .. }) => Some(relative_change),
+                                _ => {
+                                    if related_players.contains(&player_index) {
+                                        Some(relative_change)
+                                    } else {
+                                        None
+                                    }
+                                }
+                            }
+                        }
+                    };
                 }
+
                 match visibility {
                     rules::Visibility::Standard => Some(relative_change),
                     rules::Visibility::TileFog
                     | rules::Visibility::LandFog
                     | rules::Visibility::OnlyHouseFog => match visible_board.get(relative_coord) {
                         Ok(Square::Occupied { .. }) => Some(relative_change),
-                        _ => None,
+                        _ => {
+                            if square.owner() == Some(player_index) {
+                                Some(relative_change)
+                            } else {
+                                None
+                            }
+                        }
                     },
                 }
             }
-            Change::Battle(_) => Some(change.clone()),
+            Change::Battle(report) => {
+                // TODO: Also pass through battles you weren't involved in, but could see
+                if report.attackers.iter().any(|a| a.player == player_index)
+                    || report.defenders.iter().any(|a| a.player == player_index)
+                {
+                    Some(change.clone())
+                } else {
+                    None
+                }
+            }
             Change::Time(_) => Some(change.clone()),
         })
         .collect::<Vec<_>>()

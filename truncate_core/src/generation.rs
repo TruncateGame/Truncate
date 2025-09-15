@@ -1016,6 +1016,11 @@ impl BoardGenerator for Board {
 
         let artifact_zero = *viable_water.get(start + offset as usize).unwrap();
 
+        let d = distances.direct_distance(&artifact_zero).unwrap();
+        if d > 7 || d < 4 {
+            return Err(());
+        }
+
         self.set_square(artifact_zero, Square::artifact(0))
             .expect("Board position should be settable");
 

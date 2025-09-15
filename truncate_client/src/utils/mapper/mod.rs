@@ -405,10 +405,10 @@ impl MappedBoard {
                     BoardChangeAction::Swapped => {
                         tile_was_swapped = true;
                     }
-                    BoardChangeAction::Victorious => {
+                    BoardChangeAction::Victorious { .. } => {
                         tile_was_victor = true;
                     }
-                    BoardChangeAction::Defeated => {
+                    BoardChangeAction::Defeated { .. } => {
                         // TODO: We could use `validity` below to show whether a tile
                         // lost on length or lost on being invalid.
                         if let Occupied {
@@ -485,7 +485,7 @@ impl MappedBoard {
                             layers = layers.merge_below_self(tile_layers);
                         }
                     }
-                    BoardChangeAction::Exploded => {
+                    BoardChangeAction::Exploded { .. } => {
                         // TODO: We could use `validity` below to show whether a tile
                         // lost on length or lost on being invalid.
                         if let Occupied {

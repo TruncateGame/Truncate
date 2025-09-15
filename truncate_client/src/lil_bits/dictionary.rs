@@ -196,6 +196,7 @@ impl DictionaryUI {
                     resolved_word: self.current_word.clone(),
                     meanings,
                     valid: Some(self.is_valid),
+                    player: 0,
                 }],
                 outcome: Outcome::DefenderWins,
             };

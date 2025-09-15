@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Sub;
 
 use time::Duration;
@@ -720,6 +720,16 @@ impl Game {
             .word_strings(&defenders)
             .expect("Words were just found and should be valid");
 
+        let related_players: HashSet<_> = attackers
+            .iter()
+            .flat_map(|w| self.board.get(w[0]).expect("word was just found").owner())
+            .chain(
+                defenders
+                    .iter()
+                    .flat_map(|w| self.board.get(w[0]).expect("word was just found").owner()),
+            )
+            .collect();
+
         if let Some(mut battle) = self.judge.battle(
             attacking_words,
             defending_words,
@@ -741,7 +751,9 @@ impl Game {
                                 square,
                                 coordinate: *coordinate,
                             },
-                            action: BoardChangeAction::Victorious,
+                            action: BoardChangeAction::Victorious {
+                                related_players: related_players.clone(),
+                            },
                         })
                     }));
 
@@ -767,7 +779,9 @@ impl Game {
                             self.board.clear(square, attacker_dictionary).map(|detail| {
                                 Change::Board(BoardChange {
                                     detail,
-                                    action: BoardChangeAction::Defeated,
+                                    action: BoardChangeAction::Defeated {
+                                        related_players: related_players.clone(),
+                                    },
                                 })
                             })
                         }));
@@ -781,7 +795,9 @@ impl Game {
                                 square,
                                 coordinate: *coordinate,
                             },
-                            action: BoardChangeAction::Victorious,
+                            action: BoardChangeAction::Victorious {
+                                related_players: related_players.clone(),
+                            },
                         })
                     }));
 
@@ -824,7 +840,9 @@ impl Game {
                             .map(|detail| {
                                 Change::Board(BoardChange {
                                     detail,
-                                    action: BoardChangeAction::Defeated,
+                                    action: BoardChangeAction::Defeated {
+                                        related_players: related_players.clone(),
+                                    },
                                 })
                             })
                     }));
@@ -847,7 +865,9 @@ impl Game {
                                         |detail| {
                                             Change::Board(BoardChange {
                                                 detail,
-                                                action: BoardChangeAction::Exploded,
+                                                action: BoardChangeAction::Exploded {
+                                                    related_players: related_players.clone(),
+                                                },
                                             })
                                         },
                                     );
@@ -879,7 +899,9 @@ impl Game {
                         .map(|detail| {
                             Change::Board(BoardChange {
                                 detail,
-                                action: BoardChangeAction::Exploded,
+                                action: BoardChangeAction::Exploded {
+                                    related_players: related_players.clone(),
+                                },
                             })
                         })
                         .expect("Tile exists and should be removable"),
