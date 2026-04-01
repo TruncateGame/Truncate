@@ -26,7 +26,7 @@ pub fn load_file() -> NotesFile {
             serde_yaml::from_str(&file)
                 .expect("If the file exists, it should match the notes format")
         })
-        .unwrap_or_default();
+        .expect("seed_notes.yml file must exist and be readable");
 
     notes
 }
