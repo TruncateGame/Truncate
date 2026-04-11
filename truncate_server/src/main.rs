@@ -7,17 +7,22 @@ use parking_lot::Mutex;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::collections::HashMap;
+use std::ops::ControlFlow;
+use std::path::PathBuf;
 use std::{env, io::Error as IoError, net::SocketAddr, sync::Arc};
 use uuid::Uuid;
 
+use axum::extract::ws::{Message, WebSocket};
+use axum::extract::{ConnectInfo, State, WebSocketUpgrade};
+use axum::response::IntoResponse;
+use axum::Router;
 use definitions::WordDB;
-use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
+use futures_util::{SinkExt, StreamExt};
 use jwt_simple::prelude::*;
-use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tungstenite::protocol::Message;
+use tower_http::services::ServeDir;
 
 use crate::definitions::read_defs;
 use crate::game_state::{Player, PlayerClaims};
@@ -140,15 +145,19 @@ async fn handle_player_msg(
     player_addr: SocketAddr,
     server_state: ServerState,
     connection_info_mutex: Arc<Mutex<ConnectionInfo>>,
-) -> Result<(), tungstenite::Error> {
+) -> ControlFlow<()> {
+    let text = match &msg {
+        Message::Text(t) => t.as_str(),
+        Message::Close(_) => return ControlFlow::Break(()),
+        _ => return ControlFlow::Continue(()),
+    };
     let (nonce, mut parsed_msg) = {
-        if let Ok(nonced_msg) = serde_json::from_str::<NoncedPlayerMessage>(msg.to_text().unwrap())
-        {
+        if let Ok(nonced_msg) = serde_json::from_str::<NoncedPlayerMessage>(text) {
             (Some(nonced_msg.nonce), nonced_msg.message)
-        } else if let Ok(bare_msg) = serde_json::from_str::<PlayerMessage>(msg.to_text().unwrap()) {
+        } else if let Ok(bare_msg) = serde_json::from_str::<PlayerMessage>(text) {
             (None, bare_msg)
         } else {
-            return Ok(());
+            return ControlFlow::Continue(());
         }
     };
 
@@ -158,18 +167,14 @@ async fn handle_player_msg(
             // The player will have to re-send this message after logging in.
             // PleaseLogin tells the client to login prior to re-sending their messages,
             // otherwise they'll thrash waiting for an ack on this message.
-            server_state
-                .send_to_player(&player_addr, GameMessage::PleaseLogin)
-                .unwrap();
+            let _ = server_state.send_to_player(&player_addr, GameMessage::PleaseLogin);
 
-            return Ok(());
+            return ControlFlow::Continue(());
         };
 
         // Pre-acknowledge this message as "handled".
         // If the server panics, we don't want the client to keep thrashing on this message.
-        server_state
-            .send_to_player(&player_addr, GameMessage::Ack(nonce.clone()))
-            .unwrap();
+        let _ = server_state.send_to_player(&player_addr, GameMessage::Ack(nonce.clone()));
 
         let mut nm = server_state.nonces.lock();
 
@@ -185,7 +190,7 @@ async fn handle_player_msg(
 
             if !replayable {
                 // Silently fail on nonce replay, since this message has been handled.
-                return Ok(());
+                return ControlFlow::Continue(());
             }
         }
     }
@@ -208,11 +213,9 @@ async fn handle_player_msg(
         }
     }
 
-    let player_err = |msg: String| {
-        server_state
-            .send_to_player(&player_addr, GameMessage::GenericError(msg))
-            .unwrap();
-        Ok(())
+    let player_err = |msg: String| -> ControlFlow<()> {
+        let _ = server_state.send_to_player(&player_addr, GameMessage::GenericError(msg));
+        ControlFlow::Continue(())
     };
 
     match parsed_msg {
@@ -257,22 +260,20 @@ async fn handle_player_msg(
                 .authenticate(claims)
                 .expect("Claims should be serializable");
 
-            server_state
-                .send_to_player(
-                    &player_addr,
-                    GameMessage::JoinedLobby(
-                        0,
-                        new_game_id,
-                        vec![LobbyPlayerMessage {
-                            name: player_name,
-                            color,
-                            index: 0,
-                        }],
-                        board,
-                        token,
-                    ),
-                )
-                .unwrap();
+            let _ = server_state.send_to_player(
+                &player_addr,
+                GameMessage::JoinedLobby(
+                    0,
+                    new_game_id,
+                    vec![LobbyPlayerMessage {
+                        name: player_name,
+                        color,
+                        index: 0,
+                    }],
+                    board,
+                    token,
+                ),
+            );
         }
         JoinGame(room_code, mut player_name, _) => {
             let code = room_code.to_ascii_lowercase();
@@ -315,35 +316,31 @@ async fn handle_player_msg(
                         .authenticate(claims)
                         .expect("Claims should be serializable");
 
-                    server_state
-                        .send_to_player(
-                            &player_addr,
-                            GameMessage::JoinedLobby(
-                                player_index as u64,
-                                code.clone(),
-                                game_manager.player_list(),
-                                game_manager.core_game.board.clone(),
-                                token,
-                            ),
-                        )
-                        .unwrap();
+                    let _ = server_state.send_to_player(
+                        &player_addr,
+                        GameMessage::JoinedLobby(
+                            player_index as u64,
+                            code.clone(),
+                            game_manager.player_list(),
+                            game_manager.core_game.board.clone(),
+                            token,
+                        ),
+                    );
 
                     for player in &game_manager.players {
                         let Some(socket) = player.socket else {
                             continue;
                         };
 
-                        server_state
-                            .send_to_player(
-                                &socket,
-                                GameMessage::LobbyUpdate(
-                                    player_index as u64,
-                                    code.clone(),
-                                    game_manager.player_list(),
-                                    game_manager.core_game.board.clone(),
-                                ),
-                            )
-                            .unwrap();
+                        let _ = server_state.send_to_player(
+                            &socket,
+                            GameMessage::LobbyUpdate(
+                                player_index as u64,
+                                code.clone(),
+                                game_manager.player_list(),
+                                game_manager.core_game.board.clone(),
+                            ),
+                        );
                     }
                 } else {
                     // TODO: Render a better error here
@@ -379,27 +376,23 @@ async fn handle_player_msg(
                         server_state.attach_player_to_game(&player_addr, &code);
 
                         if game_manager.core_game.started_at.is_some() {
-                            server_state
-                                .send_to_player(
-                                    &player_addr,
-                                    GameMessage::StartedGame(
-                                        game_manager.game_msg(player_index, Some(&words_db.lock())),
-                                    ),
-                                )
-                                .unwrap();
+                            let _ = server_state.send_to_player(
+                                &player_addr,
+                                GameMessage::StartedGame(
+                                    game_manager.game_msg(player_index, Some(&words_db.lock())),
+                                ),
+                            );
                         } else {
-                            server_state
-                                .send_to_player(
-                                    &player_addr,
-                                    GameMessage::JoinedLobby(
-                                        player_index as u64,
-                                        code.clone(),
-                                        game_manager.player_list(),
-                                        game_manager.core_game.board.clone(),
-                                        token,
-                                    ),
-                                )
-                                .unwrap();
+                            let _ = server_state.send_to_player(
+                                &player_addr,
+                                GameMessage::JoinedLobby(
+                                    player_index as u64,
+                                    code.clone(),
+                                    game_manager.player_list(),
+                                    game_manager.core_game.board.clone(),
+                                    token,
+                                ),
+                            );
                         }
                     }
                     Err(_) => {
@@ -436,17 +429,15 @@ async fn handle_player_msg(
                     let Some(socket) = player.socket else {
                         continue;
                     };
-                    server_state
-                        .send_to_player(
-                            &socket,
-                            GameMessage::LobbyUpdate(
-                                player_index as u64,
-                                game_manager.game_id.clone(),
-                                player_list.clone(),
-                                board.clone(),
-                            ),
-                        )
-                        .unwrap();
+                    let _ = server_state.send_to_player(
+                        &socket,
+                        GameMessage::LobbyUpdate(
+                            player_index as u64,
+                            game_manager.game_id.clone(),
+                            player_list.clone(),
+                            board.clone(),
+                        ),
+                    );
                 }
             } else {
                 todo!("Handle player not being enrolled in a game");
@@ -475,17 +466,15 @@ async fn handle_player_msg(
                         let Some(socket) = player.socket else {
                             continue;
                         };
-                        server_state
-                            .send_to_player(
-                                &socket,
-                                GameMessage::LobbyUpdate(
-                                    player_index as u64,
-                                    game_manager.game_id.clone(),
-                                    player_list.clone(),
-                                    game_manager.core_game.board.clone(),
-                                ),
-                            )
-                            .unwrap();
+                        let _ = server_state.send_to_player(
+                            &socket,
+                            GameMessage::LobbyUpdate(
+                                player_index as u64,
+                                game_manager.game_id.clone(),
+                                player_list.clone(),
+                                game_manager.core_game.board.clone(),
+                            ),
+                        );
                     }
                 }
             } else {
@@ -519,7 +508,7 @@ async fn handle_player_msg(
                         _ => {}
                     };
 
-                    server_state.send_to_player(&socket, message).unwrap();
+                    let _ = server_state.send_to_player(&socket, message);
                 }
             } else {
                 todo!("Handle player not being enrolled in a game");
@@ -532,7 +521,7 @@ async fn handle_player_msg(
                     let Some(socket) = player.socket else {
                         continue;
                     };
-                    server_state.send_to_player(&socket, message).unwrap();
+                    let _ = server_state.send_to_player(&socket, message);
                 }
             } else {
                 todo!("Handle player not being enrolled in a game");
@@ -547,7 +536,7 @@ async fn handle_player_msg(
                     let Some(socket) = player.socket else {
                         continue;
                     };
-                    server_state.send_to_player(&socket, message).unwrap();
+                    let _ = server_state.send_to_player(&socket, message);
                 }
                 // TODO: Error handling flow
             } else {
@@ -563,7 +552,7 @@ async fn handle_player_msg(
                     let Some(socket) = player.socket else {
                         continue;
                     };
-                    server_state.send_to_player(&socket, message).unwrap();
+                    let _ = server_state.send_to_player(&socket, message);
                 }
                 // TODO: Error handling flow
             } else {
@@ -638,18 +627,16 @@ async fn handle_player_msg(
                             .authenticate(claims)
                             .expect("Claims should be serializable");
 
-                        server_state
-                            .send_to_player(
-                                &socket,
-                                GameMessage::JoinedLobby(
-                                    i as u64,
-                                    new_game_id.clone(),
-                                    new_game_manager.player_list(),
-                                    new_game_manager.core_game.board.clone(),
-                                    token,
-                                ),
-                            )
-                            .unwrap();
+                        let _ = server_state.send_to_player(
+                            &socket,
+                            GameMessage::JoinedLobby(
+                                i as u64,
+                                new_game_id.clone(),
+                                new_game_manager.player_list(),
+                                new_game_manager.core_game.board.clone(),
+                                token,
+                            ),
+                        );
                     }
                 }
             }
@@ -661,7 +648,7 @@ async fn handle_player_msg(
                     let Some(socket) = player.socket else {
                         continue;
                     };
-                    server_state.send_to_player(&socket, message).unwrap();
+                    let _ = server_state.send_to_player(&socket, message);
                 }
                 // TODO: Error handling flow
             } else {
@@ -675,7 +662,7 @@ async fn handle_player_msg(
                     let Some(socket) = player.socket else {
                         continue;
                     };
-                    server_state.send_to_player(&socket, message).unwrap();
+                    let _ = server_state.send_to_player(&socket, message);
                 }
                 // TODO: Error handling flow
             } else {
@@ -691,9 +678,8 @@ async fn handle_player_msg(
             // Don't hold the lock while sending messages
             drop(word_db);
 
-            server_state
-                .send_to_player(&player_addr, GameMessage::SupplyDefinitions(definitions))
-                .unwrap();
+            let _ = server_state
+                .send_to_player(&player_addr, GameMessage::SupplyDefinitions(definitions));
         }
         CreateAnonymousPlayer {
             screen_width,
@@ -723,15 +709,13 @@ async fn handle_player_msg(
                 let mut connection_info = connection_info_mutex.lock();
                 connection_info.player = Some(authed_token.clone());
 
-                server_state
-                    .send_to_player(
-                        &player_addr,
-                        GameMessage::LoggedInAs {
-                            token: authed_token.token(),
-                            unread_changelogs: vec![],
-                        },
-                    )
-                    .unwrap();
+                let _ = server_state.send_to_player(
+                    &player_addr,
+                    GameMessage::LoggedInAs {
+                        token: authed_token.token(),
+                        unread_changelogs: vec![],
+                    },
+                );
             }
             Err(_) => {
                 todo!("Error handling for database actions");
@@ -760,18 +744,16 @@ async fn handle_player_msg(
                 let mut connection_info = connection_info_mutex.lock();
                 connection_info.player = Some(authed);
 
-                server_state
-                    .send_to_player(
-                        &player_addr,
-                        GameMessage::LoggedInAs {
-                            token: player_token,
-                            unread_changelogs: unread_changelogs
-                                .into_iter()
-                                .map(|c| c.changelog_id)
-                                .collect(),
-                        },
-                    )
-                    .unwrap();
+                let _ = server_state.send_to_player(
+                    &player_addr,
+                    GameMessage::LoggedInAs {
+                        token: player_token,
+                        unread_changelogs: unread_changelogs
+                            .into_iter()
+                            .map(|c| c.changelog_id)
+                            .collect(),
+                    },
+                );
             }
             Err(_e) => {
                 eprintln!(
@@ -788,23 +770,20 @@ async fn handle_player_msg(
             if let Ok(Some((puzzle, best))) =
                 daily::load_attempt(&server_state, authed, day as i32).await
             {
-                server_state
-                    .send_to_player(&player_addr, GameMessage::ResumeDailyPuzzle(puzzle, best))
-                    .unwrap();
+                let _ = server_state
+                    .send_to_player(&player_addr, GameMessage::ResumeDailyPuzzle(puzzle, best));
             } else {
-                server_state
-                    .send_to_player(
-                        &player_addr,
-                        GameMessage::ResumeDailyPuzzle(
-                            DailyStateMessage {
-                                puzzle_day: day,
-                                attempt: 0,
-                                current_moves: vec![],
-                            },
-                            None,
-                        ),
-                    )
-                    .unwrap();
+                let _ = server_state.send_to_player(
+                    &player_addr,
+                    GameMessage::ResumeDailyPuzzle(
+                        DailyStateMessage {
+                            puzzle_day: day,
+                            attempt: 0,
+                            current_moves: vec![],
+                        },
+                        None,
+                    ),
+                );
             }
         }
         LoadReplay(id) => {
@@ -816,9 +795,8 @@ async fn handle_player_msg(
             };
 
             if let Ok(Some(puzzle)) = daily::load_exact_attempt(&server_state, uuid).await {
-                server_state
-                    .send_to_player(&player_addr, GameMessage::LoadDailyReplay(puzzle))
-                    .unwrap();
+                let _ =
+                    server_state.send_to_player(&player_addr, GameMessage::LoadDailyReplay(puzzle));
             } else {
                 return player_err("Replay does not exist".into());
             }
@@ -854,9 +832,8 @@ async fn handle_player_msg(
 
             match daily::load_stats(&server_state, authed).await {
                 Ok(stats) => {
-                    server_state
-                        .send_to_player(&player_addr, GameMessage::DailyStats(stats))
-                        .unwrap();
+                    let _ =
+                        server_state.send_to_player(&player_addr, GameMessage::DailyStats(stats));
                 }
                 Err(e) => {
                     eprintln!("Errored loading stats for player: {e}\n{e:?}");
@@ -868,7 +845,7 @@ async fn handle_player_msg(
                 eprintln!(
                     "No connection player found, but player wanted to mark changelog as read"
                 );
-                return Ok(());
+                return ControlFlow::Continue(());
             };
 
             _ = mark_changelog_read(&server_state, connection_player, id).await;
@@ -879,7 +856,7 @@ async fn handle_player_msg(
         }
     }
 
-    Ok(())
+    ControlFlow::Continue(())
 }
 
 #[derive(Default)]
@@ -887,68 +864,84 @@ struct ConnectionInfo {
     player: Option<AuthedTruncateToken>,
 }
 
-async fn handle_connection(server_state: ServerState, raw_stream: TcpStream, addr: SocketAddr) {
-    let ws_stream = tokio_tungstenite::accept_async(raw_stream)
-        .await
-        .expect("Error during the websocket handshake occurred");
+async fn ws_upgrade(
+    ws: WebSocketUpgrade,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    State(server_state): State<ServerState>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_connection(server_state, socket, addr))
+}
 
+async fn handle_connection(server_state: ServerState, ws_stream: WebSocket, addr: SocketAddr) {
     let (player_tx, player_rx) = mpsc::unbounded_channel();
     server_state.track_peer(&addr, player_tx);
 
-    let (outgoing, incoming) = ws_stream.split();
+    let (mut outgoing, mut incoming) = ws_stream.split();
 
     let connection_info = Arc::new(Mutex::new(ConnectionInfo::default()));
 
-    // TODO: try_for_each from TryStreamExt is quite nice,
-    // look to bring that trait to the other stream places
-    let handle_player_msg = incoming.try_for_each(|msg| {
-        handle_player_msg(msg, addr, server_state.clone(), connection_info.clone())
-    });
-
-    let messages_to_player = {
-        UnboundedReceiverStream::new(player_rx)
-            .map(|msg| {
-                match &msg {
-                    GameMessage::GameUpdate(GameStateMessage {
-                        room_code,
-                        players,
-                        next_player_number,
-                        ..
-                    })
-                    | GameMessage::GameTimingUpdate(GameStateMessage {
-                        room_code,
-                        players,
-                        next_player_number,
-                        ..
-                    })
-                    | GameMessage::StartedGame(GameStateMessage {
-                        room_code,
-                        players,
-                        next_player_number,
-                        ..
-                    }) => {
-                        if let Some(next_player) = next_player_number {
-                            let next_player = &players[*next_player as usize];
-                            if let Some(time_remaining) = next_player.time_remaining {
-                                println!("Some player has {time_remaining} time left");
-                                tokio::spawn(check_game_over(
-                                    room_code.clone(),
-                                    time_remaining.whole_milliseconds(),
-                                    server_state.clone(),
-                                ));
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-
-                Ok(Message::Text(serde_json::to_string(&msg).unwrap()))
-            })
-            .forward(outgoing)
+    let ss = server_state.clone();
+    let ci = connection_info.clone();
+    let handle_incoming = async move {
+        while let Some(Ok(msg)) = incoming.next().await {
+            if handle_player_msg(msg, addr, ss.clone(), ci.clone())
+                .await
+                .is_break()
+            {
+                break;
+            }
+        }
     };
 
-    pin_mut!(handle_player_msg, messages_to_player);
-    future::select(handle_player_msg, messages_to_player).await;
+    let ss2 = server_state.clone();
+    let handle_outgoing = async move {
+        let mut rx_stream = UnboundedReceiverStream::new(player_rx);
+        while let Some(msg) = rx_stream.next().await {
+            match &msg {
+                GameMessage::GameUpdate(GameStateMessage {
+                    room_code,
+                    players,
+                    next_player_number,
+                    ..
+                })
+                | GameMessage::GameTimingUpdate(GameStateMessage {
+                    room_code,
+                    players,
+                    next_player_number,
+                    ..
+                })
+                | GameMessage::StartedGame(GameStateMessage {
+                    room_code,
+                    players,
+                    next_player_number,
+                    ..
+                }) => {
+                    if let Some(next_player) = next_player_number {
+                        let next_player = &players[*next_player as usize];
+                        if let Some(time_remaining) = next_player.time_remaining {
+                            println!("Some player has {time_remaining} time left");
+                            tokio::spawn(check_game_over(
+                                room_code.clone(),
+                                time_remaining.whole_milliseconds(),
+                                ss2.clone(),
+                            ));
+                        }
+                    }
+                }
+                _ => {}
+            }
+
+            let text = serde_json::to_string(&msg).unwrap();
+            if outgoing.send(Message::Text(text.into())).await.is_err() {
+                break;
+            }
+        }
+    };
+
+    tokio::select! {
+        _ = handle_incoming => {},
+        _ = handle_outgoing => {},
+    }
 
     let mut peer_map = server_state.peers.lock();
     peer_map.remove(&addr);
@@ -977,9 +970,8 @@ async fn check_game_over(game_id: String, check_in_ms: i128, server_state: Serve
             let mut end_game_msg = game_manager.game_msg(player_index, Some(&words_db.lock()));
             // Don't send any of the latest battles or hand changes
             end_game_msg.changes = vec![];
-            server_state
-                .send_to_player(&socket, GameMessage::GameEnd(end_game_msg, winner as u64))
-                .unwrap();
+            let _ = server_state
+                .send_to_player(&socket, GameMessage::GameEnd(end_game_msg, winner as u64));
         }
     }
 }
@@ -1026,7 +1018,7 @@ async fn main() -> Result<(), IoError> {
     // Load from env file if one exists (local dev).
     _ = dotenvy::dotenv();
 
-    let jwt_key = if let Some(s) = env::var("SIGNING_SECRET").ok() {
+    let jwt_key = if let Ok(s) = env::var("SIGNING_SECRET") {
         println!("Loading the signing secret for JWTs");
         HS256Key::from_bytes(&hex::decode(s).expect("Signing secret should be valid hex"))
     } else {
@@ -1069,10 +1061,6 @@ async fn main() -> Result<(), IoError> {
         println!("Running the Truncate server without a database connection.");
     }
 
-    let try_socket = TcpListener::bind(&addr).await;
-    let listener = try_socket.expect("Failed to bind");
-    println!("Listening on: {}", addr);
-
     tokio::spawn(ping_peers(server_state.clone()));
     tokio::spawn(clean_nonces(server_state.clone()));
 
@@ -1093,9 +1081,29 @@ async fn main() -> Result<(), IoError> {
         }
     });
 
-    while let Ok((stream, addr)) = listener.accept().await {
-        tokio::spawn(handle_connection(server_state.clone(), stream, addr));
-    }
+    let static_dir = env::var("STATIC_DIR").ok().map(PathBuf::from);
+
+    let app = Router::new().route("/ws", axum::routing::get(ws_upgrade));
+
+    let app = if let Some(dir) = &static_dir {
+        println!("Serving static files from: {}", dir.display());
+        let serve_dir = ServeDir::new(dir).append_index_html_on_directories(true);
+        app.fallback_service(serve_dir)
+    } else {
+        app
+    };
+
+    let app = app.with_state(server_state);
+
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    println!("Listening on: {}", addr);
+
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .unwrap();
 
     Ok(())
 }
