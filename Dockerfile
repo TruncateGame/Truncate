@@ -1,4 +1,4 @@
-FROM rust:latest as build
+FROM rust:latest AS build
 
 RUN apt-get update && apt-get install -y \
     libssl-dev \
@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     git \
     jq
 
-# Install latest binaryen release
 RUN mkdir -p /tmp/binaryen \
     && curl -L https://github.com/WebAssembly/binaryen/releases/download/version_123/binaryen-version_123-x86_64-linux.tar.gz -o /tmp/binaryen.tar.gz \
     && tar -xzf /tmp/binaryen.tar.gz -C /tmp/binaryen --strip-components=1 \
@@ -21,9 +20,8 @@ RUN mkdir -p /tmp/binaryen \
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt-get install -y nodejs
 
-RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-# Keep this wasm-bindgen-cli version aligned with the latest egui release's dependency
-RUN cargo install -f wasm-bindgen-cli  --version 0.2.100
+# Keep this wasm-bindgen-cli version aligned with the version in Cargo.lock
+RUN cargo install -f wasm-bindgen-cli --version 0.2.100
 RUN rustup target add wasm32-unknown-unknown
 
 RUN mkdir /app
@@ -35,6 +33,7 @@ ARG TR_MSG
 ENV TR_MSG=$TR_MSG
 ARG TR_ENV
 ENV TR_ENV=$TR_ENV
+ENV SQLX_OFFLINE="true"
 
 ADD truncate_server /app/truncate_server
 ADD truncate_client /app/truncate_client
@@ -43,26 +42,28 @@ ADD truncate_core /app/truncate_core
 ADD dict_builder /app/dict_builder
 ADD Cargo.* /app
 
+RUN cargo build --release -p truncate_server
+
 ADD web_client /app/web_client
 ADD .backstage /app/.backstage
 RUN chmod +x .backstage/build-web-client.sh
 ENV TRUNC_OPT=true
 RUN .backstage/build-web-client.sh
 
-# Thin Docker image for runtime
+# runtime image
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y curl debian-keyring debian-archive-keyring apt-transport-https \
-    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
-    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
-    && apt update \
-    && apt install caddy
+RUN apt-get update && apt-get install -y sqlite3 && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir /app
-WORKDIR /app
-
-ADD Caddyfile /app
+COPY --from=build /app/target/release/truncate_server /usr/local/bin/
 COPY --from=build /app/web_client/src/_site /app/web_client
 
-CMD caddy run
+RUN mkdir /truncate
+ADD word_definitions/defs.db.gz /truncate/defs.db.gz
+RUN gunzip /truncate/defs.db.gz
+
+ENV STATIC_DIR=/app/web_client
+ENV TR_DEFS_FILE=/truncate/defs.db
+
+CMD truncate_server

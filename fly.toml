@@ -1,24 +1,27 @@
-# fly.toml file generated for truncate-citadel on 2023-04-10T21:00:49+12:00
-
-# prod:     -a truncate-citadel
-# staging:  -a truncate-coup
+# Unified Truncate deployment
+# prod:    fly deploy -a truncate
+# staging: fly deploy -a truncate-exclave
 
 kill_signal = "SIGINT"
 kill_timeout = 5
 primary_region = "syd"
-processes = []
 
 [build]
-dockerfile = "Dockerfile.citadel"
+dockerfile = "Dockerfile"
+
+[env]
+STATIC_DIR = "/app/web_client"
+TR_DEFS_FILE = "/truncate/defs.db"
 
 [[services]]
 internal_port = 8080
 processes = ["app"]
 protocol = "tcp"
+
 [services.concurrency]
+type = "connections"
 hard_limit = 1000
 soft_limit = 800
-type = "connections"
 
 [[services.ports]]
 force_https = true
