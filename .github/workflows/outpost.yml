@@ -1,4 +1,4 @@
-name: Deploy to outpost/coup
+name: Deploy to staging
 
 on:
   push:
@@ -24,24 +24,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 1
-      - uses: actions/checkout@v3
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy Backend to Coup
+      - name: Deploy to staging
         run: |
           flyctl deploy \
-          -c fly.citadel.toml \
-          -a truncate-coup \
-          --build-arg TR_COMMIT="$(git rev-parse HEAD)" \
-          --build-arg TR_MSG="$(git log -1 --pretty=%B | head -n 1 | sed "s/\"/'/g")" \
-          --build-arg TR_ENV="outpost" \
-          --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      - name: Deploy Frontend to Outpost
-        run: |
-          flyctl deploy \
-          -c fly.client.toml \
-          -a truncate-outpost \
+          -a truncate-exclave \
           --build-arg TR_COMMIT="$(git rev-parse HEAD)" \
           --build-arg TR_MSG="$(git log -1 --pretty=%B | head -n 1 | sed "s/\"/'/g")" \
           --build-arg TR_ENV="outpost" \
